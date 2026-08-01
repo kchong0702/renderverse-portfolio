@@ -1,0 +1,65 @@
+/* View Button Styling */
+.viewbtn {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  color: #fff;
+  font-size: 1.5rem;
+}
+
+.viewbtn.left {
+  left: 0.5rem;
+}
+
+.viewbtn.right {
+  right: 0.5rem;
+}
+
+.bounce:hover {
+  -moz-animation: bounce 2s infinite;
+  -webkit-animation: bounce 2s infinite;
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-5px);
+  }
+  40% {
+    transform: translateX(-10px);
+  }
+}
+
+/* Clickable List Syling */
+.clickablelist {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.clickablebtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 5px;
+  background: #36454f;
+  margin: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: 400ms;
+}
+
+.clickablebtn:hover {
+  transform: translateY(-3px);
+}

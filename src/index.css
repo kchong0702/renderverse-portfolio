@@ -1,0 +1,55 @@
+@font-face {
+  font-family: "Space Grotesk Bold";
+  src: url(/fonts/Space-Grotesk/SpaceGrotesk-Bold.ttf);
+}
+
+@font-face {
+  font-family: "Space Grotesk Regular";
+  src: url(/fonts/Space-Grotesk/SpaceGrotesk-Regular.ttf);
+}
+
+@font-face {
+  font-family: "Inter Bold";
+  src: url(/fonts/Inter/Inter-SemiBold.ttf);
+}
+
+@font-face {
+  font-family: "Inter Regular";
+  src: url(/fonts/Inter/Inter-Regular.ttf);
+}
+
+@font-face {
+  font-family: "Minecraftia Regular";
+  src: url(/fonts/Minecraftia/Minecraftia-Regular.ttf);
+}
+
+:root {
+  /* Font Family */
+  --font-primary: "Space Grotesk Bold";
+  --font-secondary: "Inter Bold";
+  --font-gami: "Minecraftia Regular";
+  --font-tertiary: "Space Grotesk Regular";
+  --font-quartenary: "Inter Regular";
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: none;
+}
+
+body {
+  font-family: var(--font-primary);
+}
+
+#canvas-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}

@@ -1,0 +1,116 @@
+/* Navbar Styling */
+.navbar {
+  background: #d3e3fd;
+  width: 100%;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar ul {
+  height: 100%;
+  padding: 0;
+  display: inline-flex;
+  align-items: end;
+  margin-left: 20px;
+}
+
+/* Nav Content Styling */
+.navbar li {
+  position: relative;
+  border-radius: 15px 15px 0px 0px;
+}
+
+.navbar a {
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.navbar .netflix {
+  color: red;
+}
+
+.navbar .netflix,
+.navbar .logo {
+  margin-right: 5px;
+}
+
+.navbar .close {
+  padding-left: 0.7rem;
+}
+
+.navbar .endwidget {
+  padding-right: 10px;
+}
+
+.navbar .widget {
+  padding: 0 10px;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.navbar .widget:hover {
+  transform: scale(1.2);
+  opacity: 0.7;
+}
+
+/* Active Nav Styling */
+.navbar li.active {
+  background: #fff;
+}
+
+/**
+* Matching previous li leftcurve with current active li right curve 
+* https://www.geeksforgeeks.org/how-to-make-curved-active-tab-in-navigation-menu-using-html-css-javascript/
+**/
+.navbar li .leftcurve {
+  position: absolute;
+  bottom: 0;
+  left: -15px;
+  height: 100%;
+  width: 15px;
+  background: #fff;
+  display: none;
+}
+
+.navbar li .leftcurve::before {
+  content: "";
+  top: 0;
+  left: 0;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-bottom-right-radius: 15px;
+  background: #d3e3fd;
+}
+
+.navbar li .rightcurve {
+  position: absolute;
+  top: 0;
+  right: -15px;
+  height: 100%;
+  width: 15px;
+  background: #fff;
+  display: none;
+}
+
+.navbar li .rightcurve::before {
+  content: "";
+  top: 0;
+  right: 0;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-bottom-left-radius: 15px;
+  background: #d3e3fd;
+}
+
+.navbar li.active .leftcurve,
+.navbar li.active .rightcurve {
+  display: block;
+}

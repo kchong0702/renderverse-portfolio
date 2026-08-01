@@ -1,0 +1,20 @@
+/* Search Bar Styling */
+.searchbarcontent {
+  height: 60px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  gap: 1%;
+  box-shadow: 0 1px 2px -2px gray;
+}
+
+.searchbar {
+  flex: 1;
+  height: 40px;
+  background: #e1e1e2;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  padding-left: 2rem;
+}

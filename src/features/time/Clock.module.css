@@ -1,0 +1,32 @@
+.content {
+  width: 73px;
+  text-align: center;
+  position: relative;
+}
+
+.time {
+  font-size: 1.6rem;
+  opacity: 0.8;
+  /* color: #7393b3; */
+  color: #6093b5;
+}
+
+.blink {
+  font-size: 1.5rem;
+  animation: blink 0.8s linear infinite;
+}
+
+@keyframes blink {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  /* 80% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  } */
+}

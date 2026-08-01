@@ -1,0 +1,8 @@
+.checked {
+  color: orange;
+}
+
+.container {
+  display: flex;
+  justify-content: center;
+}

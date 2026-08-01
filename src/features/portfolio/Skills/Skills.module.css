@@ -1,0 +1,43 @@
+/* Containers Styling */
+.skillContainer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  background: transparent;
+  /* width: 600px;
+  height: 400px; */
+}
+
+/* Element Styling */
+.heading {
+  margin: 0;
+}
+
+ul > li {
+  display: inline-block;
+}
+
+h6.heading {
+  font-size: 1.5rem; /*1.5rem*/
+}
+
+h6.heading:not(:first-child) {
+  margin-top: 1rem;
+}
+
+ul,
+li {
+  list-style: none;
+  font-size: 1.25rem; /*1.2rem*/
+  padding: 0;
+  margin: 0;
+  padding-top: 0.1rem;
+}
+
+li {
+  padding: 0.5rem 0.7rem;
+  text-align: center;
+}

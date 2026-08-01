@@ -1,0 +1,61 @@
+.content {
+  width: 200px;
+  height: 180px;
+  text-align: center;
+  position: relative;
+}
+
+.close {
+  position: absolute;
+  right: 0;
+  top: 0;
+  transition: 400ms;
+}
+
+.close:hover {
+  transform: scale(1.2, 1.2);
+}
+
+h4 {
+  margin: 0;
+  margin-bottom: 0.2rem;
+}
+
+span {
+  font-size: 0.9rem;
+}
+
+/* Separator */
+.separator {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.line {
+  flex-grow: 1;
+  border-bottom: 2px solid #eee;
+}
+
+.separator .text {
+  padding: 0 8px;
+}
+
+/* Social */
+ul {
+  padding: 0;
+}
+
+li {
+  padding: 0 0.5rem;
+  transition: 400ms;
+}
+
+li:hover {
+  transform: scale(1.1, 1.1);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
