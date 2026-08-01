@@ -5,6 +5,7 @@ import { useControls } from "leva";
 import { Center } from "@react-three/drei";
 import { MeshBasicMaterial } from "three";
 import { useTranslation } from "react-i18next";
+import { useEffect } from "react";
 
 extend({ TextGeometry });
 
@@ -19,9 +20,17 @@ const textMaterials = [
 ];
 
 const Title = () => {
-  const { t } = useTranslation();
-  const nameFont = useLoader(FontLoader, "./fonts/unione.json");
-  const positionFont = useLoader(FontLoader, "./fonts/helvatica.json");
+  const { t, i18n } = useTranslation();
+  const isZh = i18n.language.startsWith("zh");
+
+  const nameFontEn = useLoader(FontLoader, "./fonts/unione.json");
+  const positionFontEn = useLoader(FontLoader, "./fonts/helvatica.json");
+  
+  const nameFontZh = useLoader(FontLoader, "./fonts/chineseSubset.json");
+  const positionFontZh = useLoader(FontLoader, "./fonts/chineseSubset.json");
+
+  const nameFont = isZh ? nameFontZh : nameFontEn;
+  const positionFont = isZh ? positionFontZh : positionFontEn;
 
   const { position1, rotation1, dimension1 } = useControls("Title Font 1", {
     position1: {

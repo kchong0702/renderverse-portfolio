@@ -5,6 +5,7 @@ import { useControls } from "leva";
 import { MeshBasicMaterial } from "three";
 import { addWordNewLine } from "../../utils/utility";
 import { useTranslation } from "react-i18next";
+import { useEffect } from "react";
 
 extend({ TextGeometry });
 
@@ -19,8 +20,12 @@ const textMaterials = [
 ];
 
 const About = () => {
-  const { t } = useTranslation();
-  const font = useLoader(FontLoader, "./fonts/minecraftia.json");
+  const { t, i18n } = useTranslation();
+  const isZh = i18n.language.startsWith("zh");
+
+  const fontEn = useLoader(FontLoader, "./fonts/minecraftia.json");
+  const fontZh = useLoader(FontLoader, "./fonts/chineseSubset.json");
+  const font = isZh ? fontZh : fontEn;
 
   const subtext = t("about.subtext");
   const abtText =
