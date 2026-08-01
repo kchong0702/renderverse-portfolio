@@ -45,7 +45,7 @@ function Projects({
       github_link: null,
       img_path: "/assets/images/project/renderverse-portfolio.png",
       proj_stack: ["ReactJS", "R3F", "Blender", "Threejs"],
-      vid_path: "/assets/video/renderverse-portfolio.mov",
+      vid_path: "/assets/video/renderverse-portfolio.mp4",
     },
   ];
   return (
