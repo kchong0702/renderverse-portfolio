@@ -5,7 +5,6 @@ import { useControls } from "leva";
 import { Center } from "@react-three/drei";
 import { MeshBasicMaterial } from "three";
 import { useTranslation } from "react-i18next";
-import { useEffect } from "react";
 
 extend({ TextGeometry });
 
