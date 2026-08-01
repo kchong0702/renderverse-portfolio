@@ -13,7 +13,7 @@ export const handleHoverIndicator = (type, domele) => {
 };
 
 export const displayInitialHiddenHtml = () => {
-  const ids = ["overlay", "audio-overlay"]; // elements to opac 0
+  const ids = ["overlay", "audio-overlay"]; // elements to opac 1
 
   ids.map((id) => {
     const ele = document.getElementById(id);

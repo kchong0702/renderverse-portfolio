@@ -5,6 +5,14 @@
     <link rel="icon" type="image/svg+xml" href="/logo/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Renderverse</title>
+    <script>
+      (function () {
+        var lng = (navigator.language || "en").toLowerCase();
+        if (lng.startsWith("zh")) {
+          document.documentElement.lang = "zh";
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

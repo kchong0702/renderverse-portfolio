@@ -39,7 +39,6 @@ function Room({ fpv }) {
 
   return (
     <Bvh firstHitOnly>
-      {/* Not sure what they do, but document say it is for raycaster performances */}
       <AdaptiveDpr pixelated />
       <AdaptiveEvents />
       <Camera state={state} fpv={fpv} />

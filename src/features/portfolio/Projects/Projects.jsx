@@ -1,34 +1,22 @@
-import Navbar from "./Navbar";
-import Project from "./Project";
-import Searchbar from "./Searchbar";
 import { Html } from "@react-three/drei";
 import styles from "./Projects.module.css";
 import { useControls } from "leva";
 import Indicator from "../../../ui/indicator/Indicator";
 import { BsProjectorFill } from "react-icons/bs";
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
+import Navbar from "./Navbar";
+import Project from "./Project";
+import Searchbar from "./Searchbar";
 // import CooldownLoader from "../../../ui/loader/CooldownLoader";
-
-const projects = [
-  {
-    proj_id: 1,
-    proj_name: "3D Portfolio",
-    short_desc: "A futuristic 3D portfolio built with React and Three.js",
-    proj_desc:
-      "An immersive 3D portfolio experience built to showcase projects, skills, and creativity.",
-    proj_link: "",
-    github_link: null,
-    img_path: "/assets/images/project/portfolio.jpg",
-    proj_stack: ["ReactJS", "R3F", "Blender", "Threejs"],
-    vid_path: "/assets/video/portfolio.mp4",
-  },
-];
 
 function Projects({
   handlePLInteraction,
   handleModalInteraction,
   // state
 }) {
+  const { t } = useTranslation();
+
   const { position, rotation } = useControls("Project html", {
     position: {
       value: {
@@ -46,6 +34,20 @@ function Projects({
       },
     },
   });
+
+  const projects = [
+    {
+      proj_id: 1,
+      proj_name: t("projects.portfolio3D.name"),
+      short_desc: t("projects.portfolio3D.shortDesc"),
+      proj_desc: t("projects.portfolio3D.desc"),
+      proj_link: "",
+      github_link: null,
+      img_path: "/assets/images/project/renderverse-portfolio.png",
+      proj_stack: ["ReactJS", "R3F", "Blender", "Threejs"],
+      vid_path: "/assets/video/renderverse-portfolio.mov",
+    },
+  ];
   return (
     <>
       <Indicator

@@ -19,17 +19,32 @@
 }
 
 @font-face {
-  font-family: "Minecraftia Regular";
+  font-family: "Minecraftia Regular EN";
   src: url(/fonts/Minecraftia/Minecraftia-Regular.ttf);
+  ascent-override: normal;
+  descent-override: 0%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Minecraftia Regular ZH";
+  src: url(/fonts/Minecraftia/Minecraftia-Regular.ttf);
+  ascent-override: 0%;
+  descent-override: 0%;
+  line-gap-override: 0%;
 }
 
 :root {
   /* Font Family */
   --font-primary: "Space Grotesk Bold";
   --font-secondary: "Inter Bold";
-  --font-gami: "Minecraftia Regular";
+  --font-gami: "Minecraftia Regular EN";
   --font-tertiary: "Space Grotesk Regular";
   --font-quartenary: "Inter Regular";
+}
+
+html[data-lang="zh"] {
+  --font-gami: "Minecraftia Regular ZH";
 }
 
 html,

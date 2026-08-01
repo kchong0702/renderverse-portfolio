@@ -4,6 +4,7 @@ import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry";
 import { useControls } from "leva";
 import { MeshBasicMaterial } from "three";
 import { addWordNewLine } from "../../utils/utility";
+import { useTranslation } from "react-i18next";
 
 extend({ TextGeometry });
 
@@ -17,15 +18,15 @@ const textMaterials = [
   new MeshBasicMaterial({ color: 0x171f27 }), // Example for another material
 ];
 
-const subtext = `Welcome to my little corner of the internet. Take a look around, explore what I’ve been building, and see what I’ve been working on. I enjoy building AI-powered tools and experimenting with new ideas. If you’re interested in collaborating or have an idea you’d like to explore, feel free to reach out.`;
-
-const abtText =
-  "Hi, I’m Kelvin. I’m an AI engineer who enjoys turning ideas\ninto practical things." +
-  "\n\n" +
-  addWordNewLine(subtext, 40);
-
 const About = () => {
+  const { t } = useTranslation();
   const font = useLoader(FontLoader, "./fonts/minecraftia.json");
+
+  const subtext = t("about.subtext");
+  const abtText =
+    t("about.title") +
+    "\n\n" +
+    addWordNewLine(subtext, 40);
 
   const { position, rotation, dimension } = useControls("About Font", {
     position: {

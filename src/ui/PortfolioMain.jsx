@@ -15,6 +15,7 @@ import { delay } from "../utils/utility";
 import { SceneLoaderProvider } from "../hooks/useSceneLoader";
 import SceneLoader from "./loader/SceneLoader";
 import { ChatControlProvider } from "../hooks/useChatControl";
+import { CONFIG } from "../config-global";
 
 function PortfolioMain() {
   const Room = lazy(() => delay(import("../features/room/Room")));
@@ -24,7 +25,7 @@ function PortfolioMain() {
       <ModalProvider>
         <Menu />
         <ChatControlProvider>
-          <ChatScreen />
+          {CONFIG.isChatbotEnabled && <ChatScreen />}
           <Audio />
         </ChatControlProvider>
         <FigureRoom />

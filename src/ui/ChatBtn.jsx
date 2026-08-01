@@ -1,6 +1,8 @@
+import { useTranslation } from "react-i18next";
 import { BsFillChatTextFill } from "react-icons/bs";
 
 export default function ChatBtn() {
+  const { t } = useTranslation();
   return (
     <div
       id="chat-btn"
@@ -42,7 +44,7 @@ export default function ChatBtn() {
           fontSize: "0.65rem",
         }}
       >
-        Powered by Ezbot
+        {t("chatBtn.poweredBy")}
       </span>
     </div>
   );

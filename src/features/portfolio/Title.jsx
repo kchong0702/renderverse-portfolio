@@ -4,6 +4,7 @@ import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry";
 import { useControls } from "leva";
 import { Center } from "@react-three/drei";
 import { MeshBasicMaterial } from "three";
+import { useTranslation } from "react-i18next";
 
 extend({ TextGeometry });
 
@@ -18,6 +19,7 @@ const textMaterials = [
 ];
 
 const Title = () => {
+  const { t } = useTranslation();
   const nameFont = useLoader(FontLoader, "./fonts/unione.json");
   const positionFont = useLoader(FontLoader, "./fonts/helvatica.json");
 
@@ -75,7 +77,7 @@ const Title = () => {
       >
         <textGeometry
           args={[
-            "Kelvin Chong",
+            t("title.name"),
             { font: nameFont, size: dimension1.size, depth: dimension1.height },
           ]}
         />
@@ -89,7 +91,7 @@ const Title = () => {
       >
         <textGeometry
           args={[
-            "AI Engineer",
+            t("title.role"),
             {
               font: positionFont,
               size: dimension2.size,

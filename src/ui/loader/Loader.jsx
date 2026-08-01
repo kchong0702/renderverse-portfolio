@@ -1,6 +1,8 @@
 import styles from "./Loader.module.css";
+import { useTranslation } from "react-i18next";
 
 export default function Loader() {
+  const { t } = useTranslation();
   return (
     <div className={styles.loadercontainer}>
       <div>
@@ -21,7 +23,7 @@ export default function Loader() {
             <rect x="8" y="8" width="64" height="64"></rect>
           </svg>
         </div>
-        <h3 className={styles.text}>Loading...</h3>
+        <h3 className={styles.text}>{t("loader.loading")}</h3>
       </div>
     </div>
   );

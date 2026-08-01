@@ -10,6 +10,7 @@ import { MdClose } from "react-icons/md";
 import PropTypes from "prop-types";
 import Indicator from "../../../ui/indicator/Indicator";
 import { MdContactPhone } from "react-icons/md";
+import { useTranslation } from "react-i18next";
 
 extend(geometry);
 
@@ -17,7 +18,7 @@ const contacts = [
   {
     contact_type_id: 0,
     contact_type: "Email",
-    link: "kelvinchong0272@gmail.com",
+    link: "kelvinchong.dev@gmail.com",
     icon: null,
   },
   {
@@ -35,6 +36,7 @@ const contacts = [
 ];
 
 function Contacts({ handlePLInteraction, state }) {
+  const { t } = useTranslation();
   const { position, rotation } = useControls("Contact html", {
     position: {
       value: {
@@ -83,12 +85,12 @@ function Contacts({ handlePLInteraction, state }) {
             />
             <div className={styles.email}>
               <MdEmail size={40} />
-              <h4>Send me an Email at</h4>
+              <h4>{t("contacts.sendEmail")}</h4>
               <span>{contacts[0].link}</span>
             </div>
             <div className={styles.separator}>
               <div className={styles.line}></div>
-              <div className={styles.text}>or follow on</div>
+              <div className={styles.text}>{t("contacts.orFollow")}</div>
               <div className={styles.line}></div>
             </div>
             <div className={styles.social}>

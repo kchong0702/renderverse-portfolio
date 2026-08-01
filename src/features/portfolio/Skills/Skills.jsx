@@ -3,47 +3,17 @@ import { useControls } from "leva";
 import styles from "./Skills.module.css";
 import SkillCategory from "./SkillCategory";
 import { MathJaxContext, MathJax } from "better-react-mathjax";
-
-const skills = {
-  AI: [
-    { name: "Computer Use Agent", rating: 5 },
-    { name: "Voice Agent", rating: 5 },
-    { name: "Banking Agent", rating: 5 },
-  ],
-  Frameworks: [
-    { name: "Langgraph", rating: 5 },
-    { name: "Pytorch", rating: 5 },
-    { name: "Spring Boot", rating: 5 },
-    { name: "Qt", rating: 5 },
-    { name: "Angular", rating: 5 },
-    { name: "Flutter", rating: 5 },
-  ],
-  Telephony: [
-    { name: "PBX", rating: 5 },
-    { name: "SMPP", rating: 5 },
-    { name: "Livekit", rating: 5 },
-    { name: "Stuner", rating: 5 },
-  ],
-  Language: [
-    { name: "C++", rating: 5 },
-    { name: "Python", rating: 5 },
-    { name: "Java", rating: 5 },
-    { name: "Rust", rating: 5 },
-  ],
-  Ops: [
-    { name: "Terraform", rating: 5 },
-    { name: "AWS", rating: 5 },
-    { name: "GCP", rating: 5 },
-  ],
-};
+import { useTranslation } from "react-i18next";
+import { useState, useEffect } from "react";
 
 function Skills() {
+  const { t } = useTranslation();
   const { position, rotation } = useControls("Skills html", {
     position: {
       value: {
         x: -0.4,
         y: 4.5,
-        z: -7.156, // -7.155
+        z: -7.156, // -7.156
       },
       joystick: "invertY",
     },
@@ -55,9 +25,49 @@ function Skills() {
       },
     },
   });
+
+  const skills = {
+    [t("skills.categories.ai")]: [
+      { name: t("skills.items.computerUseAgent"), rating: 5 },
+      { name: t("skills.items.voiceAgent"), rating: 5 },
+      { name: t("skills.items.bankingAgent"), rating: 5 },
+    ],
+    [t("skills.categories.frameworks")]: [
+      { name: t("skills.items.langgraph"), rating: 5 },
+      { name: t("skills.items.pytorch"), rating: 5 },
+      { name: t("skills.items.springBoot"), rating: 5 },
+      { name: t("skills.items.qt"), rating: 5 },
+      { name: t("skills.items.angular"), rating: 5 },
+      { name: t("skills.items.flutter"), rating: 5 },
+    ],
+    [t("skills.categories.telephony")]: [
+      { name: t("skills.items.pbx"), rating: 5 },
+      { name: t("skills.items.smpp"), rating: 5 },
+      { name: t("skills.items.livekit"), rating: 5 },
+      { name: t("skills.items.stuner"), rating: 5 },
+    ],
+    [t("skills.categories.language")]: [
+      { name: t("skills.items.cpp"), rating: 5 },
+      { name: t("skills.items.python"), rating: 5 },
+      { name: t("skills.items.java"), rating: 5 },
+      { name: t("skills.items.rust"), rating: 5 },
+    ],
+    [t("skills.categories.ops")]: [
+      { name: t("skills.items.terraform"), rating: 5 },
+      { name: t("skills.items.aws"), rating: 5 },
+      { name: t("skills.items.gcp"), rating: 5 },
+    ],
+  };
+
+  const [transformRedy, setTransformReady] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setTransformReady(true), 100) // need delay to wait MathJax rendering
+    return () => clearTimeout(timer)
+  }, [])
+
   return (
     <Html
-      transform
+      transform={transformRedy}
       occlude
       distanceFactor={2.4} // 3
       position={[position.x, position.y, position.z]}
@@ -78,15 +88,6 @@ function Skills() {
             <SkillCategory category={key} contents={value} key={key} />
           ))}
         </div>
-        {/* <div style={{ position: "absolute", right: "-10%", top: "-5%" }}>
-          <MathJaxContext>
-            <MathJax style={{ transform: "rotate(-5deg)", fontSize: "1.2rem" }}>
-              {
-                "\\(W{x} = W{x} - \\alpha (\\frac{\\partial L}{\\partial W_{x}})\\)"
-              }
-            </MathJax>
-          </MathJaxContext>
-        </div> */}
       </div>
     </Html>
   );

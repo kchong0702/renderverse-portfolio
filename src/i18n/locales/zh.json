@@ -1,0 +1,96 @@
+{
+  "page": {
+    "title": "渲染界"
+  },
+  "menu": {
+    "chatWithEzbot": "与 Ezbot 聊天：C",
+    "move": "移动：WASD",
+    "look": "环顾：鼠标",
+    "interact": "互动：左键点击",
+    "music": "音乐：M",
+    "escToExit": "ESC 退出",
+    "enter": "进入"
+  },
+  "chat": {
+    "poweredBy": "由 Ezbot 提供",
+    "offline": "Ezbot 正在休息，请联系客服唤醒他 🤖💤",
+    "typing": "Ezbot 正在输入...",
+    "typeMessage": "输入消息",
+    "disclaimer": "Ezbot 可能会出错，请核实重要信息"
+  },
+  "loader": {
+    "loading": "加载中...",
+    "redirecting": "正在跳转..."
+  },
+  "credit": {
+    "title": "鸣谢：",
+    "followOn": "关注：",
+    "byNEET": "ByNEET 提供新哥斯拉模型",
+    "redComet": "Red Comet 0079 提供新哥斯拉骨骼绑定",
+    "polygonRunway": "PolygonRunway 提供地球模型",
+    "mrAlien": "Mr Alien 提供跳转加载动画",
+    "aaronIker": "Aaron Iker 提供符号加载动画",
+    "skullHuskXEN": "SkullHuskXEN 提供新哥斯拉咆哮音效",
+    "fnfMusic": "FNF Sussus Moogus 音乐"
+  },
+  "navbar": {
+    "netflix": "Netflix",
+    "projects": "项目"
+  },
+  "contacts": {
+    "sendEmail": "发送邮件至",
+    "orFollow": "或关注",
+    "email": "邮箱",
+    "linkedIn": "LinkedIn",
+    "instagram": "Instagram"
+  },
+  "about": {
+    "title": "你好，我是家俊。我是一名 AI 工程师，喜欢将想法\n变为现实。",
+    "subtext": "欢迎来到我的小天地。四处看看，探索我构建的作品，了解我正在做的事情。我喜欢打造 AI 驱动的工具并尝试新想法。如果你想合作或有想法想探讨，欢迎联系我。"
+  },
+  "title": {
+    "name": "家俊",
+    "role": "AI 工程师"
+  },
+  "projects": {
+    "portfolio3D": {
+      "name": "3D 作品集",
+      "shortDesc": "用 React 和 Three.js 构建的未来感 3D 作品集",
+      "desc": "一个沉浸式 3D 作品集体验，用于展示项目、技能和创意。"
+    }
+  },
+  "skills": {
+    "categories": {
+      "ai": "AI",
+      "frameworks": "框架",
+      "telephony": "电信",
+      "language": "语言",
+      "ops": "运维"
+    },
+    "items": {
+      "computerUseAgent": "电脑使用 Agent",
+      "voiceAgent": "语音 Agent",
+      "bankingAgent": "金融 Agent",
+      "langgraph": "Langgraph",
+      "pytorch": "Pytorch",
+      "springBoot": "Spring Boot",
+      "qt": "Qt",
+      "angular": "Angular",
+      "flutter": "Flutter",
+      "pbx": "PBX",
+      "smpp": "SMPP",
+      "livekit": "Livekit",
+      "stuner": "Stuner",
+      "cpp": "C++",
+      "python": "Python",
+      "java": "Java",
+      "rust": "Rust",
+      "terraform": "Terraform",
+      "aws": "AWS",
+      "gcp": "GCP"
+    }
+  },
+  "language": {
+    "label": "语言"
+  }
+}

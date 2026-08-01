@@ -1,13 +1,18 @@
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
 import { FaSquareXTwitter } from "react-icons/fa6";
 import { SiSketchfab } from "react-icons/si";
 import { FaYoutube } from "react-icons/fa";
 import { IoLogoCodepen } from "react-icons/io";
 import { SiPixabay } from "react-icons/si";
+
 export default function CreditContent() {
+  const { t } = useTranslation();
+  const followOn = t("credit.followOn");
+
   return (
     <>
-      <h2 style={{ color: "#000" }}>Credit to :</h2>
+      <h2 style={{ color: "#000" }}>{t("credit.title")}</h2>
       <ul style={{ color: "#000" }}>
         <li style={{ display: "block", marginTop: "2rem" }}>
           <a href="https://twitter.com/ByNEET" target="_blank">
@@ -19,7 +24,7 @@ export default function CreditContent() {
                 justifyContent: "center",
               }}
             >
-              <span>Follow on:</span>
+              <span>{followOn}</span>
               <FaSquareXTwitter style={{ marginLeft: "0.5rem" }} />
             </div>
           </a>
@@ -37,7 +42,7 @@ export default function CreditContent() {
                 justifyContent: "center",
               }}
             >
-              <span>Follow on:</span>
+              <span>{followOn}</span>
               <SiSketchfab style={{ marginLeft: "0.5rem" }} />
             </div>
           </a>
@@ -52,7 +57,7 @@ export default function CreditContent() {
                 justifyContent: "center",
               }}
             >
-              <span>Follow on:</span>
+              <span>{followOn}</span>
               <FaYoutube style={{ marginLeft: "0.5rem" }} />
             </div>
           </a>
@@ -67,7 +72,7 @@ export default function CreditContent() {
                 justifyContent: "center",
               }}
             >
-              <span>Follow on:</span>
+              <span>{followOn}</span>
               <IoLogoCodepen style={{ marginLeft: "0.5rem" }} />
             </div>
           </a>
@@ -82,7 +87,7 @@ export default function CreditContent() {
                 justifyContent: "center",
               }}
             >
-              <span>Follow on:</span>
+              <span>{followOn}</span>
               <IoLogoCodepen style={{ marginLeft: "0.5rem" }} />
             </div>
           </a>
@@ -100,7 +105,7 @@ export default function CreditContent() {
                 justifyContent: "center",
               }}
             >
-              <span>Follow on:</span>
+              <span>{followOn}</span>
               <SiPixabay style={{ marginLeft: "0.5rem" }} />
             </div>
           </a>
@@ -115,7 +120,7 @@ export default function CreditContent() {
                 justifyContent: "center",
               }}
             >
-              <span>Follow on:</span>
+              <span>{followOn}</span>
               <FaYoutube style={{ marginLeft: "0.5rem" }} />
             </div>
           </a>

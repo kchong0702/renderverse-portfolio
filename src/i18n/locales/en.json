@@ -1,0 +1,96 @@
+{
+  "page": {
+    "title": "Renderverse"
+  },
+  "menu": {
+    "chatWithEzbot": "Chat with Ezbot: C",
+    "move": "Move: WASD",
+    "look": "Look: MOUSE",
+    "interact": "Interact: LMB",
+    "music": "Music: M",
+    "escToExit": "ESC to exit",
+    "enter": "Enter"
+  },
+  "chat": {
+    "poweredBy": "Powered by Ezbot",
+    "offline": "Ezbot is asleep, contact support to wake him up 🤖💤",
+    "typing": "Ezbot is typing...",
+    "typeMessage": "Type a message",
+    "disclaimer": "Ezbot can make mistakes. Consider checking important info"
+  },
+  "loader": {
+    "loading": "Loading...",
+    "redirecting": "Redirecting..."
+  },
+  "credit": {
+    "title": "Credit to :",
+    "followOn": "Follow on:",
+    "byNEET": "ByNEET for Shin Godzilla Model",
+    "redComet": "Red Comet 0079 for Shin Godzilla Rig",
+    "polygonRunway": "PolygonRunway for Globe",
+    "mrAlien": "Mr Alien for Redirecting Loading Screen",
+    "aaronIker": "Aaron Iker for Animated Symbol Loading Screen",
+    "skullHuskXEN": "SkullHuskXEN for Shin Godzilla Roar",
+    "fnfMusic": "FNF Sussus Moogus Music"
+  },
+  "navbar": {
+    "netflix": "Netflix",
+    "projects": "Projects"
+  },
+  "contacts": {
+    "sendEmail": "Send me an Email at",
+    "orFollow": "or follow on",
+    "email": "Email",
+    "linkedIn": "LinkedIn",
+    "instagram": "Instagram"
+  },
+  "about": {
+    "title": "Hi, I'm Kelvin. I'm an AI engineer who enjoys turning ideas\ninto practical things.",
+    "subtext": "Welcome to my little corner of the internet. Take a look around, explore what I've been building, and see what I've been working on. I enjoy building AI-powered tools and experimenting with new ideas. If you're interested in collaborating or have an idea you'd like to explore, feel free to reach out."
+  },
+  "title": {
+    "name": "Kelvin Chong",
+    "role": "AI Engineer"
+  },
+  "projects": {
+    "portfolio3D": {
+      "name": "3D Portfolio",
+      "shortDesc": "A futuristic 3D portfolio built with React and Three.js",
+      "desc": "An immersive 3D portfolio experience built to showcase projects, skills, and creativity."
+    }
+  },
+  "skills": {
+    "categories": {
+      "ai": "AI",
+      "frameworks": "Frameworks",
+      "telephony": "Telephony",
+      "language": "Language",
+      "ops": "Ops"
+    },
+    "items": {
+      "computerUseAgent": "Computer Use Agent",
+      "voiceAgent": "Voice Agent",
+      "bankingAgent": "Banking Agent",
+      "langgraph": "Langgraph",
+      "pytorch": "Pytorch",
+      "springBoot": "Spring Boot",
+      "qt": "Qt",
+      "angular": "Angular",
+      "flutter": "Flutter",
+      "pbx": "PBX",
+      "smpp": "SMPP",
+      "livekit": "Livekit",
+      "stuner": "Stuner",
+      "cpp": "C++",
+      "python": "Python",
+      "java": "Java",
+      "rust": "Rust",
+      "terraform": "Terraform",
+      "aws": "AWS",
+      "gcp": "GCP"
+    }
+  },
+  "language": {
+    "label": "Lang"
+  }
+}

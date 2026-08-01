@@ -5,8 +5,10 @@ import { VscMultipleWindows } from "react-icons/vsc";
 import { VscChromeMinimize } from "react-icons/vsc";
 import { MdClose } from "react-icons/md";
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
 
 export default function Navbar({ handlePLInteraction }) {
+  const { t } = useTranslation();
   const brandSize = 18;
   const closeSize = 15;
 
@@ -33,7 +35,7 @@ export default function Navbar({ handlePLInteraction }) {
               height={brandSize}
               className={styles.logo}
             />
-            <p>Projects</p>
+            <p>{t("navbar.projects")}</p>
             <MdClose className={styles.close} size={closeSize} />
           </a>
         </li>

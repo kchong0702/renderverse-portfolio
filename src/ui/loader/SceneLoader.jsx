@@ -1,9 +1,11 @@
 import styles from "./SceneLoader.module.css";
 import { useSceneLoader } from "../../hooks/useSceneLoader";
 import { useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 
 export default function SceneLoader() {
   const { sceneLoaderState, dispatchSceneLoader } = useSceneLoader();
+  const { t } = useTranslation();
 
   const memoizedDispatch = useCallback(dispatchSceneLoader, [
     dispatchSceneLoader,
@@ -41,7 +43,7 @@ export default function SceneLoader() {
         <span></span>
         <span></span>
       </div>
-      <h1>Redirecting...</h1>
+      <h1>{t("sceneLoader.redirecting")}</h1>
     </div>
   ) : (
     <></>

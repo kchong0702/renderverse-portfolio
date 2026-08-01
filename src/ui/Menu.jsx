@@ -1,11 +1,15 @@
+import { useTranslation } from "react-i18next";
 import { FaGamepad } from "react-icons/fa6";
 import { useSceneControl } from "../hooks/useSceneControl";
 import { useEffect, useCallback } from "react";
 import { MdRunCircle } from "react-icons/md";
 import { useCooldown } from "../../src/hooks/useCooldown";
+import { CONFIG } from "../config-global";
 
 export default function Menu() {
-  useCooldown(); // Reset cooldown (GLOBAL)
+  const { t, i18n } = useTranslation();
+  const isZh = i18n.language.startsWith("zh");
+  useCooldown();
 
   const { state, dispatch } = useSceneControl();
 
@@ -19,18 +23,6 @@ export default function Menu() {
 
   /* Escape Key Control */
   useEffect(() => {
-    // const handlePointerLockChange = () => {
-    //   if (
-    //     document.pointerLockElement === null &&
-    //     state.isLocked &&
-    //     (state.specialIsLocked === true || state.specialIsLocked === null)
-    //   ) {
-    //     memoizedDispatch({ type: "UNLOCK" });
-    //   } else if (!state.isLocked && (state.specialIsLocked === true || state.specialIsLocked === null)) {
-    //     memoizedDispatch({ type: "LOCK" });
-    //   }
-    // };
-
     const handlePointerLockChange = () => {
       if (
         document.pointerLockElement === null &&
@@ -83,20 +75,22 @@ export default function Menu() {
           id="instructions"
           style={{ color: "white", fontFamily: "var(--font-primary)" }}
         >
+          {CONFIG.isChatbotEnabled && (
+            <span style={{ display: "block", marginBottom: "1rem" }}>
+              {t("menu.chatWithEzbot")}
+            </span>
+          )}
           <span style={{ display: "block", marginBottom: "1rem" }}>
-            Chat with Ezbot: C
+            {t("menu.move")}
           </span>
           <span style={{ display: "block", marginBottom: "1rem" }}>
-            Move: WASD
+            {t("menu.look")}
           </span>
           <span style={{ display: "block", marginBottom: "1rem" }}>
-            Look: MOUSE
+            {t("menu.interact")}
           </span>
           <span style={{ display: "block", marginBottom: "1rem" }}>
-            Interact: LMB
-          </span>
-          <span style={{ display: "block", marginBottom: "1rem" }}>
-            Music: M
+            {t("menu.music")}
           </span>
           {/* <span style={{ display: "block", marginBottom: "1rem" }}>
             Credit: C
@@ -122,7 +116,7 @@ export default function Menu() {
             }}
           >
             <MdRunCircle size={18} style={{ marginRight: "3px" }} />
-            <span>ESC to exit</span>
+            <span>{t("menu.escToExit")}</span>
           </div>
         </div>
         <button
@@ -136,7 +130,7 @@ export default function Menu() {
             justifyContent: "center",
           }}
           onClick={(event) => {
-            event.stopPropagation;
+            event.stopPropagation();
           }}
         >
           <FaGamepad size={30} />
@@ -144,10 +138,10 @@ export default function Menu() {
             style={{
               margin: 0,
               marginLeft: "0.5rem",
-              paddingTop: "0.5rem",
+              marginTop: isZh ? 0 : "3px",
             }}
           >
-            Enter
+            {t("menu.enter")}
           </h4>
         </button>
       </div>

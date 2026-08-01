@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import styles from "./Chat.module.css";
 import PropTypes from "prop-types";
 import { IoCloseSharp } from "react-icons/io5";
@@ -10,9 +11,10 @@ import ChatLoader from "./ChatLoader";
 import { FaStop } from "react-icons/fa6";
 
 export default function Chat(props) {
+  const { t } = useTranslation();
   const noConnectionMessage = {
     id: "",
-    content: "Ezbot is asleep, contact support to wake him up 🤖💤",
+    content: t("chat.offline"),
     semantic: "None",
     feedback: "",
     role: "system",
@@ -204,7 +206,7 @@ export default function Chat(props) {
             " ",
           )}
           type="text"
-          placeholder={isTyping ? "Ezbot is typing..." : "Type a message"}
+          placeholder={isTyping ? t("chat.typing") : t("chat.typeMessage")}
           value={input}
           disabled={isTyping}
           onChange={(event) => setInput(event.target.value)}
@@ -228,7 +230,7 @@ export default function Chat(props) {
         </div>
       </div>
       <div className={styles.disclaimer}>
-        <span>Ezbot can make mistakes. Consider checking important info</span>
+        <span>{t("chat.disclaimer")}</span>
       </div>
     </div>
   );
