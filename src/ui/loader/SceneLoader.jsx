@@ -43,7 +43,7 @@ export default function SceneLoader() {
         <span></span>
         <span></span>
       </div>
-      <h1>{t("sceneLoader.redirecting")}</h1>
+      <h1>{t("loader.redirecting")}</h1>
     </div>
   ) : (
     <></>
