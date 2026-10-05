@@ -1,0 +1,22 @@
+[project]
+name = "ezbot"
+version = "0.1.0"
+description = "LangGraph chatbot for the Renderverse portfolio"
+authors = [
+    { name = "kchong0702", email = "kelvinchong.dev@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "langgraph>=1.2.12",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers --strict-config"

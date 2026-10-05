@@ -1,11 +1,46 @@
+# compiled output
+dist
+tmp
+out-tsc
+
+# dependencies
 node_modules
 
+# env
 .env
 .env.*
 !.env.example
 
-dist/
+# IDEs and editors
+/.idea
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 
-.DS_STORE
+# System Files
+.DS_Store
+Thumbs.db
 
+# Nx
+.nx/cache
+.nx/workspace-data
+.nx/polygraph
+.nx/self-healing
+.nx/migrate-runs
+
+# Python
+.python
+.venv
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Claude Code
+.claude/worktrees
+.claude/settings.local.json
+
+# Source font for apps/renderverse/scripts/subset-chinese-font.js
 Noto_Sans_SC

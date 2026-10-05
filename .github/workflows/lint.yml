@@ -7,7 +7,7 @@ on:
     branches: [main, master]
 
 jobs:
-  prettier:
+  format:
     runs-on: ubuntu-latest
 
     steps:
@@ -17,13 +17,18 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10
 
-      - name: Check formatting with Prettier
+      - name: Install dependencies
+        run: |
+          npm ci
+          uv sync --all-packages --locked
+
+      - name: Check formatting (Prettier + Ruff)
         run: npm run format:check
 
   lint:
@@ -36,11 +41,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10
 
-      - name: Lint with ESLint
-        run: npm run lint
+      - name: Install dependencies
+        run: |
+          npm ci
+          uv sync --all-packages --locked
+
+      - name: Lint (ESLint + Ruff)
+        run: npx nx run-many -t lint

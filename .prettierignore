@@ -4,3 +4,17 @@ build
 .vite
 coverage
 *.lock
+.nx
+.venv
+.python
+
+# Managed by `nx configure-ai-agents`
+.agents
+.claude
+.codex
+.cursor
+.gemini
+.opencode
+opencode.json
+AGENTS.md
+CLAUDE.md
