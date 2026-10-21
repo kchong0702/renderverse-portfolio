@@ -1,0 +1,25 @@
+name: renderverse
+
+x-base: &base
+  env_file:
+    - .env
+
+services:
+  otel-collector:
+    <<: *base
+    image: otel/opentelemetry-collector-contrib:0.114.0
+    restart: always
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./infra/otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    environment:
+      OTEL_COLLECTOR_CONFIG_EXPAND_ENV: "true"
+      DEPLOYMENT_ENV: "${DEPLOYMENT_ENV:-dev}"
+    # The image is distroless (no shell/wget), so there is no container healthcheck;
+    # probe the health_check extension from the host instead: curl localhost:13133
+    ports:
+      - "127.0.0.1:${COLLECTOR_OTLP_GRPC_HOST_PORT:-4317}:4317" # OTLP gRPC
+      - "127.0.0.1:${COLLECTOR_OTLP_HTTP_HOST_PORT:-4318}:4318" # OTLP HTTP
+      - "127.0.0.1:${COLLECTOR_HEALTH_CHECK_HOST_PORT:-13133}:13133" # HEALTH CHECK
+      - "127.0.0.1:${COLLECTOR_ZPAGES_HOST_PORT:-55679}:55679" # ZPAGES
+      - "127.0.0.1:${COLLECTOR_SELF_METRICS_HOST_PORT:-8888}:8888" # collector self-metrics

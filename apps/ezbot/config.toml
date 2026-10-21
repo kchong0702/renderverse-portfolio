@@ -1,0 +1,31 @@
+[app]
+name = "ezbot"
+env = "dev"
+version = "0.1.0"
+cors_origin = "http://localhost:5173"
+route_prefix = "/ezbot"
+
+host = "127.0.0.1"
+port = 8000
+workers = 1
+log_level = "info"
+access_log = true
+
+[chat]
+max_message_chars = 2000
+max_reply_chars = 8000
+max_history = 20
+
+[observability]
+service_name = "ezbot"
+log_level = "INFO"
+log_format = "console"
+
+tracing_enabled = true
+metrics_enabled = true
+metrics_export_interval_ms = 15000
+instrumentations = ["langchain"]
+
+[observability.trace_redaction]
+hide_inputs = false
+hide_outputs = false

@@ -4,7 +4,11 @@
   "private": true,
   "scripts": {
     "bootstrap:uv": "node scripts/bootstrap-python.mjs && uv sync --all-packages",
-    "bootstrap": "npm run bootstrap:uv && nx run-many -t bootstrap",
+    "bootstrap:env": "node -e \"const fs=require('fs'); if (!fs.existsSync('.env')) fs.copyFileSync('.env.example','.env')\"",
+    "bootstrap": "npm run bootstrap:env && npm run bootstrap:uv && nx run-many -t bootstrap",
+    "infra:up": "npm run bootstrap:env && docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:logs": "docker compose logs -f",
     "dev": "nx run-many -t dev",
     "dev:renderverse": "nx run renderverse:dev",
     "dev:ezbot": "nx run ezbot:dev",
