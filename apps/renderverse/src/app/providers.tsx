@@ -1,9 +1,9 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import PropTypes from "prop-types";
+import type { ReactNode } from "react";
 import { queryClient } from "./queryClient";
 
-export default function AppProviders({ children }) {
+export default function AppProviders({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
@@ -11,7 +11,3 @@ export default function AppProviders({ children }) {
     </QueryClientProvider>
   );
 }
-
-AppProviders.propTypes = {
-  children: PropTypes.node,
-};

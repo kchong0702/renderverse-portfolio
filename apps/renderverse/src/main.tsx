@@ -16,14 +16,14 @@ i18n.on("languageChanged", (lng) => {
 
 // Set initial data-lang before render
 (function () {
-  var lng = (i18n.language || navigator.language || "en").toLowerCase();
+  const lng = (i18n.language || navigator.language || "en").toLowerCase();
   document.documentElement.setAttribute(
     "data-lang",
     lng.startsWith("zh") ? "zh" : "en",
   );
 })();
 
-ReactDOM.createRoot(document.getElementById("root")).render(
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <AppProviders>
       <App />
