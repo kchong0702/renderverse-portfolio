@@ -4,11 +4,9 @@ import { Center, useEnvironment } from "@react-three/drei";
 import { useControls } from "leva";
 import * as THREE from "three";
 import EzbotModel from "@/experience/models/EzbotModel";
-import { useSceneControl } from "@/experience/state/useSceneControl";
-import {
-  useChatControl,
-  useOpenChat,
-} from "@/features/ezbot/hooks/useChatControl";
+import { useSceneStore } from "@/experience/state/sceneStore";
+import { useChatStore } from "@/features/ezbot/state/chatStore";
+import { useOpenChat } from "@/features/ezbot/hooks/useOpenChat";
 import {
   CONNECTION_STATUS,
   useEzbotStatus,
@@ -56,8 +54,8 @@ const dampAngle = (current, target, lambda, delta) => {
 };
 
 function EzbotCompanion() {
-  const { state } = useSceneControl();
-  const { chatState } = useChatControl();
+  const specialIsLocked = useSceneStore((s) => s.specialIsLocked);
+  const isReplying = useChatStore((s) => s.isReplying);
   const connectionStatus = useEzbotStatus();
   const openChat = useOpenChat();
 
@@ -88,8 +86,8 @@ function EzbotCompanion() {
     [],
   );
 
-  const isFollowing = state.specialIsLocked !== false;
-  const mode = chatState.isReplying ? "thinking" : "idle";
+  const isFollowing = specialIsLocked !== false;
+  const mode = isReplying ? "thinking" : "idle";
 
   useFrame(({ camera, clock }, delta) => {
     if (!body.current || !lean.current || delta <= 0) return;

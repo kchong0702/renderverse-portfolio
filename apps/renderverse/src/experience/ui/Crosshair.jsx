@@ -1,13 +1,13 @@
 import styles from "./Crosshair.module.css";
-import { useSceneControl } from "@/experience/state/useSceneControl";
+import { useSceneStore } from "@/experience/state/sceneStore";
 
 function Crosshair() {
-  const { state } = useSceneControl();
+  const showCrosshair = useSceneStore((s) => s.showCrosshair);
 
   return (
     <div
       className={
-        state.showCrosshair
+        showCrosshair
           ? styles.crosshair
           : `${styles.crosshair} ${styles.inactive}`
       }

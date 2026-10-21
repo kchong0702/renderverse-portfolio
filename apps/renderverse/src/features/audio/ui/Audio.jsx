@@ -1,18 +1,18 @@
 import { MdMusicOff, MdMusicNote } from "react-icons/md";
 import { useState, useEffect, useRef } from "react";
-import { useChatControl } from "@/features/ezbot";
-import { useSceneControl } from "@/experience/state/useSceneControl";
+import { useChatStore } from "@/features/ezbot";
+import { useSceneStore } from "@/experience/state/sceneStore";
 import { useHotkey } from "@/shared/hooks/useHotkey";
 
 export default function Audio() {
   const [playing, setPlaying] = useState(false);
 
-  const { state } = useSceneControl();
-  const { chatState } = useChatControl();
+  const isTLocked = useSceneStore((s) => s.isTLocked);
+  const isChatOpen = useChatStore((s) => s.isOpen);
 
   const audio = useRef();
 
-  const src = state.isTLocked
+  const src = isTLocked
     ? "/assets/audio/sussus-toogus.mp3"
     : "/assets/audio/tokyo-walker.mp3";
 
@@ -24,7 +24,7 @@ export default function Audio() {
     else if (audio) audio.current.pause();
   }, [playing, src]);
 
-  useHotkey("KeyM", () => setPlaying((playing) => !playing), !chatState.isOpen);
+  useHotkey("KeyM", () => setPlaying((playing) => !playing), !isChatOpen);
 
   return (
     <div

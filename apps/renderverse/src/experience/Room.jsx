@@ -8,16 +8,18 @@ import Title from "@/features/portfolio/scene/Title";
 import About from "@/features/portfolio/scene/About";
 import { Skybox } from "@/experience/environment/Skybox";
 import PropTypes from "prop-types";
-import { useSceneControl } from "@/experience/state/useSceneControl";
-import { useModal } from "@/shared/ui/modal/useModal";
+import { useSceneStore } from "@/experience/state/sceneStore";
+import { useModalStore } from "@/shared/ui/modal/modalStore";
 import Camera from "@/experience/camera/Camera";
 import { displayInitialHiddenHtml } from "@/shared/lib/event-handler";
-import { useSceneLoader } from "@/experience/state/useSceneLoader";
+import { useSceneLoaderStore } from "@/experience/state/sceneLoaderStore";
 
 function Room({ fpv }) {
-  const { state, dispatch } = useSceneControl();
-  const { dispatchModal } = useModal();
-  const { dispatchSceneLoader } = useSceneLoader();
+  // Whole scene state: it is drilled into Camera, Person and Model
+  const state = useSceneStore();
+  const { dispatch } = state;
+  const dispatchModal = useModalStore((s) => s.dispatch);
+  const dispatchSceneLoader = useSceneLoaderStore((s) => s.dispatch);
 
   const handlePLInteraction = (type, payload) => {
     if (!state.cooldown) dispatch({ type: type, payload: payload });

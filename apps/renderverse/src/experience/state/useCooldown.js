@@ -1,17 +1,16 @@
-import { useSceneControl } from "./useSceneControl";
-import { useEffect, useCallback } from "react";
+import { useEffect } from "react";
+import { useSceneStore } from "./sceneStore";
 
 export const useCooldown = () => {
-  const { state, dispatch } = useSceneControl();
-
-  const memoizedDispatch = useCallback(dispatch, [dispatch]);
+  const cooldown = useSceneStore((s) => s.cooldown);
+  const dispatch = useSceneStore((s) => s.dispatch);
 
   useEffect(() => {
-    if (state.cooldown === true) {
+    if (cooldown === true) {
       const cooldownTimer = setTimeout(() => {
-        memoizedDispatch({ type: "COOLDOWN" });
+        dispatch({ type: "COOLDOWN" });
       }, 1500);
       return () => clearTimeout(cooldownTimer);
     }
-  }, [state.cooldown, memoizedDispatch]);
+  }, [cooldown, dispatch]);
 };

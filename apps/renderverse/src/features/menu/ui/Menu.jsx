@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { FaGamepad } from "react-icons/fa6";
-import { useSceneControl } from "@/experience/state/useSceneControl";
-import { useChatControl } from "@/features/ezbot";
-import { useEffect, useCallback } from "react";
+import { useSceneStore } from "@/experience/state/sceneStore";
+import { useChatStore } from "@/features/ezbot";
+import { useEffect } from "react";
 import { MdRunCircle } from "react-icons/md";
 import { useCooldown } from "@/experience/state/useCooldown";
 import { CONFIG } from "@/app/config";
@@ -13,10 +13,10 @@ export default function Menu() {
   const isZh = i18n.language.startsWith("zh");
   useCooldown();
 
-  const { state, dispatch } = useSceneControl();
-  const { chatState } = useChatControl();
-
-  const memoizedDispatch = useCallback(dispatch, [dispatch]);
+  const isLocked = useSceneStore((s) => s.isLocked);
+  const specialIsLocked = useSceneStore((s) => s.specialIsLocked);
+  const dispatch = useSceneStore((s) => s.dispatch);
+  const isChatOpen = useChatStore((s) => s.isOpen);
 
   const toggleLanguage = () => {
     const next = i18n.language.startsWith("zh") ? "en" : "zh";
@@ -28,28 +28,28 @@ export default function Menu() {
     }
   };
 
-  useHotkey("KeyL", toggleLanguage, !chatState.isOpen);
+  useHotkey("KeyL", toggleLanguage, !isChatOpen);
 
   useEffect(() => {
-    if (state.isLocked === true)
+    if (isLocked === true)
       document.getElementById("overlay").style.display = "none";
     else document.getElementById("overlay").style.display = "flex";
-  }, [state.isLocked]);
+  }, [isLocked]);
 
   /* Escape Key Control */
   useEffect(() => {
     const handlePointerLockChange = () => {
       if (
         document.pointerLockElement === null &&
-        state.isLocked &&
-        (state.specialIsLocked === true || state.specialIsLocked === null)
+        isLocked &&
+        (specialIsLocked === true || specialIsLocked === null)
       ) {
-        memoizedDispatch({ type: "UNLOCK" });
+        dispatch({ type: "UNLOCK" });
       } else if (
-        !state.isLocked &&
-        (state.specialIsLocked === true || state.specialIsLocked === null)
+        !isLocked &&
+        (specialIsLocked === true || specialIsLocked === null)
       ) {
-        memoizedDispatch({ type: "LOCK" });
+        dispatch({ type: "LOCK" });
       }
     };
 
@@ -63,7 +63,7 @@ export default function Menu() {
 
       document.removeEventListener("keydown", handlePointerLockChange);
     };
-  }, [memoizedDispatch, state.isLocked, state.specialIsLocked]);
+  }, [dispatch, isLocked, specialIsLocked]);
 
   return (
     <div

@@ -1,0 +1,18 @@
+import { create } from "zustand";
+
+const reducer = (state, action) => {
+  switch (action.type) {
+    case "TOGGLE_ACTIVE":
+      return { isActive: true };
+    case "TOGGLE_INACTIVE":
+      return { isActive: false };
+    default:
+      return state;
+  }
+};
+
+// Full-screen transition shown while switching between scenes
+export const useSceneLoaderStore = create((set) => ({
+  isActive: false,
+  dispatch: (action) => set((state) => reducer(state, action)),
+}));

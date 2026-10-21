@@ -1,12 +1,10 @@
 import styles from "./ChatScreen.module.css";
-import { useSceneControl } from "@/experience/state/useSceneControl";
+import { useSceneStore } from "@/experience/state/sceneStore";
 import { useEffect, useCallback } from "react";
 import Ezbot from "./Ezbot";
 import Chat from "./Chat";
-import {
-  useChatControl,
-  useOpenChat,
-} from "@/features/ezbot/hooks/useChatControl";
+import { useChatStore } from "@/features/ezbot/state/chatStore";
+import { useOpenChat } from "@/features/ezbot/hooks/useOpenChat";
 import {
   CONNECTION_STATUS,
   useEzbotStatus,
@@ -14,11 +12,10 @@ import {
 import { useHotkey } from "@/shared/hooks/useHotkey";
 
 export default function ChatScreen() {
-  const { dispatch } = useSceneControl();
-  const { chatState, chatDispatch } = useChatControl();
+  const dispatch = useSceneStore((s) => s.dispatch);
+  const isOpen = useChatStore((s) => s.isOpen);
+  const chatDispatch = useChatStore((s) => s.dispatch);
   const openChat = useOpenChat();
-
-  const { isOpen } = chatState;
   const connectionStatus = useEzbotStatus();
 
   const hide = () => {

@@ -1,26 +1,23 @@
 import styles from "./SceneLoader.module.css";
-import { useSceneLoader } from "@/experience/state/useSceneLoader";
-import { useEffect, useCallback } from "react";
+import { useSceneLoaderStore } from "@/experience/state/sceneLoaderStore";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 export default function SceneLoader() {
-  const { sceneLoaderState, dispatchSceneLoader } = useSceneLoader();
+  const isActive = useSceneLoaderStore((s) => s.isActive);
+  const dispatch = useSceneLoaderStore((s) => s.dispatch);
   const { t } = useTranslation();
 
-  const memoizedDispatch = useCallback(dispatchSceneLoader, [
-    dispatchSceneLoader,
-  ]);
-
   useEffect(() => {
-    if (sceneLoaderState.isActive) {
+    if (isActive) {
       const timer = setTimeout(() => {
-        memoizedDispatch({ type: "TOGGLE_INACTIVE" });
+        dispatch({ type: "TOGGLE_INACTIVE" });
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [sceneLoaderState.isActive, memoizedDispatch]);
+  }, [isActive, dispatch]);
 
-  return sceneLoaderState.isActive ? (
+  return isActive ? (
     <div className={styles.loadercontainer}>
       <div className={styles.body}>
         <span>

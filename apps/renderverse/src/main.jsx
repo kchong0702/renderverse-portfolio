@@ -1,9 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import App from "@/app/App";
-import { queryClient } from "@/app/queryClient";
+import AppProviders from "@/app/providers";
 import "./index.css";
 
 import i18n from "@/i18n";
@@ -27,9 +25,8 @@ i18n.on("languageChanged", (lng) => {
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
+    <AppProviders>
       <App />
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
+    </AppProviders>
   </React.StrictMode>,
 );

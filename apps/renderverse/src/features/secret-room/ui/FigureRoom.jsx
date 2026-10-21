@@ -1,6 +1,6 @@
 import styles from "./FigureRoom.module.css";
 import { FaArrowRight, FaArrowLeft } from "react-icons/fa";
-import { useSceneControl } from "@/experience/state/useSceneControl";
+import { useSceneStore } from "@/experience/state/sceneStore";
 import { useState, useRef } from "react";
 import { BiSolidZoomIn } from "react-icons/bi";
 import { IoIosVideocam } from "react-icons/io";
@@ -24,7 +24,9 @@ export default function FigureRoom() {
     tInnerFocusStateTypes[0],
   );
 
-  const { state, dispatch } = useSceneControl();
+  const isTLocked = useSceneStore((s) => s.isTLocked);
+  const tInnerZoom = useSceneStore((s) => s.tInnerZoom);
+  const dispatch = useSceneStore((s) => s.dispatch);
 
   const audio = useRef();
   const audio2 = useRef();
@@ -79,7 +81,7 @@ export default function FigureRoom() {
     setInnerFocusState(type);
   };
 
-  return state.isTLocked ? (
+  return isTLocked ? (
     <>
       {tInnerFocusState === tInnerFocusStateTypes[0] &&
         (isActive ? (
@@ -109,9 +111,7 @@ export default function FigureRoom() {
               event.stopPropagation();
               handleInnerZoom(
                 tInnerFocusStateTypes[1],
-                state.tInnerZoom < 1.6
-                  ? state.tInnerZoom + 0.3
-                  : state.tInnerZoom,
+                tInnerZoom < 1.6 ? tInnerZoom + 0.3 : tInnerZoom,
               );
             }}
           >

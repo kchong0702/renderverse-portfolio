@@ -1,6 +1,4 @@
-import { useReducer } from "react";
-import PropTypes from "prop-types";
-import { SceneControlContext } from "./useSceneControl";
+import { create } from "zustand";
 
 const reducer = (state, action) => {
   switch (action.type) {
@@ -77,28 +75,19 @@ const reducer = (state, action) => {
   }
 };
 
-export default function SceneControlProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, {
-    isLocked: false,
-    specialIsLocked: null,
-    showCrosshair: false,
-    cooldown: false,
-    focus: null,
-    isTLocked: false,
-    tFocus: null,
-    tInnerFocus: false,
-    tInnerLight: true,
-    tInnerZoom: 1,
-    tInnerAround: null,
-  });
-
-  return (
-    <SceneControlContext.Provider value={{ state, dispatch }}>
-      {children}
-    </SceneControlContext.Provider>
-  );
-}
-
-SceneControlProvider.propTypes = {
-  children: PropTypes.any,
-};
+// Pointer lock, focus and figure-room state for the whole experience.
+// Select only the fields you read: useSceneStore((s) => s.isLocked)
+export const useSceneStore = create((set) => ({
+  isLocked: false,
+  specialIsLocked: null,
+  showCrosshair: false,
+  cooldown: false,
+  focus: null,
+  isTLocked: false,
+  tFocus: null,
+  tInnerFocus: false,
+  tInnerLight: true,
+  tInnerZoom: 1,
+  tInnerAround: null,
+  dispatch: (action) => set((state) => reducer(state, action)),
+}));
