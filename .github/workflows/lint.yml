@@ -54,3 +54,6 @@ jobs:
 
       - name: Lint (ESLint + Ruff)
         run: npx nx run-many -t lint
+
+      - name: Typecheck (TypeScript)
+        run: npx nx run-many -t typecheck

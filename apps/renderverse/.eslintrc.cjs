@@ -16,6 +16,15 @@ module.exports = {
       files: ["vite.config.js", "scripts/**/*.js"],
       env: { node: true },
     },
+    {
+      files: ["**/*.ts", "**/*.tsx"],
+      parser: "@typescript-eslint/parser",
+      plugins: ["@typescript-eslint"],
+      extends: ["plugin:@typescript-eslint/recommended"],
+      rules: {
+        "react/prop-types": "off",
+      },
+    },
   ],
   rules: {
     "react/jsx-no-target-blank": "off",
