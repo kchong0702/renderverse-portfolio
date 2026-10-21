@@ -1,7 +1,13 @@
 import styles from "./Project.module.css";
-import PropTypes from "prop-types";
+import type { ModalInteraction } from "@/shared/ui/modal/modalStore";
+import type { ProjectItem } from "@/features/portfolio/types";
 
-function Project({ project, handleModalInteraction }) {
+interface ProjectProps {
+  project: ProjectItem;
+  handleModalInteraction: ModalInteraction;
+}
+
+function Project({ project, handleModalInteraction }: ProjectProps) {
   const { proj_name, short_desc, img_path } = project;
 
   return (
@@ -25,10 +31,5 @@ function Project({ project, handleModalInteraction }) {
     </div>
   );
 }
-
-Project.propTypes = {
-  project: PropTypes.object,
-  handleModalInteraction: PropTypes.func,
-};
 
 export default Project;

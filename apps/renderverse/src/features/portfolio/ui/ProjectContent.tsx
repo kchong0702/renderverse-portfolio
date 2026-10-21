@@ -1,8 +1,8 @@
 import { FaGithub } from "react-icons/fa";
 import { BsBrowserChrome } from "react-icons/bs";
-import PropTypes from "prop-types";
+import type { ProjectItem } from "@/features/portfolio/types";
 
-export default function ProjectContent({ content }) {
+export default function ProjectContent({ content }: { content: ProjectItem }) {
   const { proj_name, proj_desc, proj_link, github_link, proj_stack, vid_path } =
     content;
   return (
@@ -91,7 +91,3 @@ export default function ProjectContent({ content }) {
     </>
   );
 }
-
-ProjectContent.propTypes = {
-  content: PropTypes.object,
-};

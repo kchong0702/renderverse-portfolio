@@ -1,6 +1,10 @@
 import styles from "./FigureRoom.module.css";
 import { FaArrowRight, FaArrowLeft } from "react-icons/fa";
-import { useSceneStore } from "@/experience/state/sceneStore";
+import {
+  useSceneStore,
+  type AroundAnimation,
+  type CameraFocus,
+} from "@/experience/state/sceneStore";
 import { useState, useRef } from "react";
 import { BiSolidZoomIn } from "react-icons/bi";
 import { IoIosVideocam } from "react-icons/io";
@@ -15,12 +19,14 @@ const tInnerFocusStateTypes = [
   "zoom_godzilla",
   "around_godzilla",
   "focus_info",
-];
+] as const;
+
+type InnerFocusState = (typeof tInnerFocusStateTypes)[number];
 
 export default function FigureRoom() {
   const [isActive, setIsActive] = useState(false);
   const [playing, setPlaying] = useState(false);
-  const [tInnerFocusState, setInnerFocusState] = useState(
+  const [tInnerFocusState, setInnerFocusState] = useState<InnerFocusState>(
     tInnerFocusStateTypes[0],
   );
 
@@ -28,25 +34,28 @@ export default function FigureRoom() {
   const tInnerZoom = useSceneStore((s) => s.tInnerZoom);
   const dispatch = useSceneStore((s) => s.dispatch);
 
-  const audio = useRef();
-  const audio2 = useRef();
+  const audio = useRef<HTMLAudioElement>(null);
+  const audio2 = useRef<HTMLAudioElement>(null);
 
-  const handleFocus = (payload, isActive) => {
+  const handleFocus = (
+    payload: [number, number, number],
+    isActive: boolean,
+  ) => {
     dispatch({ type: "TFOCUS", payload: payload });
     setIsActive(isActive);
   };
 
-  const handleInnerZoom = (type, payload) => {
+  const handleInnerZoom = (type: InnerFocusState, payload: number) => {
     dispatch({ type: "TINNERZOOM", payload: payload });
     setInnerFocusState(type);
   };
 
-  const handleInnerZoomOut = (type) => {
+  const handleInnerZoomOut = (type: InnerFocusState) => {
     dispatch({ type: "TINNERZOOMOUT" });
     setInnerFocusState(type);
   };
 
-  const handleInnerFocus = (type, payload) => {
+  const handleInnerFocus = (type: InnerFocusState, payload?: CameraFocus) => {
     dispatch({ type: "TINNERFOCUS", payload: payload });
     setInnerFocusState(type);
   };
@@ -56,7 +65,7 @@ export default function FigureRoom() {
   };
 
   const handleInnerSound = () => {
-    audio.current.play();
+    audio.current?.play();
   };
 
   const handleAroundSound = () => {
@@ -64,18 +73,21 @@ export default function FigureRoom() {
       const playing = !isPlaying;
 
       if (playing) {
-        audio2.current.play();
+        audio2.current?.play();
       } else {
-        audio2.current.load();
+        audio2.current?.load();
       }
 
       return playing;
     });
   };
 
-  const handleInnerAround = (type, payload) => {
+  const handleInnerAround = (
+    type: InnerFocusState,
+    payload?: AroundAnimation,
+  ) => {
     if (playing) {
-      audio2.current.load();
+      audio2.current?.load();
     }
     dispatch({ type: "TINNERAROUND", payload: payload });
     setInnerFocusState(type);

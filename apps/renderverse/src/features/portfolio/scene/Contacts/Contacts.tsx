@@ -7,10 +7,18 @@ import { MdEmail } from "react-icons/md";
 import { FaLinkedin } from "react-icons/fa6";
 import { FaInstagram } from "react-icons/fa";
 import { MdClose } from "react-icons/md";
-import PropTypes from "prop-types";
 import Indicator from "@/shared/ui/indicator/Indicator";
 import { MdContactPhone } from "react-icons/md";
 import { useTranslation } from "react-i18next";
+import type {
+  SceneInteraction,
+  SceneState,
+} from "@/experience/state/sceneStore";
+
+interface ContactsProps {
+  handlePLInteraction: SceneInteraction;
+  state: Pick<SceneState, "specialIsLocked">;
+}
 
 extend(geometry);
 
@@ -35,7 +43,7 @@ const contacts = [
   },
 ];
 
-function Contacts({ handlePLInteraction, state }) {
+function Contacts({ handlePLInteraction, state }: ContactsProps) {
   const { t } = useTranslation();
   const { position, rotation } = useControls("Contact html", {
     position: {
@@ -115,10 +123,5 @@ function Contacts({ handlePLInteraction, state }) {
     </>
   );
 }
-
-Contacts.propTypes = {
-  handlePLInteraction: PropTypes.func,
-  state: PropTypes.object,
-};
 
 export default Contacts;

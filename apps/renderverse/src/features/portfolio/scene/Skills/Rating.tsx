@@ -1,8 +1,12 @@
 import styles from "./Rating.module.css";
 import { FaStar } from "react-icons/fa6";
-import PropTypes from "prop-types";
 
-const Rating = ({ size, checked }) => {
+interface RatingProps {
+  size: number | string;
+  checked: number;
+}
+
+const Rating = ({ size, checked }: RatingProps) => {
   return (
     <div className={styles.container}>
       <FaStar className={checked > 0 ? styles.checked : ""} size={size} />
@@ -12,11 +16,6 @@ const Rating = ({ size, checked }) => {
       <FaStar className={checked > 4 ? styles.checked : ""} size={size} />
     </div>
   );
-};
-
-Rating.propTypes = {
-  size: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-  checked: PropTypes.number,
 };
 
 export default Rating;

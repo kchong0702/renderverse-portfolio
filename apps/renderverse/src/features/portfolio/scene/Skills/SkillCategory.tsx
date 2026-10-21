@@ -1,8 +1,13 @@
 import styles from "./Skills.module.css";
 import SkillCategoryItem from "./SkillCategoryItem";
-import PropTypes from "prop-types";
+import type { SkillItem } from "@/features/portfolio/types";
 
-const SkillCategory = ({ category, contents }) => {
+interface SkillCategoryProps {
+  category: string;
+  contents: SkillItem[];
+}
+
+const SkillCategory = ({ category, contents }: SkillCategoryProps) => {
   return (
     <section className={styles.category}>
       <h6 className={styles.heading}>{category}</h6>
@@ -13,11 +18,6 @@ const SkillCategory = ({ category, contents }) => {
       </ul>
     </section>
   );
-};
-
-SkillCategory.propTypes = {
-  category: PropTypes.string,
-  contents: PropTypes.array,
 };
 
 export default SkillCategory;

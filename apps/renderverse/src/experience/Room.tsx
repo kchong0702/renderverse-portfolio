@@ -18,13 +18,13 @@ import {
 import {
   useModalStore,
   type ModalAction,
-  type ModalData,
+  type ModalInteraction,
 } from "@/shared/ui/modal/modalStore";
 import Camera from "@/experience/camera/Camera";
 import { displayInitialHiddenHtml } from "@/shared/lib/event-handler";
 import {
   useSceneLoaderStore,
-  type SceneLoaderAction,
+  type SceneLoaderInteraction,
 } from "@/experience/state/sceneLoaderStore";
 import type { RoomSlots } from "@/experience/models/RoomModel";
 
@@ -43,14 +43,11 @@ function Room({ fpv }: RoomProps) {
       dispatch({ type, payload } as Parameters<typeof dispatch>[0]);
   };
 
-  const handleModalInteraction = (
-    type: ModalAction["type"],
-    payload?: ModalData,
-  ) => {
+  const handleModalInteraction: ModalInteraction = (type, payload) => {
     dispatchModal({ type, payload } as ModalAction);
   };
 
-  const handleSceneLoaderInteraction = (type: SceneLoaderAction["type"]) => {
+  const handleSceneLoaderInteraction: SceneLoaderInteraction = (type) => {
     if (!state.cooldown) dispatchSceneLoader({ type: type });
   };
 

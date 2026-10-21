@@ -31,9 +31,10 @@ export default function Menu() {
   useHotkey("KeyL", toggleLanguage, !isChatOpen);
 
   useEffect(() => {
-    if (isLocked === true)
-      document.getElementById("overlay").style.display = "none";
-    else document.getElementById("overlay").style.display = "flex";
+    const overlay = document.getElementById("overlay");
+    if (!overlay) return;
+    if (isLocked === true) overlay.style.display = "none";
+    else overlay.style.display = "flex";
   }, [isLocked]);
 
   /* Escape Key Control */

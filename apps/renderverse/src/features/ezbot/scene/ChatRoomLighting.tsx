@@ -1,4 +1,3 @@
-import PropTypes from "prop-types";
 import { Environment } from "@react-three/drei";
 
 // import { useControls } from "leva";
@@ -6,7 +5,12 @@ import { Environment } from "@react-three/drei";
 // import { useHelper } from "@react-three/drei";
 // import * as THREE from 'three'
 
-export default function ChatRoomLighting(props) {
+interface ChatRoomLightingProps {
+  isActive: boolean;
+  isLightOff: boolean;
+}
+
+export default function ChatRoomLighting(props: ChatRoomLightingProps) {
   // const options = useMemo(() => {
   //     return {
   //         posx: { value: 0, min: -Math.PI * 2, max: Math.PI * 2, step: 0.01 },
@@ -59,8 +63,3 @@ export default function ChatRoomLighting(props) {
     </>
   );
 }
-
-ChatRoomLighting.propTypes = {
-  isActive: PropTypes.bool,
-  isLightOff: PropTypes.bool,
-};

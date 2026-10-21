@@ -1,8 +1,8 @@
 import styles from "./Skills.module.css";
 import Rating from "./Rating";
-import PropTypes from "prop-types";
+import type { SkillItem } from "@/features/portfolio/types";
 
-const SkillCategoryItem = ({ item }) => {
+const SkillCategoryItem = ({ item }: { item: SkillItem }) => {
   const { name, rating } = item;
   return (
     <li className={styles.item}>
@@ -10,10 +10,6 @@ const SkillCategoryItem = ({ item }) => {
       <Rating size="0.6em" checked={rating} />
     </li>
   );
-};
-
-SkillCategoryItem.propTypes = {
-  item: PropTypes.object,
 };
 
 export default SkillCategoryItem;

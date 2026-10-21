@@ -1,8 +1,12 @@
 import { Suspense } from "react";
-import PropTypes from "prop-types";
+import type { SceneState } from "@/experience/state/sceneStore";
 import ShinGodzillaModel from "@/experience/models/ShinGodzillaModel";
 
-export default function SecretRoomScene({ state }) {
+export default function SecretRoomScene({
+  state,
+}: {
+  state: Pick<SceneState, "isTLocked" | "tInnerLight">;
+}) {
   if (!state.isTLocked) return null;
 
   return (
@@ -11,7 +15,3 @@ export default function SecretRoomScene({ state }) {
     </Suspense>
   );
 }
-
-SecretRoomScene.propTypes = {
-  state: PropTypes.object.isRequired,
-};

@@ -7,13 +7,19 @@ export const CONNECTION_STATUS = {
   CONNECTING: "connecting",
   ONLINE: "online",
   OFFLINE: "offline",
-};
+} as const;
+
+export type ConnectionStatus =
+  (typeof CONNECTION_STATUS)[keyof typeof CONNECTION_STATUS];
 
 export const ezbotKeys = {
   health: ["ezbot", "health"],
-};
+} as const;
 
-const STATUS_BY_QUERY = {
+const STATUS_BY_QUERY: Record<
+  "pending" | "success" | "error",
+  ConnectionStatus
+> = {
   pending: CONNECTION_STATUS.CONNECTING,
   success: CONNECTION_STATUS.ONLINE,
   error: CONNECTION_STATUS.OFFLINE,

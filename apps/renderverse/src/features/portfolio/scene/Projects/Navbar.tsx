@@ -4,10 +4,14 @@ import { RiNetflixFill } from "react-icons/ri";
 import { VscMultipleWindows } from "react-icons/vsc";
 import { VscChromeMinimize } from "react-icons/vsc";
 import { MdClose } from "react-icons/md";
-import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
+import type { SceneInteraction } from "@/experience/state/sceneStore";
 
-export default function Navbar({ handlePLInteraction }) {
+interface NavbarProps {
+  handlePLInteraction: SceneInteraction;
+}
+
+export default function Navbar({ handlePLInteraction }: NavbarProps) {
   const { t } = useTranslation();
   const brandSize = 18;
   const closeSize = 15;
@@ -70,7 +74,3 @@ export default function Navbar({ handlePLInteraction }) {
     </div>
   );
 }
-
-Navbar.propTypes = {
-  handlePLInteraction: PropTypes.func,
-};

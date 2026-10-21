@@ -8,6 +8,11 @@ export interface ModalData {
 export type ModalAction =
   { type: "TOGGLE_OPEN"; payload?: ModalData } | { type: "TOGGLE_CLOSE" };
 
+export type ModalInteraction = (
+  type: ModalAction["type"],
+  payload?: ModalData,
+) => void;
+
 interface ModalState {
   isShow: boolean;
   data: ModalData | null;

@@ -4,9 +4,12 @@ import { OrbitControls } from "@react-three/drei";
 import EzbotModel from "@/experience/models/EzbotModel";
 import { Center } from "@react-three/drei";
 import ChatRoomLighting from "@/features/ezbot/scene/ChatRoomLighting";
-import PropTypes from "prop-types";
+interface EzbotProps {
+  isActive: boolean;
+  isLightOff: boolean;
+}
 
-export default function Ezbot(props) {
+export default function Ezbot(props: EzbotProps) {
   return (
     <>
       <Canvas>
@@ -23,8 +26,3 @@ export default function Ezbot(props) {
     </>
   );
 }
-
-Ezbot.propTypes = {
-  isActive: PropTypes.bool,
-  isLightOff: PropTypes.bool,
-};

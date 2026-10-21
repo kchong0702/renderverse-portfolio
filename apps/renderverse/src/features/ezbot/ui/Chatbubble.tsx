@@ -1,7 +1,13 @@
 import styles from "./Chatbubble.module.css";
-import PropTypes from "prop-types";
 
-export default function Chatbubble(props) {
+export interface ChatbubbleProps {
+  id?: string;
+  content: string;
+  role: "system" | "user";
+  isAborted?: boolean;
+}
+
+export default function Chatbubble(props: ChatbubbleProps) {
   if (props.role === "system") {
     return (
       <div className={[styles.chat__item, styles.item_left].join(" ")}>
@@ -31,13 +37,3 @@ export default function Chatbubble(props) {
     );
   }
 }
-
-Chatbubble.propTypes = {
-  id: PropTypes.string,
-  content: PropTypes.string,
-  semantic: PropTypes.oneOf(["None", "LIKED", "DISLIKED"]),
-  feedback: PropTypes.string,
-  role: PropTypes.oneOf(["system", "user"]),
-  question_id: PropTypes.string,
-  isAborted: PropTypes.bool,
-};

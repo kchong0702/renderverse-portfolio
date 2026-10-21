@@ -1,48 +1,64 @@
 import { useTranslation } from "react-i18next";
 import styles from "./Chat.module.css";
-import PropTypes from "prop-types";
 import { IoCloseSharp } from "react-icons/io5";
 import { GrPowerReset } from "react-icons/gr";
 import { IoIosSend } from "react-icons/io";
-import Chatbubble from "./Chatbubble";
+import Chatbubble, { type ChatbubbleProps } from "./Chatbubble";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MAX_HISTORY,
   MAX_MESSAGE_CHARS,
   streamChat,
+  type ChatHistoryMessage,
 } from "@/features/ezbot/api/ezbot";
 import ChatLoader from "./ChatLoader";
 import { FaStop } from "react-icons/fa6";
 import {
   CONNECTION_STATUS,
   useRecheckEzbot,
+  type ConnectionStatus,
 } from "@/features/ezbot/hooks/useEzbotStatus";
 
+interface ChatMessage {
+  id: string;
+  role: "user" | "system";
+  content: string;
+  isAborted: boolean;
+  isError: boolean;
+}
+
+interface ChatProps {
+  close: () => void;
+  isOpen: boolean;
+  connectionStatus: ConnectionStatus;
+  setReplying: (isReplying: boolean) => void;
+}
+
 // Completed turns sent back to ezbot as context, oldest first
-const toHistory = (messages) =>
+const toHistory = (messages: ChatMessage[]): ChatHistoryMessage[] =>
   messages
     .filter((message) => message.content && !message.isError)
     .slice(-MAX_HISTORY)
-    .map((message) => ({
+    .map((message): ChatHistoryMessage => ({
       role: message.role === "user" ? "user" : "assistant",
       content: message.content,
     }));
 
-export default function Chat(props) {
+export default function Chat(props: ChatProps) {
   const { t } = useTranslation();
-  const noConnectionMessage = {
+  const noConnectionMessage: ChatbubbleProps = {
     id: "",
     content: t("chat.offline"),
     role: "system",
     isAborted: false,
   };
 
-  const [chatHistory, setChatHistory] = useState([]);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
 
-  const chatFocusRef = useRef(null);
-  const replyControllerRef = useRef(null);
+  const chatFocusRef = useRef<HTMLDivElement>(null);
+  const replyControllerRef = useRef<AbortController | null>(null);
   const nextIdRef = useRef(0);
 
   const { isOpen, connectionStatus, setReplying } = props;
@@ -74,7 +90,10 @@ export default function Chat(props) {
     setReplying(isTyping);
   }, [isTyping, setReplying]);
 
-  const createMessage = (role, content) => ({
+  const createMessage = (
+    role: ChatMessage["role"],
+    content: string,
+  ): ChatMessage => ({
     id: `message-${nextIdRef.current++}`,
     role,
     content,
@@ -91,7 +110,7 @@ export default function Chat(props) {
     const userMessage = createMessage("user", message);
     const replyMessage = createMessage("system", "");
 
-    const updateReply = (update) =>
+    const updateReply = (update: (m: ChatMessage) => Partial<ChatMessage>) =>
       setChatHistory((messages) =>
         messages.map((m) =>
           m.id === replyMessage.id ? { ...m, ...update(m) } : m,
@@ -221,10 +240,3 @@ export default function Chat(props) {
     </div>
   );
 }
-
-Chat.propTypes = {
-  close: PropTypes.func,
-  isOpen: PropTypes.bool,
-  connectionStatus: PropTypes.oneOf(Object.values(CONNECTION_STATUS)),
-  setReplying: PropTypes.func,
-};

@@ -1,22 +1,16 @@
-import { extend, useLoader } from "@react-three/fiber";
-import { FontLoader } from "three/examples/jsm/loaders/FontLoader";
-import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry";
+import { useLoader } from "@react-three/fiber";
+import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
+import "./textGeometry";
 import { useControls } from "leva";
-import { MeshBasicMaterial } from "three";
 import { addWordNewLine } from "@/shared/lib/utility";
 import { useTranslation } from "react-i18next";
-
-extend({ TextGeometry });
 
 // const textMaterials = [
 //   new MeshPhongMaterial({ color: 0x171f27, flatShading: true }),
 //   new MeshPhongMaterial({ color: 0xffffff }), // Example for another material
 // ];
 
-const textMaterials = [
-  new MeshBasicMaterial({ color: 0x171f27 }),
-  new MeshBasicMaterial({ color: 0x171f27 }), // Example for another material
-];
+const TEXT_COLOR = 0x171f27;
 
 const About = () => {
   const { t, i18n } = useTranslation();
@@ -27,10 +21,7 @@ const About = () => {
   const font = isZh ? fontZh : fontEn;
 
   const subtext = t("about.subtext");
-  const abtText =
-    t("about.title") +
-    "\n\n" +
-    addWordNewLine(subtext, 40);
+  const abtText = t("about.title") + "\n\n" + addWordNewLine(subtext, 40);
 
   const { position, rotation, dimension } = useControls("About Font", {
     position: {
@@ -67,9 +58,7 @@ const About = () => {
           { font: font, size: dimension.size, depth: dimension.height },
         ]}
       />
-      {textMaterials.map((material, index) => (
-        <meshBasicMaterial key={index} attachArray="material" {...material} />
-      ))}
+      <meshBasicMaterial color={TEXT_COLOR} />
     </mesh>
   );
 };

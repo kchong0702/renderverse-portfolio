@@ -2,6 +2,7 @@ import Modal from "@/shared/ui/modal/Modal";
 import { useModalStore } from "@/shared/ui/modal/modalStore";
 import { useSceneStore } from "@/experience/state/sceneStore";
 import ProjectContent from "./ProjectContent";
+import type { ProjectItem } from "@/features/portfolio/types";
 
 export default function ProjectModal() {
   const isShow = useModalStore((s) => s.isShow);
@@ -20,7 +21,7 @@ export default function ProjectModal() {
 
   return (
     <Modal onClose={close}>
-      <ProjectContent content={data.content} />
+      <ProjectContent content={data.content as ProjectItem} />
     </Modal>
   );
 }

@@ -10,18 +10,20 @@ export default function Audio() {
   const isTLocked = useSceneStore((s) => s.isTLocked);
   const isChatOpen = useChatStore((s) => s.isOpen);
 
-  const audio = useRef();
+  const audio = useRef<HTMLAudioElement>(null);
 
   const src = isTLocked
     ? "/assets/audio/sussus-toogus.mp3"
     : "/assets/audio/tokyo-walker.mp3";
 
   useEffect(() => {
-    if (playing && audio)
-      audio.current.play().catch((err) => {
+    const el = audio.current;
+    if (!el) return;
+    if (playing)
+      el.play().catch((err: Error) => {
         if (err.name !== "AbortError") setPlaying(false);
       });
-    else if (audio) audio.current.pause();
+    else el.pause();
   }, [playing, src]);
 
   useHotkey("KeyM", () => setPlaying((playing) => !playing), !isChatOpen);

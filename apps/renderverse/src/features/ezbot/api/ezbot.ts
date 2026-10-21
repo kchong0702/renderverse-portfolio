@@ -7,7 +7,25 @@ const HEALTH_URL = `${CONFIG.ezbotApiUrl}/health`;
 export const MAX_MESSAGE_CHARS = 2000;
 export const MAX_HISTORY = 20;
 
-export async function fetchHealth(signal) {
+export interface ChatHistoryMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatRequest {
+  message: string;
+  history: ChatHistoryMessage[];
+}
+
+export type ChatStreamEvent =
+  | { event: "token"; data: { content: string } }
+  | { event: "done"; data: { finish_reason: "stop" } }
+  | {
+      event: "error";
+      data: { status_code: number; code: string; message: string };
+    };
+
+export async function fetchHealth(signal?: AbortSignal) {
   const response = await fetch(HEALTH_URL, { signal });
   if (!response.ok) {
     throw new Error(`Ezbot health check failed with status ${response.status}`);
@@ -16,9 +34,9 @@ export async function fetchHealth(signal) {
 }
 
 // Parse one SSE block into { event, data }, skipping keep-alive comments
-function parseEvent(block) {
+function parseEvent(block: string): ChatStreamEvent | null {
   let event = "message";
-  const data = [];
+  const data: string[] = [];
 
   for (const line of block.split("\n")) {
     if (line.startsWith(":")) continue;
@@ -32,7 +50,9 @@ function parseEvent(block) {
     if (field === "data") data.push(value);
   }
 
-  return data.length ? { event, data: JSON.parse(data.join("\n")) } : null;
+  return data.length
+    ? ({ event, data: JSON.parse(data.join("\n")) } as ChatStreamEvent)
+    : null;
 }
 
 /**
@@ -41,7 +61,10 @@ function parseEvent(block) {
  *
  * Abort `signal` to cancel; ezbot stops generating once the request drops.
  */
-export async function* streamChat({ message, history }, signal) {
+export async function* streamChat(
+  { message, history }: ChatRequest,
+  signal?: AbortSignal,
+): AsyncGenerator<ChatStreamEvent> {
   const response = await fetch(CHAT_URL, {
     method: "POST",
     headers: {
@@ -52,7 +75,7 @@ export async function* streamChat({ message, history }, signal) {
     signal,
   });
 
-  if (!response.ok) {
+  if (!response.ok || !response.body) {
     throw new Error(`Ezbot request failed with status ${response.status}`);
   }
 

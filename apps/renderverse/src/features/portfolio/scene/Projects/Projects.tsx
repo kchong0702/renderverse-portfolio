@@ -3,18 +3,25 @@ import styles from "./Projects.module.css";
 import { useControls } from "leva";
 import Indicator from "@/shared/ui/indicator/Indicator";
 import { BsProjectorFill } from "react-icons/bs";
-import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
 import Navbar from "./Navbar";
 import Project from "./Project";
 import Searchbar from "./Searchbar";
+import type { SceneInteraction } from "@/experience/state/sceneStore";
+import type { ModalInteraction } from "@/shared/ui/modal/modalStore";
+import type { ProjectItem } from "@/features/portfolio/types";
+
+interface ProjectsProps {
+  handlePLInteraction: SceneInteraction;
+  handleModalInteraction: ModalInteraction;
+}
 // import CooldownLoader from "@/shared/ui/loader/CooldownLoader";
 
 function Projects({
   handlePLInteraction,
   handleModalInteraction,
   // state
-}) {
+}: ProjectsProps) {
   const { t } = useTranslation();
 
   const { position, rotation } = useControls("Project html", {
@@ -35,7 +42,7 @@ function Projects({
     },
   });
 
-  const projects = [
+  const projects: ProjectItem[] = [
     {
       proj_id: 1,
       proj_name: t("projects.portfolio3D.name"),
@@ -85,11 +92,5 @@ function Projects({
     </>
   );
 }
-
-Projects.propTypes = {
-  handlePLInteraction: PropTypes.func,
-  handleModalInteraction: PropTypes.func,
-  state: PropTypes.object,
-};
 
 export default Projects;

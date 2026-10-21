@@ -24,17 +24,20 @@ export default function ChatScreen() {
   };
 
   const setReplying = useCallback(
-    (isReplying) => chatDispatch({ type: "REPLYING", payload: isReplying }),
+    (isReplying: boolean) =>
+      chatDispatch({ type: "REPLYING", payload: isReplying }),
     [chatDispatch],
   );
 
   useHotkey("KeyC", openChat);
 
   useEffect(() => {
+    const overlay = document.getElementById("chat-overlay");
+    if (!overlay) return;
     if (isOpen) {
-      document.getElementById("chat-overlay").style.display = "flex";
+      overlay.style.display = "flex";
     } else {
-      document.getElementById("chat-overlay").style.display = "none";
+      overlay.style.display = "none";
     }
   }, [isOpen]);
 

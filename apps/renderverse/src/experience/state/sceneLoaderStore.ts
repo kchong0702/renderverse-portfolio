@@ -3,6 +3,8 @@ import { create } from "zustand";
 export type SceneLoaderAction =
   { type: "TOGGLE_ACTIVE" } | { type: "TOGGLE_INACTIVE" };
 
+export type SceneLoaderInteraction = (type: SceneLoaderAction["type"]) => void;
+
 interface SceneLoaderState {
   isActive: boolean;
 }

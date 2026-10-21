@@ -1,6 +1,18 @@
 import { create } from "zustand";
 
-const reducer = (state, action) => {
+export type ChatAction =
+  { type: "OPEN" } | { type: "CLOSE" } | { type: "REPLYING"; payload: boolean };
+
+interface ChatState {
+  isOpen: boolean;
+  isReplying: boolean;
+}
+
+interface ChatStore extends ChatState {
+  dispatch: (action: ChatAction) => void;
+}
+
+const reducer = (state: ChatState, action: ChatAction): ChatState => {
   switch (action.type) {
     case "OPEN":
       return { ...state, isOpen: true };
@@ -13,7 +25,7 @@ const reducer = (state, action) => {
   }
 };
 
-export const useChatStore = create((set) => ({
+export const useChatStore = create<ChatStore>((set) => ({
   isOpen: false,
   isReplying: false,
   dispatch: (action) => set((state) => reducer(state, action)),

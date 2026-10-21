@@ -35,18 +35,24 @@ const left = new THREE.Vector3();
 const mirrored = new THREE.Vector3();
 const toEzbot = new THREE.Vector3();
 
-const outOfBounds = ({ x, z }) =>
+const outOfBounds = ({ x, z }: { x: number; z: number }) =>
   Math.max(0, ROOM_BOUNDS.minX - x, x - ROOM_BOUNDS.maxX) +
   Math.max(0, ROOM_BOUNDS.minZ - z, z - ROOM_BOUNDS.maxZ);
 
-const clampToRoom = (point) => {
+const clampToRoom = (point: THREE.Vector3) => {
   point.x = THREE.MathUtils.clamp(point.x, ROOM_BOUNDS.minX, ROOM_BOUNDS.maxX);
   point.z = THREE.MathUtils.clamp(point.z, ROOM_BOUNDS.minZ, ROOM_BOUNDS.maxZ);
 };
 
-const smoothingFactor = (lambda, delta) => 1 - Math.exp(-lambda * delta);
+const smoothingFactor = (lambda: number, delta: number) =>
+  1 - Math.exp(-lambda * delta);
 
-const dampAngle = (current, target, lambda, delta) => {
+const dampAngle = (
+  current: number,
+  target: number,
+  lambda: number,
+  delta: number,
+) => {
   const diff =
     THREE.MathUtils.euclideanModulo(target - current + Math.PI, Math.PI * 2) -
     Math.PI;
@@ -71,8 +77,8 @@ function EzbotCompanion() {
       brightness: { value: 1, min: 0, max: 3, step: 0.05 },
     });
 
-  const body = useRef();
-  const lean = useRef();
+  const body = useRef<THREE.Group>(null);
+  const lean = useRef<THREE.Group>(null);
   const goal = useRef(new THREE.Vector3());
   const side = useRef(1);
   const isFlying = useRef(true);
@@ -82,7 +88,7 @@ function EzbotCompanion() {
   const [isHovered, setHovered] = useState(false);
 
   const handleCentered = useCallback(
-    ({ height: measured }) => setModelHeight(measured),
+    ({ height: measured }: { height: number }) => setModelHeight(measured),
     [],
   );
 
