@@ -1,13 +1,35 @@
+import type { ReactNode } from "react";
 import { Html } from "@react-three/drei";
 // import { useControls } from "leva";
 import styles from "./Indicator.module.css";
-import PropTypes from "prop-types";
-import { extend } from "@react-three/fiber";
+import { extend, type BufferGeometryNode } from "@react-three/fiber";
 import { geometry } from "maath";
 
 extend(geometry);
 
-function Indicator({ settings }) {
+declare module "@react-three/fiber" {
+  interface ThreeElements {
+    roundedPlaneGeometry: BufferGeometryNode<
+      geometry.RoundedPlaneGeometry,
+      typeof geometry.RoundedPlaneGeometry
+    >;
+  }
+}
+
+type Vector3Tuple = [number, number, number];
+
+export interface IndicatorSettings {
+  position: Vector3Tuple;
+  rotation: Vector3Tuple;
+  icon: ReactNode;
+  id: string;
+}
+
+interface IndicatorProps {
+  settings: IndicatorSettings;
+}
+
+function Indicator({ settings }: IndicatorProps) {
   // const { position, rotation } = useControls("Indicator", {
   //   position: {
   //     value: {
@@ -48,14 +70,5 @@ function Indicator({ settings }) {
     </Html>
   );
 }
-
-Indicator.propTypes = {
-  settings: PropTypes.shape({
-    position: PropTypes.array,
-    rotation: PropTypes.array,
-    icon: PropTypes.any,
-    id: PropTypes.string,
-  }),
-};
 
 export default Indicator;

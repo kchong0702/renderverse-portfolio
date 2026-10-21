@@ -1,9 +1,19 @@
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, type RefObject } from "react";
 
-const overflows = (el) =>
+interface FitFontSizeRange {
+  min: number;
+  max: number;
+  step?: number;
+}
+
+const overflows = (el: HTMLElement) =>
   el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth;
 
-export const useFitFontSize = (ref, { min, max, step = 0.5 }, contentKey) => {
+export const useFitFontSize = (
+  ref: RefObject<HTMLElement>,
+  { min, max, step = 0.5 }: FitFontSizeRange,
+  contentKey?: unknown,
+) => {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;

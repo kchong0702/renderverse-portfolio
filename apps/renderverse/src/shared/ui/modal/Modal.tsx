@@ -1,7 +1,12 @@
+import type { ReactNode } from "react";
 import { IoMdCloseCircle } from "react-icons/io";
-import PropTypes from "prop-types";
 
-export default function Modal({ onClose, children }) {
+interface ModalProps {
+  onClose: () => void;
+  children?: ReactNode;
+}
+
+export default function Modal({ onClose, children }: ModalProps) {
   return (
     <div
       className="modal-overlay"
@@ -53,8 +58,3 @@ export default function Modal({ onClose, children }) {
     </div>
   );
 }
-
-Modal.propTypes = {
-  onClose: PropTypes.func.isRequired,
-  children: PropTypes.node,
-};

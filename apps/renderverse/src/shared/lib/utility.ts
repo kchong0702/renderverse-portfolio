@@ -1,9 +1,9 @@
-export const addWordNewLine = (str, breakpoint = 40) => {
-  var words = str.split(" ");
-  var numChars = 0;
-  var mult = 1;
+export const addWordNewLine = (str: string, breakpoint = 40) => {
+  const words = str.split(" ");
+  let numChars = 0;
+  let mult = 1;
 
-  for (var i = 0; i < words.length; i++) {
+  for (let i = 0; i < words.length; i++) {
     numChars += words[i].length;
 
     if (numChars > breakpoint * mult) {
@@ -14,14 +14,14 @@ export const addWordNewLine = (str, breakpoint = 40) => {
   return words.join(" ").replaceAll("\n ", "\n");
 };
 
-export const delay = async (promise) => {
+export const delay = async <T>(promise: Promise<T>): Promise<T> => {
   await new Promise((resolve) => {
     setTimeout(resolve, 2500);
   });
   return promise;
 };
 
-export const megaDelay = async (promise) => {
+export const megaDelay = async <T>(promise: Promise<T>): Promise<T> => {
   await new Promise((resolve) => {
     setTimeout(resolve, 4000);
   });

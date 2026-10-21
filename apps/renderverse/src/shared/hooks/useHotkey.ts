@@ -1,11 +1,15 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 
-const isTypingTarget = (el) =>
+const isTypingTarget = (el: EventTarget | null) =>
   el instanceof HTMLElement &&
   (el.isContentEditable ||
     ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
 
-export const useHotkey = (code, handler, enabled = true) => {
+export const useHotkey = (
+  code: string,
+  handler: (e: KeyboardEvent) => void,
+  enabled = true,
+) => {
   const handlerRef = useRef(handler);
 
   useLayoutEffect(() => {
@@ -15,7 +19,7 @@ export const useHotkey = (code, handler, enabled = true) => {
   useEffect(() => {
     if (!enabled) return;
 
-    const onKeyDown = (e) => {
+    const onKeyDown = (e: KeyboardEvent) => {
       if (
         e.code !== code ||
         e.repeat ||

@@ -1,6 +1,11 @@
 import { useEffect, useMemo } from "react";
+import type { MeshStandardMaterial, Texture } from "three";
 
-export const useEnvMaterials = (gltfMaterials, envMap, envMapIntensity = 1) => {
+export const useEnvMaterials = <T extends Record<string, MeshStandardMaterial>>(
+  gltfMaterials: T,
+  envMap?: Texture | null,
+  envMapIntensity = 1,
+): T => {
   const materials = useMemo(() => {
     if (!envMap) return gltfMaterials;
     return Object.fromEntries(
@@ -9,7 +14,7 @@ export const useEnvMaterials = (gltfMaterials, envMap, envMapIntensity = 1) => {
         clone.envMap = envMap;
         return [name, clone];
       }),
-    );
+    ) as T;
   }, [gltfMaterials, envMap]);
 
   const isCloned = materials !== gltfMaterials;

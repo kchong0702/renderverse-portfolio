@@ -1,6 +1,9 @@
 import styles from "@/shared/ui/indicator/Indicator.module.css";
 
-export const handleHoverIndicator = (type, domele) => {
+export const handleHoverIndicator = (
+  type: "enter" | "leave",
+  domele: string,
+) => {
   const ele = document.getElementById(domele);
 
   if (ele) {
@@ -15,13 +18,16 @@ export const handleHoverIndicator = (type, domele) => {
 export const displayInitialHiddenHtml = () => {
   const ids = ["overlay", "audio-overlay"]; // elements to opac 1
 
-  ids.map((id) => {
+  ids.forEach((id) => {
     const ele = document.getElementById(id);
-    ele.style.opacity = 1;
+    if (ele) ele.style.opacity = "1";
   });
 };
 
-export const initEventListener = (type, callback) => {
+export const initEventListener = <K extends keyof DocumentEventMap>(
+  type: K,
+  callback: (event: DocumentEventMap[K]) => void,
+) => {
   document.addEventListener(type, callback);
   return () => {
     document.removeEventListener(type, callback);
