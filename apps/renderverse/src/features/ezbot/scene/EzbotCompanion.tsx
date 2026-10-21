@@ -32,7 +32,8 @@ const MAX_TILT = 0.25;
 
 const forward = new THREE.Vector3();
 const left = new THREE.Vector3();
-const mirrored = new THREE.Vector3();
+const leftSpot = new THREE.Vector3();
+const rightSpot = new THREE.Vector3();
 const toEzbot = new THREE.Vector3();
 
 const outOfBounds = ({ x, z }: { x: number; z: number }) =>
@@ -80,7 +81,7 @@ function EzbotCompanion() {
   const body = useRef<THREE.Group>(null);
   const lean = useRef<THREE.Group>(null);
   const goal = useRef(new THREE.Vector3());
-  const side = useRef(1);
+  const isOnLeft = useRef(true);
   const isFlying = useRef(true);
   const isPlaced = useRef(false);
 
@@ -117,25 +118,27 @@ function EzbotCompanion() {
 
         const radians = THREE.MathUtils.degToRad(angle);
         const ahead = Math.cos(radians) * distance;
-        const aside = Math.sin(radians) * distance * side.current;
+        const aside = Math.sin(radians) * distance;
 
-        goal.current
+        leftSpot
           .copy(camera.position)
           .addScaledVector(forward, ahead)
           .addScaledVector(left, aside);
-        mirrored
+        rightSpot
           .copy(camera.position)
           .addScaledVector(forward, ahead)
           .addScaledVector(left, -aside);
 
-        if (
-          outOfBounds(mirrored) + SIDE_HYSTERESIS <
-          outOfBounds(goal.current)
-        ) {
-          side.current *= -1;
-          goal.current.copy(mirrored);
+        const leftOverflow = outOfBounds(leftSpot);
+        const rightOverflow = outOfBounds(rightSpot);
+        if (isOnLeft.current) {
+          if (leftOverflow > rightOverflow + SIDE_HYSTERESIS)
+            isOnLeft.current = false;
+        } else if (leftOverflow <= rightOverflow) {
+          isOnLeft.current = true;
         }
 
+        goal.current.copy(isOnLeft.current ? leftSpot : rightSpot);
         clampToRoom(goal.current);
       }
 
