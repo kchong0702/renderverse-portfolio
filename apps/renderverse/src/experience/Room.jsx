@@ -1,5 +1,9 @@
 import Arena from "@/experience/player/Arena";
-import Model from "@/experience/models/Model";
+import RoomModel from "@/experience/models/RoomModel";
+import Clock from "@/features/clock/scene/Clock";
+import { usePortfolioSlots } from "@/features/portfolio/scene/usePortfolioSlots";
+import { useSecretRoomSlots } from "@/features/secret-room/scene/useSecretRoomSlots";
+import SecretRoomScene from "@/features/secret-room/scene/SecretRoomScene";
 import { AdaptiveDpr, AdaptiveEvents, Bvh } from "@react-three/drei";
 import { Physics } from "@react-three/rapier";
 import Person from "@/experience/player/Person";
@@ -33,6 +37,22 @@ function Room({ fpv }) {
     if (!state.cooldown) dispatchSceneLoader({ type: type });
   };
 
+  // Each feature attaches its behaviour and content to the room's meshes
+  const portfolioSlots = usePortfolioSlots({
+    state,
+    handlePLInteraction,
+    handleModalInteraction,
+  });
+  const secretRoomSlots = useSecretRoomSlots({
+    handlePLInteraction,
+    handleSceneLoaderInteraction,
+  });
+  const slots = {
+    ...portfolioSlots,
+    ...secretRoomSlots,
+    Clock_Screen001: { children: !state.isTLocked && <Clock /> },
+  };
+
   /**
    * hack to avoid flickering of html element
    * before room complete suspense
@@ -51,12 +71,8 @@ function Room({ fpv }) {
         {fpv && <Person pointerState={state} />}
       </Physics>
       {fpv && <EzbotCompanion />}
-      <Model
-        handlePLInteraction={handlePLInteraction}
-        handleModalInteraction={handleModalInteraction}
-        handleSceneLoaderInteraction={handleSceneLoaderInteraction}
-        state={state}
-      />
+      <RoomModel slots={slots} />
+      <SecretRoomScene state={state} />
       <Title />
       <About />
     </Bvh>
