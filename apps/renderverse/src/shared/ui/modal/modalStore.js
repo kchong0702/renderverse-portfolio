@@ -14,7 +14,6 @@ const reducer = (state, action) => {
   }
 };
 
-// Which modal is open ({ id, content }); features render their own content
 export const useModalStore = create((set) => ({
   isShow: false,
   data: null,

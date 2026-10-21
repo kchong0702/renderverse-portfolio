@@ -1,7 +1,6 @@
 import { IoMdCloseCircle } from "react-icons/io";
 import PropTypes from "prop-types";
 
-// Presentational shell; features decide when to render it and what goes inside
 export default function Modal({ onClose, children }) {
   return (
     <div

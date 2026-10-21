@@ -3,9 +3,6 @@ import Skills from "./Skills/Skills";
 import Projects from "./Projects/Projects";
 import Contacts from "./Contacts/Contacts";
 
-// RoomModel slots for the portfolio boards: Skills on the whiteboard,
-// Projects on the projector and Contacts on the phone. Boards are hidden
-// while the secret room is open; their click targets stay active.
 export const usePortfolioSlots = ({
   state,
   handlePLInteraction,

@@ -12,10 +12,6 @@ import {
   meshBounds,
 } from "@react-three/drei";
 
-// Geometry, materials and animation only. Interactive meshes take their
-// handlers and attached content from `slots`, keyed by mesh name
-// (e.g. slots.Door = { onClick, children }), so features own the behaviour
-// and re-exporting from gltfjsx only has to keep the slot spreads.
 function RoomModel({ slots = {}, ...props }) {
   const group = useRef();
   const { nodes, animations } = useGLTF("/models/room.glb");

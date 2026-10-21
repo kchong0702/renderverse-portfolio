@@ -11,7 +11,6 @@ const reducer = (state, action) => {
   }
 };
 
-// Full-screen transition shown while switching between scenes
 export const useSceneLoaderStore = create((set) => ({
   isActive: false,
   dispatch: (action) => set((state) => reducer(state, action)),

@@ -3,14 +3,10 @@ import { isAuthenticated, setAuthenticationUser } from "../lib/auth";
 
 const CLICKS_TO_UNLOCK = 20;
 
-// RoomModel slots for the secret room doors: the room door unlocks after
-// CLICKS_TO_UNLOCK clicks (once per tab session), the figurine door leads back
 export const useSecretRoomSlots = ({
   handlePLInteraction,
   handleSceneLoaderInteraction,
 }) => {
-  // A ref, not state: the count is never rendered, and side effects must not
-  // run inside a state updater (StrictMode calls those twice)
   const doorClicks = useRef(0);
 
   const enterSecretRoom = () => {

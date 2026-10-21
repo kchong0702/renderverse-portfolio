@@ -19,7 +19,6 @@ const STATUS_BY_QUERY = {
   error: CONNECTION_STATUS.OFFLINE,
 };
 
-// Shared by every consumer: one request, deduped and cancelled by the cache
 export const useEzbotStatus = () => {
   const { status } = useQuery({
     queryKey: ezbotKeys.health,
@@ -31,7 +30,6 @@ export const useEzbotStatus = () => {
   return STATUS_BY_QUERY[status];
 };
 
-// Re-check now, e.g. when the chat opens or a request fails
 export const useRecheckEzbot = () => {
   const queryClient = useQueryClient();
   return useCallback(

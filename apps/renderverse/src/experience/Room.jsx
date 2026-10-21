@@ -19,7 +19,6 @@ import { displayInitialHiddenHtml } from "@/shared/lib/event-handler";
 import { useSceneLoaderStore } from "@/experience/state/sceneLoaderStore";
 
 function Room({ fpv }) {
-  // Whole scene state: it is drilled into Camera, Person and Model
   const state = useSceneStore();
   const { dispatch } = state;
   const dispatchModal = useModalStore((s) => s.dispatch);
@@ -37,7 +36,6 @@ function Room({ fpv }) {
     if (!state.cooldown) dispatchSceneLoader({ type: type });
   };
 
-  // Each feature attaches its behaviour and content to the room's meshes
   const portfolioSlots = usePortfolioSlots({
     state,
     handlePLInteraction,

@@ -12,7 +12,6 @@ export default function ProjectModal() {
 
   const close = () => {
     dispatchModal({ type: "TOGGLE_CLOSE" });
-    // Read at click time; this component doesn't need to re-render on scene changes
     const { specialIsLocked, focus, dispatch } = useSceneStore.getState();
     if (specialIsLocked === false && focus === null) {
       dispatch({ type: "SLOCK" });

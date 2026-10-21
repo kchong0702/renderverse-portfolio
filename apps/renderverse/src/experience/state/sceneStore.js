@@ -75,8 +75,6 @@ const reducer = (state, action) => {
   }
 };
 
-// Pointer lock, focus and figure-room state for the whole experience.
-// Select only the fields you read: useSceneStore((s) => s.isLocked)
 export const useSceneStore = create((set) => ({
   isLocked: false,
   specialIsLocked: null,
