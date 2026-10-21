@@ -20,7 +20,7 @@ function Lighting() {
     },
   });
 
-  const light = useRef();
+  const light = useRef<THREE.PointLight>(null!);
   useHelper(light, THREE.PointLightHelper, 1);
 
   return (

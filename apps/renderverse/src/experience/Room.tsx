@@ -11,28 +11,46 @@ import EzbotCompanion from "@/features/ezbot/scene/EzbotCompanion";
 import Title from "@/features/portfolio/scene/Title";
 import About from "@/features/portfolio/scene/About";
 import { Skybox } from "@/experience/environment/Skybox";
-import PropTypes from "prop-types";
-import { useSceneStore } from "@/experience/state/sceneStore";
-import { useModalStore } from "@/shared/ui/modal/modalStore";
+import {
+  useSceneStore,
+  type SceneInteraction,
+} from "@/experience/state/sceneStore";
+import {
+  useModalStore,
+  type ModalAction,
+  type ModalData,
+} from "@/shared/ui/modal/modalStore";
 import Camera from "@/experience/camera/Camera";
 import { displayInitialHiddenHtml } from "@/shared/lib/event-handler";
-import { useSceneLoaderStore } from "@/experience/state/sceneLoaderStore";
+import {
+  useSceneLoaderStore,
+  type SceneLoaderAction,
+} from "@/experience/state/sceneLoaderStore";
+import type { RoomSlots } from "@/experience/models/RoomModel";
 
-function Room({ fpv }) {
+interface RoomProps {
+  fpv: boolean;
+}
+
+function Room({ fpv }: RoomProps) {
   const state = useSceneStore();
   const { dispatch } = state;
   const dispatchModal = useModalStore((s) => s.dispatch);
   const dispatchSceneLoader = useSceneLoaderStore((s) => s.dispatch);
 
-  const handlePLInteraction = (type, payload) => {
-    if (!state.cooldown) dispatch({ type: type, payload: payload });
+  const handlePLInteraction: SceneInteraction = (type, payload) => {
+    if (!state.cooldown)
+      dispatch({ type, payload } as Parameters<typeof dispatch>[0]);
   };
 
-  const handleModalInteraction = (type, payload) => {
-    dispatchModal({ type: type, payload: payload });
+  const handleModalInteraction = (
+    type: ModalAction["type"],
+    payload?: ModalData,
+  ) => {
+    dispatchModal({ type, payload } as ModalAction);
   };
 
-  const handleSceneLoaderInteraction = (type) => {
+  const handleSceneLoaderInteraction = (type: SceneLoaderAction["type"]) => {
     if (!state.cooldown) dispatchSceneLoader({ type: type });
   };
 
@@ -45,7 +63,7 @@ function Room({ fpv }) {
     handlePLInteraction,
     handleSceneLoaderInteraction,
   });
-  const slots = {
+  const slots: RoomSlots = {
     ...portfolioSlots,
     ...secretRoomSlots,
     Clock_Screen001: { children: !state.isTLocked && <Clock /> },
@@ -76,9 +94,5 @@ function Room({ fpv }) {
     </Bvh>
   );
 }
-
-Room.propTypes = {
-  fpv: PropTypes.bool,
-};
 
 export default Room;

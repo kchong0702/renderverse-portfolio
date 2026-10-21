@@ -1,11 +1,26 @@
 import { useRef } from "react";
 import * as THREE from "three";
-import { PerspectiveCamera, useHelper } from "@react-three/drei";
+import { PerspectiveCamera } from "@react-three/drei";
 import { useControls } from "leva";
-import PropTypes from "prop-types";
 
-function CustomCamera({ settings }) {
-  const ref = useRef();
+type Vector3Tuple = [number, number, number];
+
+interface CustomCameraSettings {
+  fov?: number;
+  near?: number;
+  far?: number;
+  zoom?: number;
+  position?: Vector3Tuple;
+  rotation?: Vector3Tuple;
+  makeDef?: boolean;
+}
+
+interface CustomCameraProps {
+  settings: CustomCameraSettings;
+}
+
+function CustomCamera({ settings }: CustomCameraProps) {
+  const ref = useRef<THREE.PerspectiveCamera>(null);
   const { fov, near, far, position, rotation } = useControls("Camera", {
     fov: {
       value: 55,
@@ -37,7 +52,6 @@ function CustomCamera({ settings }) {
     },
   });
 
-  useHelper(true, ref, THREE.CameraHelper);
   // useHelper(ref, THREE.CameraHelper);
 
   return (
@@ -99,17 +113,5 @@ function CustomCamera({ settings }) {
     </>
   );
 }
-
-CustomCamera.propTypes = {
-  settings: PropTypes.shape({
-    fov: PropTypes.number,
-    near: PropTypes.number,
-    far: PropTypes.number,
-    zoom: PropTypes.number,
-    position: PropTypes.array,
-    rotation: PropTypes.array,
-    makeDef: PropTypes.bool,
-  }),
-};
 
 export default CustomCamera;

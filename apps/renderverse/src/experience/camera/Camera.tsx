@@ -1,12 +1,17 @@
-import PropTypes from "prop-types";
 import CustomCamera from "./CustomCamera";
 import CameraController from "./CameraController";
 import { PointerLockControls, OrbitControls } from "@react-three/drei";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, type ElementRef } from "react";
 import CameraAroundController from "./CameraAroundController";
+import type { SceneState } from "@/experience/state/sceneStore";
 
-export default function Camera({ state, fpv }) {
-  const control = useRef();
+interface CameraProps {
+  state: SceneState;
+  fpv: boolean;
+}
+
+export default function Camera({ state, fpv }: CameraProps) {
+  const control = useRef<ElementRef<typeof PointerLockControls>>(null);
 
   useEffect(() => {
     const projele = document.getElementById("viewindicator");
@@ -90,14 +95,7 @@ export default function Camera({ state, fpv }) {
           zoom={state.tInnerZoom}
         />
       )}
-      {state.tInnerAround && (
-        <CameraAroundController animation={state.tInnerAround} />
-      )}
+      {state.tInnerAround && <CameraAroundController />}
     </>
   );
 }
-
-Camera.propTypes = {
-  state: PropTypes.object,
-  fpv: PropTypes.bool,
-};

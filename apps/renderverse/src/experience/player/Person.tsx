@@ -1,17 +1,21 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { RigidBody } from "@react-three/rapier";
+import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import * as THREE from "three";
-import { usePersonControls } from "./usePersonControls.js";
-import PropTypes from "prop-types";
+import { usePersonControls } from "./usePersonControls";
+import type { SceneState } from "@/experience/state/sceneStore";
 
 const MOVE_SPEED = 5;
 const direction = new THREE.Vector3();
 const frontVector = new THREE.Vector3();
 const sideVector = new THREE.Vector3();
 
-function Person({ pointerState }) {
-  const playerRef = useRef();
+interface PersonProps {
+  pointerState: Pick<SceneState, "specialIsLocked">;
+}
+
+function Person({ pointerState }: PersonProps) {
+  const playerRef = useRef<RapierRigidBody>(null);
   const { forward, backward, left, right } = usePersonControls();
   useFrame((state) => {
     if (!playerRef.current || pointerState.specialIsLocked === false) return;
@@ -20,19 +24,22 @@ function Person({ pointerState }) {
      * object in a straight line path
      */
     const velocity = playerRef.current.linvel();
-    frontVector.set(0, 0, backward - forward);
-    sideVector.set(left - right, 0, 0);
+    frontVector.set(0, 0, Number(backward) - Number(forward));
+    sideVector.set(Number(left) - Number(right), 0, 0);
     direction
       .subVectors(frontVector, sideVector) // subtract (combined movement direction vector)
       .normalize() // ensure magnitude is 1
       .multiplyScalar(MOVE_SPEED) // final movement amount per frame
       .applyEuler(state.camera.rotation); // camera trajectory
     playerRef.current.wakeUp(); // wake up physics body
-    playerRef.current.setLinvel({
-      x: direction.x,
-      y: velocity.y,
-      z: direction.z,
-    });
+    playerRef.current.setLinvel(
+      {
+        x: direction.x,
+        y: velocity.y,
+        z: direction.z,
+      },
+      false,
+    );
 
     // camera to person
     const { x, y, z } = playerRef.current.translation();
@@ -48,9 +55,5 @@ function Person({ pointerState }) {
     </RigidBody>
   );
 }
-
-Person.propTypes = {
-  pointerState: PropTypes.object,
-};
 
 export default Person;

@@ -1,6 +1,65 @@
 import { create } from "zustand";
 
-const reducer = (state, action) => {
+export interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface CameraFocus {
+  look: Vec3;
+  pos: Vec3;
+}
+
+export interface AroundAnimation {
+  focus: Vec3;
+  radius: number;
+}
+
+export interface SceneState {
+  isLocked: boolean;
+  specialIsLocked: boolean | null;
+  showCrosshair: boolean;
+  cooldown: boolean;
+  focus: CameraFocus | null;
+  isTLocked: boolean;
+  tFocus: [number, number, number] | null;
+  tInnerFocus: boolean;
+  tInnerLight: boolean;
+  tInnerZoom: number;
+  tInnerAround: AroundAnimation | null;
+}
+
+export type SceneAction =
+  | { type: "LOCK" }
+  | { type: "UNLOCK" }
+  | { type: "SLOCK" }
+  | { type: "SUNLOCK"; payload?: CameraFocus }
+  | { type: "COOLDOWN" }
+  | { type: "TLOCK" }
+  | { type: "TUNLOCK" }
+  | { type: "TFOCUS"; payload?: [number, number, number] }
+  | { type: "TINNERFOCUS"; payload?: CameraFocus }
+  | { type: "TINNERLIGHT" }
+  | { type: "TINNERZOOM"; payload?: number }
+  | { type: "TINNERZOOMOUT" }
+  | { type: "TINNERAROUND"; payload?: AroundAnimation };
+
+export type SceneActionType = SceneAction["type"];
+
+export type SceneActionPayload<T extends SceneActionType> =
+  Extract<SceneAction, { type: T }> extends { payload?: infer P } ? P : never;
+
+export type SceneInteraction = <T extends SceneActionType>(
+  type: T,
+  payload?: SceneActionPayload<T>,
+) => void;
+
+interface SceneStore extends SceneState {
+  dispatch: (action: SceneAction) => void;
+}
+
+const reducer = (state: SceneState, action: SceneAction): SceneState => {
   switch (action.type) {
     case "LOCK":
       return {
@@ -75,7 +134,7 @@ const reducer = (state, action) => {
   }
 };
 
-export const useSceneStore = create((set) => ({
+export const useSceneStore = create<SceneStore>((set) => ({
   isLocked: false,
   specialIsLocked: null,
   showCrosshair: false,

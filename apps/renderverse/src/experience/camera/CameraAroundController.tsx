@@ -2,10 +2,35 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useThree } from "@react-three/fiber";
 
+type Axis = "x" | "y" | "z";
+
+interface RotateAnimation {
+  id: "rotate";
+  rad: number;
+  duration: number;
+  down: number;
+  radianlim: number;
+  cycle: number;
+  ylim: number;
+  lookdown: number;
+}
+
+interface TransitionAnimation {
+  id: "transition";
+  duration: number;
+  speed: Record<Axis, number>;
+  axis: Axis[];
+  limit: Record<Axis, number>;
+  delay: number;
+  sign: Record<Axis, "+" | "-">;
+}
+
+type AroundAnimationStep = RotateAnimation | TransitionAnimation;
+
 export default function CameraAroundController() {
   const camera = useThree((state) => state.camera);
   const look = new THREE.Vector3(4.4, 17, -22.128);
-  const animations = [
+  const animations: AroundAnimationStep[] = [
     {
       id: "rotate",
       rad: 3.5,
@@ -34,7 +59,7 @@ export default function CameraAroundController() {
   const defLook = look.clone();
   const defCamera = camera.position.clone();
 
-  return useFrame((state) => {
+  useFrame((state) => {
     const { clock } = state;
 
     if (animFlag.id === "rotate") {
@@ -73,21 +98,22 @@ export default function CameraAroundController() {
     }
 
     if (animFlag.id === "transition") {
+      const transition = animFlag;
       let flag = true;
-      animFlag.axis.forEach((a) => {
+      transition.axis.forEach((a) => {
         // look[a] += animFlag.speed / animFlag.duration;
         if (
-          animFlag.sign[a] === "+" &&
-          state.camera.position[a] >= animFlag.limit[a]
+          transition.sign[a] === "+" &&
+          state.camera.position[a] >= transition.limit[a]
         ) {
           flag = true;
         } else if (
-          animFlag.sign[a] === "-" &&
-          state.camera.position[a] <= animFlag.limit[a]
+          transition.sign[a] === "-" &&
+          state.camera.position[a] <= transition.limit[a]
         ) {
           flag = true;
         } else {
-          state.camera.position[a] += animFlag.speed[a] / animFlag.duration;
+          state.camera.position[a] += transition.speed[a] / transition.duration;
           flag = false;
         }
       });
@@ -107,4 +133,6 @@ export default function CameraAroundController() {
 
     state.camera.updateProjectionMatrix();
   });
+
+  return null;
 }
