@@ -10,7 +10,10 @@
 .maincontent {
   background: #fff;
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .projcontent::-webkit-scrollbar {
@@ -18,10 +21,13 @@
 }
 
 .projcontent {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: max-content;
   column-gap: 3%;
-  row-gap: 10%;
+  row-gap: 40px;
   padding: 2%;
   overflow: auto;
   scrollbar-width: none; /* Firefox */

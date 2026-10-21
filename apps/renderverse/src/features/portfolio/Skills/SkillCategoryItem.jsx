@@ -1,12 +1,13 @@
+import styles from "./Skills.module.css";
 import Rating from "./Rating";
 import PropTypes from "prop-types";
 
 const SkillCategoryItem = ({ item }) => {
   const { name, rating } = item;
   return (
-    <li>
+    <li className={styles.item}>
       {name}
-      <Rating size={12} checked={rating} />
+      <Rating size="0.6em" checked={rating} />
     </li>
   );
 };

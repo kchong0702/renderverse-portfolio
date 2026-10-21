@@ -13,7 +13,7 @@ export default function Chatbubble(props) {
             height={40}
           ></img>
           <div className={[styles.chat__bubble, styles.chat__system].join(" ")}>
-            <span className={props.isAborted ? "aborted_message" : ""}>
+            <span className={props.isAborted ? styles.aborted_message : ""}>
               {props.content}
             </span>
           </div>

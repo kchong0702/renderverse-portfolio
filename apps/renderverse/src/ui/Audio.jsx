@@ -2,6 +2,7 @@ import { MdMusicOff, MdMusicNote } from "react-icons/md";
 import { useState, useEffect, useRef } from "react";
 import { useChatControl } from "../hooks/useChatControl";
 import { useSceneControl } from "../hooks/useSceneControl";
+import { useHotkey } from "../hooks/useHotkey";
 
 export default function Audio() {
   const [playing, setPlaying] = useState(false);
@@ -11,23 +12,19 @@ export default function Audio() {
 
   const audio = useRef();
 
+  const src = state.isTLocked
+    ? "/assets/audio/sussus-toogus.mp3"
+    : "/assets/audio/tokyo-walker.mp3";
+
   useEffect(() => {
-    if (playing && audio) audio.current.play();
+    if (playing && audio)
+      audio.current.play().catch((err) => {
+        if (err.name !== "AbortError") setPlaying(false);
+      });
     else if (audio) audio.current.pause();
-  }, [playing]);
+  }, [playing, src]);
 
-  useEffect(() => {
-    const handleMusic = (e) => {
-      if ((e.key === "m" || e.code === 77) && !chatState.isOpen) {
-        setPlaying((playing) => !playing);
-      }
-    };
-
-    document.addEventListener("keydown", handleMusic);
-    return () => {
-      document.removeEventListener("keydown", handleMusic);
-    };
-  }, [chatState.isOpen, playing]);
+  useHotkey("KeyM", () => setPlaying((playing) => !playing), !chatState.isOpen);
 
   return (
     <div
@@ -52,15 +49,7 @@ export default function Audio() {
         setPlaying((playing) => !playing);
       }}
     >
-      <audio
-        src={
-          state.isTLocked
-            ? "/assets/audio/sussus-toogus.mp3"
-            : "/assets/audio/tokyo-walker.mp3"
-        }
-        ref={audio}
-        loop
-      ></audio>
+      <audio src={src} ref={audio} loop></audio>
       {playing ? <MdMusicNote size={30} /> : <MdMusicOff size={30} />}
     </div>
   );

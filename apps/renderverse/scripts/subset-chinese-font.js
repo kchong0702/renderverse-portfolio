@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-/* eslint-disable no-undef */
 
 /**
  * Subset a Chinese TTF font to only the characters used in the zh.json translations,
@@ -153,16 +152,6 @@ function getFontFamilyName(font) {
   return "ChineseFont";
 }
 
-function getFontSubfamilyName(font) {
-  if (font.names.fontSubfamily?.values?.[0]?.text) {
-    return font.names.fontSubfamily.values[0].text;
-  }
-  if (font.names.windows?.fontSubfamily?.en) {
-    return font.names.windows.fontSubfamily.en;
-  }
-  return "Regular";
-}
-
 /**
  * Build the Three.js FontLoader JSON structure from an opentype.js font
  * subset to the given characters.
@@ -245,8 +234,12 @@ async function main() {
   const outputName = args[1] || "chineseSubset";
 
   if (!fontPath) {
-    console.error("Usage: node scripts/subset-chinese-font.js <path-to-ttf-font> [output-name]");
-    console.error("Example: node scripts/subset-chinese-font.js ./fonts/NotoSansSC-Regular.ttf");
+    console.error(
+      "Usage: node scripts/subset-chinese-font.js <path-to-ttf-font> [output-name]",
+    );
+    console.error(
+      "Example: node scripts/subset-chinese-font.js ./fonts/NotoSansSC-Regular.ttf",
+    );
     process.exit(1);
   }
 
@@ -256,7 +249,7 @@ async function main() {
     console.error(`❌ Font file not found: ${resolvedFontPath}`);
     console.error("\n💡 Download a free Chinese font, e.g.:");
     console.error(
-      "   Noto Sans SC: https://github.com/google/fonts/raw/main/ofl/notosanssc/NotoSansSC[wght].ttf"
+      "   Noto Sans SC: https://github.com/google/fonts/raw/main/ofl/notosanssc/NotoSansSC[wght].ttf",
     );
     console.error("   Or any .ttf file that supports Chinese characters.");
     process.exit(1);
@@ -277,9 +270,11 @@ async function main() {
   const result = buildThreeFontJSON(font, chars);
 
   const glyphCount = Object.keys(result.glyphs).filter(
-    (k) => result.glyphs[k].o && result.glyphs[k].o.length > 0
+    (k) => result.glyphs[k].o && result.glyphs[k].o.length > 0,
   ).length;
-  console.log(`✅ Subset contains ${glyphCount} glyphs (Chinese + ASCII + punctuation)`);
+  console.log(
+    `✅ Subset contains ${glyphCount} glyphs (Chinese + ASCII + punctuation)`,
+  );
 
   const outputPath = path.join(OUTPUT_DIR, `${outputName}.json`);
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -291,7 +286,9 @@ async function main() {
   console.log(`\n💾 Written to: ${outputPath}`);
   console.log(`📦 File size: ${fileSizeKB} KB`);
   console.log("\n✨ Done! Use this font in your Three.js TextGeometry:");
-  console.log(`   const font = useLoader(FontLoader, "./fonts/${outputName}.json");`);
+  console.log(
+    `   const font = useLoader(FontLoader, "./fonts/${outputName}.json");`,
+  );
 }
 
 main().catch((err) => {

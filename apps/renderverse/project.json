@@ -13,7 +13,13 @@
       }
     },
     "dev": {
-      "continuous": true
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "options": {
+        "command": "vite",
+        "cwd": "apps/renderverse",
+        "tty": true
+      }
     },
     "preview": {
       "continuous": true,

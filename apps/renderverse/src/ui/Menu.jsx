@@ -1,10 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { FaGamepad } from "react-icons/fa6";
 import { useSceneControl } from "../hooks/useSceneControl";
+import { useChatControl } from "../hooks/useChatControl";
 import { useEffect, useCallback } from "react";
 import { MdRunCircle } from "react-icons/md";
 import { useCooldown } from "../../src/hooks/useCooldown";
 import { CONFIG } from "../config-global";
+import { useHotkey } from "../hooks/useHotkey";
 
 export default function Menu() {
   const { t, i18n } = useTranslation();
@@ -12,8 +14,21 @@ export default function Menu() {
   useCooldown();
 
   const { state, dispatch } = useSceneControl();
+  const { chatState } = useChatControl();
 
   const memoizedDispatch = useCallback(dispatch, [dispatch]);
+
+  const toggleLanguage = () => {
+    const next = i18n.language.startsWith("zh") ? "en" : "zh";
+    i18n.changeLanguage(next);
+    try {
+      localStorage.setItem(CONFIG.languageStorageKey, next);
+    } catch {
+      // Storage may be unavailable.
+    }
+  };
+
+  useHotkey("KeyL", toggleLanguage, !chatState.isOpen);
 
   useEffect(() => {
     if (state.isLocked === true)
@@ -91,6 +106,9 @@ export default function Menu() {
           </span>
           <span style={{ display: "block", marginBottom: "1rem" }}>
             {t("menu.music")}
+          </span>
+          <span style={{ display: "block", marginBottom: "1rem" }}>
+            {t("menu.language")}
           </span>
           {/* <span style={{ display: "block", marginBottom: "1rem" }}>
             Credit: C

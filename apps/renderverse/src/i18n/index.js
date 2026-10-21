@@ -4,6 +4,7 @@ import LanguageDetector from "i18next-browser-languagedetector";
 
 import translationEN from "./locales/en.json";
 import translationZH from "./locales/zh.json";
+import { CONFIG } from "../config-global";
 
 const resources = {
   en: { translation: translationEN },
@@ -21,7 +22,8 @@ i18n
       escapeValue: false,
     },
     detection: {
-      order: ["navigator", "htmlTag", "path", "subdomain"],
+      order: ["localStorage", "navigator", "htmlTag", "path", "subdomain"],
+      lookupLocalStorage: CONFIG.languageStorageKey,
       caches: [],
     },
   });

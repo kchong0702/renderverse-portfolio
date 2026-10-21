@@ -1,67 +1,51 @@
 import styles from "./ChatScreen.module.css";
 import { useSceneControl } from "../../hooks/useSceneControl";
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback } from "react";
 import Ezbot from "./Ezbot";
 import Chat from "./Chat";
-import { useChatControl } from "../../hooks/useChatControl";
+import { useChatControl, useOpenChat } from "../../hooks/useChatControl";
+import { CONNECTION_STATUS, useEzbotStatus } from "../../hooks/useEzbotStatus";
+import { useHotkey } from "../../hooks/useHotkey";
 
 export default function ChatScreen() {
-  const { state, dispatch } = useSceneControl();
-  const { chatDispatch } = useChatControl();
+  const { dispatch } = useSceneControl();
+  const { chatState, chatDispatch } = useChatControl();
+  const openChat = useOpenChat();
 
-  const memoizedDispatch = useCallback(dispatch, [dispatch]);
-  const memoizedChatDispatch = useCallback(chatDispatch, [chatDispatch]);
-
-  const [isShow, setShow] = useState(false);
-  const [isConnectionActive, setConnectionActive] = useState(false);
+  const { isOpen } = chatState;
+  const connectionStatus = useEzbotStatus();
 
   const hide = () => {
-    setShow(false);
-    memoizedDispatch({ type: "SLOCK" });
-    memoizedChatDispatch({ type: "CLOSE" });
+    dispatch({ type: "SLOCK" });
+    chatDispatch({ type: "CLOSE" });
   };
 
-  useEffect(() => {
-    const handleChat = (e) => {
-      if (
-        (e.key === "c" || e.code === 67) &&
-        state.isLocked === true &&
-        (state.specialIsLocked === true || state.specialIsLocked === null)
-      ) {
-        setShow(true);
-        memoizedDispatch({ type: "SUNLOCK" });
-        memoizedChatDispatch({ type: "OPEN" });
-      }
-    };
+  const setReplying = useCallback(
+    (isReplying) => chatDispatch({ type: "REPLYING", payload: isReplying }),
+    [chatDispatch],
+  );
 
-    document.addEventListener("keydown", handleChat);
-
-    return () => {
-      document.removeEventListener("keydown", handleChat);
-    };
-  }, [
-    memoizedChatDispatch,
-    memoizedDispatch,
-    state.isLocked,
-    state.menuState,
-    state.specialIsLocked,
-  ]);
+  useHotkey("KeyC", openChat);
 
   useEffect(() => {
-    if (isShow) {
+    if (isOpen) {
       document.getElementById("chat-overlay").style.display = "flex";
     } else {
       document.getElementById("chat-overlay").style.display = "none";
     }
-  }, [isShow]);
+  }, [isOpen]);
 
   return (
     <div id="chat-overlay" className={styles.chatOverlay}>
-      <Ezbot isActive={isConnectionActive} isLightOff={false} />
+      <Ezbot
+        isActive={connectionStatus === CONNECTION_STATUS.ONLINE}
+        isLightOff={false}
+      />
       <Chat
         close={hide}
-        setConnectionActive={setConnectionActive}
-        isConnectionActive={isConnectionActive}
+        isOpen={isOpen}
+        connectionStatus={connectionStatus}
+        setReplying={setReplying}
       />
     </div>
   );

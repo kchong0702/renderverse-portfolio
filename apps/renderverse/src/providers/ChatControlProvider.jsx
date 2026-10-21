@@ -1,10 +1,7 @@
-import { createContext, useContext, useReducer } from "react";
+import { useReducer } from "react";
 import PropTypes from "prop-types";
+import { ChatControlContext } from "../hooks/useChatControl";
 
-// 1. Create context
-const ChatControlContext = createContext();
-
-// 2. Create reducer
 const reducer = (state, action) => {
   switch (action.type) {
     case "OPEN":
@@ -17,15 +14,20 @@ const reducer = (state, action) => {
         ...state,
         isOpen: false,
       };
+    case "REPLYING":
+      return {
+        ...state,
+        isReplying: action.payload,
+      };
     default:
       return state;
   }
 };
 
-// 3. Create provider
-const ChatControlProvider = ({ children }) => {
+export default function ChatControlProvider({ children }) {
   const [chatState, chatDispatch] = useReducer(reducer, {
     isOpen: false,
+    isReplying: false,
   });
 
   return (
@@ -33,21 +35,8 @@ const ChatControlProvider = ({ children }) => {
       {children}
     </ChatControlContext.Provider>
   );
-};
+}
 
-// 4. Custom Hook
-const useChatControl = () => {
-  const context = useContext(ChatControlContext);
-  if (context === undefined)
-    throw new Error(
-      "ChatControlContext was used outside of the ChatControlProvider",
-    );
-  return context;
-};
-
-export { ChatControlProvider, useChatControl };
-
-// Props validation
 ChatControlProvider.propTypes = {
   children: PropTypes.any,
 };

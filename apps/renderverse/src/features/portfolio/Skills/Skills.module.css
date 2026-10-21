@@ -1,31 +1,69 @@
 /* Containers Styling */
 .skillContainer {
   position: relative;
+  background: #fff;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  padding: 24px 36px 32px;
+  overflow: hidden;
+}
+
+.formula {
+  display: flex;
+  justify-content: flex-end;
+  flex: none;
 }
 
 .content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.9em;
   background: transparent;
-  /* width: 600px;
-  height: 400px; */
+}
+
+.category {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
 }
 
 /* Element Styling */
-.heading {
+h6.heading {
   margin: 0;
+  font-size: 1.25em;
+  line-height: 1.2;
+}
+
+ul.items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35em 1em;
+  margin: 0;
+  padding: 0;
+  font-size: 1em;
+  list-style: none;
+}
+
+li.item {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15em;
+  max-width: 100%;
+  padding: 0;
+  font-size: 1em;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 ul > li {
   display: inline-block;
-}
-
-h6.heading {
-  font-size: 1.5rem; /*1.5rem*/
-}
-
-h6.heading:not(:first-child) {
-  margin-top: 1rem;
 }
 
 ul,

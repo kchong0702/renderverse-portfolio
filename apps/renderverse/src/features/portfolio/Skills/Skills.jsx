@@ -4,7 +4,28 @@ import styles from "./Skills.module.css";
 import SkillCategory from "./SkillCategory";
 import { MathJaxContext, MathJax } from "better-react-mathjax";
 import { useTranslation } from "react-i18next";
-import { useState, useEffect } from "react";
+import { useRef } from "react";
+import { useFitFontSize } from "../../../hooks/useFitFontSize";
+
+const DISTANCE_FACTOR = 2.4;
+
+/**
+ * CSS px per scene unit for this overlay, drei's <Html transform> draws
+ * 1 CSS px as distanceFactor / 400 units, so 1 unit = 400 / distanceFactor px
+ * (~166.67 at 2.4). Lowering DISTANCE_FACTOR renders the board at a higher
+ * resolution in the same space.
+ */
+const PX_PER_UNIT = 400 / DISTANCE_FACTOR;
+
+/**
+ * Size the overlay to the whiteboard mesh whose geometry measures 3.18 (x) by
+ * 4.855 (y) units. The overlay is rotated -90deg around z, so the mesh's y side
+ * runs horizontally (width) and x side vertically (height).
+ */
+const BOARD_WIDTH_PX = Math.round(4.855 * PX_PER_UNIT);
+const BOARD_HEIGHT_PX = Math.round(3.18 * PX_PER_UNIT);
+
+const FONT_PX = { min: 14, max: 28 };
 
 function Skills() {
   const { t } = useTranslation();
@@ -59,22 +80,22 @@ function Skills() {
     ],
   };
 
-  const [transformRedy, setTransformReady] = useState(false)
-  useEffect(() => {
-    const timer = setTimeout(() => setTransformReady(true), 100) // need delay to wait MathJax rendering
-    return () => clearTimeout(timer)
-  }, [])
+  const contentRef = useRef(null);
+  useFitFontSize(contentRef, FONT_PX, JSON.stringify(skills));
 
   return (
     <Html
-      transform={transformRedy}
-      occlude
-      distanceFactor={2.4} // 3
+      transform
+      occlude="blending"
+      distanceFactor={DISTANCE_FACTOR}
       position={[position.x, position.y, position.z]}
       rotation={[rotation.x, rotation.y, rotation.z]}
     >
-      <div className={styles.skillContainer}>
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div
+        className={styles.skillContainer}
+        style={{ width: BOARD_WIDTH_PX, height: BOARD_HEIGHT_PX }}
+      >
+        <div className={styles.formula}>
           <MathJaxContext>
             <MathJax style={{ transform: "rotate(-5deg)", fontSize: "1rem" }}>
               {
@@ -83,7 +104,7 @@ function Skills() {
             </MathJax>
           </MathJaxContext>
         </div>
-        <div className={styles.content}>
+        <div ref={contentRef} className={styles.content}>
           {Object.entries(skills).map(([key, value]) => (
             <SkillCategory category={key} contents={value} key={key} />
           ))}

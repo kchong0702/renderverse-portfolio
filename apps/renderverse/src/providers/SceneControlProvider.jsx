@@ -1,10 +1,7 @@
-import { createContext, useContext, useReducer } from "react";
+import { useReducer } from "react";
 import PropTypes from "prop-types";
+import { SceneControlContext } from "../hooks/useSceneControl";
 
-// 1. Create context
-const SceneControlContext = createContext();
-
-// 2. Create reducer
 const reducer = (state, action) => {
   switch (action.type) {
     case "LOCK":
@@ -80,8 +77,7 @@ const reducer = (state, action) => {
   }
 };
 
-// 3. Create provider
-const SceneControlProvider = ({ children }) => {
+export default function SceneControlProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, {
     isLocked: false,
     specialIsLocked: null,
@@ -101,21 +97,8 @@ const SceneControlProvider = ({ children }) => {
       {children}
     </SceneControlContext.Provider>
   );
-};
+}
 
-// 4. Custom Hook
-const useSceneControl = () => {
-  const context = useContext(SceneControlContext);
-  if (context === undefined)
-    throw new Error(
-      "SceneControlContext was used outside of the SceneControlProvider",
-    );
-  return context;
-};
-
-export { SceneControlProvider, useSceneControl };
-
-// Props validation
 SceneControlProvider.propTypes = {
   children: PropTypes.any,
 };

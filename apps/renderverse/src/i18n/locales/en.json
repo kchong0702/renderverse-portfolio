@@ -8,15 +8,18 @@
     "look": "Look: MOUSE",
     "interact": "Interact: LMB",
     "music": "Music: M",
+    "language": "Language: L",
     "escToExit": "ESC to exit",
     "enter": "Enter"
   },
   "chat": {
     "poweredBy": "Powered by Ezbot",
-    "offline": "Ezbot is asleep, contact support to wake him up 🤖💤",
+    "offline": "Ezbot is recharging, please come back later.",
     "typing": "Ezbot is typing...",
     "typeMessage": "Type a message",
-    "disclaimer": "Ezbot can make mistakes. Consider checking important info"
+    "disclaimer": "Ezbot can make mistakes. Consider checking important info",
+    "stopped": "Reply stopped",
+    "error": "Ezbot couldn't reply, please try again"
   },
   "loader": {
     "loading": "Loading...",

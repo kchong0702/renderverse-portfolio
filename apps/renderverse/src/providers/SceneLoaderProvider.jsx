@@ -1,10 +1,7 @@
-import { createContext, useContext, useReducer } from "react";
+import { useReducer } from "react";
 import PropTypes from "prop-types";
+import { SceneLoaderContext } from "../hooks/useSceneLoader";
 
-// 1. Create context
-const SceneLoaderContext = createContext();
-
-// 2. Create reducer
 const reducer = (state, action) => {
   switch (action.type) {
     case "TOGGLE_ACTIVE":
@@ -20,8 +17,7 @@ const reducer = (state, action) => {
   }
 };
 
-// 3. Create provider
-const SceneLoaderProvider = ({ children }) => {
+export default function SceneLoaderProvider({ children }) {
   const [sceneLoaderState, dispatchSceneLoader] = useReducer(reducer, {
     isActive: false,
   });
@@ -33,21 +29,8 @@ const SceneLoaderProvider = ({ children }) => {
       {children}
     </SceneLoaderContext.Provider>
   );
-};
+}
 
-// 4. Custom Hook
-const useSceneLoader = () => {
-  const context = useContext(SceneLoaderContext);
-  if (context === undefined)
-    throw new Error(
-      "SceneLoaderContext was used outside of the SceneLoaderProvider",
-    );
-  return context;
-};
-
-export { SceneLoaderProvider, useSceneLoader };
-
-// Props validation
 SceneLoaderProvider.propTypes = {
   children: PropTypes.any,
 };

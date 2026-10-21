@@ -3,6 +3,7 @@ import Model from "../gltfmodel/Model";
 import { AdaptiveDpr, AdaptiveEvents, Bvh } from "@react-three/drei";
 import { Physics } from "@react-three/rapier";
 import Person from "../firstperson/Person";
+import EzbotCompanion from "../companion/EzbotCompanion";
 import Title from "../portfolio/Title";
 import About from "../portfolio/About";
 import { Skybox } from "../skybox/Skybox";
@@ -47,6 +48,7 @@ function Room({ fpv }) {
         <Arena />
         {fpv && <Person pointerState={state} />}
       </Physics>
+      {fpv && <EzbotCompanion />}
       <Model
         handlePLInteraction={handlePLInteraction}
         handleModalInteraction={handleModalInteraction}

@@ -8,15 +8,18 @@
     "look": "环顾：鼠标",
     "interact": "互动：左键点击",
     "music": "音乐：M",
+    "language": "语言：L",
     "escToExit": "ESC 退出",
     "enter": "进入"
   },
   "chat": {
     "poweredBy": "由 Ezbot 提供",
-    "offline": "Ezbot 正在休息，请联系客服唤醒他 🤖💤",
+    "offline": "Ezbot 正在充电，请稍后再来。",
     "typing": "Ezbot 正在输入...",
     "typeMessage": "输入消息",
-    "disclaimer": "Ezbot 可能会出错，请核实重要信息"
+    "disclaimer": "Ezbot 可能会出错，请核实重要信息",
+    "stopped": "已停止回复",
+    "error": "Ezbot 暂时无法回复，请稍后再试"
   },
   "loader": {
     "loading": "加载中...",

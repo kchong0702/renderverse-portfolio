@@ -6,30 +6,44 @@ import { GrPowerReset } from "react-icons/gr";
 import { IoIosSend } from "react-icons/io";
 import Chatbubble from "./Chatbubble";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { connect } from "../../core/api/ws";
+import {
+  MAX_HISTORY,
+  MAX_MESSAGE_CHARS,
+  streamChat,
+} from "../../core/api/ezbot";
 import ChatLoader from "./ChatLoader";
 import { FaStop } from "react-icons/fa6";
+import { CONNECTION_STATUS, useRecheckEzbot } from "../../hooks/useEzbotStatus";
+
+// Completed turns sent back to ezbot as context, oldest first
+const toHistory = (messages) =>
+  messages
+    .filter((message) => message.content && !message.isError)
+    .slice(-MAX_HISTORY)
+    .map((message) => ({
+      role: message.role === "user" ? "user" : "assistant",
+      content: message.content,
+    }));
 
 export default function Chat(props) {
   const { t } = useTranslation();
   const noConnectionMessage = {
     id: "",
     content: t("chat.offline"),
-    semantic: "None",
-    feedback: "",
     role: "system",
-    question_id: "",
     isAborted: false,
   };
 
   const [chatHistory, setChatHistory] = useState([]);
   const [input, setInput] = useState("");
-  const [ws, setWs] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
 
   const chatFocusRef = useRef(null);
+  const replyControllerRef = useRef(null);
+  const nextIdRef = useRef(0);
 
-  const { setConnectionActive } = props;
+  const { isOpen, connectionStatus, setReplying } = props;
+  const recheckEzbot = useRecheckEzbot();
 
   const scrollToBottom = () => {
     chatFocusRef.current?.scrollIntoView({
@@ -43,121 +57,89 @@ export default function Chat(props) {
     scrollToBottom();
   }, [chatHistory]);
 
-  const sendMessage = () => {
-    if (ws && input && !isTyping) {
-      const latestQuery = memoizedChatMessageHandler(input, "user");
-      const history = chatHistory.slice(1).map((chat) => {
-        return {
-          role: chat.role,
-          content: chat.content,
-        };
-      });
-      const newQuery = {
-        query: {
-          role: latestQuery.role,
-          content: latestQuery.content,
-        },
-        history: history,
-        question_id: latestQuery.id,
-        action: "query",
-      };
-      console.log(JSON.stringify(newQuery));
-      ws.send(JSON.stringify(newQuery));
-      setInput("");
-    }
-  };
+  const abortReply = useCallback(() => {
+    replyControllerRef.current?.abort();
+  }, []);
 
-  const abortMessage = () => {
-    if (isTyping) {
-      console.log("aborted");
-      const questionId = chatHistory[chatHistory.length - 1].id;
-      ws.send(
-        JSON.stringify({
-          question_id: questionId,
-          action: "abort",
-        }),
-      );
-    }
-  };
-
-  const memoizedChatMessageHandler = useCallback(
-    (content, role, question_id = null, isAborted = false) => {
-      const timestamp = Date.now();
-      const nextId = `${sessionStorage.getItem("sessionId")}-${timestamp}`;
-      const chatMessage = {
-        id: nextId,
-        content: content,
-        semantic: "None",
-        feedback: "",
-        role: role,
-        question_id: question_id,
-        isAborted: isAborted,
-      };
-
-      setChatHistory((history) => [...history, chatMessage]);
-
-      return chatMessage;
-    },
-    [],
-  );
+  // Cancel any reply when the chat closes
+  useEffect(() => {
+    if (!isOpen) return;
+    return abortReply;
+  }, [isOpen, abortReply]);
 
   useEffect(() => {
-    const receivedMessage = (aiResponse) => {
-      if (aiResponse.finish_reason === "typing") {
-        setIsTyping(true);
-      } else if (aiResponse.finish_reason === "aborted") {
-        memoizedChatMessageHandler(
-          aiResponse.response,
-          aiResponse.role,
-          aiResponse.question_id,
-          true,
-        );
-        setIsTyping(false);
+    setReplying(isTyping);
+  }, [isTyping, setReplying]);
+
+  const createMessage = (role, content) => ({
+    id: `message-${nextIdRef.current++}`,
+    role,
+    content,
+    isAborted: false,
+    isError: false,
+  });
+
+  const sendMessage = async () => {
+    const message = input.trim();
+    if (!message || isTyping || connectionStatus !== CONNECTION_STATUS.ONLINE)
+      return;
+
+    const history = toHistory(chatHistory);
+    const userMessage = createMessage("user", message);
+    const replyMessage = createMessage("system", "");
+
+    const updateReply = (update) =>
+      setChatHistory((messages) =>
+        messages.map((m) =>
+          m.id === replyMessage.id ? { ...m, ...update(m) } : m,
+        ),
+      );
+
+    setChatHistory((messages) => [...messages, userMessage, replyMessage]);
+    setInput("");
+    setIsTyping(true);
+
+    const controller = new AbortController();
+    replyControllerRef.current = controller;
+
+    try {
+      for await (const { event, data } of streamChat(
+        { message, history },
+        controller.signal,
+      )) {
+        if (event === "token") {
+          updateReply((m) => ({ content: m.content + data.content }));
+        } else if (event === "error") {
+          updateReply(() => ({ content: t("chat.error"), isError: true }));
+        }
+      }
+    } catch (error) {
+      if (controller.signal.aborted) {
+        updateReply((m) => ({
+          content: m.content || t("chat.stopped"),
+          isAborted: true,
+        }));
       } else {
-        memoizedChatMessageHandler(
-          aiResponse.response,
-          aiResponse.role,
-          aiResponse.question_id,
-          false,
-        );
+        console.error("Ezbot request failed:", error);
+        updateReply(() => ({ content: t("chat.error"), isError: true }));
+        recheckEzbot();
+      }
+    } finally {
+      // A newer reply may have started after a reset, leave its state alone
+      if (replyControllerRef.current === controller) {
+        replyControllerRef.current = null;
         setIsTyping(false);
       }
-    };
+    }
+  };
 
-    const initChat = async () => {
-      const socket = await connect();
+  const resetChat = () => {
+    abortReply();
+    setChatHistory([]);
+  };
 
-      socket.addEventListener("open", () => {
-        console.log("Ezbot connection established");
-        setConnectionActive(true);
-      });
-
-      socket.addEventListener("message", (event) => {
-        const response = JSON.parse(event.data);
-        receivedMessage(response);
-      });
-
-      socket.addEventListener("close", (event) => {
-        if (event.code === 1008) {
-          console.error(event.reason);
-        }
-      });
-
-      socket.addEventListener("error", (error) => {
-        console.error("WebSocket error:", error);
-        setConnectionActive(false);
-      });
-
-      setWs(socket);
-
-      // cleanup
-      return () => {
-        socket.close();
-      };
-    };
-
-    initChat();
-  }, [memoizedChatMessageHandler, setConnectionActive]);
+  const isWaitingForReply =
+    isTyping && chatHistory[chatHistory.length - 1]?.content === "";
 
   return (
     <div className={styles.chatbox}>
@@ -170,7 +152,7 @@ export default function Chat(props) {
             }}
             onClick={(event) => {
               event.stopPropagation();
-              setChatHistory([]);
+              resetChat();
             }}
           />
         </div>
@@ -189,14 +171,14 @@ export default function Chat(props) {
       </div>
       <div className={styles.chats}>
         <div className={styles.chatContainer}>
-          {!props.isConnectionActive ? (
+          {connectionStatus === CONNECTION_STATUS.OFFLINE ? (
             <Chatbubble {...noConnectionMessage} />
           ) : (
-            chatHistory.map((message) => (
-              <Chatbubble key={message.id} {...message} />
-            ))
+            chatHistory
+              .filter((message) => message.content)
+              .map((message) => <Chatbubble key={message.id} {...message} />)
           )}
-          {isTyping && <ChatLoader />}
+          {isWaitingForReply && <ChatLoader />}
           <div ref={chatFocusRef} />
         </div>
       </div>
@@ -208,6 +190,7 @@ export default function Chat(props) {
           type="text"
           placeholder={isTyping ? t("chat.typing") : t("chat.typeMessage")}
           value={input}
+          maxLength={MAX_MESSAGE_CHARS}
           disabled={isTyping}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
@@ -223,7 +206,7 @@ export default function Chat(props) {
           ].join(" ")}
         >
           {isTyping ? (
-            <FaStop size={20} onClick={abortMessage} />
+            <FaStop size={20} onClick={abortReply} />
           ) : (
             <IoIosSend size={28} onClick={sendMessage} />
           )}
@@ -238,6 +221,7 @@ export default function Chat(props) {
 
 Chat.propTypes = {
   close: PropTypes.func,
-  setConnectionActive: PropTypes.func,
-  isConnectionActive: PropTypes.bool,
+  isOpen: PropTypes.bool,
+  connectionStatus: PropTypes.oneOf(Object.values(CONNECTION_STATUS)),
+  setReplying: PropTypes.func,
 };
