@@ -2,13 +2,8 @@
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "defaultBase": "main",
   "namedInputs": {
-    "default": [
-      "{projectRoot}/**/*",
-      "sharedGlobals"
-    ],
-    "production": [
-      "default"
-    ],
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "production": ["default"],
     "sharedGlobals": [],
     "uv": [
       "{workspaceRoot}/pyproject.toml",

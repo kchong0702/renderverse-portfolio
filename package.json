@@ -2,11 +2,14 @@
   "name": "@renderverse/source",
   "version": "0.0.0",
   "private": true,
+  "packageManager": "pnpm@11.15.1",
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
+    "prepare": "husky",
     "bootstrap:uv": "node scripts/bootstrap-python.mjs && uv sync --all-packages",
     "bootstrap:env": "node -e \"const fs=require('fs'); if (!fs.existsSync('.env')) fs.copyFileSync('.env.example','.env')\"",
-    "bootstrap": "npm run bootstrap:env && npm run bootstrap:uv && nx run-many -t bootstrap",
-    "infra:up": "npm run bootstrap:env && docker compose up -d",
+    "bootstrap": "pnpm run bootstrap:env && pnpm run bootstrap:uv && nx run-many -t bootstrap",
+    "infra:up": "pnpm run bootstrap:env && docker compose up -d otel-collector",
     "infra:down": "docker compose down",
     "infra:logs": "docker compose logs -f",
     "dev": "nx run-many -t dev",
@@ -14,7 +17,7 @@
     "dev:ezbot": "nx run ezbot:dev",
     "build": "nx run-many -t build",
     "preview:renderverse": "nx run renderverse:preview",
-    "docker:renderverse": "nx run renderverse:docker-build",
+    "start": "pnpm run bootstrap:env && docker compose up -d --no-build",
     "lint": "nx run-many -t lint",
     "test": "nx run-many -t test",
     "format": "prettier --write . && nx run-many -t format",
@@ -22,11 +25,16 @@
     "font:subset:zh": "nx run renderverse:font:subset:zh"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "nx": "23.0.1",
     "prettier": "^3.9.6"
   },
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ]
+  "lint-staged": {
+    "*": "prettier --write --ignore-unknown",
+    "*.py": [
+      "uv run ruff check --fix",
+      "uv run ruff format"
+    ]
+  }
 }

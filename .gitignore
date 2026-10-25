@@ -44,3 +44,6 @@ __pycache__/
 
 # Source font for apps/renderverse/scripts/subset-chinese-font.js
 Noto_Sans_SC
+
+# Ignore accidental npm lockfiles; this project uses pnpm
+package-lock.json
