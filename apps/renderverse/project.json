@@ -24,12 +24,6 @@
     "preview": {
       "continuous": true,
       "dependsOn": ["build"]
-    },
-    "docker-build": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "docker build -f apps/renderverse/Dockerfile -t renderverse:local ."
-      }
     }
   }
 }
