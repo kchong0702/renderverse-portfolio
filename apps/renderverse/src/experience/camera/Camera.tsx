@@ -3,6 +3,7 @@ import CameraController from "./CameraController";
 import { PointerLockControls, OrbitControls } from "@react-three/drei";
 import { useRef, useEffect, type ElementRef } from "react";
 import CameraAroundController from "./CameraAroundController";
+import { ROOM_CAMERA_FOV } from "./constants";
 import type { SceneState } from "@/experience/state/sceneStore";
 
 interface CameraProps {
@@ -67,7 +68,7 @@ export default function Camera({ state, fpv }: CameraProps) {
       {/* Room Camera */}
       <CustomCamera
         settings={{
-          fov: 55,
+          fov: ROOM_CAMERA_FOV,
           near: 0.1,
           far: 100,
           zoom: state.tInnerZoom,

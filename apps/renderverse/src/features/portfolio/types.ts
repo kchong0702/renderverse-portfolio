@@ -1,3 +1,5 @@
+import type { Vec3 } from "@/experience/state/sceneStore";
+
 export interface ProjectItem {
   proj_id: number;
   proj_name: string;
@@ -13,4 +15,15 @@ export interface ProjectItem {
 export interface SkillItem {
   name: string;
   rating: number;
+}
+
+export type PortfolioSection = "skills" | "projects" | "about" | "contact";
+
+export interface SectionFit {
+  facing: Vec3;
+  width: number;
+  height: number;
+  rise: number;
+  minDistance?: number;
+  maxDistance: number;
 }

@@ -2,6 +2,8 @@ import { handleHoverIndicator } from "@/shared/lib/event-handler";
 import Skills from "./Skills/Skills";
 import Projects from "./Projects/Projects";
 import Contacts from "./Contacts/Contacts";
+import { SECTION_FOCUS } from "@/features/portfolio/constants";
+import { sectionFocus } from "@/features/portfolio/sectionFocus";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { RoomSlots } from "@/experience/models/RoomModel";
 import type {
@@ -32,10 +34,10 @@ export const usePortfolioSlots = ({
       onPointerLeave: () => handleHoverIndicator("leave", "viewindicator"),
       onClick: (event: ThreeEvent<MouseEvent>) => {
         event.stopPropagation();
-        handlePLInteraction("SUNLOCK", {
-          look: { x: 8.296, y: 4.577, z: 0 },
-          pos: { x: 0, y: 5, z: 0 },
-        });
+        handlePLInteraction(
+          "SUNLOCK",
+          sectionFocus("projects", window.innerWidth / window.innerHeight),
+        );
       },
       children: showBoards && (
         <Projects
@@ -49,10 +51,7 @@ export const usePortfolioSlots = ({
       onPointerLeave: () => handleHoverIndicator("leave", "contactindicator"),
       onClick: (event: ThreeEvent<MouseEvent>) => {
         event.stopPropagation();
-        handlePLInteraction("SUNLOCK", {
-          look: { x: -4, y: 3.368, z: 7.295 },
-          pos: { x: 0, y: 5, z: 1 },
-        });
+        handlePLInteraction("SUNLOCK", SECTION_FOCUS.contact);
       },
       children: showBoards && (
         <Contacts handlePLInteraction={handlePLInteraction} state={state} />

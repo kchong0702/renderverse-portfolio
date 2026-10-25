@@ -9,6 +9,7 @@ export interface Vec3 {
 export interface CameraFocus {
   look: Vec3;
   pos: Vec3;
+  showBack?: boolean;
 }
 
 export interface AroundAnimation {
