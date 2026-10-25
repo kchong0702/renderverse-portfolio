@@ -32,7 +32,14 @@ async def lifespan(app: FastAPI):
 
     app.state.container = container
 
+    container.chat_service()
+    store = container.session_store()
+    store.start(on_sweep=container.message_limiter().sweep)
+
     yield
+
+    await store.aclose()
+    await container.intent_classifier().aclose()
 
     shutdown_metrics()
     shutdown_tracing()
@@ -57,8 +64,14 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[str(origin) for origin in _settings.app.cors_origin],
+        allow_credentials=True,
         allow_methods=["GET", "POST"],
-        allow_headers=["*"],
+        allow_headers=[
+            "Content-Type",
+            "Last-Event-ID",
+            _settings.session.session_header,
+        ],
+        expose_headers=["Retry-After"],
     )
 
     app.include_router(router=v1_router, prefix=_settings.app.route_prefix)

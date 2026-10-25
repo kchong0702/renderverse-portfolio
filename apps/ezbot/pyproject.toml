@@ -9,12 +9,21 @@ requires-python = ">=3.13"
 dependencies = [
     "dependency-injector>=4.49.1",
     "fastapi>=0.142.2",
+    "httpx>=0.28.1",
+    "jinja2>=3.1.6",
+    "langchain>=1.4.7",
+    "langchain-google-genai>=4.4.2",
+    "langchain-groq>=1.1.3",
+    "langchain-mistralai>=1.1.6",
+    "langchain-openai>=1.7.2",
+    "langchain-openrouter>=0.2.9",
     "langgraph>=1.2.12",
     "openinference-instrumentation-langchain>=0.1.78",
     "opentelemetry-exporter-otlp-proto-http>=1.45.0",
     "opentelemetry-sdk>=1.45.0",
     "pydantic-settings>=2.15.0",
     "python-dotenv>=1.2.4",
+    "pyyaml>=6.0.3",
     "structlog>=26.1.0",
     "uvicorn[standard]>=0.54.0",
 ]
@@ -33,3 +42,8 @@ pythonpath = ["."]
 addopts = "-ra --strict-markers --strict-config"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff.lint.isort]
+# `src` is this app's package; declared so imports sort the same whether Ruff
+# runs here (nx lint) or from the workspace root (lint-staged)
+known-first-party = ["src"]

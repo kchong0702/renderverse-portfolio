@@ -1,95 +1,98 @@
 from typing import Annotated, Literal
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    StringConstraints,
-    field_validator,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 
 from src.core.config import get_settings
+from src.shared.enums import IntentType
 
 _settings = get_settings()
 
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
-def _check_length(v: str, max_chars: int) -> str:
-    if len(v) > max_chars:
-        raise ValueError(
-            f"message accepts at most {max_chars} characters, got {len(v)}"
-        )
-    return v
-
-
-class Message(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    role: Literal["user", "assistant"]
-    """Author of the message"""
-
-    content: Text
-    """Message content"""
-
-    @model_validator(mode="after")
-    def _validate_content(self) -> "Message":
-        chat = _settings.chat
-        max_chars = (
-            chat.max_message_chars if self.role == "user" else chat.max_reply_chars
-        )
-        _check_length(self.content, max_chars)
-        return self
-
-
 class Request(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     message: Text
-    """User's latest message"""
-
-    history: list[Message] = Field(default_factory=list)
-    """Prior conversation, oldest first"""
+    """User's latest message; the server keeps the conversation"""
 
     @field_validator("message")
     @classmethod
     def _validate_message(cls, v: str) -> str:
-        return _check_length(v, _settings.chat.max_message_chars)
-
-    @field_validator("history")
-    @classmethod
-    def _validate_history(cls, v: list[Message]) -> list[Message]:
-        max_history = _settings.chat.max_history
-        if len(v) > max_history:
+        max_chars = _settings.chat.max_message_chars
+        if len(v) > max_chars:
             raise ValueError(
-                f"history accepts at most {max_history} messages, got {len(v)}"
+                f"message accepts at most {max_chars} characters, got {len(v)}"
             )
         return v
 
 
-class Token(BaseModel):
-    """`token` event, a chunk of the bot reply"""
+class ResponseEvent(BaseModel):
+    """One Server-Sent Event of a response; `type` is also the SSE event name"""
 
-    content: str
-
-
-class Done(BaseModel):
-    """`done` event, the bot reply is complete"""
-
-    finish_reason: Literal["stop"]
+    type: str
+    """Event type, e.g. `response.output_text.delta`"""
 
 
-class Error(BaseModel):
-    """`error` event, the bot failed to reply"""
+class OutputTextDelta(ResponseEvent):
+    """The next piece of the response's text, to append to what came before"""
 
-    model_config = ConfigDict(extra="ignore")
+    type: Literal["response.output_text.delta"] = "response.output_text.delta"
+    """Event type"""
 
-    status_code: int
-    """Error status code (e.g 400, 500)"""
+    delta: str
+    """Text added since the previous delta"""
+
+
+class ResponseIntent(ResponseEvent):
+    """Sent after the response's text: offer a button to this section"""
+
+    type: Literal["response.intent"] = "response.intent"
+    """Event type"""
+
+    intent_type: IntentType
+    """Portfolio section the button takes the visitor to"""
+
+
+class ResponseCompleted(ResponseEvent):
+    """The response finished; no more events follow"""
+
+    type: Literal["response.completed"] = "response.completed"
+    """Event type"""
+
+
+class ResponseCancelled(ResponseEvent):
+    """The visitor stopped the response; no more events follow"""
+
+    type: Literal["response.cancelled"] = "response.cancelled"
+    """Event type"""
+
+
+class ResponseError(BaseModel):
+    """Why a response failed"""
 
     code: str
-    """Error code in text"""
+    """Machine-readable error code, e.g. `CHAT_FAILED`"""
 
     message: str
-    """Error message"""
+    """Human-readable description of the error"""
+
+
+class ResponseFailed(ResponseEvent):
+    """The bot failed to response; no more events follow"""
+
+    type: Literal["response.failed"] = "response.failed"
+    """Event type"""
+
+    error: ResponseError
+    """Why the response failed"""
+
+
+class Session(BaseModel):
+    """Session created for this tab, owned by the browser cookie"""
+
+    session_id: str
+    """Send back in the session header with every chat request from this tab"""
+
+    idle_ttl_s: int
+    """Seconds of inactivity before the session and its history are deleted"""
