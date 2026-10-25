@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useSceneStore } from "@/experience/state/sceneStore";
 import { CONFIG } from "@/app/config";
 import { useChatStore } from "../state/chatStore";
-import { useRecheckEzbot } from "./useEzbotStatus";
+import { useRecheckEzbot } from "./useEzbotSession";
 
 export const useOpenChat = () => {
   const isLocked = useSceneStore((s) => s.isLocked);

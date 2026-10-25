@@ -122,3 +122,31 @@
     opacity: 1;
   }
 }
+
+.navigate {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0.75rem 0 0 50px;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(32, 38, 43, 0.5);
+  color: white;
+  font-family: var(--font-tertiary);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  cursor: pointer;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.navigate:hover:not(:disabled) {
+  border-color: #3fc1bf;
+  color: #3fc1bf;
+}
+
+.navigate:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

@@ -14,16 +14,25 @@ export const addWordNewLine = (str: string, breakpoint = 40) => {
   return words.join(" ").replaceAll("\n ", "\n");
 };
 
-export const delay = async <T>(promise: Promise<T>): Promise<T> => {
-  await new Promise((resolve) => {
-    setTimeout(resolve, 2500);
+export const wait = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(signal.reason);
+      },
+      { once: true },
+    );
   });
+
+export const delay = async <T>(promise: Promise<T>): Promise<T> => {
+  await wait(2500);
   return promise;
 };
 
 export const megaDelay = async <T>(promise: Promise<T>): Promise<T> => {
-  await new Promise((resolve) => {
-    setTimeout(resolve, 4000);
-  });
+  await wait(4000);
   return promise;
 };

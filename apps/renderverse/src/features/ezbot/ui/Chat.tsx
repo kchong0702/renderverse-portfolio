@@ -1,238 +1,202 @@
-import { useTranslation } from "react-i18next";
-import styles from "./Chat.module.css";
-import { IoCloseSharp } from "react-icons/io5";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
+import { FaStop } from "react-icons/fa6";
 import { GrPowerReset } from "react-icons/gr";
 import { IoIosSend } from "react-icons/io";
-import Chatbubble, { type ChatbubbleProps } from "./Chatbubble";
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  MAX_HISTORY,
-  MAX_MESSAGE_CHARS,
-  streamChat,
-  type ChatHistoryMessage,
-} from "@/features/ezbot/api/ezbot";
-import ChatLoader from "./ChatLoader";
-import { FaStop } from "react-icons/fa6";
+import { IoCloseSharp } from "react-icons/io5";
+import { MAX_MESSAGE_CHARS } from "@/features/ezbot/api/chat/constants";
+import { useChatConversation } from "@/features/ezbot/hooks/useChatConversation";
 import {
   CONNECTION_STATUS,
-  useRecheckEzbot,
   type ConnectionStatus,
-} from "@/features/ezbot/hooks/useEzbotStatus";
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "system";
-  content: string;
-  isAborted: boolean;
-  isError: boolean;
-}
+} from "@/features/ezbot/hooks/useEzbotSession";
+import { useNavigateToSection } from "@/features/ezbot/hooks/useNavigateToSection";
+import styles from "./Chat.module.css";
+import Chatbubble, { type ChatbubbleProps } from "./Chatbubble";
+import ChatTypingIndicator from "./ChatTypingIndicator";
+import { STICK_THRESHOLD_PX, SUGGESTIONS } from "./constants";
 
 interface ChatProps {
   close: () => void;
   isOpen: boolean;
   connectionStatus: ConnectionStatus;
-  setReplying: (isReplying: boolean) => void;
 }
 
-// Completed turns sent back to ezbot as context, oldest first
-const toHistory = (messages: ChatMessage[]): ChatHistoryMessage[] =>
-  messages
-    .filter((message) => message.content && !message.isError)
-    .slice(-MAX_HISTORY)
-    .map((message): ChatHistoryMessage => ({
-      role: message.role === "user" ? "user" : "assistant",
-      content: message.content,
-    }));
-
-export default function Chat(props: ChatProps) {
+export default function Chat({ close, isOpen, connectionStatus }: ChatProps) {
   const { t } = useTranslation();
+  const isOnline = connectionStatus === CONNECTION_STATUS.ONLINE;
+  const {
+    messages,
+    isResponding,
+    sendMessage,
+    stopResponse,
+    resetConversation,
+  } = useChatConversation({ isOnline });
+  const { navigate, canNavigate } = useNavigateToSection();
+
+  const [input, setInput] = useState("");
+  const chatsRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const stickToBottomRef = useRef(true);
+
+  const isWaitingForResponse =
+    isResponding && messages[messages.length - 1]?.content === "";
+
   const noConnectionMessage: ChatbubbleProps = {
     id: "",
     content: t("chat.offline"),
     role: "system",
     isAborted: false,
   };
-
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-
-  const chatFocusRef = useRef<HTMLDivElement>(null);
-  const replyControllerRef = useRef<AbortController | null>(null);
-  const nextIdRef = useRef(0);
-
-  const { isOpen, connectionStatus, setReplying } = props;
-  const recheckEzbot = useRecheckEzbot();
-
-  const scrollToBottom = () => {
-    chatFocusRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "end",
-      inline: "nearest",
-    });
+  const greetingMessage: ChatbubbleProps = {
+    id: "greeting",
+    content: (
+      <Trans i18nKey="chat.greeting" components={{ bold: <strong /> }} />
+    ),
+    role: "system",
   };
 
+  const handleScroll = () => {
+    const chats = chatsRef.current;
+    if (!chats) return;
+    stickToBottomRef.current =
+      chats.scrollHeight - chats.scrollTop - chats.clientHeight <
+      STICK_THRESHOLD_PX;
+  };
+
+  useLayoutEffect(() => {
+    const chats = chatsRef.current;
+    if (!chats || !isOpen || !stickToBottomRef.current) return;
+    chats.scrollTop = chats.scrollHeight;
+  }, [messages, isWaitingForResponse, isOpen]);
+
   useEffect(() => {
-    scrollToBottom();
-  }, [chatHistory]);
+    if (!isOpen || isResponding || !isOnline) return;
+    if (window.matchMedia("(pointer: coarse)").matches) return;
+    const frame = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen, isResponding, isOnline]);
 
-  const abortReply = useCallback(() => {
-    replyControllerRef.current?.abort();
-  }, []);
-
-  // Cancel any reply when the chat closes
   useEffect(() => {
     if (!isOpen) return;
-    return abortReply;
-  }, [isOpen, abortReply]);
+    return stopResponse;
+  }, [isOpen, stopResponse]);
 
-  useEffect(() => {
-    setReplying(isTyping);
-  }, [isTyping, setReplying]);
+  const send = (text: string) => {
+    stickToBottomRef.current = true;
+    sendMessage(text);
+  };
 
-  const createMessage = (
-    role: ChatMessage["role"],
-    content: string,
-  ): ChatMessage => ({
-    id: `message-${nextIdRef.current++}`,
-    role,
-    content,
-    isAborted: false,
-    isError: false,
-  });
-
-  const sendMessage = async () => {
-    const message = input.trim();
-    if (!message || isTyping || connectionStatus !== CONNECTION_STATUS.ONLINE)
-      return;
-
-    const history = toHistory(chatHistory);
-    const userMessage = createMessage("user", message);
-    const replyMessage = createMessage("system", "");
-
-    const updateReply = (update: (m: ChatMessage) => Partial<ChatMessage>) =>
-      setChatHistory((messages) =>
-        messages.map((m) =>
-          m.id === replyMessage.id ? { ...m, ...update(m) } : m,
-        ),
-      );
-
-    setChatHistory((messages) => [...messages, userMessage, replyMessage]);
+  const sendInput = () => {
+    if (!input.trim() || isResponding || !isOnline) return;
     setInput("");
-    setIsTyping(true);
-
-    const controller = new AbortController();
-    replyControllerRef.current = controller;
-
-    try {
-      for await (const { event, data } of streamChat(
-        { message, history },
-        controller.signal,
-      )) {
-        if (event === "token") {
-          updateReply((m) => ({ content: m.content + data.content }));
-        } else if (event === "error") {
-          updateReply(() => ({ content: t("chat.error"), isError: true }));
-        }
-      }
-    } catch (error) {
-      if (controller.signal.aborted) {
-        updateReply((m) => ({
-          content: m.content || t("chat.stopped"),
-          isAborted: true,
-        }));
-      } else {
-        console.error("Ezbot request failed:", error);
-        updateReply(() => ({ content: t("chat.error"), isError: true }));
-        recheckEzbot();
-      }
-    } finally {
-      // A newer reply may have started after a reset, leave its state alone
-      if (replyControllerRef.current === controller) {
-        replyControllerRef.current = null;
-        setIsTyping(false);
-      }
-    }
+    send(input);
   };
 
   const resetChat = () => {
-    abortReply();
-    setChatHistory([]);
+    stickToBottomRef.current = true;
+    resetConversation();
   };
-
-  const isWaitingForReply =
-    isTyping && chatHistory[chatHistory.length - 1]?.content === "";
 
   return (
     <div className={styles.chatbox}>
       <div className={styles.header}>
-        <div className={styles.reset}>
-          <GrPowerReset
-            size={25}
-            style={{
-              color: "white",
-            }}
-            onClick={(event) => {
-              event.stopPropagation();
-              resetChat();
-            }}
-          />
-        </div>
-        <div className={styles.close}>
-          <IoCloseSharp
-            size={30}
-            style={{
-              color: "white",
-            }}
-            onClick={(event) => {
-              event.stopPropagation();
-              props.close();
-            }}
-          />
-        </div>
+        <button
+          type="button"
+          className={styles.reset}
+          aria-label={t("chat.reset")}
+          onClick={(event) => {
+            event.stopPropagation();
+            resetChat();
+          }}
+        >
+          <GrPowerReset size={25} aria-hidden />
+        </button>
+        <button
+          type="button"
+          className={styles.close}
+          aria-label={t("chat.close")}
+          onClick={(event) => {
+            event.stopPropagation();
+            close();
+          }}
+        >
+          <IoCloseSharp size={30} aria-hidden />
+        </button>
       </div>
-      <div className={styles.chats}>
+      <div className={styles.chats} ref={chatsRef} onScroll={handleScroll}>
         <div className={styles.chatContainer}>
           {connectionStatus === CONNECTION_STATUS.OFFLINE ? (
             <Chatbubble {...noConnectionMessage} />
           ) : (
-            chatHistory
-              .filter((message) => message.content)
-              .map((message) => <Chatbubble key={message.id} {...message} />)
+            <>
+              {isOnline && (
+                <div className={styles.greeting}>
+                  <Chatbubble {...greetingMessage} />
+                  <div className={styles.suggestions}>
+                    {SUGGESTIONS.map((section) => (
+                      <button
+                        key={section}
+                        type="button"
+                        className={styles.suggestion}
+                        disabled={isResponding}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          send(t(`chat.suggestions.${section}`));
+                        }}
+                      >
+                        {t(`chat.suggestions.${section}`)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {messages
+                .filter((message) => message.content)
+                .map((message) => (
+                  <Chatbubble
+                    key={message.id}
+                    {...message}
+                    canNavigate={canNavigate}
+                    onNavigate={navigate}
+                  />
+                ))}
+            </>
           )}
-          {isWaitingForReply && <ChatLoader />}
-          <div ref={chatFocusRef} />
+          {isWaitingForResponse && <ChatTypingIndicator />}
         </div>
       </div>
       <div className={styles.chattools}>
         <input
-          className={[styles.input, isTyping ? styles.inputMuted : ""].join(
+          ref={inputRef}
+          className={[styles.input, isResponding ? styles.inputMuted : ""].join(
             " ",
           )}
           type="text"
-          placeholder={isTyping ? t("chat.typing") : t("chat.typeMessage")}
+          placeholder={isResponding ? t("chat.typing") : t("chat.typeMessage")}
           value={input}
           maxLength={MAX_MESSAGE_CHARS}
-          disabled={isTyping}
+          disabled={isResponding}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              sendMessage();
-            }
+            if (event.key === "Enter") sendInput();
           }}
         />
-        <div
+        <button
+          type="button"
           className={[
             styles.send,
-            isTyping || input === "" ? "" : styles.muted,
+            isResponding || input === "" ? "" : styles.muted,
           ].join(" ")}
+          aria-label={isResponding ? t("chat.stop") : t("chat.send")}
+          onClick={isResponding ? stopResponse : sendInput}
         >
-          {isTyping ? (
-            <FaStop size={20} onClick={abortReply} />
+          {isResponding ? (
+            <FaStop size={20} aria-hidden />
           ) : (
-            <IoIosSend size={28} onClick={sendMessage} />
+            <IoIosSend size={28} aria-hidden />
           )}
-        </div>
+        </button>
       </div>
       <div className={styles.disclaimer}>
         <span>{t("chat.disclaimer")}</span>

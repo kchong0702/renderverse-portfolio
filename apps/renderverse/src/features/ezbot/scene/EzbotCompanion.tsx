@@ -10,7 +10,7 @@ import { useOpenChat } from "@/features/ezbot/hooks/useOpenChat";
 import {
   CONNECTION_STATUS,
   useEzbotStatus,
-} from "@/features/ezbot/hooks/useEzbotStatus";
+} from "@/features/ezbot/hooks/useEzbotSession";
 import { CONFIG } from "@/app/config";
 
 const WALL_INSET = 0.7;
@@ -62,7 +62,7 @@ const dampAngle = (
 
 function EzbotCompanion() {
   const specialIsLocked = useSceneStore((s) => s.specialIsLocked);
-  const isReplying = useChatStore((s) => s.isReplying);
+  const isResponding = useChatStore((s) => s.isResponding);
   const connectionStatus = useEzbotStatus();
   const openChat = useOpenChat();
 
@@ -94,7 +94,7 @@ function EzbotCompanion() {
   );
 
   const isFollowing = specialIsLocked !== false;
-  const mode = isReplying ? "thinking" : "idle";
+  const mode = isResponding ? "thinking" : "idle";
 
   useFrame(({ camera, clock }, delta) => {
     if (!body.current || !lean.current || delta <= 0) return;

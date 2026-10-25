@@ -13,3 +13,9 @@
   padding: 0 40px;
   box-sizing: border-box;
 }
+
+@media (max-width: 900px) {
+  .chatOverlay {
+    padding: 0 16px;
+  }
+}
