@@ -1,7 +1,7 @@
 import { Canvas } from "@react-three/fiber";
 import { PerspectiveCamera } from "@react-three/drei";
 import { OrbitControls } from "@react-three/drei";
-import EzbotModel from "@/experience/models/EzbotModel";
+import PointerFollowingEzbot from "@/features/ezbot/scene/PointerFollowingEzbot";
 import { Center } from "@react-three/drei";
 import ChatRoomLighting from "@/features/ezbot/scene/ChatRoomLighting";
 interface EzbotProps {
@@ -19,7 +19,7 @@ export default function Ezbot(props: EzbotProps) {
           isLightOff={props.isLightOff}
         />
         <Center>
-          <EzbotModel isActive={props.isActive} />
+          <PointerFollowingEzbot isActive={props.isActive} />
         </Center>
         <OrbitControls enablePan={false} enableZoom={false} />
       </Canvas>
