@@ -23,7 +23,7 @@ jobs:
           cache: pnpm
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.3.2
 
       - name: Install dependencies
         run: |
@@ -50,7 +50,7 @@ jobs:
           cache: pnpm
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.3.2
 
       - name: Install dependencies
         run: |
