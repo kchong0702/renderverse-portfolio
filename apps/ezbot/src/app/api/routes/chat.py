@@ -5,12 +5,12 @@ from fastapi import APIRouter, Depends, Header, status
 from fastapi import Response as HTTPResponse
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 
-from src.app.api.fastapi.deps import get_chat_service, get_message_limiter
-from src.app.api.fastapi.errors import api_error, rate_limited
-from src.app.api.fastapi.request import client_ip, current_session
-from src.app.api.fastapi.v1.schemas.chat import Request as ChatRequest
-from src.app.api.fastapi.v1.services.chat import ChatService
-from src.app.api.fastapi.v1.services.response import Response
+from src.app.api.schemas.chat import Request as ChatRequest
+from src.app.api.services.chat import ChatService
+from src.app.api.services.response import Response
+from src.app.deps import get_chat_service, get_message_limiter
+from src.app.errors import api_error, rate_limited
+from src.app.request import client_ip, current_session
 from src.core.rate_limit.message_limiter import MessageLimiter
 from src.shared.exceptions import ResponseInProgressError, ResponseNotFoundError
 from src.shared.schemas.session import Session

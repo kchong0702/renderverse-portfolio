@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.app.api.fastapi.v1.api import api_router as v1_router
+from src.app.api.api import api_router as v1_router
 from src.app.container import Container
 from src.core.config import get_settings
 from src.infrastructure import (
@@ -28,7 +28,7 @@ def health_check():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI lifecycle manager"""
-    container.wire(modules=["src.app.api.fastapi.deps"])
+    container.wire(modules=["src.app.deps"])
 
     app.state.container = container
 

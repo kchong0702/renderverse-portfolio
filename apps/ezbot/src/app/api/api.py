@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
-from src.app.api.fastapi.v1.routes.chat import router as chat_router
-from src.app.api.fastapi.v1.routes.session import router as session_router
+from src.app.api.routes.chat import router as chat_router
+from src.app.api.routes.session import router as session_router
 
 api_router = APIRouter()
 

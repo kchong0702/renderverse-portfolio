@@ -5,7 +5,7 @@ from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 
-from src.app.api.fastapi.v1.services.chat import (
+from src.app.api.services.chat import (
     ChatService,
     _storable,
 )

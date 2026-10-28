@@ -1,6 +1,6 @@
 from dependency_injector import containers, providers
 
-from src.app.api.fastapi.v1.services.chat import ChatService
+from src.app.api.services.chat import ChatService
 from src.core.agent.graph import build_ezbot_graph
 from src.core.config import get_settings
 from src.core.rate_limit.message_limiter import MessageLimiter

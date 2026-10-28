@@ -5,7 +5,7 @@ import pytest
 from dependency_injector import providers
 from fastapi.testclient import TestClient
 
-from src.app.api.fastapi.app import container, create_app
+from src.app.app import container, create_app
 from src.core.agent.graph import build_ezbot_graph
 from src.core.config import IntentSettings, RateLimitSettings, SessionSettings
 from src.core.rate_limit.message_limiter import MessageLimiter

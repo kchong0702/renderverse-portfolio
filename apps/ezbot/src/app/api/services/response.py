@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator, Callable
 
 from fastapi.sse import ServerSentEvent
 
-from src.app.api.fastapi.v1.schemas.chat import ResponseEvent
+from src.app.api.schemas.chat import ResponseEvent
 
 
 class Response:

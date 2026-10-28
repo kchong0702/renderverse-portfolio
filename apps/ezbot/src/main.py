@@ -8,7 +8,7 @@ _settings = get_settings()
 def main():
     """Start the uvicorn server"""
     uvicorn.run(
-        "src.app.api.fastapi.app:create_app",
+        "src.app.app:create_app",
         factory=True,
         host=_settings.app.host,
         port=_settings.app.port,

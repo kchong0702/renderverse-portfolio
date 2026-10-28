@@ -13,7 +13,7 @@ from langchain_core.messages import (
 )
 from langgraph.graph.state import CompiledStateGraph
 
-from src.app.api.fastapi.v1.schemas.chat import (
+from src.app.api.schemas.chat import (
     OutputTextDelta,
     ResponseCancelled,
     ResponseCompleted,
@@ -21,7 +21,7 @@ from src.app.api.fastapi.v1.schemas.chat import (
     ResponseFailed,
     ResponseIntent,
 )
-from src.app.api.fastapi.v1.services.response import Response
+from src.app.api.services.response import Response
 from src.core.agent.graph import MODEL_NODE_NAME
 from src.core.config import ChatSettings, StreamSettings
 from src.infrastructure.observability.logging import get_logger
