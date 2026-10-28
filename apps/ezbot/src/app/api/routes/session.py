@@ -2,9 +2,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
 
-from src.app.api.fastapi.deps import get_session_store, get_settings_dep
-from src.app.api.fastapi.errors import api_error
-from src.app.api.fastapi.v1.schemas.chat import Session as SessionResponse
+from src.app.api.schemas.chat import Session as SessionResponse
+from src.app.deps import get_session_store, get_settings_dep
+from src.app.errors import api_error
 from src.core.config import Settings
 from src.infrastructure.store.session import (
     SessionStore,
