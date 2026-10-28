@@ -1,0 +1,35 @@
+/* Containers */
+.content {
+  background: #d3e3fd;
+  width: 1285px;
+  height: 635px;
+  display: flex;
+  flex-direction: column;
+}
+
+.maincontent {
+  background: #fff;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.projcontent::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
+
+.projcontent {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: max-content;
+  column-gap: 3%;
+  row-gap: 40px;
+  padding: 2%;
+  overflow: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}

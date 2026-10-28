@@ -4,3 +4,20 @@ build
 .vite
 coverage
 *.lock
+pnpm-lock.yaml
+.nx
+.venv
+.python
+
+apps/renderverse/public/fonts/chineseSubset.json
+
+# Managed by `nx configure-ai-agents`
+.agents
+.claude
+.codex
+.cursor
+.gemini
+.opencode
+opencode.json
+AGENTS.md
+CLAUDE.md

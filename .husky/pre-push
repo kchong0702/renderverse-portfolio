@@ -1,0 +1,1 @@
+node scripts/workflows/check-ai-attribution.mjs --pre-push "$1"

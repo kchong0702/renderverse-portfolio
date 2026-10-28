@@ -1,0 +1,85 @@
+[app]
+name = "ezbot"
+env = "dev"
+version = "0.1.0"
+cors_origin = "http://localhost:5173"
+route_prefix = "/ezbot"
+
+host = "127.0.0.1"
+port = 8000
+workers = 1
+log_level = "info"
+access_log = true
+
+[chat]
+max_message_chars = 2000
+max_turns = 20
+
+[[llm.models]]
+provider = "groq"
+model = "openai/gpt-oss-120b"
+temperature = 0.3
+
+[[llm.models]]
+provider = "mistralai"
+model = "mistral-small-latest"
+temperature = 0.3
+
+[[llm.models]]
+provider = "google_genai"
+model = "gemini-3.8-flash"
+temperature = 0.3
+
+[[llm.models]]
+provider = "google_genai"
+model = "gemini-3.5-flash"
+temperature = 0.3
+
+[[llm.models]]
+provider = "google_genai"
+model = "gemini-3.5-flash-lite"
+temperature = 0.3
+
+[[llm.models]]
+provider = "openrouter"
+model = "qwen/qwen3.8-27b:free"
+temperature = 0.3
+
+[session]
+cookie_secure = false
+idle_ttl_s = 900
+max_sessions = 2000
+sweep_interval_s = 60
+
+[rate_limit]
+window_s = 600
+max_messages_per_cookie = 10
+max_messages_per_ip = 20
+max_daily_messages_per_ip = 50
+
+[stream]
+retry_ms = 2000
+replay_ttl_s = 60
+
+[intent]
+enabled = true
+url = "http://localhost:8001"
+model = "multilingual"
+timeout_s = 10
+context = 3
+latest_message_threshold = 0.8
+threshold = 0.5
+
+[observability]
+service_name = "ezbot"
+log_level = "INFO"
+log_format = "console"
+
+tracing_enabled = true
+metrics_enabled = true
+metrics_export_interval_ms = 15000
+instrumentations = ["langchain"]
+
+[observability.trace_redaction]
+hide_inputs = false
+hide_outputs = false

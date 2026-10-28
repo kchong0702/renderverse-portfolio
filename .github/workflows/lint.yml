@@ -2,29 +2,36 @@ name: Lint & Format
 
 on:
   push:
-    branches: [main, master]
+    branches: ["**"]
   pull_request:
-    branches: [main, master]
 
 jobs:
-  prettier:
+  format:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: 24
+          cache: pnpm
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10.3.2
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          pnpm install --frozen-lockfile
+          uv sync --all-packages --locked
 
-      - name: Check formatting with Prettier
-        run: npm run format:check
+      - name: Check formatting (Prettier + Ruff)
+        run: pnpm run format:check
 
   lint:
     runs-on: ubuntu-latest
@@ -33,14 +40,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: 24
+          cache: pnpm
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10.3.2
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          pnpm install --frozen-lockfile
+          uv sync --all-packages --locked
 
-      - name: Lint with ESLint
-        run: npm run lint
+      - name: Lint (ESLint + Ruff)
+        run: pnpm exec nx run-many -t lint
+
+      - name: Typecheck (TypeScript)
+        run: pnpm exec nx run-many -t typecheck

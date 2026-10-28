@@ -1,0 +1,67 @@
+module.exports = {
+  root: true,
+  env: { browser: true, es2020: true },
+  extends: [
+    "eslint:recommended",
+    "plugin:react/recommended",
+    "plugin:react/jsx-runtime",
+    "plugin:react-hooks/recommended",
+  ],
+  ignorePatterns: ["dist", ".eslintrc.cjs"],
+  parserOptions: { ecmaVersion: "latest", sourceType: "module" },
+  settings: { react: { version: "18.2" } },
+  plugins: ["react-refresh"],
+  overrides: [
+    {
+      files: ["vite.config.js", "scripts/**/*.js"],
+      env: { node: true },
+    },
+    {
+      files: ["**/*.ts", "**/*.tsx"],
+      parser: "@typescript-eslint/parser",
+      plugins: ["@typescript-eslint"],
+      extends: ["plugin:@typescript-eslint/recommended"],
+      rules: {
+        "react/prop-types": "off",
+      },
+    },
+  ],
+  rules: {
+    "react/jsx-no-target-blank": "off",
+    "react-refresh/only-export-components": [
+      "warn",
+      { allowConstantExport: true },
+    ],
+    "react/no-unknown-property": [
+      "error",
+      {
+        ignore: [
+          "object",
+          "geometry",
+          "map",
+          "position",
+          "rotation",
+          "args",
+          "materials",
+          "attachArray",
+          "dispose",
+          "castShadow",
+          "receiveShadow",
+          "material",
+          "raycast",
+          "emissive",
+          "emissiveMap",
+          "emissiveIntensity",
+          "envMap",
+          "envMapIntensity",
+          "skeleton",
+          "normalMap",
+          "power",
+          "intensity",
+          "transparent",
+        ],
+      },
+    ],
+    // "react/no-unknown-property": "off",
+  },
+};

@@ -1,49 +1,40 @@
 {
-  "name": "renderverse-portfolio",
-  "private": true,
+  "name": "@renderverse/source",
   "version": "0.0.0",
-  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@11.15.1",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "preview": "vite preview",
-    "font:subset:zh": "node scripts/subset-chinese-font.js"
-  },
-  "dependencies": {
-    "@react-three/drei": "^9.105.3",
-    "@react-three/fiber": "^8.16.1",
-    "@react-three/rapier": "^1.3.0",
-    "@tanstack/react-query": "^5.28.9",
-    "@tanstack/react-query-devtools": "^5.28.10",
-    "axios": "^1.7.7",
-    "better-react-mathjax": "^2.0.3",
-    "i18next": "^26.3.6",
-    "i18next-browser-languagedetector": "^8.2.1",
-    "leva": "^0.9.35",
-    "opentype.js": "^2.0.0",
-    "r3f-perf": "^7.2.1",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-i18next": "^17.0.11",
-    "react-icons": "^5.1.0",
-    "react-router-dom": "^6.22.3",
-    "three": "^0.163.0"
+    "preinstall": "npx only-allow pnpm",
+    "prepare": "husky",
+    "bootstrap:uv": "node scripts/bootstrap-python.mjs && uv sync --all-packages",
+    "bootstrap:env": "node -e \"const fs=require('fs'); if (!fs.existsSync('.env')) fs.copyFileSync('.env.example','.env')\"",
+    "bootstrap": "pnpm run bootstrap:env && pnpm run bootstrap:uv && nx run-many -t bootstrap",
+    "infra:up": "pnpm run bootstrap:env && docker compose up -d otel-collector",
+    "infra:down": "docker compose down",
+    "infra:logs": "docker compose logs -f",
+    "dev": "nx run-many -t dev",
+    "dev:renderverse": "nx run renderverse:dev",
+    "dev:ezbot": "nx run ezbot:dev",
+    "build": "nx run-many -t build",
+    "preview:renderverse": "nx run renderverse:preview",
+    "start": "pnpm run bootstrap:env && docker compose up -d --no-build",
+    "lint": "nx run-many -t lint",
+    "test": "nx run-many -t test",
+    "format": "prettier --write . && nx run-many -t format",
+    "format:check": "prettier --check . && nx run-many -t format:check",
+    "font:subset:zh": "nx run renderverse:font:subset:zh"
   },
   "devDependencies": {
-    "@react-three/eslint-plugin": "^0.1.1",
-    "@types/react": "^18.2.66",
-    "@types/react-dom": "^18.2.22",
-    "@vitejs/plugin-react": "^4.2.1",
-    "eslint": "^8.57.0",
-    "eslint-config-react-app": "^7.0.1",
-    "eslint-plugin-react": "^7.34.1",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.6",
-    "prettier": "^3.9.6",
-    "vite": "^5.2.0",
-    "vite-plugin-eslint": "^1.8.1"
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "nx": "23.0.1",
+    "prettier": "^3.9.6"
+  },
+  "lint-staged": {
+    "*": "prettier --write --ignore-unknown",
+    "*.py": [
+      "uv run ruff check --fix",
+      "uv run ruff format"
+    ]
   }
 }
