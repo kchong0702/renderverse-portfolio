@@ -1,6 +1,6 @@
 x-build: &build
   context: ../..
-  dockerfile: apps/ezbot/Dockerfile
+  dockerfile: apps/ezbot-harness/Dockerfile
 
 services:
   laya:

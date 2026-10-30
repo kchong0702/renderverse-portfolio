@@ -1,5 +1,5 @@
 [project]
-name = "ezbot"
+name = "ezbot-harness"
 version = "0.1.0"
 description = "LangGraph chatbot for the Renderverse portfolio"
 authors = [

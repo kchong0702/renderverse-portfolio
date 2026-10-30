@@ -34,11 +34,11 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
-COPY apps/ezbot/pyproject.toml ./apps/ezbot/
+COPY apps/ezbot-harness/pyproject.toml ./apps/ezbot-harness/
 
-RUN uv sync --frozen --no-dev --package ezbot
+RUN uv sync --frozen --no-dev --package ezbot-harness
 
-COPY apps/ezbot ./apps/ezbot
+COPY apps/ezbot-harness ./apps/ezbot-harness
 
 FROM python:3.13-slim-bookworm AS ezbot
 
@@ -51,10 +51,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN useradd --create-home --uid 10001 ezbot
 
 COPY --from=ezbot-build /app/.venv /app/.venv
-COPY --from=ezbot-build /app/apps/ezbot /app/apps/ezbot
+COPY --from=ezbot-build /app/apps/ezbot-harness /app/apps/ezbot-harness
 
 USER ezbot
-WORKDIR /app/apps/ezbot
+WORKDIR /app/apps/ezbot-harness
 
 EXPOSE 8000
 

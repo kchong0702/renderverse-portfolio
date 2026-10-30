@@ -14,5 +14,5 @@ package = false
 
 [tool.uv.workspace]
 members = [
-    "apps/ezbot"
+    "apps/ezbot-harness"
 ]

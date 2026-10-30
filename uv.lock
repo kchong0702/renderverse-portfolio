@@ -8,7 +8,7 @@ resolution-markers = [
 
 [manifest]
 members = [
-    "ezbot",
+    "ezbot-harness",
     "renderverse-workspace",
 ]
 
@@ -346,9 +346,9 @@ wheels = [
 ]
 
 [[package]]
-name = "ezbot"
+name = "ezbot-harness"
 version = "0.1.0"
-source = { virtual = "apps/ezbot" }
+source = { virtual = "apps/ezbot-harness" }
 dependencies = [
     { name = "dependency-injector" },
     { name = "fastapi" },

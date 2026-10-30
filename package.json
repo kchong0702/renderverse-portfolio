@@ -14,7 +14,7 @@
     "infra:logs": "docker compose logs -f",
     "dev": "nx run-many -t dev",
     "dev:renderverse": "nx run renderverse:dev",
-    "dev:ezbot": "nx run ezbot:dev",
+    "dev:ezbot-harness": "nx run ezbot-harness:dev",
     "build": "nx run-many -t build",
     "preview:renderverse": "nx run renderverse:preview",
     "start": "pnpm run bootstrap:env && docker compose up -d --no-build",
