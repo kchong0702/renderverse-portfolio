@@ -7,9 +7,8 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
 from src.core.config import IntentSettings
 from src.features.intent.classifier import IntentClassifier
-from src.features.intent.models import Intent
+from src.features.intent.models import Intent, IntentType
 from src.infrastructure.observability.logging import get_logger
-from src.shared.enums import IntentType
 
 _logger = get_logger(__name__)
 

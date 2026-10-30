@@ -1,12 +1,12 @@
 import pytest
 
 from src.core.config import SessionSettings
+from src.features.session.exceptions import SessionCapacityError
 from src.features.session.store import (
     SessionStore,
     is_valid_cookie,
     new_cookie,
 )
-from src.shared.exceptions import SessionCapacityError
 
 
 class Clock:

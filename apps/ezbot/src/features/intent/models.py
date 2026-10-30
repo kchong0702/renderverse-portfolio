@@ -1,8 +1,25 @@
 from __future__ import annotations
 
+from enum import StrEnum
+
 from pydantic import BaseModel, ConfigDict
 
-from src.shared.enums import IntentType
+
+class IntentType(StrEnum):
+    SKILLS = "skills"
+    """Kelvin's technical skills and tech stack"""
+
+    PROJECTS = "projects"
+    """Kelvin's projects and portfolio work"""
+
+    ABOUT = "about"
+    """Kelvin's background, biography and CV"""
+
+    CONTACT = "contact"
+    """How to reach or hire Kelvin"""
+
+    NONE = "none"
+    """Nothing to show: greetings, small talk, off-topic"""
 
 
 class Intent(BaseModel):
@@ -15,4 +32,7 @@ class Intent(BaseModel):
     """Classifier confidence in `intent_type`, from 0 to 1"""
 
 
-__all__ = ["Intent"]
+__all__ = [
+    "Intent",
+    "IntentType",
+]

@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 
 from src.core.config import get_settings
-from src.shared.enums import IntentType
+from src.features.intent.models import IntentType
 
 _settings = get_settings()
 
@@ -86,13 +86,3 @@ class ResponseFailed(ResponseEvent):
 
     error: ResponseError
     """Why the response failed"""
-
-
-class Session(BaseModel):
-    """Session created for this tab, owned by the browser cookie"""
-
-    session_id: str
-    """Send back in the session header with every chat request from this tab"""
-
-    idle_ttl_s: int
-    """Seconds of inactivity before the session and its history are deleted"""

@@ -1,9 +1,23 @@
 from __future__ import annotations
 
+from typing import Protocol, runtime_checkable
+
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.shared.protocol import Interruptible
+
+@runtime_checkable
+class Interruptible(Protocol):
+    """Work in progress that can be stopped, such as a bot response"""
+
+    @property
+    def done(self) -> bool:
+        """Whether the work has finished"""
+        ...
+
+    def stop(self) -> None:
+        """Cancel the work if it is still running"""
+        ...
 
 
 class Session(BaseModel):
@@ -28,4 +42,7 @@ class Session(BaseModel):
     """The response in progress or most recently finished, if any"""
 
 
-__all__ = ["Session"]
+__all__ = [
+    "Interruptible",
+    "Session",
+]

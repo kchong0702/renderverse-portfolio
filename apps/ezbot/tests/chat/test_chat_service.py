@@ -7,14 +7,13 @@ from langchain_core.tools import tool
 
 from src.core.config import ChatSettings, IntentSettings, StreamSettings
 from src.features.agent.graph import build_ezbot_graph
+from src.features.chat.exceptions import ResponseInProgressError, ResponseNotFoundError
 from src.features.chat.service import (
     ChatService,
     _storable,
 )
-from src.features.intent.models import Intent
+from src.features.intent.models import Intent, IntentType
 from src.features.session.models import Session
-from src.shared.enums import IntentType
-from src.shared.exceptions import ResponseInProgressError, ResponseNotFoundError
 from tests.fakes import (
     BlockingChatModel,
     EchoChatModel,

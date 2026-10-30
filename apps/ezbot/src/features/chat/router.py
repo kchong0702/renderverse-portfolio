@@ -6,14 +6,16 @@ from fastapi import Response as HTTPResponse
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 
 from src.app.deps import get_chat_service, get_message_limiter
-from src.app.errors import api_error, rate_limited
-from src.app.request import client_ip, current_session
+from src.app.errors import api_error
+from src.features.chat.exceptions import ResponseInProgressError, ResponseNotFoundError
 from src.features.chat.response import Response
 from src.features.chat.schemas import Request as ChatRequest
 from src.features.chat.service import ChatService
+from src.features.rate_limit.deps import client_ip
+from src.features.rate_limit.errors import rate_limited
 from src.features.rate_limit.message_limiter import MessageLimiter
+from src.features.session.deps import current_session
 from src.features.session.models import Session
-from src.shared.exceptions import ResponseInProgressError, ResponseNotFoundError
 
 router = APIRouter()
 

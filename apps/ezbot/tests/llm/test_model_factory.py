@@ -9,13 +9,13 @@ from langchain_openai import ChatOpenAI
 from pydantic import ValidationError
 
 from src.core.config import LLMSettings, ModelSettings, Provider
+from src.features.llm.exceptions import ModelConfigError, NoModelConfiguredError
 from src.features.llm.factory import (
     ADAPTERS,
     LangChainProvider,
     create_model,
     create_models,
 )
-from src.shared.exceptions import ModelConfigError, NoModelConfiguredError
 
 PROVIDER_KEYS = [
     "GROQ_API_KEY",

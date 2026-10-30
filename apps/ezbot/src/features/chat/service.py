@@ -16,6 +16,7 @@ from langgraph.graph.state import CompiledStateGraph
 from src.core.config import ChatSettings, StreamSettings
 from src.features.agent.context import EzbotContext
 from src.features.agent.graph import MODEL_NODE_NAME
+from src.features.chat.exceptions import ResponseInProgressError, ResponseNotFoundError
 from src.features.chat.response import Response
 from src.features.chat.schemas import (
     OutputTextDelta,
@@ -27,7 +28,6 @@ from src.features.chat.schemas import (
 )
 from src.features.session.models import Session
 from src.infrastructure.observability.logging import get_logger
-from src.shared.exceptions import ResponseInProgressError, ResponseNotFoundError
 
 _logger = get_logger(__name__)
 

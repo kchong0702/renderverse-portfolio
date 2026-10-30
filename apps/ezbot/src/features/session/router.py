@@ -5,13 +5,13 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from src.app.deps import get_session_store, get_settings_dep
 from src.app.errors import api_error
 from src.core.config import Settings
-from src.features.chat.schemas import Session as SessionResponse
+from src.features.session.exceptions import SessionCapacityError
+from src.features.session.schemas import Session as SessionResponse
 from src.features.session.store import (
     SessionStore,
     is_valid_cookie,
     new_cookie,
 )
-from src.shared.exceptions import SessionCapacityError
 
 router = APIRouter()
 

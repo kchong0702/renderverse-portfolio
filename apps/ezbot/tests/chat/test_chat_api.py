@@ -8,10 +8,9 @@ from fastapi.testclient import TestClient
 from src.app.app import container, create_app
 from src.core.config import IntentSettings, RateLimitSettings, SessionSettings
 from src.features.agent.graph import build_ezbot_graph
-from src.features.intent.models import Intent
+from src.features.intent.models import Intent, IntentType
 from src.features.rate_limit.message_limiter import MessageLimiter
 from src.features.session.store import SessionStore, new_cookie
-from src.shared.enums import IntentType
 from tests.fakes import EchoChatModel, FailingChatModel, FakeIntentClassifier
 
 SESSION_URL = "/ezbot/v1/session"

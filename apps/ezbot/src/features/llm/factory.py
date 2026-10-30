@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
@@ -10,13 +10,21 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, ConfigDict
 
 from src.core.config import LLMSettings, ModelSettings, Provider
-from src.infrastructure.observability.logging import get_logger
-from src.shared.exceptions import (
+from src.features.llm.exceptions import (
     MissingCredentialsError,
     ModelConfigError,
     NoModelConfiguredError,
 )
-from src.shared.protocol import ModelAdapter
+from src.infrastructure.observability.logging import get_logger
+
+
+class ModelAdapter(Protocol):
+    """Builds chat models for one provider"""
+
+    def create(self, spec: ModelSettings) -> BaseChatModel:
+        """Build the chat model described by `spec`"""
+        ...
+
 
 _logger = get_logger(__name__)
 
@@ -136,6 +144,7 @@ __all__ = [
     "ADAPTERS",
     "LangChainAdapter",
     "LangChainProvider",
+    "ModelAdapter",
     "OpenAICompatibleAdapter",
     "create_model",
     "create_models",

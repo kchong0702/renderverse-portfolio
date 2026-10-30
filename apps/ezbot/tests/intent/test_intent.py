@@ -8,7 +8,7 @@ from src.core.config import IntentSettings
 from src.features.intent.classifier import DisabledIntentClassifier
 from src.features.intent.factory import create_intent_classifier
 from src.features.intent.laya import LayaIntentClassifier
-from src.shared.enums import IntentType
+from src.features.intent.models import IntentType
 
 
 def laya_result(choice: str, confidence: float) -> dict:

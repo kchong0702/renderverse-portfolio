@@ -1,8 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.features.agent.prompt import PromptTemplate, load_prompt
-from src.shared.exceptions import PromptError
+from src.features.agent.prompt import PromptError, PromptTemplate, load_prompt
 
 HEADER = """\
 version: "1.0"

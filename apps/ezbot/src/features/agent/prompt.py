@@ -9,7 +9,10 @@ import yaml
 from jinja2 import Environment, StrictUndefined, meta
 from pydantic import BaseModel, Field
 
-from src.shared.exceptions import PromptError
+
+class PromptError(ValueError):
+    """A prompt's variables do not match what it declares or receives"""
+
 
 _jinja_env = Environment(
     undefined=StrictUndefined,
@@ -108,6 +111,7 @@ class PromptTemplate:
 
 __all__ = [
     "Prompt",
+    "PromptError",
     "PromptTemplate",
     "Variable",
     "load_prompt",

@@ -8,9 +8,9 @@ import time
 from collections.abc import Callable
 
 from src.core.config import SessionSettings
+from src.features.session.exceptions import SessionCapacityError
 from src.features.session.models import Session
 from src.infrastructure.observability.logging import get_logger
-from src.shared.exceptions import SessionCapacityError
 
 _logger = get_logger(__name__)
 
