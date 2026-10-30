@@ -19,7 +19,8 @@
         "command": "vite",
         "cwd": "apps/renderverse",
         "tty": true
-      }
+      },
+      "dependsOn": ["bootstrap"]
     },
     "preview": {
       "continuous": true,
