@@ -1,6 +1,6 @@
 import pytest
 
-from src.core.rate_limit.limiter import SlidingWindowLimiter, ip_key
+from src.features.rate_limit.limiter import SlidingWindowLimiter, ip_key
 
 
 class Clock:

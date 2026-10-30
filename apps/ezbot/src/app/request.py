@@ -3,8 +3,8 @@ from fastapi import Depends, Request, status
 from src.app.deps import get_session_store, get_settings_dep
 from src.app.errors import api_error
 from src.core.config import Settings
-from src.infrastructure.store.session import SessionStore
-from src.shared.schemas.session import Session
+from src.features.session.models import Session
+from src.features.session.store import SessionStore
 
 
 def client_ip(request: Request, settings: Settings = Depends(get_settings_dep)) -> str:  # noqa: B008

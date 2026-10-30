@@ -3,8 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.app.api.api import api_router as v1_router
 from src.app.container import Container
+from src.app.router import api_router as v1_router
 from src.core.config import get_settings
 from src.infrastructure import (
     configure_logging,

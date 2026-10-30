@@ -2,7 +2,7 @@ import math
 
 from fastapi import HTTPException, status
 
-from src.shared.schemas.rate_limit import MessageLimitExceeded
+from src.features.rate_limit.schemas import MessageLimitExceeded
 
 
 def api_error(

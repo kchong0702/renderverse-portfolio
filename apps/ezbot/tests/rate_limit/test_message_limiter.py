@@ -1,5 +1,5 @@
 from src.core.config import RateLimitSettings
-from src.core.rate_limit.message_limiter import DAY_S, MessageLimiter
+from src.features.rate_limit.message_limiter import DAY_S, MessageLimiter
 
 
 class Clock:

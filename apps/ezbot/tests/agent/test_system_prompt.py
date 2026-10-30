@@ -4,11 +4,11 @@ from types import SimpleNamespace
 import pytest
 from langchain_core.messages import HumanMessage
 
-from src.core.agent.graph import PROMPT_PATH, build_ezbot_graph
-from src.core.agent.middlewares.system_prompt import system_prompt_middleware
 from src.core.config import IntentSettings
-from src.shared.prompt_utils import PromptTemplate, load_prompt
-from src.shared.schemas.agent import EzbotContext
+from src.features.agent.context import EzbotContext
+from src.features.agent.graph import PROMPT_PATH, build_ezbot_graph
+from src.features.agent.middleware import system_prompt_middleware
+from src.features.agent.prompt import PromptTemplate, load_prompt
 from tests.fakes import EchoChatModel
 
 

@@ -1,12 +1,12 @@
 from dependency_injector import containers, providers
 
-from src.app.api.services.chat import ChatService
-from src.core.agent.graph import build_ezbot_graph
 from src.core.config import get_settings
-from src.core.rate_limit.message_limiter import MessageLimiter
-from src.infrastructure.store.session import SessionStore
-from src.shared.factory.classifier import create_intent_classifier
-from src.shared.factory.model import create_models
+from src.features.agent.graph import build_ezbot_graph
+from src.features.chat.service import ChatService
+from src.features.intent.factory import create_intent_classifier
+from src.features.llm.factory import create_models
+from src.features.rate_limit.message_limiter import MessageLimiter
+from src.features.session.store import SessionStore
 
 
 class Container(containers.DeclarativeContainer):

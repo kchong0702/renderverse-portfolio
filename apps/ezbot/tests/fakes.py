@@ -9,8 +9,8 @@ from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, Tool
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from pydantic import Field
 
-from src.core.agent.classifier.base import IntentClassifier
-from src.shared.schemas.intent import Intent
+from src.features.intent.classifier import IntentClassifier
+from src.features.intent.models import Intent
 
 
 class EchoChatModel(BaseChatModel):

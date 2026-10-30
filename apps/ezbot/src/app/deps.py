@@ -1,11 +1,11 @@
 from dependency_injector.wiring import Provide, inject
 from fastapi import Depends
 
-from src.app.api.services.chat import ChatService
 from src.app.container import Container
 from src.core.config import Settings
-from src.core.rate_limit.message_limiter import MessageLimiter
-from src.infrastructure.store.session import SessionStore
+from src.features.chat.service import ChatService
+from src.features.rate_limit.message_limiter import MessageLimiter
+from src.features.session.store import SessionStore
 
 
 @inject
