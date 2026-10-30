@@ -27,5 +27,5 @@
 
 - Never add Claude, Anthropic, or any AI assistant as an author, co-author, or contributor: no `Co-Authored-By` trailers, and no AI attribution in commit messages, PR descriptions, issues, or review comments.
 - Commit as the configured git user; never change `user.name` / `user.email`.
-- Use Conventional Commits: `type(scope): summary`, with types `feat`, `fix`, `refactor`, `chore` and the Nx project (`renderverse`, `ezbot`) or area (`i18n`, `lint`) as scope.
+- Use Conventional Commits: `type(scope): summary`, with types `feat`, `fix`, `refactor`, `chore` and the Nx project (`renderverse`, `ezbot-harness`) or area (`i18n`, `lint`) as scope.
 - Don't amend or rewrite existing commits just to change attribution unless explicitly asked.

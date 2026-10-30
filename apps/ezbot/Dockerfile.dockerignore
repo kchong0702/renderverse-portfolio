@@ -1,9 +1,0 @@
-*
-!pyproject.toml
-!uv.lock
-!apps/ezbot
-apps/ezbot/.env
-apps/ezbot/tests
-**/__pycache__
-**/.pytest_cache
-**/.ruff_cache

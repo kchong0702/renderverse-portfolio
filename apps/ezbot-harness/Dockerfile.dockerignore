@@ -1,0 +1,9 @@
+*
+!pyproject.toml
+!uv.lock
+!apps/ezbot-harness
+apps/ezbot-harness/.env
+apps/ezbot-harness/tests
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
