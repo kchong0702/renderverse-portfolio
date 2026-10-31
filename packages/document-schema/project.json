@@ -27,6 +27,14 @@
         "command": "uv run ruff format --check .",
         "cwd": "packages/document-schema"
       }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "inputs": ["default", "uv"],
+      "options": {
+        "command": "uv run pytest",
+        "cwd": "packages/document-schema"
+      }
     }
   }
 }
