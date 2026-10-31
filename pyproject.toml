@@ -15,5 +15,7 @@ package = false
 [tool.uv.workspace]
 members = [
     "apps/ezbot-harness",
-    "apps/folio",
+    "apps/ezcareer-harness",
+    "apps/artifact-service",
+    "packages/document-schema",
 ]
