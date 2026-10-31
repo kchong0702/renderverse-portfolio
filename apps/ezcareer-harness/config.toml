@@ -1,0 +1,25 @@
+[app]
+name = "ezcareer-harness"
+env = "dev"
+version = "0.1.0"
+cors_origin = "http://localhost:5174"
+route_prefix = "/ezcareer"
+
+host = "127.0.0.1"
+port = 8200
+workers = 1
+log_level = "info"
+access_log = true
+
+[observability]
+service_name = "ezcareer-harness"
+log_level = "INFO"
+log_format = "console"
+
+tracing_enabled = false
+metrics_enabled = false
+instrumentations = ["langchain"]
+
+[observability.trace_redaction]
+hide_inputs = false
+hide_outputs = false

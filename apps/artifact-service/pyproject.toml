@@ -1,0 +1,39 @@
+[project]
+name = "artifact-service"
+version = "0.1.0"
+description = "Resume rendering service"
+authors = [
+    { name = "kchong0702", email = "kelvinchong.dev@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.142.2",
+    "document-schema",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.0",
+    "opentelemetry-sdk>=1.45.0",
+    "pydantic-settings>=2.15.0",
+    "python-dotenv>=1.2.4",
+    "structlog>=26.1.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[tool.uv.sources]
+document-schema = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers --strict-config"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.16.10",
+]
