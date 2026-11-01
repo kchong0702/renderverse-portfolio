@@ -5,6 +5,7 @@ x-build: &build
 services:
   laya:
     image: ezbot-laya:${TAG:-dev}
+    profiles: ["apps"]
     build:
       <<: *build
       target: laya
@@ -16,6 +17,7 @@ services:
 
   ezbot:
     image: ezbot:${TAG:-dev}
+    profiles: ["apps"]
     build:
       <<: *build
       target: ezbot
