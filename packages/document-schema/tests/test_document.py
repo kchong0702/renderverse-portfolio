@@ -6,8 +6,9 @@ from typing import Any
 
 import pytest
 from conftest import FONT_SHA
-from document_schema import Document, DocumentKind, PageSize, SectionKind
 from pydantic import ValidationError
+
+from document_schema import Document, DocumentKind, PageSize, SectionKind
 
 
 def test_resume_round_trips_through_json_unchanged(resume: dict[str, Any]) -> None:
@@ -142,7 +143,7 @@ def test_unknown_fields_are_rejected_at_every_level(resume: dict[str, Any]) -> N
 def test_font_referencing_a_missing_asset_is_rejected(resume: dict[str, Any]) -> None:
     resume["assets"] = {}
 
-    with pytest.raises(ValidationError, match="needs a font/woff2 asset"):
+    with pytest.raises(ValidationError, match="font 'Inter' asset a+ is not in the"):
         Document.model_validate(resume)
 
 
@@ -150,7 +151,7 @@ def test_photo_must_be_one_of_the_assets(resume: dict[str, Any]) -> None:
     photo_sha = "c" * 64
     resume["content"]["header"]["photo"] = photo_sha
 
-    with pytest.raises(ValidationError, match="photo needs an image asset"):
+    with pytest.raises(ValidationError, match="photo asset c+ is not in the"):
         Document.model_validate(resume)
 
     resume["assets"][photo_sha] = {
@@ -174,14 +175,35 @@ def test_assets_the_renderer_cannot_embed_are_rejected(
 def test_font_must_point_at_a_woff2_asset(resume: dict[str, Any]) -> None:
     resume["assets"][FONT_SHA]["media_type"] = "image/png"
 
-    with pytest.raises(ValidationError, match="needs a font/woff2 asset"):
+    with pytest.raises(ValidationError, match="is image/png, not font/woff2"):
         Document.model_validate(resume)
 
 
 def test_photo_must_point_at_an_image_asset(resume: dict[str, Any]) -> None:
     resume["content"]["header"]["photo"] = FONT_SHA
 
-    with pytest.raises(ValidationError, match="photo needs an image asset"):
+    with pytest.raises(
+        ValidationError,
+        match="photo asset a+ is font/woff2, not image/jpeg or image/png or image/webp",
+    ):
+        Document.model_validate(resume)
+
+
+def test_template_image_must_be_one_of_the_assets(resume: dict[str, Any]) -> None:
+    logo_sha = "d" * 64
+    resume["template"]["css"] += f" .logo {{ background: url(asset:{logo_sha}); }}"
+
+    with pytest.raises(ValidationError, match="template image asset d+ is not in the"):
+        Document.model_validate(resume)
+
+    resume["assets"][logo_sha] = {"media_type": "image/png", "uri": "assets/logo.png"}
+    Document.model_validate(resume)
+
+
+def test_template_cannot_use_a_font_as_an_image(resume: dict[str, Any]) -> None:
+    resume["template"]["html"] += f'<img src="asset:{FONT_SHA}">'
+
+    with pytest.raises(ValidationError, match="template image asset a+ is font/woff2"):
         Document.model_validate(resume)
 
 

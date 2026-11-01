@@ -106,9 +106,9 @@ def resume() -> dict[str, Any]:
         },
         "template": {
             "html": (
-                '<h1 data-field="header/name">{{header.name.text}}</h1>'
+                '<h1 data-field="{{header.name.path}}">{{header.name.text}}</h1>'
                 "{{#sections}}<section>{{#items}}"
-                '<h2 data-field="sections/{{id}}/items/{{id}}/title">{{title.text}}</h2>'
+                '<h2 data-field="{{title.path}}">{{title.text}}</h2>'
                 "{{/items}}</section>{{/sections}}"
             ),
             "css": "h1 { color: var(--accent); font-family: Inter; }",

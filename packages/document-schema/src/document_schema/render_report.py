@@ -57,7 +57,7 @@ class RenderReport(SchemaModel):
     """Fields containing characters the font lacks"""
 
     line_counts: dict[DataFieldPath, int] = Field(default_factory=dict)
-    """Lines each bullet wraps to"""
+    """Lines each bound field wraps to"""
 
     empty_fields: list[DataFieldPath] = Field(default_factory=list)
     """Bound fields that rendered no text"""

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import pytest
-from document_schema import FontFace, FontStyle, PageSize, Presentation
 from pydantic import ValidationError
+
+from document_schema import FontFace, FontStyle, PageSize, Presentation
 
 SHA = "c" * 64
 
@@ -19,6 +20,12 @@ def test_defaults_are_a4_with_nothing_else() -> None:
 def test_token_overrides_follow_the_template_token_rules() -> None:
     with pytest.raises(ValidationError):
         Presentation(token_overrides={"--accent": "red; color: blue"})
+
+
+@pytest.mark.parametrize("family", ['Inter"; } body { color: red', "Inter</style>", ""])
+def test_font_family_that_could_break_out_of_css_is_rejected(family: str) -> None:
+    with pytest.raises(ValidationError):
+        FontFace(family=family, sha256=SHA)
 
 
 @pytest.mark.parametrize("weight", [99, 901])

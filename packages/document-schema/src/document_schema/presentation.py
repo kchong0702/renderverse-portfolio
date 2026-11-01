@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Annotated
 
-from pydantic import Field
+from pydantic import Field, StringConstraints
 
 from document_schema.assets import Sha256
 from document_schema.base import SchemaModel
 from document_schema.template import TokenName, TokenValue
 from document_schema.value import Id
+
+FontFamily = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9 _-]+$")]
 
 
 class PageSize(StrEnum):
@@ -21,7 +24,7 @@ class FontStyle(StrEnum):
 
 
 class FontFace(SchemaModel):
-    family: str
+    family: FontFamily
     """CSS font family name"""
 
     weight: int = Field(default=400, ge=100, le=900)

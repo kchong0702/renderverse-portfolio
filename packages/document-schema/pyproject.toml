@@ -25,6 +25,9 @@ dev = [
     "ruff>=0.16.10",
 ]
 
+[tool.ruff.lint.isort]
+known-first-party = ["document_schema"]
+
 [tool.pyright]
 venvPath = "../.."
 venv = ".venv"

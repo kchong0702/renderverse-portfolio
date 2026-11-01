@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import pytest
-from document_schema import Template
 from pydantic import ValidationError
+
+from document_schema import Template
 
 
 def test_hash_is_stable_for_equal_input() -> None:
