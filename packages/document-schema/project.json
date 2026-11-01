@@ -28,6 +28,14 @@
         "cwd": "packages/document-schema"
       }
     },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "inputs": ["default", "uv"],
+      "options": {
+        "command": "uv run pyright",
+        "cwd": "packages/document-schema"
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "inputs": ["default", "uv"],

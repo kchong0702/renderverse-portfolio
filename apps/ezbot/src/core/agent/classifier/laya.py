@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import override
 
 import httpx
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
@@ -41,6 +42,7 @@ class LayaIntentClassifier(IntentClassifier):
             base_url=str(settings.url), timeout=httpx.Timeout(settings.timeout_s)
         )
 
+    @override
     async def classify(self, messages: Sequence[BaseMessage]) -> Intent | None:
         turns = [
             m for m in messages if isinstance(m, (HumanMessage, AIMessage)) and m.text
@@ -100,6 +102,7 @@ class LayaIntentClassifier(IntentClassifier):
             return None
         return pick
 
+    @override
     async def aclose(self) -> None:
         await self._client.aclose()
 

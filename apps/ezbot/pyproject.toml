@@ -31,6 +31,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "pyright>=1.1.414",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.16.10",
@@ -47,3 +48,9 @@ asyncio_default_fixture_loop_scope = "function"
 # `src` is this app's package; declared so imports sort the same whether Ruff
 # runs here (nx lint) or from the workspace root (lint-staged)
 known-first-party = ["src"]
+
+[tool.pyright]
+venvPath = "../.."
+venv = ".venv"
+typeCheckingMode = "off"
+reportImplicitOverride = "error"
