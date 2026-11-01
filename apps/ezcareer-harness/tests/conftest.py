@@ -1,6 +1,6 @@
 import os
 from collections.abc import Callable, Sequence
-from typing import Any
+from typing import Any, override
 
 import pytest
 from opentelemetry import trace
@@ -23,10 +23,12 @@ class FakeSpanExporter(SpanExporter):
         self.kwargs = kwargs
         self.spans: list[ReadableSpan] = []
 
+    @override
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         self.spans.extend(spans)
         return SpanExportResult.SUCCESS
 
+    @override
     def shutdown(self) -> None:
         pass
 
@@ -37,22 +39,23 @@ class FakeMetricExporter(MetricExporter):
         self.kwargs = kwargs
         self.batches: list[MetricsData] = []
 
+    @override
     def export(
         self, metrics_data: MetricsData, timeout_millis: float = 10_000, **kwargs: Any
     ) -> MetricExportResult:
         self.batches.append(metrics_data)
         return MetricExportResult.SUCCESS
 
+    @override
     def force_flush(self, timeout_millis: float = 10_000) -> bool:
         return True
 
+    @override
     def shutdown(self, timeout_millis: float = 30_000, **kwargs: Any) -> None:
         pass
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    # Settings cached by app modules must never export telemetry from tests,
-    # whatever .env or config.toml enable
     os.environ["EZCAREER_HARNESS_OBSERVABILITY__TRACING_ENABLED"] = "false"
     os.environ["EZCAREER_HARNESS_OBSERVABILITY__METRICS_ENABLED"] = "false"
 

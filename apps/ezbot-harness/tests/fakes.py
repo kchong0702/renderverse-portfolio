@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator, Sequence
-from typing import Any
+from typing import Any, override
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
@@ -19,6 +19,7 @@ class EchoChatModel(BaseChatModel):
     calls: list[list[BaseMessage]] = Field(default_factory=list)
 
     @property
+    @override
     def _llm_type(self) -> str:
         return "echo"
 
@@ -26,6 +27,7 @@ class EchoChatModel(BaseChatModel):
     def _reply(messages: list[BaseMessage]) -> str:
         return f"Echo: {messages[-1].text}"
 
+    @override
     def _generate(
         self, messages: list[BaseMessage], *args: Any, **kwargs: Any
     ) -> ChatResult:
@@ -33,6 +35,7 @@ class EchoChatModel(BaseChatModel):
         message = AIMessage(content=self._reply(messages))
         return ChatResult(generations=[ChatGeneration(message=message)])
 
+    @override
     async def _astream(
         self, messages: list[BaseMessage], *args: Any, **kwargs: Any
     ) -> AsyncIterator[ChatGenerationChunk]:
@@ -50,9 +53,11 @@ class ToolCallingChatModel(BaseChatModel):
     calls: list[list[BaseMessage]] = Field(default_factory=list)
 
     @property
+    @override
     def _llm_type(self) -> str:
         return "tool-calling"
 
+    @override
     def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> ToolCallingChatModel:
         return self
 
@@ -65,6 +70,7 @@ class ToolCallingChatModel(BaseChatModel):
             content="", tool_calls=[{"name": self.tool_name, "args": {}, "id": call_id}]
         )
 
+    @override
     def _generate(
         self, messages: list[BaseMessage], *args: Any, **kwargs: Any
     ) -> ChatResult:
@@ -73,12 +79,15 @@ class ToolCallingChatModel(BaseChatModel):
 
 class FailingChatModel(BaseChatModel):
     @property
+    @override
     def _llm_type(self) -> str:
         return "failing"
 
+    @override
     def _generate(self, *args: Any, **kwargs: Any) -> ChatResult:
         raise RuntimeError("provider unavailable")
 
+    @override
     async def _astream(
         self, *args: Any, **kwargs: Any
     ) -> AsyncIterator[ChatGenerationChunk]:
@@ -93,12 +102,15 @@ class BlockingChatModel(BaseChatModel):
     started: asyncio.Event
 
     @property
+    @override
     def _llm_type(self) -> str:
         return "blocking"
 
+    @override
     def _generate(self, *args: Any, **kwargs: Any) -> ChatResult:
         raise NotImplementedError
 
+    @override
     async def _astream(
         self, *args: Any, **kwargs: Any
     ) -> AsyncIterator[ChatGenerationChunk]:
@@ -121,6 +133,7 @@ class FakeIntentClassifier(IntentClassifier):
         self.cancelled = False
         self.closed = False
 
+    @override
     async def classify(self, messages: Sequence[BaseMessage]) -> Intent | None:
         self.seen.append(list(messages))
         try:
@@ -130,5 +143,6 @@ class FakeIntentClassifier(IntentClassifier):
             raise
         return self.intent
 
+    @override
     async def aclose(self) -> None:
         self.closed = True

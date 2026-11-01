@@ -36,6 +36,14 @@
         "cwd": "apps/ezcareer-harness"
       }
     },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "inputs": ["default", "uv"],
+      "options": {
+        "command": "uv run pyright",
+        "cwd": "apps/ezcareer-harness"
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "inputs": ["default", "uv"],

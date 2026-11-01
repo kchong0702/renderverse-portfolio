@@ -50,6 +50,14 @@
         "cwd": "apps/ezbot-harness"
       }
     },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "inputs": ["default", "uv"],
+      "options": {
+        "command": "uv run pyright",
+        "cwd": "apps/ezbot"
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "inputs": ["default", "uv"],

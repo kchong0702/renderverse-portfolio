@@ -36,6 +36,14 @@
         "cwd": "apps/artifact-service"
       }
     },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "inputs": ["default", "uv"],
+      "options": {
+        "command": "uv run pyright",
+        "cwd": "apps/artifact-service"
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "inputs": ["default", "uv"],
