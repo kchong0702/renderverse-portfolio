@@ -99,3 +99,37 @@ def test_boundary_check_catches_cross_feature_imports(tmp_path: Path):
         "src.shared.tools.render",
         "src.agents.job_finder",
     }
+
+
+def init_logic(root: Path) -> list[str]:
+    found = []
+    for path in sorted(root.rglob("__init__.py")):
+        for node in ast.parse(path.read_text()).body:
+            reexport = isinstance(node, (ast.Import, ast.ImportFrom)) or (
+                isinstance(node, ast.Assign)
+                and [getattr(t, "id", None) for t in node.targets] == ["__all__"]
+            )
+            if not reexport:
+                found.append(f"{path.relative_to(root.parent)}:{node.lineno}")
+    return found
+
+
+def test_package_inits_only_reexport():
+    assert init_logic(SRC) == []
+
+
+def test_init_check_catches_logic(tmp_path: Path):
+    root = tmp_path / "src"
+    files = {
+        "shared/browser/__init__.py": "from .browser import Browser\n\n__all__ = ['Browser']\n",
+        "shared/pool/__init__.py": "import asyncio\n\n\nclass Pool:\n    pass\n",
+        "core/__init__.py": "SIZE = 4\n",
+    }
+    for rel, code in files.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(code)
+
+    assert init_logic(root) == [
+        "src/core/__init__.py:1",
+        "src/shared/pool/__init__.py:4",
+    ]
