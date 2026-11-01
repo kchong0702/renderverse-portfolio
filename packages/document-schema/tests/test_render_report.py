@@ -4,8 +4,9 @@ from typing import Any
 
 import pytest
 from conftest import RENDER_ID
-from document_schema import RenderReport
 from pydantic import ValidationError
+
+from document_schema import RenderReport
 
 
 @pytest.fixture

@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from document_schema.assets import Asset, MediaType, Sha256
+from document_schema.assets import ASSET_REF, Asset, MediaType, Sha256
 from document_schema.base import SchemaModel
 from document_schema.content import Content
 from document_schema.presentation import Presentation
@@ -39,17 +39,25 @@ class Document(SchemaModel):
     assets: dict[Sha256, Asset] = Field(default_factory=dict)
     """Binary files the document refers to, keyed by the sha256 of their bytes"""
 
+    def _require_asset(self, sha: str, allowed: set[MediaType], what: str) -> None:
+        asset = self.assets.get(sha)
+        if asset is None:
+            raise ValueError(f"{what} asset {sha} is not in the document's assets")
+        if asset.media_type not in allowed:
+            expected = " or ".join(sorted(allowed))
+            raise ValueError(
+                f"{what} asset {sha} is {asset.media_type}, not {expected}"
+            )
+
     @model_validator(mode="after")
     def _references_resolve(self) -> Document:
         for font in self.presentation.fonts:
-            if self._media_type(font.sha256) is not MediaType.WOFF2:
-                raise ValueError(
-                    f"font {font.family!r} needs a font/woff2 asset"
-                    f" with sha256 {font.sha256}"
-                )
-        photo = self.content.header.photo
-        if photo is not None and self._media_type(photo) not in _IMAGE_TYPES:
-            raise ValueError(f"photo needs an image asset with sha256 {photo}")
+            self._require_asset(font.sha256, {MediaType.WOFF2}, f"font {font.family!r}")
+        for source in (self.template.html, self.template.css):
+            for sha in ASSET_REF.findall(source):
+                self._require_asset(sha, _IMAGE_TYPES, "template image")
+        if self.content.header.photo is not None:
+            self._require_asset(self.content.header.photo, _IMAGE_TYPES, "photo")
         for name in self.presentation.token_overrides:
             if name not in self.template.tokens:
                 raise ValueError(f"token override {name!r} names no template token")
@@ -58,7 +66,3 @@ class Document(SchemaModel):
             if id_ not in section_ids:
                 raise ValueError(f"hidden id {id_!r} names no section")
         return self
-
-    def _media_type(self, sha: str) -> MediaType | None:
-        asset = self.assets.get(sha)
-        return asset.media_type if asset else None

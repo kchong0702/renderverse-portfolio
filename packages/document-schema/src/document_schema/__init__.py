@@ -1,4 +1,4 @@
-from document_schema.assets import Asset, MediaType, Sha256
+from document_schema.assets import ASSET_REF, Asset, MediaType, Sha256
 from document_schema.content import (
     Bullet,
     Contact,
@@ -24,6 +24,7 @@ from document_schema.template import Template
 from document_schema.value import DataFieldPath, Id, Value
 
 __all__ = [
+    "ASSET_REF",
     "Asset",
     "Bullet",
     "Contact",
