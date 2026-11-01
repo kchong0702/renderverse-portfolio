@@ -5,6 +5,57 @@
   const empty = new Set();
   const overflow = new Map();
   const lines = {};
+  const lowContrast = new Map();
+
+  const canvas = new OffscreenCanvas(1, 1).getContext("2d", {
+    willReadFrequently: true,
+  });
+
+  const rgba = (color) => {
+    canvas.clearRect(0, 0, 1, 1);
+    canvas.fillStyle = "#000";
+    canvas.fillStyle = color;
+    canvas.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = canvas.getImageData(0, 0, 1, 1).data;
+    return [r, g, b, a / 255];
+  };
+
+  const paintOver = ([r, g, b, a], [br, bg, bb, ba]) => {
+    const alpha = a + ba * (1 - a);
+    const mix = (top, bottom) => (top * a + bottom * ba * (1 - a)) / alpha;
+    return [mix(r, br), mix(g, bg), mix(b, bb), alpha];
+  };
+
+  const luminance = ([r, g, b]) => {
+    const linear = (c) => {
+      const s = c / 255;
+      return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+  };
+
+  const contrast = (el) => {
+    const chain = [];
+    for (let node = el; node; node = node.parentElement) chain.unshift(node);
+    let background = [255, 255, 255, 1];
+    for (const node of chain) {
+      const style = getComputedStyle(node);
+      if (style.backgroundImage !== "none") return null;
+      background = paintOver(rgba(style.backgroundColor), background);
+    }
+    const text = paintOver(rgba(getComputedStyle(el).color), background);
+    const [light, dark] = [luminance(text), luminance(background)].sort(
+      (a, b) => b - a,
+    );
+    return (light + 0.05) / (dark + 0.05);
+  };
+
+  const minimumContrast = (el) => {
+    const style = getComputedStyle(el);
+    const size = parseFloat(style.fontSize);
+    const bold = parseInt(style.fontWeight, 10) >= 700;
+    return size >= 24 || (bold && size >= 18.66) ? 3 : 4.5;
+  };
 
   const countLines = (el) => {
     const range = document.createRange();
@@ -42,6 +93,11 @@
     bound.add(field);
     lines[field] = Math.max(lines[field] ?? 0, countLines(el));
 
+    const ratio = lowContrast.has(field) ? null : contrast(el);
+    if (ratio !== null && ratio < minimumContrast(el)) {
+      lowContrast.set(field, { field, ratio: Math.round(ratio * 100) / 100 });
+    }
+
     if (overflow.has(field)) continue;
     if (getComputedStyle(el).display !== "inline") {
       if (el.scrollWidth > el.clientWidth + 1) {
@@ -75,5 +131,6 @@
     empty: [...empty],
     overflow: [...overflow.values()],
     lines,
+    low_contrast: [...lowContrast.values()],
   };
 };

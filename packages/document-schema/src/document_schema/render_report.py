@@ -23,7 +23,7 @@ class LowContrast(SchemaModel):
     """Field with text that is hard to read"""
 
     ratio: float
-    """Measured contrast ratio, below the WCAG AA 4.5:1"""
+    """Measured contrast ratio, below WCAG AA: 4.5:1, or 3:1 for large text"""
 
 
 class MissingGlyph(SchemaModel):
