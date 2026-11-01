@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.core.config import ObservabilitySettings, Settings
+from src.core.config import BrowserSettings, ObservabilitySettings, Settings
 
 pytestmark = pytest.mark.usefixtures("isolate_env")
 
@@ -37,6 +37,17 @@ def test_env_overrides_toml(monkeypatch):
     assert settings.observability.tracing_enabled is True
     assert settings.app.env == "staging"
     assert settings.app.name == "artifact-service"
+
+
+def test_concurrent_renders_come_from_env(monkeypatch):
+    monkeypatch.setenv("ARTIFACT_SERVICE_BROWSER__MAX_CONCURRENT_RENDERS", "2")
+
+    assert Settings(_env_file=None).browser.max_concurrent_renders == 2
+
+
+def test_concurrent_renders_must_be_positive():
+    with pytest.raises(ValidationError):
+        BrowserSettings(max_concurrent_renders=0)
 
 
 def test_otlp_headers_are_secret(monkeypatch):

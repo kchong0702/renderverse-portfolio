@@ -74,11 +74,11 @@ def test_source_respects_feature_boundaries():
 def test_boundary_check_catches_cross_feature_imports(tmp_path: Path):
     root = tmp_path / "src"
     files = {
-        "features/measure_document/measure.py": "from src.features.render_document.render import render\n",
+        "features/validate_template/validate.py": "from src.features.render_document.html import render_html\n",
         "features/compare_original/compare.py": "from ..render_document import render\n",
-        "features/render_document/render.py": "from src.shared.browser import pool\n",
+        "features/render_document/html.py": "from src.shared.browser import pool\n",
         "shared/browser/pool.py": "import src.features.render_document\n",
-        "app/routes.py": "from src.features.render_document import router\n",
+        "app/app.py": "from src.features.render_document import router\n",
     }
     for rel, code in files.items():
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -87,7 +87,83 @@ def test_boundary_check_catches_cross_feature_imports(tmp_path: Path):
     flagged = {v.split(" imports ")[0] for v in boundary_violations(root)}
 
     assert flagged == {
-        "src.features.measure_document.measure",
+        "src.features.validate_template.validate",
         "src.features.compare_original.compare",
         "src.shared.browser.pool",
     }
+
+
+def init_logic(root: Path) -> list[str]:
+    found = []
+    for path in sorted(root.rglob("__init__.py")):
+        for node in ast.parse(path.read_text()).body:
+            reexport = isinstance(node, (ast.Import, ast.ImportFrom)) or (
+                isinstance(node, ast.Assign)
+                and [getattr(t, "id", None) for t in node.targets] == ["__all__"]
+            )
+            if not reexport:
+                found.append(f"{path.relative_to(root.parent)}:{node.lineno}")
+    return found
+
+
+def test_package_inits_only_reexport():
+    assert init_logic(SRC) == []
+
+
+def test_init_check_catches_logic(tmp_path: Path):
+    root = tmp_path / "src"
+    files = {
+        "shared/browser/__init__.py": "from .browser import Browser\n\n__all__ = ['Browser']\n",
+        "shared/pool/__init__.py": "import asyncio\n\n\nclass Pool:\n    pass\n",
+        "core/__init__.py": "SIZE = 4\n",
+    }
+    for rel, code in files.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(code)
+
+    assert init_logic(root) == [
+        "src/core/__init__.py:1",
+        "src/shared/pool/__init__.py:4",
+    ]
+
+
+_ROUTE_METHODS = {"get", "post", "put", "patch", "delete", "api_route", "websocket"}
+
+
+def route_handlers_outside_features(root: Path) -> list[str]:
+    found = []
+    for path in sorted(root.rglob("*.py")):
+        if _feature_of(_module_name(path, root)) is not None:
+            continue
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for decorator in node.decorator_list:
+                call = decorator.func if isinstance(decorator, ast.Call) else None
+                if isinstance(call, ast.Attribute) and call.attr in _ROUTE_METHODS:
+                    found.append(f"{path.relative_to(root.parent)}:{node.lineno}")
+    return found
+
+
+def test_route_handlers_live_in_features():
+    assert route_handlers_outside_features(SRC) == []
+
+
+def test_handler_check_allows_app_to_only_include_routers(tmp_path: Path):
+    root = tmp_path / "src"
+    files = {
+        "features/render_document/router.py": (
+            "router = APIRouter()\n\n\n@router.post('/render')\nasync def render(): ...\n"
+        ),
+        "app/routes.py": "router = APIRouter(prefix='/v1')\nrouter.include_router(render_router)\n",
+        "app/extra.py": "router = APIRouter()\n\n\n@router.get('/x')\ndef x(): ...\n",
+        "shared/api.py": "api = APIRouter()\n\n\n@api.post('/y')\nasync def y(): ...\n",
+    }
+    for rel, code in files.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(code)
+
+    assert route_handlers_outside_features(root) == [
+        "src/app/extra.py:5",
+        "src/shared/api.py:5",
+    ]
