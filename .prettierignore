@@ -21,3 +21,5 @@ apps/renderverse/public/fonts/chineseSubset.json
 opencode.json
 AGENTS.md
 CLAUDE.md
+
+infra/seccomp/chromium.json

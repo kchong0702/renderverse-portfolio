@@ -51,6 +51,12 @@
         "command": "uv run pytest",
         "cwd": "apps/artifact-service"
       }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose build artifact-service"
+      }
     }
   }
 }

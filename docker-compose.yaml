@@ -2,6 +2,7 @@ name: renderverse
 
 include:
   - apps/ezbot-harness/docker-compose.yaml
+  - apps/artifact-service/docker-compose.yaml
 
 x-base: &base
   env_file:

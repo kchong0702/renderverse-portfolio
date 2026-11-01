@@ -1,0 +1,11 @@
+*
+!pyproject.toml
+!uv.lock
+!apps/artifact-service
+!packages/document-schema
+apps/artifact-service/.env
+apps/artifact-service/tests
+packages/document-schema/tests
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
