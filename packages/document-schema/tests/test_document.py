@@ -5,24 +5,31 @@ from functools import reduce
 from typing import Any
 
 import pytest
-from conftest import FONT_SHA
+from conftest import FONT_SHA, LAYOUT_TOKENS
 from pydantic import ValidationError
 
-from document_schema import Document, DocumentKind, PageSize, SectionKind
+from document_schema import (
+    DOCUMENT_ADAPTER,
+    CoverLetterDocument,
+    DocumentKind,
+    PageSize,
+    ResumeDocument,
+    SectionKind,
+)
 
 
 def test_resume_round_trips_through_json_unchanged(resume: dict[str, Any]) -> None:
-    document = Document.model_validate(resume)
+    document = DOCUMENT_ADAPTER.validate_python(resume)
 
     dumped = document.model_dump_json()
-    restored = Document.model_validate_json(dumped)
+    restored = DOCUMENT_ADAPTER.validate_json(dumped)
 
     assert restored == document
     assert restored.model_dump_json() == dumped
 
 
 def test_resume_exposes_the_content_a_consumer_reads(resume: dict[str, Any]) -> None:
-    document = Document.model_validate(resume)
+    document = DOCUMENT_ADAPTER.validate_python(resume)
 
     assert document.kind is DocumentKind.RESUME
     assert document.format == "document/v1"
@@ -38,7 +45,7 @@ def test_resume_exposes_the_content_a_consumer_reads(resume: dict[str, Any]) -> 
 def test_cover_letter_fits_headingless_paragraph_sections(
     cover_letter: dict[str, Any],
 ) -> None:
-    document = Document.model_validate(cover_letter)
+    document = DOCUMENT_ADAPTER.validate_python(cover_letter)
 
     assert document.kind is DocumentKind.COVER_LETTER
     assert all(s.heading is None for s in document.content.sections)
@@ -48,6 +55,40 @@ def test_cover_letter_fits_headingless_paragraph_sections(
     ]
     assert document.presentation.page_size is PageSize.A4
     assert document.assets == {}
+
+
+@pytest.mark.parametrize(
+    ("kind", "document_class"),
+    [
+        ("resume", ResumeDocument),
+        ("cv", ResumeDocument),
+        ("cover_letter", CoverLetterDocument),
+    ],
+)
+def test_kind_picks_the_document_and_its_tokens(
+    resume: dict[str, Any], kind: str, document_class: type
+) -> None:
+    resume["kind"] = kind
+
+    assert type(DOCUMENT_ADAPTER.validate_python(resume)) is document_class
+
+
+@pytest.mark.parametrize("token", ["--item-gap", "--bullet-gap"])
+def test_a_resume_template_must_declare_item_and_bullet_gaps(
+    resume: dict[str, Any], token: str
+) -> None:
+    del resume["template"]["tokens"][token]
+
+    with pytest.raises(ValidationError, match=token):
+        DOCUMENT_ADAPTER.validate_python(resume)
+
+
+def test_a_cover_letter_template_needs_only_the_shared_layout_tokens(
+    cover_letter: dict[str, Any],
+) -> None:
+    document = DOCUMENT_ADAPTER.validate_python(cover_letter)
+
+    assert document.template.tokens.model_dump() == LAYOUT_TOKENS
 
 
 def _list_at(data: dict[str, Any], path: tuple[str | int, ...]) -> list[Any]:
@@ -75,7 +116,7 @@ def test_duplicate_sibling_ids_are_rejected(
     siblings.append(copy.deepcopy(siblings[0]))
 
     with pytest.raises(ValidationError, match=f"duplicate id {siblings[0]['id']!r}"):
-        Document.model_validate(resume)
+        DOCUMENT_ADAPTER.validate_python(resume)
 
 
 def test_the_same_id_in_different_lists_is_accepted(resume: dict[str, Any]) -> None:
@@ -89,7 +130,7 @@ def test_the_same_id_in_different_lists_is_accepted(resume: dict[str, Any]) -> N
     sections[0]["items"][0]["links"][0]["id"] = "same"
     sections[1]["tags"][0]["id"] = "same"
 
-    Document.model_validate(resume)
+    DOCUMENT_ADAPTER.validate_python(resume)
 
 
 @pytest.mark.parametrize(
@@ -98,7 +139,7 @@ def test_the_same_id_in_different_lists_is_accepted(resume: dict[str, Any]) -> N
 def test_http_link_urls_are_accepted(resume: dict[str, Any], url: str) -> None:
     resume["content"]["sections"][0]["items"][0]["links"][0]["url"]["text"] = url
 
-    Document.model_validate(resume)
+    DOCUMENT_ADAPTER.validate_python(resume)
 
 
 @pytest.mark.parametrize(
@@ -117,7 +158,7 @@ def test_link_urls_a_template_cannot_safely_use_as_href_are_rejected(
     resume["content"]["sections"][0]["items"][0]["links"][0]["url"]["text"] = url
 
     with pytest.raises(ValidationError, match="must be an absolute http"):
-        Document.model_validate(resume)
+        DOCUMENT_ADAPTER.validate_python(resume)
 
 
 @pytest.mark.parametrize("bad_id", ["", "a/b", "has space", "ü"])
@@ -127,7 +168,7 @@ def test_ids_that_cannot_appear_in_a_field_path_are_rejected(
     resume["content"]["sections"][0]["id"] = bad_id
 
     with pytest.raises(ValidationError):
-        Document.model_validate(resume)
+        DOCUMENT_ADAPTER.validate_python(resume)
 
 
 def test_unknown_fields_are_rejected_at_every_level(resume: dict[str, Any]) -> None:
@@ -137,14 +178,14 @@ def test_unknown_fields_are_rejected_at_every_level(resume: dict[str, Any]) -> N
 
     for bad in (top, nested):
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-            Document.model_validate(bad)
+            DOCUMENT_ADAPTER.validate_python(bad)
 
 
 def test_font_referencing_a_missing_asset_is_rejected(resume: dict[str, Any]) -> None:
     resume["assets"] = {}
 
     with pytest.raises(ValidationError, match="font 'Inter' asset a+ is not in the"):
-        Document.model_validate(resume)
+        DOCUMENT_ADAPTER.validate_python(resume)
 
 
 def test_photo_must_be_one_of_the_assets(resume: dict[str, Any]) -> None:
@@ -152,13 +193,13 @@ def test_photo_must_be_one_of_the_assets(resume: dict[str, Any]) -> None:
     resume["content"]["header"]["photo"] = photo_sha
 
     with pytest.raises(ValidationError, match="photo asset c+ is not in the"):
-        Document.model_validate(resume)
+        DOCUMENT_ADAPTER.validate_python(resume)
 
     resume["assets"][photo_sha] = {
         "media_type": "image/jpeg",
         "uri": "assets/photo.jpg",
     }
-    document = Document.model_validate(resume)
+    document = DOCUMENT_ADAPTER.validate_python(resume)
     assert document.assets[photo_sha].uri == "assets/photo.jpg"
 
 
@@ -169,14 +210,14 @@ def test_assets_the_renderer_cannot_embed_are_rejected(
     resume["assets"][FONT_SHA]["media_type"] = media_type
 
     with pytest.raises(ValidationError):
-        Document.model_validate(resume)
+        DOCUMENT_ADAPTER.validate_python(resume)
 
 
 def test_font_must_point_at_a_woff2_asset(resume: dict[str, Any]) -> None:
     resume["assets"][FONT_SHA]["media_type"] = "image/png"
 
     with pytest.raises(ValidationError, match="is image/png, not font/woff2"):
-        Document.model_validate(resume)
+        DOCUMENT_ADAPTER.validate_python(resume)
 
 
 def test_photo_must_point_at_an_image_asset(resume: dict[str, Any]) -> None:
@@ -186,7 +227,7 @@ def test_photo_must_point_at_an_image_asset(resume: dict[str, Any]) -> None:
         ValidationError,
         match="photo asset a+ is font/woff2, not image/jpeg or image/png or image/webp",
     ):
-        Document.model_validate(resume)
+        DOCUMENT_ADAPTER.validate_python(resume)
 
 
 def test_template_image_must_be_one_of_the_assets(resume: dict[str, Any]) -> None:
@@ -194,24 +235,24 @@ def test_template_image_must_be_one_of_the_assets(resume: dict[str, Any]) -> Non
     resume["template"]["css"] += f" .logo {{ background: url(asset:{logo_sha}); }}"
 
     with pytest.raises(ValidationError, match="template image asset d+ is not in the"):
-        Document.model_validate(resume)
+        DOCUMENT_ADAPTER.validate_python(resume)
 
     resume["assets"][logo_sha] = {"media_type": "image/png", "uri": "assets/logo.png"}
-    Document.model_validate(resume)
+    DOCUMENT_ADAPTER.validate_python(resume)
 
 
 def test_template_cannot_use_a_font_as_an_image(resume: dict[str, Any]) -> None:
     resume["template"]["html"] += f'<img src="asset:{FONT_SHA}">'
 
     with pytest.raises(ValidationError, match="template image asset a+ is font/woff2"):
-        Document.model_validate(resume)
+        DOCUMENT_ADAPTER.validate_python(resume)
 
 
 def test_token_override_must_name_a_template_token(resume: dict[str, Any]) -> None:
     resume["presentation"]["token_overrides"] = {"--acent": "#0f766e"}
 
     with pytest.raises(ValidationError, match="names no template token"):
-        Document.model_validate(resume)
+        DOCUMENT_ADAPTER.validate_python(resume)
 
 
 @pytest.mark.parametrize("key", ["A" * 64, "a" * 63, "inter-400.woff2"])
@@ -221,20 +262,20 @@ def test_asset_keys_that_are_not_a_sha256_are_rejected(
     resume["assets"][key] = resume["assets"].pop(FONT_SHA)
 
     with pytest.raises(ValidationError, match="String should match pattern"):
-        Document.model_validate(resume)
+        DOCUMENT_ADAPTER.validate_python(resume)
 
 
 def test_hidden_id_must_name_a_section(resume: dict[str, Any]) -> None:
     resume["presentation"]["hidden"] = ["sec_2"]
-    Document.model_validate(resume)
+    DOCUMENT_ADAPTER.validate_python(resume)
 
     resume["presentation"]["hidden"] = ["sec_9"]
     with pytest.raises(ValidationError, match="names no section"):
-        Document.model_validate(resume)
+        DOCUMENT_ADAPTER.validate_python(resume)
 
 
 def test_unsupported_format_version_is_rejected(resume: dict[str, Any]) -> None:
     resume["format"] = "document/v2"
 
     with pytest.raises(ValidationError):
-        Document.model_validate(resume)
+        DOCUMENT_ADAPTER.validate_python(resume)

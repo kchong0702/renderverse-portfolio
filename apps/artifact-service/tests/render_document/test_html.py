@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 from conftest import PNG, PNG_SHA
-from document_schema import Document
+from document_schema import DOCUMENT_ADAPTER
 
 from src.features.render_document.exceptions import RenderError
 from src.features.render_document.html import render_html
@@ -14,7 +14,9 @@ FONT_SHA = hashlib.sha256(FONT).hexdigest()
 
 
 def _render(data: dict[str, Any], assets_data: dict[str, bytes] | None = None):
-    return render_html(Document.model_validate(data), assets_data or {PNG_SHA: PNG})
+    return render_html(
+        DOCUMENT_ADAPTER.validate_python(data), assets_data or {PNG_SHA: PNG}
+    )
 
 
 def test_content_is_bound_into_the_template_and_escaped(
@@ -54,9 +56,9 @@ def test_page_rule_uses_the_page_size_and_each_margin_token(
     assert rendered.content_width_px == pytest.approx(816 - 48 - 16)
 
 
-def test_page_margins_default_to_zero(document_data: dict[str, Any]) -> None:
+def test_page_margins_can_be_zero(document_data: dict[str, Any]) -> None:
     for side in ("top", "right", "bottom", "left"):
-        del document_data["template"]["tokens"][f"--page-margin-{side}"]
+        document_data["template"]["tokens"][f"--page-margin-{side}"] = "0"
 
     rendered = _render(document_data)
 

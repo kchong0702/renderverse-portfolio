@@ -7,7 +7,7 @@ from pydantic import Field, StringConstraints
 
 from document_schema.assets import Sha256
 from document_schema.base import SchemaModel
-from document_schema.template import TokenName, TokenValue
+from document_schema.tokens import TokenName, TokenValue
 from document_schema.value import Id
 
 FontFamily = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9 _-]+$")]

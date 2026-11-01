@@ -7,6 +7,18 @@ import pytest
 FONT_SHA = "a" * 64
 RENDER_ID = "b" * 64
 
+LAYOUT_TOKENS = {
+    "--page-margin-top": "14mm",
+    "--page-margin-right": "16mm",
+    "--page-margin-bottom": "14mm",
+    "--page-margin-left": "16mm",
+    "--font-size-body": "10.5pt",
+    "--line-height": "1.35",
+    "--section-gap": "14pt",
+}
+
+RESUME_TOKENS = {**LAYOUT_TOKENS, "--item-gap": "8pt", "--bullet-gap": "2pt"}
+
 
 @pytest.fixture
 def resume() -> dict[str, Any]:
@@ -112,7 +124,7 @@ def resume() -> dict[str, Any]:
                 "{{/items}}</section>{{/sections}}"
             ),
             "css": "h1 { color: var(--accent); font-family: Inter; }",
-            "tokens": {"--accent": "#1f3a5f", "--muted": "#6b7280"},
+            "tokens": {**RESUME_TOKENS, "--accent": "#1f3a5f", "--muted": "#6b7280"},
         },
         "presentation": {
             "page_size": "a4",
@@ -163,5 +175,6 @@ def cover_letter() -> dict[str, Any]:
         "template": {
             "html": '{{#sections}}<p data-field="sections/{{id}}/text">{{text.text}}</p>{{/sections}}',
             "css": "p { margin: 0 0 1em; }",
+            "tokens": LAYOUT_TOKENS,
         },
     }
