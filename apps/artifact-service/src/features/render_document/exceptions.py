@@ -1,0 +1,2 @@
+class RenderError(ValueError):
+    pass

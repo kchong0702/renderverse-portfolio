@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import os
 from collections.abc import Callable, Sequence
 from typing import Any, override
@@ -119,3 +121,85 @@ def metric_exporters(monkeypatch: pytest.MonkeyPatch) -> list[FakeMetricExporter
 
     monkeypatch.setattr(metrics, "OTLPMetricExporter", factory)
     return created
+
+
+# 1x1 transparent PNG
+PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+)
+PNG_SHA = hashlib.sha256(PNG).hexdigest()
+
+TEMPLATE_HTML = """
+<h1 data-field="{{header.name.path}}">{{header.name.text}}</h1>
+{{#header.photo}}<img class="photo" src="asset:{{header.photo}}" alt="">{{/header.photo}}
+{{#sections}}<section>
+  {{#heading}}<h2 data-field="{{path}}">{{text}}</h2>{{/heading}}
+  {{#text}}<p data-field="{{path}}">{{text}}</p>{{/text}}
+  {{#items}}<div class="item">
+    {{#title}}<h3 data-field="{{path}}">{{text}}</h3>{{/title}}
+    <ul>{{#bullets}}<li data-field="{{text.path}}">{{text.text}}</li>{{/bullets}}</ul>
+    {{#links}}<a href="{{url.text}}" data-field="{{url.path}}">{{url.text}}</a>{{/links}}
+  </div>{{/items}}
+  {{#is_skills}}<p>{{#tags}}<span data-field="{{text.path}}">{{text.text}}</span> {{/tags}}</p>{{/is_skills}}
+</section>{{/sections}}
+"""
+
+
+def value(text: str) -> dict[str, Any]:
+    return {"text": text, "src": ["p1.s1"]}
+
+
+@pytest.fixture
+def document_data() -> dict[str, Any]:
+    """A one-page résumé whose template shows every Value it holds"""
+    return {
+        "kind": "resume",
+        "content": {
+            "header": {"name": value("Ada Lovelace"), "photo": PNG_SHA},
+            "sections": [
+                {"id": "sum", "kind": "summary", "text": value("Writes programs.")},
+                {
+                    "id": "exp",
+                    "kind": "experience",
+                    "heading": value("Experience"),
+                    "items": [
+                        {
+                            "id": "it_1",
+                            "title": value("Programmer"),
+                            "bullets": [
+                                {
+                                    "id": "b_1",
+                                    "text": value("Wrote the first algorithm"),
+                                },
+                                {"id": "b_2", "text": value("Annotated the notes")},
+                            ],
+                            "links": [
+                                {"id": "l_1", "url": value("https://github.com/ada")}
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "id": "sk",
+                    "kind": "skills",
+                    "heading": value("Skills"),
+                    "tags": [
+                        {"id": "t_1", "text": value("Mathematics")},
+                        {"id": "t_2", "text": value("Punch cards")},
+                    ],
+                },
+            ],
+        },
+        "template": {
+            "html": TEMPLATE_HTML,
+            "css": "body { font: 12px/1.4 sans-serif; } .photo { width: 40px; }",
+            "tokens": {
+                "--page-margin-top": "16mm",
+                "--page-margin-right": "16mm",
+                "--page-margin-bottom": "16mm",
+                "--page-margin-left": "16mm",
+                "--accent": "#1f3a5f",
+            },
+        },
+        "assets": {PNG_SHA: {"media_type": "image/png", "uri": "assets/photo.png"}},
+    }
