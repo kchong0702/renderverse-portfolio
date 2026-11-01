@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 from conftest import PNG, PNG_SHA
-from document_schema import Document, MissingGlyph, RenderReport
+from document_schema import DOCUMENT_ADAPTER, MissingGlyph, RenderReport
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 
@@ -60,7 +60,7 @@ async def _report(
     browser: Browser, data: dict[str, Any], extra_assets: dict[str, bytes] | None = None
 ) -> RenderReport:
     assets_data = {PNG_SHA: PNG, **(extra_assets or {})}
-    rendered = render_html(Document.model_validate(data), assets_data)
+    rendered = render_html(DOCUMENT_ADAPTER.validate_python(data), assets_data)
     measured = await measure(browser, rendered)
     assert measured.pdf.startswith(b"%PDF")
     return measured.report

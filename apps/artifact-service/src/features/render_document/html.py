@@ -3,7 +3,7 @@ import re
 from collections.abc import Mapping
 
 import chevron
-from document_schema import ASSET_REF, Document, PageSize
+from document_schema import ASSET_REF, Document, PageSize, Tokens
 
 from src.features.render_document.exceptions import RenderError
 from src.features.render_document.policy import (
@@ -35,9 +35,6 @@ Used for the --page-margin-<side> tokens, which the renderer converts to pixels
 itself because Chromium does not resolve var() inside @page. Relative units like
 em or % and multi-value lengths are rejected
 """
-
-_MARGIN_SIDES = ("top", "right", "bottom", "left")
-"""Order of the four values in the @page margin shorthand"""
 
 
 def _length_px(token: str, value: str) -> float:
@@ -75,8 +72,15 @@ def render_html(document: Document, assets_data: Mapping[str, bytes]) -> Rendere
 
     check_rendered_body(body)
 
-    tokens = {**template.tokens, **presentation.token_overrides}
-    margins = {side: tokens.get(f"--page-margin-{side}", "0") for side in _MARGIN_SIDES}
+    tokens = Tokens.model_validate(
+        {**template.tokens.model_dump(), **presentation.token_overrides}
+    )
+    margins = {
+        "top": tokens.page_margin_top,
+        "right": tokens.page_margin_right,
+        "bottom": tokens.page_margin_bottom,
+        "left": tokens.page_margin_left,
+    }
     margins_px = {
         side: _length_px(f"--page-margin-{side}", value)
         for side, value in margins.items()
@@ -89,7 +93,7 @@ def render_html(document: Document, assets_data: Mapping[str, bytes]) -> Rendere
         f" font-weight: {font.weight}; font-style: {font.style}; }}"
         for font in presentation.fonts
     ]
-    root = " ".join(f"{name}: {value};" for name, value in tokens.items())
+    root = " ".join(f"{name}: {value};" for name, value in tokens.model_dump().items())
     css = "\n".join(
         [
             f"@page {{ size: {page_name}; margin: {' '.join(margins.values())}; }}",
