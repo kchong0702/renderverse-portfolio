@@ -32,7 +32,7 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-// Sidebar order from the design. Badges arrive with each feature's count hook.
+// Sidebar order from the design
 export const navGroups: NavGroup[] = [
   { items: [{ key: "dashboard", path: "/", icon: DashboardIcon }] },
   {
@@ -58,3 +58,17 @@ export const navGroups: NavGroup[] = [
     ],
   },
 ];
+
+/** The sidebar item whose screen shows `pathname`, if any */
+export function navItemAt(pathname: string): NavItem | undefined {
+  return navGroups
+    .flatMap((group) => group.items)
+    .find(({ path }) =>
+      path === "/" ? pathname === "/" : pathname.startsWith(path),
+    );
+}
+
+/** Each item's count in the sidebar, such as "5 new"; features add theirs as they land */
+export function useNavBadges(): Partial<Record<NavKey, string>> {
+  return {};
+}
