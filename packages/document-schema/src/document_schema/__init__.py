@@ -1,4 +1,23 @@
 from document_schema.blocks import Block, Contact, ContactKind, Contacts, Photo, Profile
+from document_schema.contents import (
+    AnyBlock,
+    AnyLetterBlock,
+    Letter,
+    LetterContent,
+    Paragraph,
+    Recipient,
+    ResumeContent,
+)
+from document_schema.design import Design, PageSize, PhotoShape, Size, TemplateId
+from document_schema.document import (
+    AnyDocument,
+    Asset,
+    Document,
+    DocumentKind,
+    LetterDocument,
+    MediaType,
+    ResumeDocument,
+)
 from document_schema.enums import Align, Region
 from document_schema.sections import (
     Award,
@@ -31,6 +50,10 @@ from document_schema.values import Date, RichValue, Value
 
 __all__ = [
     "Align",
+    "AnyBlock",
+    "AnyDocument",
+    "AnyLetterBlock",
+    "Asset",
     "Award",
     "Awards",
     "Block",
@@ -46,6 +69,9 @@ __all__ = [
     "DataFieldPath",
     "Date",
     "Degree",
+    "Design",
+    "Document",
+    "DocumentKind",
     "Education",
     "Entry",
     "Experience",
@@ -54,20 +80,32 @@ __all__ = [
     "Job",
     "LanguageSkill",
     "Languages",
+    "Letter",
+    "LetterContent",
+    "LetterDocument",
     "Link",
+    "MediaType",
+    "PageSize",
+    "Paragraph",
     "Photo",
+    "PhotoShape",
     "Profile",
     "Project",
     "Projects",
     "Publication",
     "Publications",
+    "Recipient",
     "Region",
+    "ResumeContent",
+    "ResumeDocument",
     "RichValue",
     "Section",
+    "Size",
     "Skill",
     "Skills",
     "Source",
     "Summary",
     "Tag",
+    "TemplateId",
     "Value",
 ]
