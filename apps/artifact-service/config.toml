@@ -19,5 +19,3 @@ log_format = "console"
 tracing_enabled = false
 metrics_enabled = false
 
-[browser]
-max_concurrent_renders = 4

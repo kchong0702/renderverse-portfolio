@@ -7,8 +7,6 @@ services:
       dockerfile: apps/artifact-service/Dockerfile
       target: artifact-service
     restart: always
-    security_opt:
-      - seccomp=infra/seccomp/chromium.json
     env_file:
       - path: .env
         required: false
