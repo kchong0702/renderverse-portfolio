@@ -131,13 +131,6 @@ class ObservabilitySettings(BaseModel):
         return self
 
 
-class BrowserSettings(BaseModel):
-    model_config = {"extra": "forbid", "frozen": True}
-
-    max_concurrent_renders: int = Field(default=4, gt=0)
-    """Renders that may run in Chromium at once, the rest wait their turn"""
-
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="ARTIFACT_SERVICE_",
@@ -156,9 +149,6 @@ class Settings(BaseSettings):
 
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     """Logging, tracing and metrics settings"""
-
-    browser: BrowserSettings = Field(default_factory=BrowserSettings)
-    """Headless Chromium settings"""
 
     @classmethod
     @override
@@ -193,7 +183,6 @@ def reload_settings() -> Settings:
 
 __all__ = [
     "AppSettings",
-    "BrowserSettings",
     "ObservabilitySettings",
     "Settings",
     "get_settings",

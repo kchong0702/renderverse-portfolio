@@ -12,7 +12,6 @@ from src.infrastructure import (
     shutdown_metrics,
     shutdown_tracing,
 )
-from src.shared.browser import Browser
 
 _settings = get_settings()
 
@@ -27,7 +26,6 @@ async def lifespan(app: FastAPI):
     """FastAPI lifecycle manager"""
     yield
 
-    await app.state.browser.close()
     shutdown_metrics()
     shutdown_tracing()
 
@@ -45,8 +43,6 @@ def create_app() -> FastAPI:
         docs_url=f"{_settings.app.route_prefix}/docs",
         lifespan=lifespan,
     )
-
-    app.state.browser = Browser(_settings.browser.max_concurrent_renders)
 
     app.add_middleware(
         CORSMiddleware,
