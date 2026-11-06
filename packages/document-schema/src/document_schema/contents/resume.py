@@ -15,7 +15,7 @@ from document_schema.sections.projects import Projects
 from document_schema.sections.publications import Publications
 from document_schema.sections.skills import Skills
 from document_schema.sections.summary import Summary
-from document_schema.types import require_unique_ids
+from document_schema.validators import require_unique_ids
 
 AnyBlock = Annotated[
     Profile
@@ -46,7 +46,7 @@ class ResumeContent(BaseModel):
     @model_validator(mode="after")
     def _blocks_valid(self) -> Self:
         """Rejects a résumé without exactly one profile, or with repeats"""
-        require_unique_ids(self.blocks, "blocks")
+        require_unique_ids((item.id for item in self.blocks), "blocks")
         kinds = [block.kind for block in self.blocks]
         if kinds.count("profile") != 1:
             raise ValueError("a résumé has exactly one profile")
