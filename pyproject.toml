@@ -19,3 +19,15 @@ members = [
     "apps/artifact-service",
     "packages/document-schema",
 ]
+
+# For editors opened at the repo root: each app's `src` resolves within that app
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "off"
+executionEnvironments = [
+    { root = "apps/artifact-service" },
+    { root = "apps/ezcareer-harness" },
+    { root = "apps/ezbot" },
+    { root = "packages/document-schema/src" },
+]
