@@ -1,0 +1,44 @@
+[project]
+name = "ops-api"
+version = "0.1.0"
+description = "System of record for the Ops career workspace"
+authors = [
+    { name = "kchong0702", email = "kelvinchong.dev@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "alembic>=1.20.1",
+    "asyncpg>=0.32.0",
+    "authlib>=1.9.1",
+    "dependency-injector>=4.49.1",
+    "fastapi>=0.142.2",
+    "httpx2>=2.13.1",
+    "itsdangerous>=2.2.0",
+    "pwdlib[argon2]>=0.3.1",
+    "pydantic-settings>=2.15.0",
+    "python-dotenv>=1.2.4",
+    "sqlalchemy[asyncio]>=2.1.6",
+    "structlog>=26.1.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers --strict-config"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "postgres: needs a Postgres database (OPS_API_TEST_DATABASE_URL)",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.22.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.16.10",
+]
