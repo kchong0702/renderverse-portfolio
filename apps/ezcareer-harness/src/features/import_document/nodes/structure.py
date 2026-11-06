@@ -13,9 +13,8 @@ async def structure(
     state: ImportState, runtime: Runtime[ImportContext]
 ) -> dict[str, Any]:
     """Asks the LLM for the résumé's content, each value citing its lines"""
-    config = runtime.context.config
     prompt = PromptTemplate.from_template(
-        config.prompt.read_text(), template_format="mustache"
+        runtime.context.config.prompt, template_format="mustache"
     )
     data = {
         "lines": [{"id": line.id, "text": line.text} for line in state["lines"]],
