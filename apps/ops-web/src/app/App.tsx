@@ -1,5 +1,6 @@
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import { RequireAuth, SignInPage } from "@/features/auth";
+import { SettingsPage } from "@/features/settings";
 import { useApplyTheme } from "@/shared/theme/useApplyTheme";
 import AppShell from "./shell/AppShell";
 import ComingSoon from "./shell/ComingSoon";
@@ -22,7 +23,7 @@ const router = createBrowserRouter(
         { path: "/portfolio", element: <ComingSoon page="portfolio" /> },
         { path: "/inbox", element: <ComingSoon page="inbox" /> },
         { path: "/calendar", element: <ComingSoon page="calendar" /> },
-        { path: "/settings", element: <ComingSoon page="settings" /> },
+        { path: "/settings", element: <SettingsPage /> },
         { path: "*", element: <NotFound /> },
       ],
     },
