@@ -28,7 +28,9 @@ Source = Annotated[
 
 class HasId(Protocol):
     @property
-    def id(self) -> str: ...
+    def id(self) -> str:
+        """The node's id"""
+        ...
 
 
 def require_unique_ids(items: Iterable[HasId], where: str) -> None:

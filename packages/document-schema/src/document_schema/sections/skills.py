@@ -23,6 +23,7 @@ class Skill(BaseModel):
 
     @model_validator(mode="after")
     def _ids_unique(self) -> Self:
+        """Rejects items that share an id"""
         require_unique_ids(self.items, f"{self.id} items")
         return self
 
