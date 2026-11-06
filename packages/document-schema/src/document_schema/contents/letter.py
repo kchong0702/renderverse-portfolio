@@ -6,7 +6,8 @@ from document_schema.blocks.block import Block
 from document_schema.blocks.contacts import Contacts
 from document_schema.blocks.photo import Photo
 from document_schema.blocks.profile import Profile
-from document_schema.types import FileHash, Id, require_unique_ids
+from document_schema.types import FileHash, Id
+from document_schema.validators import require_unique_ids
 from document_schema.values import RichValue, Value
 
 
@@ -72,7 +73,9 @@ class Letter(Block):
     @model_validator(mode="after")
     def _ids_unique(self) -> Self:
         """Rejects paragraphs that share an id"""
-        require_unique_ids(self.paragraphs, f"{self.id} paragraphs")
+        require_unique_ids(
+            (item.id for item in self.paragraphs), f"{self.id} paragraphs"
+        )
         return self
 
 
@@ -92,7 +95,7 @@ class LetterContent(BaseModel):
     @model_validator(mode="after")
     def _blocks_valid(self) -> Self:
         """Rejects a letter without one profile and one letter block, or with repeats"""
-        require_unique_ids(self.blocks, "blocks")
+        require_unique_ids((item.id for item in self.blocks), "blocks")
         kinds = [block.kind for block in self.blocks]
         if kinds.count("profile") != 1 or kinds.count("letter") != 1:
             raise ValueError("a letter has exactly one profile and one letter")
