@@ -1,0 +1,52 @@
+{
+  "name": "@renderverse/document-renderer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/lib/document-renderer.js"
+    },
+    "./fonts.css": "./src/fonts.css"
+  },
+  "scripts": {
+    "build": "vite build && vite build --mode print",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "schema": "node scripts/generate-schema.mjs"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "dependencies": {
+    "@fontsource/eb-garamond": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/lato": "^5.3.0",
+    "@fontsource/merriweather": "^5.3.0",
+    "@fontsource/source-sans-3": "^5.3.1",
+    "@fontsource/source-serif-4": "^5.3.1",
+    "pagedjs": "0.4.3",
+    "react-icons": "^5.1.0",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "json-schema-to-typescript": "^16.0.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.72.1",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  }
+}

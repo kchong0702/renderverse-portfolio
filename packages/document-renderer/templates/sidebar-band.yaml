@@ -1,0 +1,26 @@
+id: sidebar-band
+name: Sidebar band
+description: An accent band down the page holds the photo, name, contacts and skills.
+kinds: [resume, cv, cover_letter]
+body_font: inter
+heading_font: inter
+accent: "#1F4E79"
+regions:
+  side:
+    area: { column: 1, span: 4 }
+    fill: accent
+    title: underline
+    contacts: labelled
+    skills: outline-pills
+    photo_ring: true
+  main:
+    area: { column: 5, span: 8 }
+    entry: dates-left
+home:
+  default: main
+  photo: side
+  profile: side
+  contacts: side
+  skills: side
+  languages: side
+photo: top
