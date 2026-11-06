@@ -38,6 +38,72 @@
       "settings": "Settings"
     }
   },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Connections and automation",
+    "loadFailed": "Settings could not be loaded: {{reason}}",
+    "save": {
+      "saving": "Saving…",
+      "saved": "All changes saved",
+      "failed": "Not saved: {{reason}}"
+    },
+    "connections": {
+      "title": "Connections",
+      "names": {
+        "google": "Google account",
+        "jsearch": "JSearch",
+        "portfolio_site": "Portfolio site"
+      },
+      "status": {
+        "connected": "Connected",
+        "not_connected": "Not connected yet"
+      }
+    },
+    "jobAgent": {
+      "title": "Job agent",
+      "query": "Search for",
+      "queryPlaceholder": "e.g. Backend engineer, Python",
+      "location": "Where",
+      "locationPlaceholder": "e.g. Kuala Lumpur or remote",
+      "runAt": "Runs daily at",
+      "minScore": "Keep postings that score at least"
+    },
+    "automation": {
+      "title": "Applying and follow-ups",
+      "rules": {
+        "tailor_strong_matches": {
+          "label": "Draft a tailored résumé for new picks scoring 85 or more",
+          "note": "Drafts wait in Documents for your review"
+        },
+        "follow_up_reminders": {
+          "label": "Remind me to follow up after 7 days without a reply",
+          "note": "Adds a task to your calendar and drafts the email"
+        },
+        "suggest_replies": {
+          "label": "Read employer replies and suggest an answer",
+          "note": "Suggestions appear in Inbox"
+        }
+      },
+      "approval": {
+        "label": "Never send or apply without my approval",
+        "note": "Always on"
+      }
+    },
+    "scheduling": {
+      "title": "Scheduling",
+      "workHours": "Work hours",
+      "hoursRange": "{{start}} to {{end}}",
+      "meetingGap": "Gap between meetings",
+      "gap_one": "{{count}} minute",
+      "gap_other": "{{count}} minutes",
+      "aiModel": "AI model",
+      "providers": {
+        "claude": "Claude",
+        "openai": "OpenAI",
+        "glm": "GLM"
+      }
+    }
+  },
   "auth": {
     "title": "Sign in",
     "subtitle": "Only invited accounts can sign in.",
