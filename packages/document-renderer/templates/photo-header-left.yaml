@@ -1,0 +1,23 @@
+id: photo-header-left
+name: Photo header left
+description: An accent header with the photo on the left and contacts on icon tiles.
+kinds: [resume, cv, cover_letter]
+body_font: lato
+heading_font: merriweather
+accent: "#7C2D12"
+regions:
+  top:
+    area: { row: 1 }
+    fill: accent
+    contacts: icon-tiles
+    photo_ring: true
+  main:
+    area: { row: 2 }
+    title: side-bar
+    skills: filled-pills
+home:
+  default: main
+  profile: top
+  photo: top
+  contacts: top
+photo: start

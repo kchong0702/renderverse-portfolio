@@ -1,0 +1,26 @@
+id: sidebar-band-right
+name: Sidebar band right
+description: The sidebar band on the right, with the main column first.
+kinds: [resume, cv, cover_letter]
+body_font: inter
+heading_font: inter
+accent: "#1F4E79"
+regions:
+  main:
+    area: { column: 1, span: 8 }
+    entry: dates-left
+  side:
+    area: { column: 9, span: 4 }
+    fill: accent
+    title: underline
+    contacts: labelled
+    skills: outline-pills
+    photo_ring: true
+home:
+  default: main
+  photo: side
+  profile: side
+  contacts: side
+  skills: side
+  languages: side
+photo: top
