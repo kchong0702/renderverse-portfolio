@@ -5,17 +5,16 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from document_schema.contents.letter import AnyLetterBlock
 from document_schema.contents.resume import AnyBlock
 from document_schema.design import Design
-from document_schema.enums import Region
 from document_schema.types import BlockId, DataFieldPath, Id
 from document_schema.values import RichValue, Value
 
 
-class SetText(BaseModel):
+class UpdateText(BaseModel):
     model_config = ConfigDict(
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    op: Literal["set_text"]
+    kind: Literal["update_text"]
     """Edit kind"""
 
     path: DataFieldPath
@@ -30,7 +29,7 @@ class InsertBlock(BaseModel):
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    op: Literal["insert_block"]
+    kind: Literal["insert_block"]
     """Edit kind"""
 
     after: BlockId | None = None
@@ -45,7 +44,7 @@ class InsertItem(BaseModel):
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    op: Literal["insert_item"]
+    kind: Literal["insert_item"]
     """Edit kind"""
 
     parent: DataFieldPath
@@ -63,7 +62,7 @@ class Move(BaseModel):
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    op: Literal["move"]
+    kind: Literal["move"]
     """Edit kind"""
 
     path: DataFieldPath
@@ -78,37 +77,19 @@ class Delete(BaseModel):
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    op: Literal["delete"]
+    kind: Literal["delete"]
     """Edit kind"""
 
     path: DataFieldPath
     """What goes"""
 
 
-class Place(BaseModel):
+class UpdateVisibility(BaseModel):
     model_config = ConfigDict(
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    op: Literal["place"]
-    """Edit kind"""
-
-    block: BlockId
-    """What moves"""
-
-    region: Region
-    """In the document's current template"""
-
-    after: BlockId | None = None
-    """None puts it first in the region"""
-
-
-class SetHidden(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid", frozen=True, use_attribute_docstrings=True
-    )
-
-    op: Literal["set_hidden"]
+    kind: Literal["update_visibility"]
     """Edit kind"""
 
     block: BlockId
@@ -118,12 +99,12 @@ class SetHidden(BaseModel):
     """True leaves it off the page"""
 
 
-class SetDesign(BaseModel):
+class UpdateDesign(BaseModel):
     model_config = ConfigDict(
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    op: Literal["set_design"]
+    kind: Literal["update_design"]
     """Edit kind"""
 
     design: Design
@@ -131,6 +112,12 @@ class SetDesign(BaseModel):
 
 
 AnyEdit = Annotated[
-    SetText | InsertBlock | InsertItem | Move | Delete | Place | SetHidden | SetDesign,
-    Field(discriminator="op"),
+    UpdateText
+    | InsertBlock
+    | InsertItem
+    | Move
+    | Delete
+    | UpdateVisibility
+    | UpdateDesign,
+    Field(discriminator="kind"),
 ]
