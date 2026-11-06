@@ -38,14 +38,24 @@ def _check_references(
 
 class DocumentKind(StrEnum):
     RESUME = "resume"
+    """One or two pages"""
+
     CV = "cv"
+    """A complete record of any length"""
+
     COVER_LETTER = "cover_letter"
+    """A letter for one application"""
 
 
 class MediaType(StrEnum):
     PNG = "image/png"
+    """PNG image"""
+
     JPEG = "image/jpeg"
+    """JPEG image"""
+
     WEBP = "image/webp"
+    """WebP image"""
 
 
 class Asset(BaseModel):
@@ -61,8 +71,6 @@ class Asset(BaseModel):
 
 
 class Document(BaseModel):
-    """What every document has"""
-
     model_config = ConfigDict(
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
@@ -95,6 +103,7 @@ class ResumeDocument(Document):
 
     @model_validator(mode="after")
     def _references_exist(self) -> Self:
+        """Rejects files and layout blocks the document doesn't have"""
         _check_references(self.content.blocks, self.design, self.assets)
         return self
 
@@ -115,6 +124,7 @@ class LetterDocument(Document):
 
     @model_validator(mode="after")
     def _references_exist(self) -> Self:
+        """Rejects files and layout blocks the document doesn't have"""
         _check_references(self.content.blocks, self.design, self.assets)
         return self
 

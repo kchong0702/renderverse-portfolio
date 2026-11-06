@@ -37,7 +37,10 @@ class Paragraph(BaseModel):
     )
 
     id: Id
+    """Stable key among the letter's paragraphs"""
+
     text: RichValue
+    """The paragraph"""
 
 
 class Letter(Block):
@@ -68,6 +71,7 @@ class Letter(Block):
 
     @model_validator(mode="after")
     def _ids_unique(self) -> Self:
+        """Rejects paragraphs that share an id"""
         require_unique_ids(self.paragraphs, f"{self.id} paragraphs")
         return self
 
@@ -87,6 +91,7 @@ class LetterContent(BaseModel):
 
     @model_validator(mode="after")
     def _blocks_valid(self) -> Self:
+        """Rejects a letter without one profile and one letter block, or with repeats"""
         require_unique_ids(self.blocks, "blocks")
         kinds = [block.kind for block in self.blocks]
         if kinds.count("profile") != 1 or kinds.count("letter") != 1:
