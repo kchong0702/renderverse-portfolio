@@ -19,3 +19,6 @@ log_format = "console"
 tracing_enabled = false
 metrics_enabled = false
 
+[renderer]
+max_concurrent_renders = 4
+timeout_s = 30
