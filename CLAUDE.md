@@ -35,5 +35,6 @@
 - Commit as the configured git user; never change `user.name` / `user.email`.
 - Use Conventional Commits: `type(scope): summary`, with types `feat`, `fix`, `refactor`, `chore` and the Nx project (`renderverse`, `ezbot-harness`) or area (`i18n`, `lint`) as scope.
 - Don't amend or rewrite existing commits just to change attribution unless explicitly asked.
+- Never push to `main` or merge into it; changes reach `main` only through a pull request the user merges.
 - Never `git merge main` into a branch; rebase it onto `main` instead.
 - Never force push, except to update a branch after a rebase (use `--force-with-lease`).
