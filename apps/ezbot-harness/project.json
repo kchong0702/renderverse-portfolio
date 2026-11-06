@@ -55,7 +55,7 @@
       "inputs": ["default", "uv"],
       "options": {
         "command": "uv run pyright",
-        "cwd": "apps/ezbot"
+        "cwd": "apps/ezbot-harness"
       }
     },
     "test": {
