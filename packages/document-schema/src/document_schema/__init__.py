@@ -26,7 +26,7 @@ from document_schema.edits import (
     InsertItem,
     Move,
     UpdateDesign,
-    UpdateText,
+    UpdateField,
     UpdateVisibility,
 )
 from document_schema.enums import Align, Region
@@ -142,7 +142,7 @@ __all__ = [
     "Tag",
     "TemplateId",
     "UpdateDesign",
-    "UpdateText",
+    "UpdateField",
     "UpdateVisibility",
     "Value",
     "json_schemas",

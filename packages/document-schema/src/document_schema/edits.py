@@ -2,26 +2,30 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from document_schema.blocks.contacts import ContactKind
 from document_schema.contents.letter import AnyLetterBlock
 from document_schema.contents.resume import AnyBlock
 from document_schema.design import Design
 from document_schema.types import BlockId, DataFieldPath, Id
-from document_schema.values import RichValue, Value
+from document_schema.values import Date, RichValue, Value
+
+FieldValue = Value | RichValue | Date | ContactKind | list[Value] | None
+"""Any value a content field holds; None clears an optional one"""
 
 
-class UpdateText(BaseModel):
+class UpdateField(BaseModel):
     model_config = ConfigDict(
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    kind: Literal["update_text"]
+    kind: Literal["update_field"]
     """Edit kind"""
 
     path: DataFieldPath
-    """Such as blocks/exp/items/acme/bullets/b1/text"""
+    """Such as blocks/exp/items/acme/dates or blocks/contacts/items/c1/kind"""
 
-    value: Value | RichValue
-    """The new text"""
+    value: FieldValue
+    """The field's new value; None clears an optional field"""
 
 
 class InsertBlock(BaseModel):
@@ -112,7 +116,7 @@ class UpdateDesign(BaseModel):
 
 
 AnyEdit = Annotated[
-    UpdateText
+    UpdateField
     | InsertBlock
     | InsertItem
     | Move
