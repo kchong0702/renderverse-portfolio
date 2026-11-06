@@ -1,0 +1,246 @@
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+from typing import Annotated, Literal, override
+
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
+from pydantic_settings import (
+    BaseSettings,
+    NoDecode,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+    TomlConfigSettingsSource,
+)
+
+_APP_NAME = "ops-api"
+
+_ROOT_PATH = Path(__file__).resolve().parents[2]
+_DEFAULT_TOML = _ROOT_PATH / "config.toml"
+_DEFAULT_ENV_FILE = _ROOT_PATH / ".env"
+
+load_dotenv(_DEFAULT_ENV_FILE, override=False)
+
+Env = Literal["dev", "staging", "prod"]
+LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+LogFormat = Literal["json", "console"]
+
+
+def _split_csv(v: object) -> object:
+    if isinstance(v, str):
+        return [item.strip() for item in v.split(",") if item.strip()]
+    return v
+
+
+class AppSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    name: str = _APP_NAME
+    """Application name"""
+
+    env: Env = "dev"
+    """Execution environment"""
+
+    version: str = "0.1.0"
+    """Application's version"""
+
+    cors_origin: Annotated[list[str], NoDecode] = ["*"]
+    """Cors origins"""
+
+    route_prefix: str = "/ops-api"
+    """FastAPI router prefix, matching the `tailscale serve` path"""
+
+    host: str = "127.0.0.1"
+    """Host address to bind the server to"""
+
+    port: int = 8100
+    """Port to listen on"""
+
+    workers: int = 1
+    """Number of uvicorn worker processes"""
+
+    log_level: Literal["debug", "info", "warning", "error", "critical"] = "info"
+    """Uvicorn log level"""
+
+    access_log: bool = True
+    """Enable uvicorn access log"""
+
+    @field_validator("cors_origin", mode="before")
+    @classmethod
+    def _cors_processor(cls, v: object) -> object:
+        return _split_csv(v)
+
+
+class OAuthClientSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    client_id: str = ""
+    """OAuth client id; the provider is offered only when it is set"""
+
+    client_secret: SecretStr = SecretStr("")
+    """OAuth client secret"""
+
+    scope: str
+    """Space-separated scopes asked for at sign-in"""
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.client_id and self.client_secret.get_secret_value())
+
+
+class GoogleOAuthSettings(OAuthClientSettings):
+    discovery_url: str = "https://accounts.google.com/.well-known/openid-configuration"
+    """OpenID Connect discovery document; Authlib reads the endpoints and keys from it"""
+
+    scope: str = "openid email"
+    """The ID token's subject and verified email"""
+
+
+class GitHubOAuthSettings(OAuthClientSettings):
+    authorize_url: str = "https://github.com/login/oauth/authorize"
+    """Where the user is sent to approve the sign-in"""
+
+    access_token_url: str = "https://github.com/login/oauth/access_token"
+    """Where the callback's code is exchanged for an access token"""
+
+    api_base_url: str = "https://api.github.com/"
+    """Where the user and user/emails endpoints are read from"""
+
+    scope: str = "read:user user:email"
+    """The account id, and its emails with their verified flags"""
+
+
+class AuthSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    enabled: bool = False
+    """Require a signed-in session on every request"""
+
+    allowed_emails: Annotated[list[str], NoDecode] = []
+    """Emails allowed to sign in, with a password or a verified SSO email"""
+
+    dev_email: str = "owner@localhost"
+    """Who a request acts as while auth is disabled"""
+
+    web_url: str = "http://localhost:5174"
+    """Where ops-web is served; OAuth callbacks and redirects go through it"""
+
+    secret_key: SecretStr = SecretStr("")
+    """Signs the short-lived OAuth state cookie"""
+
+    session_idle_days: int = Field(default=30, gt=0)
+    """A session expires after this many days without a request"""
+
+    google: GoogleOAuthSettings = Field(default_factory=GoogleOAuthSettings)
+    github: GitHubOAuthSettings = Field(default_factory=GitHubOAuthSettings)
+
+    @field_validator("allowed_emails", mode="before")
+    @classmethod
+    def _emails_processor(cls, v: object) -> object:
+        return _split_csv(v)
+
+    @field_validator("allowed_emails", mode="after")
+    @classmethod
+    def _normalise_emails(cls, v: list[str]) -> list[str]:
+        return [email.lower() for email in v]
+
+    @field_validator("web_url", mode="after")
+    @classmethod
+    def _strip_trailing_slash(cls, v: str) -> str:
+        return v.rstrip("/")
+
+    @model_validator(mode="after")
+    def _enabled_requires_allowlist_and_key(self) -> AuthSettings:
+        if not self.enabled:
+            return self
+        if not self.allowed_emails:
+            raise ValueError("auth.enabled is True but auth.allowed_emails is empty")
+        if len(self.secret_key.get_secret_value()) < 32:
+            raise ValueError("auth.enabled needs auth.secret_key of 32+ characters")
+        return self
+
+    @property
+    def secure_cookies(self) -> bool:
+        return self.web_url.startswith("https://")
+
+
+class DatabaseSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    url: SecretStr = SecretStr("postgresql+asyncpg://ops:ops@localhost:5432/ops")
+    """SQLAlchemy async URL; Supabase through the session pooler"""
+
+    pool_size: int = Field(default=5, gt=0)
+    """Connection pool size"""
+
+    echo: bool = False
+    """Log every SQL statement"""
+
+
+class ObservabilitySettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    service_name: str = _APP_NAME
+    log_level: LogLevel = "INFO"
+    log_format: LogFormat = "json"
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="OPS_API_",
+        env_nested_delimiter="__",
+        env_file=str(_DEFAULT_ENV_FILE),
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
+        frozen=True,
+        validate_default=True,
+        toml_file=str(_DEFAULT_TOML),
+    )
+
+    app: AppSettings = Field(default_factory=AppSettings)
+    auth: AuthSettings = Field(default_factory=AuthSettings)
+    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+    observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
+
+    @classmethod
+    @override
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            TomlConfigSettingsSource(settings_cls),
+            file_secret_settings,
+        )
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Get settings instance, singleton per process"""
+    return Settings()
+
+
+def reload_settings() -> Settings:
+    """Reset settings instance"""
+    get_settings.cache_clear()
+    return get_settings()
+
+
+__all__ = [
+    "AppSettings",
+    "AuthSettings",
+    "DatabaseSettings",
+    "ObservabilitySettings",
+    "Settings",
+    "get_settings",
+    "reload_settings",
+]
