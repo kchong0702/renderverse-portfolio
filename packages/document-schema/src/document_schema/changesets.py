@@ -16,8 +16,13 @@ def _sourced(value: Value | RichValue) -> bool:
 
 class ChangesetStatus(StrEnum):
     PENDING = "pending"
+    """Waiting for the user"""
+
     ACCEPTED = "accepted"
+    """Applied to the document"""
+
     REJECTED = "rejected"
+    """Turned down by the user"""
 
 
 class Changeset(BaseModel):
@@ -42,6 +47,7 @@ class Changeset(BaseModel):
 
     @model_validator(mode="after")
     def _agent_rules(self) -> Self:
+        """Rejects edits an agent may not make"""
         for edit in self.edits:
             if isinstance(edit, SetText) and not _sourced(edit.value):
                 raise ValueError(f"{edit.path}: agent text must cite a fact or the PDF")
