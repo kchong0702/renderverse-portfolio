@@ -4,7 +4,8 @@ from typing import Self
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from document_schema.blocks.block import Block
-from document_schema.types import Id, require_unique_ids
+from document_schema.types import Id
+from document_schema.validators import require_unique_ids
 from document_schema.values import RichValue, Value
 
 
@@ -72,8 +73,8 @@ class Entry(BaseModel):
     @model_validator(mode="after")
     def _ids_unique(self) -> Self:
         """Rejects bullets or links that share an id"""
-        require_unique_ids(self.bullets, f"{self.id} bullets")
-        require_unique_ids(self.links, f"{self.id} links")
+        require_unique_ids((item.id for item in self.bullets), f"{self.id} bullets")
+        require_unique_ids((item.id for item in self.links), f"{self.id} links")
         return self
 
 
@@ -89,5 +90,5 @@ class Section(Block):
     def _item_ids_unique(self) -> Self:
         """Rejects items that share an id"""
         if (items := getattr(self, "items", None)) is not None:
-            require_unique_ids(items, f"{self.id} items")
+            require_unique_ids((item.id for item in items), f"{self.id} items")
         return self

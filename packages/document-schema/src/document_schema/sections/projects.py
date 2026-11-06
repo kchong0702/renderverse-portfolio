@@ -3,7 +3,7 @@ from typing import Literal, Self
 from pydantic import ConfigDict, Field, model_validator
 
 from document_schema.sections.section import Entry, Section, Tag
-from document_schema.types import require_unique_ids
+from document_schema.validators import require_unique_ids
 from document_schema.values import Date, RichValue, Value
 
 
@@ -30,7 +30,7 @@ class Project(Entry):
     @model_validator(mode="after")
     def _tag_ids_unique(self) -> Self:
         """Rejects tags that share an id"""
-        require_unique_ids(self.tags, f"{self.id} tags")
+        require_unique_ids((item.id for item in self.tags), f"{self.id} tags")
         return self
 
 

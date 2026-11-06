@@ -1,5 +1,4 @@
-from collections.abc import Iterable
-from typing import Annotated, Protocol
+from typing import Annotated
 
 from pydantic import StringConstraints
 
@@ -24,17 +23,3 @@ Source = Annotated[
     ),
 ]
 """Where text came from: a PDF line, a fact, the user or the agent"""
-
-
-class HasId(Protocol):
-    @property
-    def id(self) -> str:
-        """The node's id"""
-        ...
-
-
-def require_unique_ids(items: Iterable[HasId], where: str) -> None:
-    """Raises when two items share an id"""
-    ids = [item.id for item in items]
-    if len(ids) != len(set(ids)):
-        raise ValueError(f"ids must be unique in {where}")

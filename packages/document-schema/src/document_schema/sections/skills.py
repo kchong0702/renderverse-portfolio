@@ -3,7 +3,8 @@ from typing import Literal, Self
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from document_schema.sections.section import Section, Tag
-from document_schema.types import Id, require_unique_ids
+from document_schema.types import Id
+from document_schema.validators import require_unique_ids
 from document_schema.values import Value
 
 
@@ -24,7 +25,7 @@ class Skill(BaseModel):
     @model_validator(mode="after")
     def _ids_unique(self) -> Self:
         """Rejects items that share an id"""
-        require_unique_ids(self.items, f"{self.id} items")
+        require_unique_ids((item.id for item in self.items), f"{self.id} items")
         return self
 
 
