@@ -1,0 +1,59 @@
+{
+  "common": {
+    "loading": "Loading…"
+  },
+  "errors": {
+    "requestFailed": "Request failed ({{status}})"
+  },
+  "shell": {
+    "product": "Ops",
+    "tagline": "Your career starts here",
+    "mainNav": "Main",
+    "useDarkTheme": "Use the dark theme",
+    "useLightTheme": "Use the light theme",
+    "comingSoon": "This screen is coming in a later step of the rebuild.",
+    "notFound": {
+      "title": "Page not found",
+      "body": "There is nothing at this address.",
+      "home": "Go to the dashboard"
+    },
+    "signOut": "Sign out",
+    "loadFailed": "Ops could not load: {{reason}}",
+    "retry": "Try again"
+  },
+  "nav": {
+    "groups": {
+      "jobSearch": "Job search",
+      "you": "You",
+      "stayOnTrack": "Stay on track"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "jobs": "Jobs",
+      "applications": "Applications",
+      "documents": "Documents",
+      "portfolio": "Portfolio",
+      "inbox": "Inbox",
+      "calendar": "Calendar",
+      "settings": "Settings"
+    }
+  },
+  "auth": {
+    "title": "Sign in",
+    "subtitle": "Only invited accounts can sign in.",
+    "continueWith": {
+      "google": "Continue with Google",
+      "github": "Continue with GitHub"
+    },
+    "or": "or",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "errors": {
+      "not_allowed": "That account isn't invited. Sign in with an invited email.",
+      "failed": "Sign-in was cancelled or didn't finish. Try again.",
+      "password": "Not signed in: {{reason}}"
+    }
+  }
+}
