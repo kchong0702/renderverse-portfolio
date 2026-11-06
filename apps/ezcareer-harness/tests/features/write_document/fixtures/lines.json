@@ -1,0 +1,22 @@
+[
+  { "id": "p1.s1", "text": "Aisha Rahman" },
+  { "id": "p1.s2", "text": "Backend Engineer" },
+  { "id": "p1.s3", "text": "aisha@example.com" },
+  {
+    "id": "p1.s4",
+    "text": "Backend engineer with 6 years building payment systems."
+  },
+  { "id": "p1.s5", "text": "Experience" },
+  { "id": "p1.s6", "text": "Senior Engineer, Lumen Pay" },
+  { "id": "p1.s7", "text": "2021 to now" },
+  {
+    "id": "p1.s8",
+    "text": "Led the migration of 30 services to a new message queue."
+  },
+  { "id": "p1.s9", "text": "Cut card authorisation latency by 40%." },
+  { "id": "p1.s10", "text": "Engineer, Bayu Bank" },
+  { "id": "p1.s11", "text": "2018 to 2021" },
+  { "id": "p1.s12", "text": "Built the bank's first public API." },
+  { "id": "p1.s13", "text": "Skills" },
+  { "id": "p1.s14", "text": "Python, Go, PostgreSQL" }
+]
