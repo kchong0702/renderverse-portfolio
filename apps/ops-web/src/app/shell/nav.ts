@@ -1,0 +1,60 @@
+import type { ComponentType } from "react";
+import {
+  ApplicationsIcon,
+  CalendarIcon,
+  DashboardIcon,
+  DocumentsIcon,
+  InboxIcon,
+  JobsIcon,
+  PortfolioIcon,
+  SettingsIcon,
+} from "@/shared/ui/icons";
+
+export type NavKey =
+  | "dashboard"
+  | "jobs"
+  | "applications"
+  | "documents"
+  | "portfolio"
+  | "inbox"
+  | "calendar"
+  | "settings";
+
+export interface NavItem {
+  key: NavKey;
+  path: string;
+  icon: ComponentType<{ size?: number }>;
+}
+
+export interface NavGroup {
+  /** i18n key under nav.groups; the first group has no heading */
+  heading?: "jobSearch" | "you" | "stayOnTrack";
+  items: NavItem[];
+}
+
+// Sidebar order from the design. Badges arrive with each feature's count hook.
+export const navGroups: NavGroup[] = [
+  { items: [{ key: "dashboard", path: "/", icon: DashboardIcon }] },
+  {
+    heading: "jobSearch",
+    items: [
+      { key: "jobs", path: "/jobs", icon: JobsIcon },
+      { key: "applications", path: "/applications", icon: ApplicationsIcon },
+    ],
+  },
+  {
+    heading: "you",
+    items: [
+      { key: "documents", path: "/documents", icon: DocumentsIcon },
+      { key: "portfolio", path: "/portfolio", icon: PortfolioIcon },
+    ],
+  },
+  {
+    heading: "stayOnTrack",
+    items: [
+      { key: "inbox", path: "/inbox", icon: InboxIcon },
+      { key: "calendar", path: "/calendar", icon: CalendarIcon },
+      { key: "settings", path: "/settings", icon: SettingsIcon },
+    ],
+  },
+];
