@@ -23,9 +23,17 @@
 
 <!-- nx configuration end-->
 
+# Coding Conventions
+
+- Keep it simple, stupid: prefer the plainest code that does the job.
+- If something is used in only one place, write it inline instead of extracting a separate variable or function.
+- Aim for the smallest change that achieves the task.
+
 # Git Conventions
 
 - Never add Claude, Anthropic, or any AI assistant as an author, co-author, or contributor: no `Co-Authored-By` trailers, and no AI attribution in commit messages, PR descriptions, issues, or review comments.
 - Commit as the configured git user; never change `user.name` / `user.email`.
 - Use Conventional Commits: `type(scope): summary`, with types `feat`, `fix`, `refactor`, `chore` and the Nx project (`renderverse`, `ezbot-harness`) or area (`i18n`, `lint`) as scope.
 - Don't amend or rewrite existing commits just to change attribution unless explicitly asked.
+- Never `git merge main` into a branch; rebase it onto `main` instead.
+- Never force push, except to update a branch after a rebase (use `--force-with-lease`).
