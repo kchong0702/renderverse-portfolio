@@ -17,6 +17,7 @@ dependencies = [
     "openinference-instrumentation-langchain>=0.1.78",
     "opentelemetry-exporter-otlp-proto-http>=1.45.0",
     "opentelemetry-sdk>=1.45.0",
+    "pdfplumber>=0.11.10",
     "pydantic-settings>=2.15.0",
     "python-dotenv>=1.2.4",
     "structlog>=26.1.0",
@@ -41,6 +42,7 @@ known-first-party = ["src"]
 
 [dependency-groups]
 dev = [
+    "fpdf2>=2.9.0",
     "httpx2>=2.13.1",
     "pyright>=1.1.414",
     "pytest>=9.1.1",
