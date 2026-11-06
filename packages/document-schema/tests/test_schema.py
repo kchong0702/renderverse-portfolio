@@ -1,17 +1,8 @@
-import json
-import subprocess
-import sys
+from document_schema import json_schemas
 
 
-def test_the_exported_schema_describes_each_field_for_the_agent() -> None:
-    out = subprocess.run(
-        [sys.executable, "-m", "document_schema"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-
-    schemas = json.loads(out.stdout)
+def test_the_json_schema_describes_each_field_for_the_agent() -> None:
+    schemas = json_schemas()
     job = schemas["document"]["$defs"]["Job"]["properties"]
 
     assert set(schemas) == {"document"}

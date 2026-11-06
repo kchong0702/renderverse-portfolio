@@ -19,6 +19,7 @@ from document_schema.document import (
     ResumeDocument,
 )
 from document_schema.enums import Align, Region
+from document_schema.json_schema import json_schemas
 from document_schema.sections import (
     Award,
     Awards,
@@ -108,4 +109,5 @@ __all__ = [
     "Tag",
     "TemplateId",
     "Value",
+    "json_schemas",
 ]
