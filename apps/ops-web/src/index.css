@@ -1,0 +1,24 @@
+@import "tailwindcss";
+@import "./shared/theme/tokens.css";
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-ground text-ink font-sans antialiased;
+    font-size: 15px;
+    line-height: 1.6;
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: var(--color-amber-soft);
+    color: #1c1917;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-focus;
+  }
+}
