@@ -5,7 +5,7 @@ description: Map every requirement in a job posting to the user's profile facts 
 
 # Analyse a job posting
 
-1. Read the whole posting. Find every skill, qualification, experience or duty the posting asks the candidate to have. Skip the company blurb, benefits and the application process.
+1. Read the whole posting. Find every skill, qualification, experience or duty the posting asks the candidate to have. Skip the company blurb, benefits and the application process, and the terms below.
 2. For each requirement, copy its text word for word from the posting. Copy a span, don't paraphrase or merge two requirements. One bullet that asks for two things is two requirements, each with its own span.
 3. Set `line_ids` to the numbers of the lines the text comes from, in order. Most requirements sit on one line.
 4. Set `importance`:
@@ -18,4 +18,16 @@ description: Map every requirement in a job posting to the user's profile facts 
 6. Set `fact_ids` to every fact that supports the match, as `fact:<id>`. `met` and `partly` need at least one. `not_met` can cite a fact that shows the closest thing the user has.
 7. Write `reason` as one plain sentence naming what the facts show or what is missing.
 
-A check verifies your answer. Each cited line and fact must exist, and each requirement's text must appear word for word in its cited lines. When it reports errors, fix only the requirements it names.
+## Terms
+
+Some terms are checked by code, not by you. When the posting states one, fill it in `terms` with the lines that state it, and leave it out of `requirements`. Leave a term empty when the posting doesn't state it. Don't guess.
+
+- `min_years`: years of experience asked for overall, such as 5 for "5+ years as a backend engineer". Years asked for one skill, such as "3 years of Go", stay a requirement.
+- `work_mode`: `onsite`, `hybrid` or `remote`.
+- `countries`: ISO country codes the job is based in, or open to when remote.
+- `authorisation_countries`: ISO country codes the candidate must already have the right to work in, when the posting says it won't sponsor a visa.
+- `salary`: the top of the stated pay range, with its ISO currency code and whether it is per `hour`, `month` or `year`.
+
+## Checks
+
+A check verifies your answer. Each cited line and fact must exist, in requirements and in terms. Each requirement's text must appear word for word in its cited lines. When it reports errors, fix only what it names.
