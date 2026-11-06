@@ -18,3 +18,20 @@ class Match(StrEnum):
 
     NOT_MET = "not_met"
     """The profile does not show it"""
+
+
+class FilterKind(StrEnum):
+    YEARS = "years"
+    """Years of experience overall"""
+
+    WORK_MODE = "work_mode"
+    """Onsite, hybrid or remote"""
+
+    LOCATION = "location"
+    """Countries the job is in"""
+
+    WORK_AUTHORISATION = "work_authorisation"
+    """Right to work without sponsorship"""
+
+    SALARY = "salary"
+    """Pay against the user's minimum"""

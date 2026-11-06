@@ -32,10 +32,11 @@ def _requirement(**overrides) -> Requirement:
     return Requirement.model_validate({**fields, **overrides})
 
 
-def _check(*requirements: Requirement):
-    return check_citations(
-        JobRequirements(requirements=list(requirements)), LINES, FACTS
+def _check(*requirements: Requirement, terms: dict | None = None):
+    output = JobRequirements.model_validate(
+        {"requirements": list(requirements), "terms": terms or {}}
     )
+    return check_citations(output, LINES, FACTS)
 
 
 def test_passes_cited_verbatim_requirements():
@@ -74,3 +75,15 @@ def test_reports_each_broken_citation(requirement: Requirement, rule: str):
     errors = _check(_requirement(), requirement)
 
     assert [(e.rule, e.at) for e in errors] == [(rule, "requirements[1]")]
+
+
+def test_reports_terms_citing_missing_lines():
+    errors = _check(
+        _requirement(),
+        terms={
+            "min_years": {"value": 5, "line_ids": [1]},
+            "work_mode": {"value": "remote", "line_ids": [12]},
+        },
+    )
+
+    assert [(e.rule, e.at) for e in errors] == [("unknown_line", "terms.work_mode")]
