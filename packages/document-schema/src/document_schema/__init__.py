@@ -1,3 +1,4 @@
+from document_schema.apply import apply_edits
 from document_schema.blocks import Block, Contact, ContactKind, Contacts, Photo, Profile
 from document_schema.changesets import Changeset, ChangesetStatus
 from document_schema.contents import (
@@ -145,5 +146,6 @@ __all__ = [
     "UpdateField",
     "UpdateVisibility",
     "Value",
+    "apply_edits",
     "json_schemas",
 ]
