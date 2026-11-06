@@ -21,7 +21,6 @@ FROM python:3.13-slim-bookworm AS artifact-service
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH" \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     ARTIFACT_SERVICE_APP__HOST=0.0.0.0 \
     ARTIFACT_SERVICE_APP__PORT=8000
 
@@ -30,8 +29,6 @@ COPY --from=artifact-service-build /app/.venv /app/.venv
 COPY --from=artifact-service-build /app/packages/document-schema /app/packages/document-schema
 
 COPY --from=artifact-service-build /app/apps/artifact-service /app/apps/artifact-service
-
-RUN playwright install --with-deps chromium
 
 RUN useradd --create-home --uid 10001 artifact
 
