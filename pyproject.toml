@@ -20,7 +20,6 @@ members = [
     "packages/document-schema",
 ]
 
-# For editors opened at the repo root: each app's `src` resolves within that app
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
