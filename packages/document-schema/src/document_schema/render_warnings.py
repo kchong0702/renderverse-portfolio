@@ -7,8 +7,6 @@ from document_schema.types import BlockId, DataFieldPath
 
 
 class RenderWarning(BaseModel):
-    """A problem found when printing a document"""
-
     model_config = ConfigDict(
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )

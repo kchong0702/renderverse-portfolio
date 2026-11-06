@@ -12,11 +12,17 @@ class BlockSpan(BaseModel):
     )
 
     block: BlockId
+    """The block"""
+
     first_page: int = Field(ge=1)
+    """Page it starts on"""
+
     last_page: int = Field(ge=1)
+    """Page it ends on"""
 
     @model_validator(mode="after")
     def _ends_after_start(self) -> Self:
+        """Rejects a span that ends before it starts"""
         if self.last_page < self.first_page:
             raise ValueError(f"{self.block} ends before it starts")
         return self
