@@ -19,6 +19,7 @@ dependencies = [
     "python-dotenv>=1.2.4",
     "structlog>=26.1.0",
     "uvicorn[standard]>=0.54.0",
+    "deepagents>=0.7.32",
 ]
 
 [tool.uv.sources]

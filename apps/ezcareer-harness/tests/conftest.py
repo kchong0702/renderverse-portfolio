@@ -3,6 +3,10 @@ from collections.abc import Callable, Sequence
 from typing import Any, override
 
 import pytest
+from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.utils.function_calling import convert_to_openai_tool
 from opentelemetry import trace
 from opentelemetry.metrics import _internal as metrics_api
 from opentelemetry.sdk.metrics.export import (
@@ -13,6 +17,7 @@ from opentelemetry.sdk.metrics.export import (
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.util._once import Once
+from pydantic import Field
 
 from src.core.config import Settings
 from src.infrastructure.observability import instrumentation, metrics, tracing
@@ -53,6 +58,41 @@ class FakeMetricExporter(MetricExporter):
     @override
     def shutdown(self, timeout_millis: float = 30_000, **kwargs: Any) -> None:
         pass
+
+
+class ScriptedChatModel(BaseChatModel):
+    replies: list[AIMessage]
+    requests: list[list[BaseMessage]] = Field(default_factory=list)
+    offered_tools: list[set[str]] = Field(default_factory=list)
+    model_name: str = "claude-scripted"
+
+    @property
+    @override
+    def _llm_type(self) -> str:
+        return "scripted"
+
+    @override
+    def _get_ls_params(self, stop: list[str] | None = None, **kwargs: Any) -> Any:
+        return {"ls_provider": "anthropic", "ls_model_name": self.model_name}
+
+    @override
+    def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> Any:
+        self.offered_tools.append(
+            {convert_to_openai_tool(tool)["function"]["name"] for tool in tools}
+        )
+        return self
+
+    @override
+    def _generate(
+        self,
+        messages: list[BaseMessage],
+        stop: Any = None,
+        run_manager: Any = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        self.requests.append(messages)
+        reply = self.replies[min(len(self.requests), len(self.replies)) - 1]
+        return ChatResult(generations=[ChatGeneration(message=reply)])
 
 
 def pytest_configure(config: pytest.Config) -> None:
