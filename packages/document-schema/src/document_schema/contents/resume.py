@@ -45,6 +45,7 @@ class ResumeContent(BaseModel):
 
     @model_validator(mode="after")
     def _blocks_valid(self) -> Self:
+        """Rejects a résumé without exactly one profile, or with repeats"""
         require_unique_ids(self.blocks, "blocks")
         kinds = [block.kind for block in self.blocks]
         if kinds.count("profile") != 1:

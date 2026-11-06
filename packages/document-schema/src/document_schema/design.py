@@ -28,19 +28,32 @@ def _no_repeats(blocks: list[BlockId]) -> list[BlockId]:
 
 class PageSize(StrEnum):
     A4 = "a4"
+    """210 by 297 mm"""
+
     LETTER = "letter"
+    """8.5 by 11 inches"""
 
 
 class Size(StrEnum):
     SMALL = "small"
+    """Smaller than usual"""
+
     MEDIUM = "medium"
+    """The usual size"""
+
     LARGE = "large"
+    """Larger than usual"""
 
 
 class PhotoShape(StrEnum):
     CIRCLE = "circle"
+    """Round"""
+
     ROUNDED = "rounded"
+    """Square with rounded corners"""
+
     SQUARE = "square"
+    """Square corners"""
 
 
 class Design(BaseModel):
@@ -90,6 +103,7 @@ class Design(BaseModel):
 
     @model_validator(mode="after")
     def _one_region_per_block(self) -> Self:
+        """Rejects a block placed in two regions of one template"""
         for template, regions in self.layouts.items():
             placed = [block for blocks in regions.values() for block in blocks]
             if len(placed) != len(set(placed)):
