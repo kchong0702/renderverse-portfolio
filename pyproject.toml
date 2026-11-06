@@ -27,6 +27,6 @@ typeCheckingMode = "off"
 executionEnvironments = [
     { root = "apps/artifact-service" },
     { root = "apps/ezcareer-harness" },
-    { root = "apps/ezbot" },
+    { root = "apps/ezbot-harness" },
     { root = "packages/document-schema/src" },
 ]
