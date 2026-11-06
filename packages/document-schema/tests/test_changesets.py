@@ -16,18 +16,18 @@ def changeset(*edits: dict) -> dict:
 
 def test_sourced_agent_wording_is_accepted() -> None:
     edit = {
-        "kind": "update_text",
+        "kind": "update_field",
         "path": "blocks/sum/text",
         "value": {"html": "New summary", "src": ["fact:k8s"]},
     }
 
-    assert Changeset(**changeset(edit)).edits[0].kind == "update_text"
+    assert Changeset(**changeset(edit)).edits[0].kind == "update_field"
 
 
 @pytest.mark.parametrize("src", [[], ["user:blocks/sum"], ["agent:cs0"]])
 def test_agent_wording_must_cite_a_fact_or_the_pdf(src: list[str]) -> None:
     edit = {
-        "kind": "update_text",
+        "kind": "update_field",
         "path": "blocks/sum/text",
         "value": {"html": "Invented", "src": src},
     }
@@ -83,4 +83,41 @@ def test_a_design_change_outside_the_safe_range_is_rejected() -> None:
     edit = {"kind": "update_design", "design": {"line_spacing": 3}}
 
     with pytest.raises(ValidationError):
+        Changeset(**changeset(edit))
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["linkedin", None],
+    ids=["contact kind", "cleared field"],
+)
+def test_agent_changes_without_text_need_no_source(value: object) -> None:
+    edit = {
+        "kind": "update_field",
+        "path": "blocks/contacts/items/c2/kind",
+        "value": value,
+    }
+
+    Changeset(**changeset(edit))
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        {"text": {"text": "2019 to 2022", "src": []}, "start": "2019", "end": "2022"},
+        [
+            {"text": "A. Lovelace", "src": ["fact:paper"]},
+            {"text": "Invented", "src": []},
+        ],
+    ],
+    ids=["dates", "list of values"],
+)
+def test_agent_text_inside_dates_and_lists_must_be_sourced(value: object) -> None:
+    edit = {
+        "kind": "update_field",
+        "path": "blocks/exp/items/acme/dates",
+        "value": value,
+    }
+
+    with pytest.raises(ValidationError, match="must cite"):
         Changeset(**changeset(edit))

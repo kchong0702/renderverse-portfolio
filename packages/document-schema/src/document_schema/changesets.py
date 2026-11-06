@@ -4,14 +4,23 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from document_schema.edits import AnyEdit, InsertBlock, UpdateText
+from document_schema.edits import AnyEdit, FieldValue, InsertBlock, UpdateField
 from document_schema.types import Id
-from document_schema.values import RichValue, Value
+from document_schema.values import Date, RichValue, Value
 
 
-def _sourced(value: Value | RichValue) -> bool:
-    """Cites a profile fact or a line of the uploaded PDF"""
-    return any(re.fullmatch(r"fact:.+|p\d+\.s\d+", src) for src in value.src)
+def _sourced(value: FieldValue) -> bool:
+    """Cites a profile fact or a line of the uploaded PDF wherever the value holds text"""
+    texts = (
+        value
+        if isinstance(value, list)
+        else [value.text if isinstance(value, Date) else value]
+    )
+    return all(
+        any(re.fullmatch(r"fact:.+|p\d+\.s\d+", src) for src in text.src)
+        for text in texts
+        if isinstance(text, Value | RichValue)
+    )
 
 
 class ChangesetStatus(StrEnum):
@@ -49,7 +58,7 @@ class Changeset(BaseModel):
     def _agent_rules(self) -> Self:
         """Rejects edits an agent may not make"""
         for edit in self.edits:
-            if isinstance(edit, UpdateText) and not _sourced(edit.value):
+            if isinstance(edit, UpdateField) and not _sourced(edit.value):
                 raise ValueError(f"{edit.path}: agent text must cite a fact or the PDF")
             if isinstance(edit, InsertBlock) and edit.block.kind == "photo":
                 raise ValueError("only the user adds a photo")
