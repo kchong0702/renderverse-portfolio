@@ -1,0 +1,57 @@
+name: Migrations
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  ops-api:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ops
+          POSTGRES_PASSWORD: ops
+          POSTGRES_DB: ops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ops -d ops"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
+    env:
+      OPS_API_DATABASE__URL: postgresql+asyncpg://ops:ops@localhost:5432/ops
+      OPS_API_TEST_DATABASE_URL: postgresql+asyncpg://ops:ops@localhost:5432/ops
+
+    defaults:
+      run:
+        working-directory: apps/ops-api
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10.3.2
+
+      - name: Install dependencies
+        run: uv sync --package ops-api --locked
+
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+
+      - name: Check no migration is missing (alembic check)
+        run: uv run alembic check
+
+      - name: Roll back and apply again
+        run: |
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+
+      - name: Test against the migrated database (row level security)
+        run: uv run pytest -m postgres
