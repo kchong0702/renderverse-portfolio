@@ -29,6 +29,7 @@ class Project(Entry):
 
     @model_validator(mode="after")
     def _tag_ids_unique(self) -> Self:
+        """Rejects tags that share an id"""
         require_unique_ids(self.tags, f"{self.id} tags")
         return self
 

@@ -10,12 +10,25 @@ from document_schema.values import Value
 
 class ContactKind(StrEnum):
     EMAIL = "email"
+    """Email address"""
+
     PHONE = "phone"
+    """Phone number"""
+
     LOCATION = "location"
+    """City or address"""
+
     LINKEDIN = "linkedin"
+    """LinkedIn profile"""
+
     GITHUB = "github"
+    """GitHub profile"""
+
     WEBSITE = "website"
+    """Personal site"""
+
     OTHER = "other"
+    """Anything else"""
 
 
 class Contact(BaseModel):
@@ -49,5 +62,6 @@ class Contacts(Block):
 
     @model_validator(mode="after")
     def _ids_unique(self) -> Self:
+        """Rejects contacts that share an id"""
         require_unique_ids(self.items, f"{self.id} items")
         return self
