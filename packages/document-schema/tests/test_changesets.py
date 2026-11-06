@@ -72,9 +72,16 @@ def test_every_edit_kind_reads_by_its_op() -> None:
         {"op": "delete", "path": "blocks/sk"},
         {"op": "place", "block": "sk", "region": "side"},
         {"op": "set_hidden", "block": "sk", "hidden": True},
-        {"op": "set_design", "changes": {"line_spacing": 1.2}},
+        {"op": "set_design", "design": {"line_spacing": 1.2}},
     ]
 
     assert [edit.op for edit in Changeset(**changeset(*edits)).edits] == [
         edit["op"] for edit in edits
     ]
+
+
+def test_a_design_change_outside_the_safe_range_is_rejected() -> None:
+    edit = {"op": "set_design", "design": {"line_spacing": 3}}
+
+    with pytest.raises(ValidationError):
+        Changeset(**changeset(edit))
