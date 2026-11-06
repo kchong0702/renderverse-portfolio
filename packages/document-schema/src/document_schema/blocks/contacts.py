@@ -4,7 +4,8 @@ from typing import Literal, Self
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from document_schema.blocks.block import Block
-from document_schema.types import Id, require_unique_ids
+from document_schema.types import Id
+from document_schema.validators import require_unique_ids
 from document_schema.values import Value
 
 
@@ -63,5 +64,5 @@ class Contacts(Block):
     @model_validator(mode="after")
     def _ids_unique(self) -> Self:
         """Rejects contacts that share an id"""
-        require_unique_ids(self.items, f"{self.id} items")
+        require_unique_ids((item.id for item in self.items), f"{self.id} items")
         return self
