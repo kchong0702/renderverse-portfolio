@@ -30,3 +30,23 @@ class Region(StrEnum):
 
     SIDE = "side"
     """Side column"""
+
+
+class Font(StrEnum):
+    INTER = "inter"
+    """Inter, a neutral sans"""
+
+    LATO = "lato"
+    """Lato, a warm sans"""
+
+    SOURCE_SANS = "source-sans-3"
+    """Source Sans 3, a plain sans"""
+
+    SOURCE_SERIF = "source-serif-4"
+    """Source Serif 4, a sturdy serif"""
+
+    MERRIWEATHER = "merriweather"
+    """Merriweather, a wide serif for screens and print"""
+
+    EB_GARAMOND = "eb-garamond"
+    """EB Garamond, a classic book serif"""

@@ -23,3 +23,6 @@ Source = Annotated[
     ),
 ]
 """Where text came from: a PDF line, a fact, the user or the agent"""
+
+Colour = Annotated[str, StringConstraints(pattern=r"^#[0-9A-Fa-f]{6}$")]
+"""A hex colour such as #1F6FEB"""

@@ -10,8 +10,8 @@ from pydantic import (
     model_validator,
 )
 
-from document_schema.enums import Align, Region
-from document_schema.types import BlockId
+from document_schema.enums import Align, Font, Region
+from document_schema.types import BlockId, Colour
 
 TemplateId = Annotated[
     str, StringConstraints(pattern=r"^([a-z0-9-]{1,40}|custom-[0-9a-f-]{36})$")
@@ -64,12 +64,10 @@ class Design(BaseModel):
     template: TemplateId = "classic"
     """The template the document is laid out with"""
 
-    accent: Annotated[str, StringConstraints(pattern=r"^#[0-9A-Fa-f]{6}$")] | None = (
-        None
-    )
+    accent: Colour | None = None
     """None uses the template's colour"""
 
-    font: Annotated[str, StringConstraints(pattern=r"^[a-z0-9-]+$")] | None = None
+    font: Font | None = None
     """A bundled font; None uses the template's"""
 
     text_size: Size = Size.MEDIUM
