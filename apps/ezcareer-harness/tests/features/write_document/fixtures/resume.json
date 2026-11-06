@@ -1,0 +1,116 @@
+{
+  "kind": "resume",
+  "content": {
+    "blocks": [
+      {
+        "kind": "profile",
+        "id": "profile",
+        "name": { "text": "Aisha Rahman", "src": ["p1.s1"] },
+        "headline": { "text": "Backend Engineer", "src": ["p1.s2"] }
+      },
+      {
+        "kind": "photo",
+        "id": "photo",
+        "file": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "kind": "contacts",
+        "id": "contacts",
+        "items": [
+          {
+            "id": "email",
+            "kind": "email",
+            "value": { "text": "aisha@example.com", "src": ["p1.s3"] }
+          }
+        ]
+      },
+      {
+        "kind": "summary",
+        "id": "summary",
+        "text": {
+          "html": "Backend engineer with 6 years building payment systems.",
+          "src": ["p1.s4"]
+        }
+      },
+      {
+        "kind": "experience",
+        "id": "experience",
+        "heading": { "text": "Experience", "src": ["p1.s5"] },
+        "items": [
+          {
+            "id": "lumen",
+            "role": { "text": "Senior Engineer", "src": ["p1.s6"] },
+            "company": { "text": "Lumen Pay", "src": ["p1.s6"] },
+            "dates": {
+              "text": { "text": "2021 to now", "src": ["p1.s7"] },
+              "start": "2021",
+              "end": "present"
+            },
+            "bullets": [
+              {
+                "id": "queue",
+                "text": {
+                  "html": "Led the migration of 30 services to a new message queue.",
+                  "src": ["p1.s8"]
+                }
+              },
+              {
+                "id": "latency",
+                "text": {
+                  "html": "Cut card authorisation latency by 40%.",
+                  "src": ["p1.s9"]
+                }
+              }
+            ]
+          },
+          {
+            "id": "bayu",
+            "role": { "text": "Engineer", "src": ["p1.s10"] },
+            "company": { "text": "Bayu Bank", "src": ["p1.s10"] },
+            "dates": {
+              "text": { "text": "2018 to 2021", "src": ["p1.s11"] },
+              "start": "2018",
+              "end": "2021"
+            },
+            "bullets": [
+              {
+                "id": "api",
+                "text": {
+                  "html": "Built the bank's first public API.",
+                  "src": ["p1.s12"]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "skills",
+        "id": "skills",
+        "heading": { "text": "Skills", "src": ["p1.s13"] },
+        "items": [
+          {
+            "id": "languages",
+            "items": [
+              {
+                "id": "python",
+                "text": { "text": "Python", "src": ["p1.s14"] }
+              },
+              { "id": "go", "text": { "text": "Go", "src": ["p1.s14"] } },
+              {
+                "id": "postgres",
+                "text": { "text": "PostgreSQL", "src": ["p1.s14"] }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "assets": {
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+      "media_type": "image/png",
+      "uri": "s3://assets/photo.png"
+    }
+  }
+}
