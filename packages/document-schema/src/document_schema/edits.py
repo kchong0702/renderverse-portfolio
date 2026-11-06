@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from document_schema.contents.letter import AnyLetterBlock
 from document_schema.contents.resume import AnyBlock
+from document_schema.design import Design
 from document_schema.enums import Region
 from document_schema.types import BlockId, DataFieldPath, Id
 from document_schema.values import RichValue, Value
@@ -125,8 +126,8 @@ class SetDesign(BaseModel):
     op: Literal["set_design"]
     """Edit kind"""
 
-    changes: dict[str, JsonValue]
-    """Design fields to change; checked by merging into Design when applied"""
+    design: Design
+    """The design after the change"""
 
 
 AnyEdit = Annotated[
