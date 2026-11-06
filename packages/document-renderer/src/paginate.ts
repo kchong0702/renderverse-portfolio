@@ -8,7 +8,7 @@ import {
   pageCss,
   type DocumentViewProps,
 } from "./DocumentView";
-import type { RegionOverflow, Report } from "./schema/report";
+import type { Report } from "./schema/report";
 import type { Region } from "./schema/template";
 import styles from "./styles.css?inline";
 
@@ -24,17 +24,17 @@ const bottomOf = (element: Element) =>
     ),
   );
 
-/** Lays the document out off screen and caps each region that must fit on the first page */
-async function capRegions(
-  html: string,
+/** Splits the document into pages inside target with Paged.js and measures the result */
+export async function paginate(
   props: DocumentViewProps,
-): Promise<{ html: string; overflows: RegionOverflow[] }> {
+  target: HTMLElement,
+): Promise<Measurement> {
   const design = designOf(props.document);
   const [width, height] = PAGE_MM[design.page_size];
   const room = (height - 2 * design.margins_mm) * PX_PER_MM;
   const probe = document.createElement("div");
   probe.style.cssText = `position: absolute; left: -10000px; top: 0; width: ${width}mm`;
-  probe.innerHTML = `<style>${styles}</style>${html}`;
+  probe.innerHTML = `<style>${styles}</style>${renderToStaticMarkup(createElement(DocumentView, props))}`;
   document.body.append(probe);
   await Promise.all(
     [...probe.querySelectorAll("img")].map((image) =>
@@ -45,9 +45,9 @@ async function capRegions(
   probe.getBoundingClientRect();
   await document.fonts.ready;
 
-  const page = probe.querySelector(".dr-page")!;
-  const top = page.getBoundingClientRect().top;
-  const overflows: RegionOverflow[] = [];
+  const sheet = probe.querySelector(".dr-page")!;
+  const top = sheet.getBoundingClientRect().top;
+  const warnings: Measurement["warnings"] = [];
   for (const region of probe.querySelectorAll<HTMLElement>(
     '.dr-region[data-flows="false"]',
   )) {
@@ -55,7 +55,7 @@ async function capRegions(
     const over =
       Math.max(start, ...[...region.children].map(bottomOf)) - top - room;
     if (over > 0.5) {
-      overflows.push({
+      warnings.push({
         kind: "region_overflow",
         region: region.dataset.region as Region,
         by_mm: Math.round((over / PX_PER_MM) * 10) / 10,
@@ -64,20 +64,9 @@ async function capRegions(
       region.style.overflow = "hidden";
     }
   }
-  const capped = page.outerHTML;
+  const html = sheet.outerHTML;
   probe.remove();
-  return { html: capped, overflows };
-}
 
-/** Splits the document into pages inside target with Paged.js and measures the result */
-export async function paginate(
-  props: DocumentViewProps,
-  target: HTMLElement,
-): Promise<Measurement> {
-  const { html, overflows } = await capRegions(
-    renderToStaticMarkup(createElement(DocumentView, props)),
-    props,
-  );
   await new Previewer().preview(
     html,
     [
@@ -91,7 +80,7 @@ export async function paginate(
   const pages = [...target.querySelectorAll<HTMLElement>(".pagedjs_page")];
   const spans = new Map<string, [number, number]>();
   const entries = new Map<string, [number, number]>();
-  const warnings: Measurement["warnings"] = [...overflows];
+  const titlesOnly: [string, number][] = [];
   const extend = (
     seen: Map<string, [number, number]>,
     key: string,
@@ -107,19 +96,15 @@ export async function paginate(
       .forEach((entry) => extend(entries, entry.dataset.path!, index + 1));
     page.querySelectorAll<HTMLElement>(".dr-section").forEach((section) => {
       const title = section.querySelector(".dr-title");
-      if (
-        title &&
-        section.textContent?.trim() === title.textContent?.trim() &&
-        index < pages.length - 1
-      ) {
-        warnings.push({
-          kind: "orphan_heading",
-          block: section.dataset.block!,
-          page: index + 1,
-        });
+      if (title && section.textContent?.trim() === title.textContent?.trim()) {
+        titlesOnly.push([section.dataset.block!, index + 1]);
       }
     });
   });
+  for (const [block, page] of titlesOnly) {
+    if (spans.get(block)![1] > page)
+      warnings.push({ kind: "orphan_heading", block, page });
+  }
   for (const [path, [first, last]] of entries) {
     if (last > first)
       warnings.push({ kind: "split_entry", path, pages: [first, last] });
