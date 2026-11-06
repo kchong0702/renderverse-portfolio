@@ -6,7 +6,7 @@ from src.features.import_document.state import ImportContext, ImportState
 
 
 def build_graph() -> CompiledStateGraph:
-    """Turns an uploaded résumé into content that cites its lines"""
+    """Turns an uploaded résumé into a printed draft whose values cite its lines"""
     graph = StateGraph(ImportState, context_schema=ImportContext)
     graph.add_node("extract", extract)
     graph.add_node("structure", structure)

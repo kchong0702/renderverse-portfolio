@@ -1,6 +1,8 @@
 import hashlib
 from pathlib import Path
+from typing import Any
 
+import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.shared.checks import Check
@@ -30,7 +32,16 @@ class ImportConfig(BaseModel):
     checks: tuple[Check, ...] = tuple(Check)
     """Checks the verifier runs on each reply"""
 
+    templates: Path = Path(__file__).parents[5] / "packages/document-renderer/templates"
+    """Folder of the renderer's <id>.yaml template specs"""
+
     @property
     def version(self) -> str:
-        """Hash of these settings, prompt included, recorded with every run"""
-        return hashlib.sha256(self.model_dump_json().encode()).hexdigest()[:12]
+        """Hash of the settings that shape the reply, prompt included, recorded
+        with every run"""
+        settings = self.model_dump_json(exclude={"soffice", "templates"})
+        return hashlib.sha256(settings.encode()).hexdigest()[:12]
+
+    def template(self, template_id: str) -> dict[str, Any]:
+        """The spec of one template, as the renderer's YAML holds it"""
+        return yaml.safe_load((self.templates / f"{template_id}.yaml").read_text())

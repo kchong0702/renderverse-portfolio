@@ -2,10 +2,12 @@ import operator
 from dataclasses import dataclass
 from typing import Annotated, Any, TypedDict
 
+from document_schema import Report, ResumeDocument
 from langchain_core.language_models import BaseChatModel
 
 from src.features.import_document.config import ImportConfig
 from src.shared.checks import CheckError
+from src.shared.clients import ArtifactService
 from src.shared.extraction import Line
 
 
@@ -16,6 +18,9 @@ class ImportContext:
 
     model: BaseChatModel
     """Chat model named by the config"""
+
+    artifacts: ArtifactService
+    """Prints the draft to PDF"""
 
 
 class ImportState(TypedDict, total=False):
@@ -33,3 +38,12 @@ class ImportState(TypedDict, total=False):
 
     rounds: Annotated[list[list[CheckError]], operator.add]
     """The verifier's errors for each reply, empty for the one that passed"""
+
+    document: ResumeDocument
+    """The draft, in the default template"""
+
+    pdf: bytes
+    """The draft printed"""
+
+    report: Report
+    """How the draft's pages came out"""
