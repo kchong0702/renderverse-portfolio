@@ -4,7 +4,7 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from document_schema.edits import AnyEdit, InsertBlock, SetText
+from document_schema.edits import AnyEdit, InsertBlock, UpdateText
 from document_schema.types import Id
 from document_schema.values import RichValue, Value
 
@@ -49,7 +49,7 @@ class Changeset(BaseModel):
     def _agent_rules(self) -> Self:
         """Rejects edits an agent may not make"""
         for edit in self.edits:
-            if isinstance(edit, SetText) and not _sourced(edit.value):
+            if isinstance(edit, UpdateText) and not _sourced(edit.value):
                 raise ValueError(f"{edit.path}: agent text must cite a fact or the PDF")
             if isinstance(edit, InsertBlock) and edit.block.kind == "photo":
                 raise ValueError("only the user adds a photo")

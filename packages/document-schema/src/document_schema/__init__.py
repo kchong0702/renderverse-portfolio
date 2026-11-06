@@ -25,10 +25,9 @@ from document_schema.edits import (
     InsertBlock,
     InsertItem,
     Move,
-    Place,
-    SetDesign,
-    SetHidden,
-    SetText,
+    UpdateDesign,
+    UpdateText,
+    UpdateVisibility,
 )
 from document_schema.enums import Align, Region
 from document_schema.json_schema import json_schemas
@@ -120,7 +119,6 @@ __all__ = [
     "Paragraph",
     "Photo",
     "PhotoShape",
-    "Place",
     "Profile",
     "Project",
     "Projects",
@@ -135,9 +133,6 @@ __all__ = [
     "ResumeDocument",
     "RichValue",
     "Section",
-    "SetDesign",
-    "SetHidden",
-    "SetText",
     "Size",
     "Skill",
     "Skills",
@@ -146,6 +141,9 @@ __all__ = [
     "Summary",
     "Tag",
     "TemplateId",
+    "UpdateDesign",
+    "UpdateText",
+    "UpdateVisibility",
     "Value",
     "json_schemas",
 ]
