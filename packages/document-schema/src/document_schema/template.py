@@ -164,9 +164,11 @@ class GridArea(BaseModel):
 
     @model_validator(mode="after")
     def _inside_the_page(self) -> Self:
-        """Rejects an area past the 12th column"""
+        """Rejects an area past the 12th column or the 4th row"""
         if self.column + self.span > 13:
             raise ValueError("an area runs past the 12th column")
+        if self.row + self.rows > 5:
+            raise ValueError("an area runs past the 4th row")
         return self
 
 
@@ -240,7 +242,7 @@ class TemplateSpec(BaseModel):
 
     @model_validator(mode="after")
     def _regions_fit(self) -> Self:
-        """Rejects overlapping regions, and a home the template lacks"""
+        """Rejects overlaps, a missing home, and a default region short of the last row"""
         cells = [
             (row, column)
             for area in (spec.area for spec in self.regions.values())
@@ -253,4 +255,9 @@ class TemplateSpec(BaseModel):
             raise ValueError(f"home of {self.id} has no default")
         if missing := set(self.home.values()) - set(self.regions):
             raise ValueError(f"home of {self.id} names missing regions: {missing}")
+        ends = {
+            name: spec.area.row + spec.area.rows for name, spec in self.regions.items()
+        }
+        if ends[self.home["default"]] < max(ends.values()):
+            raise ValueError(f"the default region of {self.id} must reach the last row")
         return self

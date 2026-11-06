@@ -58,6 +58,16 @@ def test_block_kinds_match_the_blocks_documents_hold() -> None:
             "overlap",
         ),
         ({"regions": {"main": {"area": {"column": 6, "span": 8}}}}, "12th column"),
+        ({"regions": {"main": {"area": {"row": 3, "rows": 3}}}}, "4th row"),
+        (
+            {
+                "regions": {
+                    "main": {"area": {"row": 1}},
+                    "side": {"area": {"row": 2}},
+                }
+            },
+            "must reach the last row",
+        ),
     ],
 )
 def test_a_template_that_cannot_lay_out_is_rejected(
