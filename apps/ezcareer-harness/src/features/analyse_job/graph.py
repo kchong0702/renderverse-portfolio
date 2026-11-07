@@ -20,7 +20,7 @@ from src.features.analyse_job.schemas import (
     JobRequirements,
     PostingLine,
 )
-from src.shared.checks import CheckError, check_round
+from src.shared.checks import CheckError, CheckRound, check_round
 from src.shared.models import Profile
 from src.shared.tools import ProfileState, read_profile_facts
 
@@ -115,7 +115,7 @@ def build_graph(model: BaseChatModel | None = None) -> CompiledStateGraph:
             "requirements": result["structured_response"],
         }
 
-    def check(state: AnalyseJobState) -> dict:
+    def check(state: AnalyseJobState) -> CheckRound:
         return check_round(
             [
                 error

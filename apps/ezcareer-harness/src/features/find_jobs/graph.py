@@ -13,7 +13,7 @@ from src.features.find_jobs.graph_profile import CHECKS, FindJobsProfile
 from src.features.find_jobs.ranking import matched_jobs
 from src.features.find_jobs.schemas import JobPosting, MatchedJob, RankedJobs
 from src.features.find_jobs.tools import JobSearchState, search_jobs
-from src.shared.checks import CheckError, check_round
+from src.shared.checks import CheckError, CheckRound, check_round
 from src.shared.models import Profile
 from src.shared.tools import read_profile_facts
 
@@ -92,7 +92,7 @@ def build_graph(model: BaseChatModel | None = None) -> CompiledStateGraph:
             "ranked": result["structured_response"],
         }
 
-    def check(state: FindJobsState) -> dict:
+    def check(state: FindJobsState) -> CheckRound:
         postings = _postings(state.messages)
         return check_round(
             [
