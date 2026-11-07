@@ -131,6 +131,22 @@ class ObservabilitySettings(BaseModel):
         return self
 
 
+class RendererSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    dist: Path = _ROOT_PATH.parents[1] / "packages/document-renderer/dist/print"
+    """The print page that document-renderer builds"""
+
+    origin: str = "http://renderer/"
+    """Made-up origin Chromium loads the print page and assets from, never the network"""
+
+    max_concurrent_renders: int = Field(default=4, gt=0)
+    """Renders that may run in Chromium at once, the rest wait their turn"""
+
+    timeout_s: float = Field(default=30, gt=0)
+    """Longest one render may take"""
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="ARTIFACT_SERVICE_",
@@ -149,6 +165,9 @@ class Settings(BaseSettings):
 
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     """Logging, tracing and metrics settings"""
+
+    renderer: RendererSettings = Field(default_factory=RendererSettings)
+    """Headless Chromium and the document renderer it loads"""
 
     @classmethod
     @override
@@ -184,6 +203,7 @@ def reload_settings() -> Settings:
 __all__ = [
     "AppSettings",
     "ObservabilitySettings",
+    "RendererSettings",
     "Settings",
     "get_settings",
     "reload_settings",

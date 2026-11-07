@@ -1,0 +1,28 @@
+id: classic-two-column
+name: Classic two-column
+description: The classic header over a main column, with skills and languages in a column on the right.
+kinds: [resume, cv]
+body_font: source-sans-3
+heading_font: source-serif-4
+accent: "#1F3A5F"
+regions:
+  top:
+    area: { row: 1 }
+    divider: bottom
+  main:
+    area: { row: 2, column: 1, span: 8 }
+  side:
+    area: { row: 2, column: 9, span: 4 }
+    divider: left
+    title: underline
+    skills: outline-pills
+layout:
+  default: main
+  profile: top
+  photo: top
+  contacts: top
+  skills: side
+  languages: side
+  certifications: side
+  awards: side
+photo: end

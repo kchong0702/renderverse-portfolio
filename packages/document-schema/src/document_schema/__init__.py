@@ -1,3 +1,4 @@
+from document_schema.apply import apply_edits
 from document_schema.blocks import Block, Contact, ContactKind, Contacts, Photo, Profile
 from document_schema.changesets import Changeset, ChangesetStatus
 from document_schema.contents import (
@@ -29,7 +30,7 @@ from document_schema.edits import (
     UpdateField,
     UpdateVisibility,
 )
-from document_schema.enums import Align, Region
+from document_schema.enums import Align, Font, Region
 from document_schema.json_schema import json_schemas
 from document_schema.render_warnings import (
     AnyRenderWarning,
@@ -65,7 +66,20 @@ from document_schema.sections import (
     Summary,
     Tag,
 )
-from document_schema.types import BlockId, DataFieldPath, FileHash, Id, Source
+from document_schema.template import (
+    BlockKind,
+    ContactsStyle,
+    Edge,
+    EntryLayout,
+    Fill,
+    GridArea,
+    PhotoSpot,
+    RegionSpec,
+    SkillsStyle,
+    TemplateSpec,
+    TitleStyle,
+)
+from document_schema.types import BlockId, Colour, DataFieldPath, FileHash, Id, Source
 from document_schema.values import Date, RichValue, Value
 
 __all__ = [
@@ -80,15 +94,18 @@ __all__ = [
     "Awards",
     "Block",
     "BlockId",
+    "BlockKind",
     "BlockSpan",
     "Bullet",
     "Certification",
     "Certifications",
     "Changeset",
     "ChangesetStatus",
+    "Colour",
     "Contact",
     "ContactKind",
     "Contacts",
+    "ContactsStyle",
     "Custom",
     "CustomEntry",
     "DataFieldPath",
@@ -98,10 +115,15 @@ __all__ = [
     "Design",
     "Document",
     "DocumentKind",
+    "Edge",
     "Education",
     "Entry",
+    "EntryLayout",
     "Experience",
     "FileHash",
+    "Fill",
+    "Font",
+    "GridArea",
     "Id",
     "InsertBlock",
     "InsertItem",
@@ -119,6 +141,7 @@ __all__ = [
     "Paragraph",
     "Photo",
     "PhotoShape",
+    "PhotoSpot",
     "Profile",
     "Project",
     "Projects",
@@ -127,6 +150,7 @@ __all__ = [
     "Recipient",
     "Region",
     "RegionOverflow",
+    "RegionSpec",
     "RenderWarning",
     "Report",
     "ResumeContent",
@@ -136,14 +160,18 @@ __all__ = [
     "Size",
     "Skill",
     "Skills",
+    "SkillsStyle",
     "Source",
     "SplitEntry",
     "Summary",
     "Tag",
     "TemplateId",
+    "TemplateSpec",
+    "TitleStyle",
     "UpdateDesign",
     "UpdateField",
     "UpdateVisibility",
     "Value",
+    "apply_edits",
     "json_schemas",
 ]
