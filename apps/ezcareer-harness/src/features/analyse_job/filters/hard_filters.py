@@ -1,25 +1,13 @@
 from datetime import date
 
 from src.features.analyse_job.enums import FilterKind
+from src.features.analyse_job.filters.experience import experience_years
+from src.features.analyse_job.filters.preferences import (
+    countries_fit,
+    work_mode_fits,
+)
 from src.features.analyse_job.schemas import HardFilter, PostingTerms
-from src.shared.models import Profile, ProfileFact
-
-
-def _month(year_month: str) -> int:
-    """Months since year 0 for a YYYY-MM string"""
-    year, month = year_month.split("-")
-    return int(year) * 12 + int(month) - 1
-
-
-def experience_years(facts: list[ProfileFact], today: date) -> float:
-    """Years covered by the facts' spans, counting overlapping months once"""
-    months: set[int] = set()
-    for fact in facts:
-        if fact.start is None:
-            continue
-        end = today.strftime("%Y-%m") if fact.end == "present" else fact.end
-        months.update(range(_month(fact.start), _month(end or fact.start) + 1))
-    return len(months) / 12
+from src.shared.models import Profile
 
 
 def hard_filters(
@@ -41,7 +29,7 @@ def hard_filters(
         filters.append(
             HardFilter(
                 kind=FilterKind.WORK_MODE,
-                passed=terms.work_mode.value in preferences.work_modes,
+                passed=work_mode_fits([terms.work_mode.value], preferences),
                 line_ids=terms.work_mode.line_ids,
             )
         )
@@ -49,7 +37,7 @@ def hard_filters(
         filters.append(
             HardFilter(
                 kind=FilterKind.LOCATION,
-                passed=bool(set(terms.countries.value) & set(preferences.countries)),
+                passed=countries_fit(terms.countries.value, preferences),
                 line_ids=terms.countries.line_ids,
             )
         )

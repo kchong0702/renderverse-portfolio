@@ -237,6 +237,16 @@ class GraphProfile(BaseModel):
         return model.model_validate(yaml.safe_load(self.path.read_text()))
 
 
+class JSearchSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    url: HttpUrl = HttpUrl("https://jsearch.p.rapidapi.com/search")
+    """JSearch search endpoint on RapidAPI"""
+
+    api_key: SecretStr | None = None
+    """RapidAPI key, from EZCAREER_HARNESS_JSEARCH__API_KEY"""
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EZCAREER_HARNESS_",
@@ -272,6 +282,9 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("AIGW_PASSTHROUGH_KEY", "gateway_key"),
     )
     """Key for the model gateway"""
+
+    jsearch: JSearchSettings = Field(default_factory=JSearchSettings)
+    """Job search API settings"""
 
     @classmethod
     @override
@@ -317,6 +330,7 @@ __all__ = [
     "AppSettings",
     "GraphProfile",
     "Instrumentation",
+    "JSearchSettings",
     "ObservabilitySettings",
     "Settings",
     "TraceRedactionSettings",

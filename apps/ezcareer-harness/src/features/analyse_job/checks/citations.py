@@ -55,7 +55,7 @@ def check_citations(
         if unknown_lines:
             errors.append(
                 CheckError(
-                    rule="unknown_line",
+                    rule=CheckRule.UNKNOWN_LINE,
                     at=f"terms.{name}",
                     message=f"lines {unknown_lines} are not in the posting",
                 )
