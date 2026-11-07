@@ -1,5 +1,6 @@
 import json
 import shutil
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -68,7 +69,7 @@ def _candidate(folder: Path) -> Path:
 
 
 @pytest.fixture
-def task(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def task(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     monkeypatch.setitem(probe.FLOWS, "greet", _greet)
     monkeypatch.delenv("EZCAREER_HARNESS_CONFIG", raising=False)
     path = tmp_path / "task.json"
