@@ -10,13 +10,13 @@ from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.server.tasks import TaskUpdater
 from a2a.types import Message
-from langchain_core.runnables import Runnable
 from langgraph.errors import GraphRecursionError
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic_core import to_jsonable_python
 
-from src.core.errors import FlowError
+from src.core.errors import ExecuteError
 
 
 def _reason(updater: TaskUpdater, text: str) -> Message:
@@ -24,7 +24,7 @@ def _reason(updater: TaskUpdater, text: str) -> Message:
     return updater.new_agent_message([new_text_part(text)])
 
 
-class Flow(BaseModel):
+class Executable(BaseModel):
     model_config = ConfigDict(
         frozen=True, arbitrary_types_allowed=True, use_attribute_docstrings=True
     )
@@ -33,19 +33,19 @@ class Flow(BaseModel):
     """Path segment and agent card name, such as analyse-job"""
 
     description: str
-    """What the flow does, shown on its agent card"""
+    """What the graph does, shown on its agent card"""
 
     input_schema: type[BaseModel]
     """The graph's input, read from the message's data part"""
 
-    graph: Runnable
+    graph: CompiledStateGraph
     """The compiled graph; compile it with a checkpointer to support interrupts"""
 
 
-class FlowExecutor(AgentExecutor):
-    def __init__(self, flow: Flow) -> None:
-        """Runs the flow's graph as one A2A task per run"""
-        self.flow = flow
+class LanggraphExecutor(AgentExecutor):
+    def __init__(self, executable: Executable) -> None:
+        """Runs the executable's graph as one A2A task per run"""
+        self.executable = executable
 
     @override
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
@@ -61,19 +61,19 @@ class FlowExecutor(AgentExecutor):
             graph_input = (
                 Command(resume=answer)
                 if context.current_task
-                else self.flow.input_schema.model_validate(answer)
+                else self.executable.input_schema.model_validate(answer)
             )
         except ValidationError as error:
             await updater.failed(_reason(updater, f"Invalid input: {error}"))
             return
         try:
-            result = await self.flow.graph.ainvoke(
+            result = await self.executable.graph.ainvoke(
                 graph_input, {"configurable": {"thread_id": context.task_id}}
             )
         except GraphRecursionError:
             await updater.failed(_reason(updater, "Ran out of steps before finishing"))
             return
-        except FlowError as error:
+        except ExecuteError as error:
             await updater.failed(_reason(updater, str(error)))
             return
         if interrupts := result.pop("__interrupt__", None):
@@ -84,7 +84,7 @@ class FlowExecutor(AgentExecutor):
             )
             return
         await updater.add_artifact(
-            [new_data_part(to_jsonable_python(result))], name=self.flow.name
+            [new_data_part(to_jsonable_python(result))], name=self.executable.name
         )
         await updater.complete()
 

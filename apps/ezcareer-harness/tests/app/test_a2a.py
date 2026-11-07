@@ -1,4 +1,5 @@
 import pytest
+from dependency_injector import providers
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from langgraph.checkpoint.memory import InMemorySaver
@@ -6,9 +7,11 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 from pydantic import BaseModel
 
-from src.app.a2a import Flow, add_flow_routes
+from src.app.a2a import Executable, add_executable_routes
+from src.app.app import create_app
+from src.app.container import Container
 from src.core.config import AppSettings
-from src.core.errors import FlowError
+from src.core.errors import ExecuteError
 
 PATH = "/ezcareer/a2a/greet"
 
@@ -23,7 +26,7 @@ class GreetState(GreetInput):
 
 def _greet(state: GreetState) -> dict:
     if state.name == "nobody":
-        raise FlowError("Nobody to greet")
+        raise ExecuteError("Nobody to greet")
     if state.name == "loop":
         return {}
     title = interrupt("Which title?") if state.name == "ask" else "Dr"
@@ -38,16 +41,21 @@ def _graph():
     return graph.compile(checkpointer=InMemorySaver()).with_config(recursion_limit=5)
 
 
-@pytest.fixture
-def client() -> TestClient:
-    app = FastAPI()
-    flow = Flow(
+def _executable() -> Executable:
+    return Executable(
         name="greet",
         description="Greets a person",
         input_schema=GreetInput,
         graph=_graph(),
     )
-    add_flow_routes(app, [flow], AppSettings(public_url="https://box.example.ts.net"))
+
+
+@pytest.fixture
+def client() -> TestClient:
+    app = FastAPI()
+    add_executable_routes(
+        app, [_executable()], AppSettings(public_url="https://box.example.ts.net")
+    )
     return TestClient(app)
 
 
@@ -76,7 +84,7 @@ def _status_text(task: dict) -> str:
     return task["status"]["message"]["parts"][0]["text"]
 
 
-def test_card_points_clients_at_the_flow(client: TestClient):
+def test_card_points_clients_at_the_executable(client: TestClient):
     card = client.get(f"{PATH}/.well-known/agent-card.json").json()
 
     assert card["name"] == "greet"
@@ -93,7 +101,7 @@ def test_completed_run_returns_the_final_state_as_an_artifact(client: TestClient
     }
 
 
-def test_flow_error_fails_the_task_with_its_reason(client: TestClient):
+def test_execute_error_fails_the_task_with_its_reason(client: TestClient):
     task = _send(client, {"name": "nobody"})
 
     assert task["status"]["state"] == "TASK_STATE_FAILED"
@@ -128,3 +136,12 @@ def test_interrupt_asks_for_input_and_the_answer_resumes_the_run(
     assert resumed["artifacts"][0]["parts"][0]["data"]["greeting"] == (
         "Hello, Prof ask!"
     )
+
+
+def test_the_app_serves_the_containers_executables():
+    container = Container()
+    container.executables.override(providers.List(providers.Object(_executable())))
+
+    card = TestClient(create_app(container)).get(f"{PATH}/.well-known/agent-card.json")
+
+    assert card.json()["name"] == "greet"
