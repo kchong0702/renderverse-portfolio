@@ -10,8 +10,8 @@ from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.server.tasks import TaskUpdater
 from a2a.types import Message
-from langchain_core.runnables import Runnable
 from langgraph.errors import GraphRecursionError
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic_core import to_jsonable_python
@@ -38,7 +38,7 @@ class Executable(BaseModel):
     input_schema: type[BaseModel]
     """The graph's input, read from the message's data part"""
 
-    graph: Runnable
+    graph: CompiledStateGraph
     """The compiled graph; compile it with a checkpointer to support interrupts"""
 
 
