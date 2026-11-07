@@ -5,14 +5,22 @@ from fastapi.testclient import TestClient
 
 from src.app.a2a import Executable, add_executable_routes
 from src.app.container import Container
-from src.core.config import AppSettings
-from src.features.import_document import ImportInput, ImportResult, build_task_graph
+from src.core.config import AppSettings, reload_settings
+from src.features.import_document import (
+    ImportInput,
+    ImportResult,
+    build_task_graph,
+    run_import,
+)
 from src.shared.extraction import Line
 from tests.fakes import artifact_service, replying
 from tests.features.import_document.test_import import PDF, answer
 
 
-def test_an_unreadable_upload_fails_the_task_with_its_reason():
+def test_an_unreadable_upload_fails_the_task_with_its_reason(monkeypatch):
+    monkeypatch.setenv("AIGW_UPSTREAM_URL", "http://gateway.test/v1")
+    monkeypatch.setenv("AIGW_PASSTHROUGH_KEY", "test-key")
+    reload_settings()
     app = FastAPI()
     add_executable_routes(app, Container().executables(), AppSettings())
     message = {
@@ -66,7 +74,11 @@ def test_the_result_carries_its_pdf_as_base64():
 
 def test_a_completed_import_returns_its_result_as_the_artifact(config):
     app = FastAPI()
-    graph = build_task_graph(config, artifact_service([]), replying(answer("Engineer")))
+    graph = build_task_graph(
+        lambda file: run_import(
+            file, config, artifact_service([]), replying(answer("Engineer"))
+        )
+    )
     executable = Executable(
         name="import-resume",
         description="Import",
