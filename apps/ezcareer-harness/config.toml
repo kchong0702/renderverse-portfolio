@@ -28,3 +28,7 @@ hide_outputs = false
 name = "career-consultant"
 path = "src/agents/career-consultant/profile.yaml"
 model = "glm-5.3"
+
+[[graph_profiles]]
+name = "edit"
+path = "src/features/write_document/harness/profile.yaml"

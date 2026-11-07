@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any
 
 import yaml
 from document_schema import Changeset, Design
@@ -12,7 +13,7 @@ from src.features.write_document.state import sources
 
 
 @tool
-def read_pdf_lines(runtime: ToolRuntime) -> str:
+def read_pdf_lines(runtime: ToolRuntime[Any, Any]) -> str:
     """Lists the uploaded PDF's lines, one per line, each cited as p<page>.s<n>"""
     return "\n".join(f"{line.id}  {line.text}" for line in runtime.state["lines"])
 
@@ -24,7 +25,7 @@ def ask_user(question: str) -> str:
 
 
 @tool
-def validate_changeset(changeset: Changeset, runtime: ToolRuntime) -> str:
+def validate_changeset(changeset: Changeset, runtime: ToolRuntime[Any, Any]) -> str:
     """Checks a changeset before you answer with it, listing what to fix"""
     errors = check_changeset(
         runtime.state["document"], changeset, sources(runtime.state)
@@ -36,7 +37,7 @@ def design_options(templates: Path) -> BaseTool:
     """The list_design_options tool, reading the renderer's template specs from templates"""
 
     @tool
-    def list_design_options(runtime: ToolRuntime) -> str:
+    def list_design_options(runtime: ToolRuntime[Any, Any]) -> str:
         """Lists the templates, fonts and design settings an update_design edit
         can use; only for changes to how the document looks"""
         kind = runtime.state["document"].kind
