@@ -1,6 +1,6 @@
 from typing import Literal
 
-from document_schema import DocumentKind, ResumeDocument
+from document_schema import DocumentKind, ResumeContent, ResumeDocument
 from langgraph.graph import END
 from langgraph.runtime import Runtime
 from langgraph.types import Command
@@ -22,7 +22,9 @@ async def verify(
         try:
             document = ResumeDocument(
                 kind=DocumentKind.RESUME,
-                content=ResumeImport.model_validate(state["reply"]).content,
+                content=ResumeContent(
+                    blocks=ResumeImport.model_validate(state["reply"]).blocks
+                ),
             )
         except ValidationError as error:
             errors = schema_errors(error)
