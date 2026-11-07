@@ -221,3 +221,18 @@ async def test_a_document_never_printed_is_printed_once_for_its_page_count():
     assert result["changeset"].edits == _edits(GOOD_EDIT)
     assert printed[0] == state["document"]
     assert len(printed) == 2
+
+
+async def test_an_agent_that_ends_without_a_changeset_is_asked_for_one():
+    result, model = await _edit(
+        AIMessage("I've checked the edit and it passes."),
+        _call("Changeset", **_changeset(GOOD_EDIT)),
+    )
+
+    asked = [
+        m
+        for m in model.requests[-1]
+        if isinstance(m, HumanMessage) and "no_changeset" in m.text
+    ]
+    assert asked
+    assert result["changeset"].edits == _edits(GOOD_EDIT)
