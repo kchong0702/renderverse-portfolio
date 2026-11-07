@@ -42,6 +42,9 @@ class AgentConfig(BaseModel):
     state_schema: Annotated[type[DeepAgentState], SkipValidation] = DeepAgentState
     """The agent's state, which the stage's tools read"""
 
+    context_schema: type | None = None
+    """What a run passes as context, which the stage's tools read"""
+
     recursion_limit: int = Field(gt=0)
     """Graph steps a run may take before it fails"""
 

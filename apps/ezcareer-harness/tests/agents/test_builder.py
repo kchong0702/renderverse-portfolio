@@ -1,5 +1,6 @@
 import json
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -128,6 +129,37 @@ def test_stage_tools_read_the_stage_state():
     )
 
     [found] = [m for m in result["messages"] if m.name == "look_up_in_state"]
+    assert found.text == "Ada"
+
+
+@dataclass(frozen=True)
+class _Names:
+    names: dict[str, str]
+
+
+@tool
+def look_up_in_context(person: str, runtime: ToolRuntime[_Names]) -> str:
+    """Looks up a person's first name in the run's context"""
+    return runtime.context.names[person]
+
+
+def test_stage_tools_read_the_run_context():
+    model = ScriptedChatModel(
+        replies=[
+            _call("look_up_in_context", person="Lovelace"),
+            _call("Greeting", text="Hello, Ada!"),
+        ]
+    )
+    agent = build_agent(
+        _config(tools=(look_up_in_context,), context_schema=_Names), model
+    )
+
+    result = agent.invoke(
+        {"messages": [HumanMessage("Greet Lovelace")]},
+        context=_Names(names={"Lovelace": "Ada"}),
+    )
+
+    [found] = [m for m in result["messages"] if m.name == "look_up_in_context"]
     assert found.text == "Ada"
 
 

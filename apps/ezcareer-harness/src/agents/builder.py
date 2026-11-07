@@ -38,6 +38,7 @@ def build_agent(config: AgentConfig, model: BaseChatModel | None = None) -> Preg
         backend=FilesystemBackend(root_dir=config.skills, virtual_mode=True),
         response_format=config.response_format,
         state_schema=config.state_schema,
+        context_schema=config.context_schema,
         name=config.name,
     )
     return agent.with_config(
