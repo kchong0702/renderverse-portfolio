@@ -2,11 +2,18 @@ import httpx
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel
 from langgraph.errors import GraphRecursionError
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from src.features.import_document.config import ImportConfig
 from src.features.import_document.errors import ImportFailed
 from src.features.import_document.graph import build_graph
-from src.features.import_document.schemas import ImportResult
+from src.features.import_document.schemas import (
+    ImportInput,
+    ImportOutput,
+    ImportResult,
+    ImportTask,
+)
 from src.features.import_document.state import ImportContext
 from src.shared.clients.artifact_service import ArtifactService
 from src.shared.extraction import UnreadableFile
@@ -49,3 +56,25 @@ async def run_import(
         rounds=state["rounds"],
         config_hash=config.hash,
     )
+
+
+def build_task_graph(
+    config: ImportConfig,
+    artifacts: ArtifactService,
+    model: BaseChatModel | None = None,
+) -> CompiledStateGraph:
+    """A one-node graph for the A2A server: imports the input's file and returns
+    the ImportResult as JSON under result"""
+
+    async def run(task: ImportTask) -> ImportOutput:
+        """Runs the import with the graph's config, client and model"""
+        result = await run_import(task["file"], config, artifacts, model)
+        return {"result": result.model_dump(mode="json")}
+
+    graph = StateGraph(
+        ImportOutput, input_schema=ImportInput, output_schema=ImportOutput
+    )
+    graph.add_node("run", run)
+    graph.add_edge(START, "run")
+    graph.add_edge("run", END)
+    return graph.compile()
