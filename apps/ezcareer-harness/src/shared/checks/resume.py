@@ -50,7 +50,7 @@ def _verbatim(draft: ResumeImport, lines: Sequence[Line]) -> list[CheckError]:
     """Each value has text, and its text appears in the lines it cites"""
     order = {line.id: index for index, line in enumerate(lines)}
     errors: list[CheckError] = []
-    for path, value in _values(draft.content, "content"):
+    for path, value in _values(draft.blocks, "blocks"):
         if unknown := [source for source in value.src if source not in order]:
             message = f"cites {', '.join(unknown)}, which are not lines"
         elif not value.src:
@@ -68,12 +68,12 @@ def _verbatim(draft: ResumeImport, lines: Sequence[Line]) -> list[CheckError]:
 
 
 def _coverage(draft: ResumeImport, lines: Sequence[Line]) -> list[CheckError]:
-    """Each line's words are used by the values citing it, or the line is skipped
-    because it is short or repeated, such as a page number or running header"""
+    """Each line is cited with all its words, except joining words of up to three
+    letters such as at, or skipped for being short or repeated"""
     order = {line.id: index for index, line in enumerate(lines)}
     texts = [_normal(line.text) for line in lines]
     used = [[False] * len(text) for text in texts]
-    for _, value in _values(draft.content, "content"):
+    for _, value in _values(draft.blocks, "blocks"):
         cited = sorted({order[source] for source in value.src if source in order})
         joined = "".join(texts[index] for index in cited)
         if (start := joined.find(_normal(value.text))) < 0 or not _normal(value.text):
@@ -86,7 +86,7 @@ def _coverage(draft: ResumeImport, lines: Sequence[Line]) -> list[CheckError]:
                 used[index][position - offset] = True
             offset += len(texts[index])
     cited = {
-        source for _, value in _values(draft.content, "content") for source in value.src
+        source for _, value in _values(draft.blocks, "blocks") for source in value.src
     }
     repeats = Counter(texts)
     errors: list[CheckError] = []
@@ -117,7 +117,6 @@ def _coverage(draft: ResumeImport, lines: Sequence[Line]) -> list[CheckError]:
     for index, line in enumerate(lines):
         if line.id in draft.skipped:
             continue
-        # Runs of up to three letters are joining words, such as at or in
         left = "".join(
             " " if done else ch for ch, done in zip(texts[index], used[index])
         )
@@ -129,7 +128,7 @@ def _coverage(draft: ResumeImport, lines: Sequence[Line]) -> list[CheckError]:
         errors.append(
             CheckError(
                 rule=Check.COVERAGE,
-                at="content",
+                at="blocks",
                 message="cite or skip each of these lines, and use all of a cited"
                 " line's words: " + "; ".join(dropped),
             )
@@ -142,7 +141,7 @@ def _order(draft: ResumeImport, lines: Sequence[Line]) -> list[CheckError]:
     order = {line.id: index for index, line in enumerate(lines)}
     starts = [
         (block.id, min(found))
-        for block in draft.content.blocks
+        for block in draft.blocks
         if (
             found := [
                 order[source]
@@ -155,7 +154,7 @@ def _order(draft: ResumeImport, lines: Sequence[Line]) -> list[CheckError]:
     return [
         CheckError(
             rule=Check.ORDER,
-            at=f"content/blocks/{block}",
+            at=f"blocks/{block}",
             message=f"starts at {lines[start].id}, before {previous} at"
             f" {lines[previous_start].id}, so it must come first",
         )

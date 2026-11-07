@@ -14,16 +14,14 @@ PDF = make_pdf([(10, 10, "Ada Lovelace"), (10, 20, "Engineer")])
 
 def answer(headline: str) -> dict:
     return {
-        "content": {
-            "blocks": [
-                {
-                    "kind": "profile",
-                    "id": "profile",
-                    "name": {"text": "Ada Lovelace", "src": ["p1.s1"]},
-                    "headline": {"text": headline, "src": ["p1.s2"]},
-                }
-            ]
-        }
+        "blocks": [
+            {
+                "kind": "profile",
+                "id": "profile",
+                "name": {"text": "Ada Lovelace", "src": ["p1.s1"]},
+                "headline": {"text": headline, "src": ["p1.s2"]},
+            }
+        ]
     }
 
 
@@ -43,13 +41,12 @@ async def test_a_failed_reply_goes_back_to_the_llm_with_its_errors(
     data = json.loads(human.content)
     assert data["previous_reply"] == answer("Engineering lead")
     assert [(e["rule"], e["at"]) for e in data["errors"]] == [
-        ("verbatim", "content/blocks/profile/headline"),
-        ("coverage", "content"),
+        ("verbatim", "blocks/profile/headline"),
+        ("coverage", "blocks"),
     ]
-    assert (
-        result.document.content.model_dump(exclude_defaults=True)
-        == answer("Engineer")["content"]
-    )
+    assert result.document.content.model_dump(exclude_defaults=True) == {
+        "blocks": answer("Engineer")["blocks"]
+    }
 
 
 async def test_the_passing_draft_is_printed_in_the_default_template(
@@ -110,9 +107,7 @@ async def test_a_reply_without_the_tool_gets_another_round(config: ImportConfig)
 
 async def test_a_photo_without_its_file_gets_another_round(config: ImportConfig):
     photo = answer("Engineer")
-    photo["content"]["blocks"].append(
-        {"kind": "photo", "id": "photo", "file": "a" * 64}
-    )
+    photo["blocks"].append({"kind": "photo", "id": "photo", "file": "a" * 64})
 
     result = await run_import(
         PDF, config, artifact_service([]), replying(photo, answer("Engineer"))

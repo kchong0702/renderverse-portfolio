@@ -8,16 +8,14 @@ from tests.fakes import artifact_service, replying
 from tests.pdfs import make_pdf
 
 REPLY = {
-    "content": {
-        "blocks": [
-            {
-                "kind": "profile",
-                "id": "profile",
-                "name": {"text": "Ada Lovelace", "src": ["p1.s1"]},
-                "headline": {"text": "Engineer", "src": ["p1.s2"]},
-            }
-        ]
-    },
+    "blocks": [
+        {
+            "kind": "profile",
+            "id": "profile",
+            "name": {"text": "Ada Lovelace", "src": ["p1.s1"]},
+            "headline": {"text": "Engineer", "src": ["p1.s2"]},
+        }
+    ],
     "skipped": [],
 }
 
