@@ -9,7 +9,7 @@ from src.features.write_document.agent import TEMPLATES
 from src.features.write_document.graph import build_graph
 from src.features.write_document.profile import EditProfile
 from src.features.write_document.render import render_with
-from src.features.write_document.state import Render
+from src.features.write_document.state import EditInput, EditOutput, Render
 from src.shared.clients.artifact_service import ArtifactService
 
 
@@ -36,3 +36,8 @@ def edit_graph(
         checkpointer,
         model,
     )
+
+
+async def edit(request: EditInput) -> EditOutput:
+    """Runs the edit flow once on a request, printing through artifact-service"""
+    return await edit_graph(artifact_service_render()).ainvoke(request)
