@@ -85,6 +85,17 @@ def test_agent_answers_with_the_response_format():
     assert result["structured_response"] == Greeting(text="Hello, Ada!")
 
 
+def test_an_openai_model_answers_through_a_tool_call_too():
+    model = ScriptedChatModel(
+        replies=[_call("Greeting", text="Hello, Ada!")], model_name="gpt-6-luna"
+    )
+    gpt = Agent.load(GREETER.model_copy(update={"model": "gpt-6-luna"}))
+
+    result = _ask(model, gpt)
+
+    assert result["structured_response"] == Greeting(text="Hello, Ada!")
+
+
 def test_agent_is_offered_read_tools_and_its_flows_tools_only():
     model = ScriptedChatModel(replies=[_call("Greeting", text="Hello, Ada!")])
 

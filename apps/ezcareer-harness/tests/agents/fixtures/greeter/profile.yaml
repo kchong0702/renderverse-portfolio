@@ -10,3 +10,5 @@ claude:
   claude-opus-5-5:
     <<: *read-only
     system_prompt_suffix: Answer in one short sentence.
+openai:
+  gpt-6-luna: *read-only
