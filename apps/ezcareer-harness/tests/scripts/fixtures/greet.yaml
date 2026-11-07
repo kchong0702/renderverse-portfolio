@@ -1,0 +1,2 @@
+checks: [polite]
+recursion_limit: 12

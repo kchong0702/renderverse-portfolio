@@ -135,6 +135,15 @@ dev = [
 ]
 
 [[package]]
+name = "bracex"
+version = "3.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4d/fc/137095eb2f24ccf0b4db196abd9f5cfe74398a834af51d4bc4876e0beaf0/bracex-3.2.1.tar.gz", hash = "sha256:07a9b2100ceecc0c24afa1a1714bf8d4a6abb43d592939455f662b682ac9baa4", size = 32694, upload-time = "2026-11-03T14:13:43.53Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/47/ae/30dd8b027b4032b27e81364de5b74bfbef50b3c84c6aa0ead351bbb3749c/bracex-3.2.1-py3-none-any.whl", hash = "sha256:e8622d46b60ef6062b4091033f97a304e1b205e70c0285743c5038b73886a47e", size = 12527, upload-time = "2026-11-03T14:13:42.032Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.7.22"
 source = { registry = "https://pypi.org/simple" }
@@ -413,6 +422,24 @@ wheels = [
 ]
 
 [[package]]
+name = "deepagents"
+version = "0.7.32"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langchain" },
+    { name = "langchain-anthropic" },
+    { name = "langchain-core" },
+    { name = "langchain-google-genai" },
+    { name = "langsmith" },
+    { name = "packaging" },
+    { name = "wcmatch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/92/89/5da9546d5e57a4f815d2cc919bd49ed2a62b25816ebd49ce6dca1919bdd8/deepagents-0.7.32.tar.gz", hash = "sha256:f4154281b04a499015e48c24edf11f59f833fbabd3d87e0898832e8db954aac4", size = 343996, upload-time = "2026-10-23T21:30:24.677Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5d/db/ca785ad20bf1c1255856575d9c31f201abd02bb4fd3a76a8b586d938d7e2/deepagents-0.7.32-py3-none-any.whl", hash = "sha256:366bd66c786a66c8d639e40f99614d9e5d37236adf4c5b158f0b2cb27956e28b", size = 374569, upload-time = "2026-10-23T21:30:23.235Z" },
+]
+
+[[package]]
 name = "dependency-injector"
 version = "4.49.1"
 source = { registry = "https://pypi.org/simple" }
@@ -547,12 +574,14 @@ version = "0.1.0"
 source = { virtual = "apps/ezcareer-harness" }
 dependencies = [
     { name = "a2a-sdk", extra = ["http-server"] },
+    { name = "deepagents" },
     { name = "dependency-injector" },
     { name = "document-schema" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "langchain-anthropic" },
     { name = "langchain-core" },
+    { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "openinference-instrumentation-langchain" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
@@ -578,12 +607,14 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "a2a-sdk", extras = ["http-server"], specifier = ">=1.3.0" },
+    { name = "deepagents", specifier = ">=0.7.32" },
     { name = "dependency-injector", specifier = ">=4.49.1" },
     { name = "document-schema", editable = "packages/document-schema" },
     { name = "fastapi", specifier = ">=0.142.2" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "langchain-anthropic", specifier = ">=1.7.6" },
     { name = "langchain-core", specifier = ">=1.7.0" },
+    { name = "langchain-openai", specifier = ">=1.7.2" },
     { name = "langgraph", specifier = ">=1.2.12" },
     { name = "openinference-instrumentation-langchain", specifier = ">=0.1.78" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.45.0" },
@@ -2583,6 +2614,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/25/9d/b9deb52f1e4528ffe44338c5ebab95c32ed79203082da661de50288e130a/watchfiles-1.3.0-cp314-cp314t-win32.whl", hash = "sha256:81c989d7267bfb7b676cd32c83bec97914e396870983cbf493e29415037bff5e", size = 270863, upload-time = "2026-09-21T09:08:46.518Z" },
     { url = "https://files.pythonhosted.org/packages/59/59/8b1881afccbafda06248be4185e28034dd73c80c85e4da24f2cb0c1321eb/watchfiles-1.3.0-cp314-cp314t-win_amd64.whl", hash = "sha256:d754e049006e81a9be49dc78ba7802081cee426e968cbc63ee19e164fa2d0e39", size = 286879, upload-time = "2026-09-21T09:08:47.874Z" },
     { url = "https://files.pythonhosted.org/packages/46/dd/41c12ae9745d5d72f709333287679d71cbba68ad7678fed872207bba94f4/watchfiles-1.3.0-cp314-cp314t-win_arm64.whl", hash = "sha256:a5b631db08fd3032db57ec6a92d1777cd60f88803287e4e941a4858c53aab1e0", size = 276924, upload-time = "2026-09-21T09:08:48.976Z" },
+]
+
+[[package]]
+name = "wcmatch"
+version = "12.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "bracex" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/60/81/eb96ce41e8def4ff3b02cec7d1d92e3682597de5064d8687ac88d1734f18/wcmatch-12.0.tar.gz", hash = "sha256:80ebfdf510d5fef580c4fc662b9eba76b331cff20d7913fc6e722edcb199cbe6", size = 161277, upload-time = "2026-11-03T14:23:48.017Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/22/8d/fb9b889e282a73e4423bd10f1ac358dd68b3e78fd099fab17f270a482157/wcmatch-12.0-py3-none-any.whl", hash = "sha256:46f7965313cfe65d8be049ab91095a5908be96ebb43e5d16da608b158825113c", size = 50558, upload-time = "2026-11-03T14:23:46.592Z" },
 ]
 
 [[package]]
