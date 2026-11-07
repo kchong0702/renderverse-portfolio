@@ -1,6 +1,6 @@
 from src.features.analyse_job.enums import Match
 from src.features.analyse_job.schemas import JobRequirements, PostingLine
-from src.shared.checks import CheckError
+from src.shared.checks import CheckError, CheckRule
 from src.shared.models import ProfileFact
 
 
@@ -18,7 +18,7 @@ def check_citations(
         if unknown_lines:
             errors.append(
                 CheckError(
-                    rule="unknown_line",
+                    rule=CheckRule.UNKNOWN_LINE,
                     at=at,
                     message=f"lines {unknown_lines} are not in the posting",
                 )
@@ -28,7 +28,7 @@ def check_citations(
             if " ".join(requirement.text.split()) not in cited:
                 errors.append(
                     CheckError(
-                        rule="not_verbatim",
+                        rule=CheckRule.NOT_VERBATIM,
                         at=at,
                         message=f"{requirement.text!r} is not word for word in lines {requirement.line_ids}",
                     )
@@ -37,7 +37,7 @@ def check_citations(
         if unknown_facts:
             errors.append(
                 CheckError(
-                    rule="unknown_fact",
+                    rule=CheckRule.UNKNOWN_FACT,
                     at=at,
                     message=f"{unknown_facts} are not facts in the profile",
                 )
@@ -45,7 +45,7 @@ def check_citations(
         if requirement.match is not Match.NOT_MET and not requirement.fact_ids:
             errors.append(
                 CheckError(
-                    rule="uncited_match",
+                    rule=CheckRule.UNCITED_MATCH,
                     at=at,
                     message=f"{requirement.match} needs the facts that show it",
                 )
