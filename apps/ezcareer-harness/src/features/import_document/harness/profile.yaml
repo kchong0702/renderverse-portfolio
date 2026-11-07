@@ -1,4 +1,4 @@
-family: glm
-model: glm-5.3
+family: openai
+model: gpt-6-luna
 rounds: 4
 checks: [schema, verbatim, coverage, order]
