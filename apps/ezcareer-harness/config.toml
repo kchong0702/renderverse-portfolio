@@ -31,4 +31,4 @@ model = "glm-5.3"
 
 [[graph_profiles]]
 name = "edit"
-path = "src/features/write_document/profile.yaml"
+path = "src/features/write_document/harness/profile.yaml"
