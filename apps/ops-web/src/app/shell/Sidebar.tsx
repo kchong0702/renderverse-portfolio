@@ -4,7 +4,7 @@ import { NavLink } from "react-router-dom";
 import { SignOutButton, useMe } from "@/features/auth";
 import { cn } from "@/shared/lib/cn";
 import { SparkIcon } from "@/shared/ui/icons";
-import { navGroups } from "./nav";
+import { navGroups, useNavBadges } from "./nav";
 import ThemeToggle from "./ThemeToggle";
 
 function initials(email: string): string {
@@ -18,6 +18,7 @@ function initials(email: string): string {
 export default function Sidebar() {
   const { t } = useTranslation();
   const { data: me } = useMe();
+  const badges = useNavBadges();
 
   return (
     <nav
@@ -32,7 +33,7 @@ export default function Sidebar() {
           <span className="text-[17px] leading-tight font-bold">
             {t("shell.product")}
           </span>
-          <span className="text-side-muted text-xs">{t("shell.tagline")}</span>
+          <span className="text-side-muted text-xs">{t("shell.space")}</span>
         </span>
       </div>
 
@@ -69,6 +70,18 @@ export default function Sidebar() {
                       <Icon />
                     </span>
                     <span className="flex-1">{t(`nav.items.${key}`)}</span>
+                    {badges[key] && (
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-px text-xs font-medium",
+                          isActive
+                            ? "bg-side-badge-on text-side-on-ink"
+                            : "bg-side-badge text-side-muted",
+                        )}
+                      >
+                        {badges[key]}
+                      </span>
+                    )}
                   </>
                 )}
               </NavLink>

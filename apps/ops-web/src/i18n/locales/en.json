@@ -8,6 +8,7 @@
   "shell": {
     "product": "Ops",
     "tagline": "Your career starts here",
+    "space": "Career space",
     "mainNav": "Main",
     "useDarkTheme": "Use the dark theme",
     "useLightTheme": "Use the light theme",
@@ -121,5 +122,16 @@
       "failed": "Sign-in was cancelled or didn't finish. Try again.",
       "password": "Not signed in: {{reason}}"
     }
+  },
+  "assistant": {
+    "title": "Assistant",
+    "open": "Ask the assistant",
+    "close": "Close assistant",
+    "askAbout": "Ask about {{topic}}, or anything in your job search",
+    "askAnything": "Ask anything in your job search",
+    "message": "Message the assistant",
+    "placeholder": "Ask anything",
+    "send": "Send",
+    "notConnected": "Not connected yet. The assistant arrives with the career agent."
   }
 }
