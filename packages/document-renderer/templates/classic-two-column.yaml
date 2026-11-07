@@ -16,7 +16,7 @@ regions:
     divider: left
     title: underline
     skills: outline-pills
-home:
+layout:
   default: main
   profile: top
   photo: top

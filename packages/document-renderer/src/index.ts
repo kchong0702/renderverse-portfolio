@@ -1,7 +1,7 @@
-export { DocumentView, type DocumentViewProps } from "./DocumentView";
-export { place, type AnyBlock, type PlacedRegion } from "./layout";
-export { paginate, type Measurement } from "./paginate";
-export type { AnyDocument } from "./schema/document";
-export type { Report } from "./schema/report";
-export type { TemplateSpec } from "./schema/template";
+export { DocumentView, type DocumentViewProps } from "./document/DocumentView";
+export type { AnyDocument } from "./generated/document";
+export type { Report } from "./generated/report";
+export type { TemplateSpec } from "./generated/template";
+export { place, type AnyBlock, type PlacedRegion } from "./layout/place";
+export { paginate, type Measurement } from "./pagination/paginate";
 export { templates } from "./templates";

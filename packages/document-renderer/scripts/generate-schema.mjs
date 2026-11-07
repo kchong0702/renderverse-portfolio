@@ -2,8 +2,12 @@ import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { compile } from "json-schema-to-typescript";
 
-const banner =
-  "// Generated from document-schema by `pnpm schema`. Do not edit.";
+const banner = `/**
+ * Generated code. Do not edit manually.
+ *
+ * Regenerate using: pnpm schema
+ * Source: json_schemas()
+ */`;
 const schemas = JSON.parse(
   execFileSync("uv", [
     "run",
@@ -13,19 +17,52 @@ const schemas = JSON.parse(
   ]),
 );
 const write = (name, text) =>
-  writeFileSync(new URL(`../src/schema/${name}.ts`, import.meta.url), text);
+  writeFileSync(new URL(`../src/generated/${name}.ts`, import.meta.url), text);
+
+const mapValues = (object, map) =>
+  Object.fromEntries(
+    Object.entries(object).map(([key, value]) => [key, map(value, key)]),
+  );
+const dropped = new Set(["title", "description", "default"]);
+const plain = (schema) =>
+  Array.isArray(schema)
+    ? schema.map(plain)
+    : typeof schema !== "object" || schema === null
+      ? schema
+      : Object.fromEntries(
+          Object.entries(schema)
+            .filter(([key]) => !dropped.has(key))
+            .map(([key, value]) =>
+              key === "properties"
+                ? [key, mapValues(value, plain)]
+                : key === "patternProperties"
+                  ? ["additionalProperties", plain(Object.values(value)[0])]
+                  : key === "$defs"
+                    ? [
+                        key,
+                        mapValues(value, (model, name) => ({
+                          ...plain(model),
+                          title: name,
+                        })),
+                      ]
+                    : key === "prefixItems"
+                      ? ["items", plain(value)]
+                      : [key, plain(value)],
+            ),
+        );
 
 for (const [name, title] of [
   ["document", "AnyDocument"],
   ["template", "TemplateSpec"],
   ["report", "Report"],
 ]) {
+  const types = await compile({ ...plain(schemas[name]), title }, title, {
+    additionalProperties: false,
+    bannerComment: "",
+  });
   write(
     name,
-    await compile({ ...schemas[name], title }, title, {
-      additionalProperties: false,
-      bannerComment: banner,
-    }),
+    `${banner}\n\n${types.replace(/\s*\/\*\*[^]*?\*\//g, "").trimStart()}`,
   );
 }
 

@@ -16,7 +16,7 @@ regions:
     contacts: labelled
     skills: outline-pills
     photo_ring: true
-home:
+layout:
   default: main
   photo: side
   profile: side

@@ -11,7 +11,7 @@ regions:
     divider: bottom
   main:
     area: { row: 2 }
-home:
+layout:
   default: main
   profile: top
   photo: top

@@ -1,0 +1,23 @@
+{
+  "headings": {
+    "summary": "Ringkasan",
+    "experience": "Pengalaman",
+    "education": "Pendidikan",
+    "projects": "Projek",
+    "skills": "Kemahiran",
+    "languages": "Bahasa",
+    "certifications": "Pensijilan",
+    "awards": "Anugerah",
+    "publications": "Penerbitan",
+    "custom": "Lain-lain"
+  },
+  "contacts": {
+    "email": "E-mel",
+    "phone": "Telefon",
+    "location": "Lokasi",
+    "linkedin": "LinkedIn",
+    "github": "GitHub",
+    "website": "Laman web",
+    "other": "Pautan"
+  }
+}

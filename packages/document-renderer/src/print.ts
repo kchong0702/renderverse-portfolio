@@ -1,11 +1,10 @@
-import "./fonts.css";
-import type { AnyDocument } from "./schema/document";
-import type { TemplateSpec } from "./schema/template";
-import { paginate, type Measurement } from "./paginate";
+import "./document/fonts.css";
+import type { AnyDocument } from "./generated/document";
+import type { TemplateSpec } from "./generated/template";
+import { paginate, type Measurement } from "./pagination/paginate";
 
 declare global {
   interface Window {
-    /** Lays the document out in pages for printing and measures them */
     render: (input: {
       document: AnyDocument;
       template: TemplateSpec;

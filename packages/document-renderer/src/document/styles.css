@@ -117,8 +117,6 @@
   text-decoration: none;
 }
 
-/* Profile and photo */
-
 .dr-name {
   font-family: var(--heading-font);
   font-size: 2.4em;
@@ -165,8 +163,6 @@
 .dr-region[data-floats="true"] > * ~ * {
   margin-top: var(--space);
 }
-
-/* Section titles */
 
 .dr-title {
   break-after: avoid;
@@ -217,8 +213,6 @@
   padding-left: 2mm;
   border-left: 3pt solid var(--title);
 }
-
-/* Entries */
 
 .dr-entry ~ .dr-entry {
   margin-top: 3mm;
@@ -338,8 +332,6 @@
   color: var(--title);
 }
 
-/* Contacts */
-
 .dr-contacts ul {
   list-style: none;
   padding: 0;
@@ -404,8 +396,6 @@
   background: white;
 }
 
-/* Skills and languages */
-
 .dr-skill-row ~ .dr-skill-row {
   margin-top: 1.5mm;
 }
@@ -457,8 +447,6 @@
 .dr-languages span {
   color: var(--muted);
 }
-
-/* Letters */
 
 .dr-recipient {
   display: grid;

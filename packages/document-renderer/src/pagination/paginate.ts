@@ -7,10 +7,10 @@ import {
   designOf,
   pageCss,
   type DocumentViewProps,
-} from "./DocumentView";
-import type { Report } from "./schema/report";
-import type { Region } from "./schema/template";
-import styles from "./styles.css?inline";
+} from "../document/DocumentView";
+import styles from "../document/styles.css?inline";
+import type { Report } from "../generated/report";
+import type { Region } from "../generated/template";
 
 export type Measurement = Omit<Report, "render_id">;
 
@@ -24,14 +24,13 @@ const bottomOf = (element: Element) =>
     ),
   );
 
-/** Splits the document into pages inside target with Paged.js and measures the result */
 export async function paginate(
   props: DocumentViewProps,
   target: HTMLElement,
 ): Promise<Measurement> {
   const design = designOf(props.document);
   const [width, height] = PAGE_MM[design.page_size];
-  const room = (height - 2 * design.margins_mm) * PX_PER_MM;
+  const contentHeight = (height - 2 * design.margins_mm) * PX_PER_MM;
   const probe = document.createElement("div");
   probe.style.cssText = `position: absolute; left: -10000px; top: 0; width: ${width}mm`;
   probe.innerHTML = `<style>${styles}</style>${renderToStaticMarkup(createElement(DocumentView, props))}`;
@@ -41,26 +40,26 @@ export async function paginate(
       image.decode().catch(() => undefined),
     ),
   );
-  // Lays the probe out so its fonts start loading before the wait
-  probe.getBoundingClientRect();
-  await document.fonts.ready;
-
   const sheet = probe.querySelector(".dr-page")!;
   const top = sheet.getBoundingClientRect().top;
+  await document.fonts.ready;
+
   const warnings: Measurement["warnings"] = [];
   for (const region of probe.querySelectorAll<HTMLElement>(
     '.dr-region[data-flows="false"]',
   )) {
     const start = region.getBoundingClientRect().top;
-    const over =
-      Math.max(start, ...[...region.children].map(bottomOf)) - top - room;
-    if (over > 0.5) {
+    const overflow =
+      Math.max(start, ...[...region.children].map(bottomOf)) -
+      top -
+      contentHeight;
+    if (overflow > 0.5) {
       warnings.push({
         kind: "region_overflow",
         region: region.dataset.region as Region,
-        by_mm: Math.round((over / PX_PER_MM) * 10) / 10,
+        by_mm: Math.round((overflow / PX_PER_MM) * 10) / 10,
       });
-      region.style.maxHeight = `${(room - start + top) / PX_PER_MM}mm`;
+      region.style.maxHeight = `${(contentHeight - start + top) / PX_PER_MM}mm`;
       region.style.overflow = "hidden";
     }
   }

@@ -15,7 +15,7 @@ regions:
     area: { row: 2 }
     title: side-bar
     skills: filled-pills
-home:
+layout:
   default: main
   profile: top
   photo: top

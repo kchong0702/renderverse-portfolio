@@ -1,4 +1,9 @@
-// Generated from document-schema by `pnpm schema`. Do not edit.
+/**
+ * Generated code. Do not edit manually.
+ *
+ * Regenerate using: pnpm schema
+ * Source: json_schemas()
+ */
 
 export const defaults = {
   Design: {

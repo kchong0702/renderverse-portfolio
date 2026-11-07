@@ -16,7 +16,7 @@ regions:
   main:
     area: { column: 5, span: 8 }
     entry: dates-left
-home:
+layout:
   default: main
   photo: side
   profile: side

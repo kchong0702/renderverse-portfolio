@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { place } from "./layout";
-import { templates } from "./templates";
-import { resume } from "./test/fixtures";
+import { place } from "./place";
+import { templates } from "../templates";
+import { resume } from "../test/fixtures";
 
 const regionsOf = (...args: Parameters<typeof place>) =>
   Object.fromEntries(
@@ -12,14 +12,14 @@ const regionsOf = (...args: Parameters<typeof place>) =>
   );
 
 describe("place", () => {
-  test("blocks go to their template home in reading order", () => {
+  test("blocks go to their template layout in reading order", () => {
     expect(regionsOf(resume(), templates["sidebar-band"])).toEqual({
       side: ["photo", "profile", "contacts", "sk"],
       main: ["sum", "exp"],
     });
   });
 
-  test("the user's layout comes first and the rest go home", () => {
+  test("the user's layout comes first and the rest follow the template layout", () => {
     const document = resume({
       design: { layouts: { "sidebar-band": { main: ["sk", "exp"] } } },
     });
@@ -30,7 +30,7 @@ describe("place", () => {
     });
   });
 
-  test("blocks placed in a region the template lacks go home", () => {
+  test("blocks placed in a region the template lacks follow the template layout", () => {
     const document = resume({
       design: { layouts: { classic: { side: ["sk"] } } },
     });

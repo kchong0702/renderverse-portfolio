@@ -2,14 +2,14 @@ import type {
   AnyDocument,
   LetterContent,
   ResumeContent,
-} from "./schema/document";
-import { defaults } from "./schema/defaults";
+} from "../generated/document";
+import { defaults } from "../generated/defaults";
 import type {
   GridArea,
   Region,
   RegionSpec,
   TemplateSpec,
-} from "./schema/template";
+} from "../generated/template";
 
 export type AnyBlock =
   ResumeContent["blocks"][number] | LetterContent["blocks"][number];
@@ -22,21 +22,19 @@ export interface PlacedRegion {
   region: Region;
   spec: Spec;
   blocks: AnyBlock[];
-  /** The region that runs onto later pages; the others must fit on the first */
   flows: boolean;
 }
 
-/** Puts each shown block in a region: the user's layout first, then the template's home; a photo leads its region */
 export function place(
   document: AnyDocument,
   template: TemplateSpec,
 ): PlacedRegion[] {
   const regions = template.regions as Partial<Record<Region, RegionSpec>>;
-  const home = template.home as Partial<
+  const layout = template.layout as Partial<
     Record<AnyBlock["kind"] | "default", Region>
   >;
   const photo = template.photo ?? defaults.TemplateSpec.photo;
-  const left = new Map<string, AnyBlock>(
+  const unplaced = new Map<string, AnyBlock>(
     document.content.blocks
       .filter(
         (block) =>
@@ -51,15 +49,15 @@ export function place(
     document.design?.layouts?.[template.id] ?? {},
   )) {
     for (const id of placed.has(region as Region) ? ids : []) {
-      const block = left.get(id);
+      const block = unplaced.get(id);
       if (block) {
         placed.get(region as Region)!.push(block);
-        left.delete(id);
+        unplaced.delete(id);
       }
     }
   }
-  for (const block of left.values())
-    placed.get(home[block.kind] ?? home.default!)!.push(block);
+  for (const block of unplaced.values())
+    placed.get(layout[block.kind] ?? layout.default!)!.push(block);
 
   return [...placed]
     .map(([region, blocks]) => ({
@@ -67,7 +65,7 @@ export function place(
       blocks: [...blocks].sort(
         (a, b) => Number(b.kind === "photo") - Number(a.kind === "photo"),
       ),
-      flows: region === home.default,
+      flows: region === layout.default,
       spec: {
         ...defaults.RegionSpec,
         ...regions[region],

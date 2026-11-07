@@ -13,7 +13,7 @@ regions:
     area: { row: 2 }
     title: rule-both
     entry: dates-below
-home:
+layout:
   default: main
   profile: top
   photo: top

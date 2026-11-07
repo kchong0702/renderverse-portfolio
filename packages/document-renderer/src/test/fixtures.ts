@@ -1,4 +1,4 @@
-import type { AnyDocument } from "../schema/document";
+import type { AnyDocument } from "../generated/document";
 
 const value = (text: string) => ({ text, src: ["p1.s1"] });
 const rich = (html: string) => ({ html, src: ["p1.s2"] });

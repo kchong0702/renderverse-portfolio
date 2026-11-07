@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import { DocumentView, pageCss } from "./DocumentView";
-import { templates } from "./templates";
-import { resume } from "./test/fixtures";
+import { templates } from "../templates";
+import { resume } from "../test/fixtures";
 
 const html = (document = resume(), template = templates["sidebar-band"]) =>
   renderToStaticMarkup(

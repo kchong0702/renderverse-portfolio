@@ -1,16 +1,16 @@
 import type { CSSProperties, ReactNode } from "react";
-import { blocks, type Context } from "./blocks";
-import { place, type AnyBlock, type PlacedRegion } from "./layout";
-import { defaults } from "./schema/defaults";
-import type { AnyDocument, Design, Font } from "./schema/document";
-import type { TemplateSpec } from "./schema/template";
+import { blocks, type Context } from "../blocks";
+import { defaults } from "../generated/defaults";
+import type { AnyDocument, Design, Font } from "../generated/document";
+import type { TemplateSpec } from "../generated/template";
+import { translator } from "../i18n";
+import { place, type AnyBlock, type PlacedRegion } from "../layout/place";
 
 export const GUTTER_MM = 6;
 
-/** Width and height of each paper size */
 export const PAGE_MM = { a4: [210, 297], letter: [215.9, 279.4] } as const;
 
-const families: Record<Font, string> = {
+const fontFamilies: Record<Font, string> = {
   inter: '"Inter", sans-serif',
   lato: '"Lato", sans-serif',
   "source-sans-3": '"Source Sans 3", sans-serif',
@@ -19,18 +19,17 @@ const families: Record<Font, string> = {
   "eb-garamond": '"EB Garamond", serif',
 };
 
-/** The design with every field set */
 export const designOf = (document: AnyDocument) =>
   ({ ...defaults.Design, ...document.design }) as Required<Design>;
 
-/** Whether a filled region runs down the whole page, so every page draws its fill */
-const isBand = ({ spec }: PlacedRegion, rows: number) =>
-  spec.fill !== "none" && spec.area.row === 1 && spec.area.rows === rows;
-
-const lastRow = (regions: PlacedRegion[]) =>
+const rowCountOf = (regions: PlacedRegion[]) =>
   Math.max(...regions.map(({ spec: { area } }) => area.row + area.rows - 1));
 
-/** Page CSS: paper size, top and bottom margins, and the bands of filled regions down the page */
+const fillsPageHeight = (
+  { spec: { fill, area } }: PlacedRegion,
+  rowCount: number,
+) => fill !== "none" && area.row === 1 && area.rows === rowCount;
+
 export function pageCss(document: AnyDocument, template: TemplateSpec): string {
   const design = designOf(document);
   const regions = place(document, template);
@@ -39,7 +38,7 @@ export function pageCss(document: AnyDocument, template: TemplateSpec): string {
   const column = (width - 2 * margin - 11 * GUTTER_MM) / 12;
   const accent = design.accent ?? template.accent;
   const bands = regions
-    .filter((region) => isBand(region, lastRow(regions)))
+    .filter((region) => fillsPageHeight(region, rowCountOf(regions)))
     .map(({ spec: { area, fill } }) => {
       const end = area.column + area.span - 1;
       const from =
@@ -64,11 +63,9 @@ export function pageCss(document: AnyDocument, template: TemplateSpec): string {
 export interface DocumentViewProps {
   document: AnyDocument;
   template: TemplateSpec;
-  /** URL of an asset by its file hash */
   assetUrl: (hash: string) => string;
 }
 
-/** The document laid out on the template's grid, before it is split into pages */
 export function DocumentView({
   document,
   template,
@@ -76,11 +73,12 @@ export function DocumentView({
 }: DocumentViewProps) {
   const design = designOf(document);
   const regions = place(document, template);
-  const rows = lastRow(regions);
+  const rowCount = rowCountOf(regions);
+  const t = translator(document.language);
   const style = {
     "--accent": design.accent ?? template.accent,
-    "--body-font": families[design.font ?? template.body_font],
-    "--heading-font": families[design.font ?? template.heading_font],
+    "--body-font": fontFamilies[design.font ?? template.body_font],
+    "--heading-font": fontFamilies[design.font ?? template.heading_font],
     "--text-size": { small: "9.5pt", medium: "10.5pt", large: "11.5pt" }[
       design.text_size
     ],
@@ -105,6 +103,7 @@ export function DocumentView({
           spec: region.spec,
           photo: template.photo ?? defaults.TemplateSpec.photo,
           assetUrl,
+          t,
         };
         const bleed = {
           "--bleed-left":
@@ -121,7 +120,7 @@ export function DocumentView({
             className="dr-region"
             data-region={region.region}
             data-flows={region.flows}
-            data-band={isBand(region, rows)}
+            data-band={fillsPageHeight(region, rowCount)}
             data-fill={spec.fill}
             data-divider={spec.divider ?? undefined}
             data-align={spec.align}

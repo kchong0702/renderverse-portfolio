@@ -12,7 +12,7 @@ regions:
     area: { row: 2 }
     title: strip
     skills: filled-pills
-home:
+layout:
   default: main
   profile: top
   photo: top

@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { expect, test } from "vitest";
-import { templates } from "./templates";
+import { templates } from ".";
 
 test("every default template matches TemplateSpec", () => {
   const checked = execFileSync(
