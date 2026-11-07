@@ -85,7 +85,7 @@ def test_agent_answers_with_the_response_format():
     assert result["structured_response"] == Greeting(text="Hello, Ada!")
 
 
-def test_an_openai_model_answers_through_a_tool_call_too():
+def test_an_openai_model_answers_with_native_structured_output():
     model = ScriptedChatModel(
         replies=[_call("Greeting", text="Hello, Ada!")], model_name="gpt-6-luna"
     )
@@ -94,6 +94,8 @@ def test_an_openai_model_answers_through_a_tool_call_too():
     result = _ask(model, gpt)
 
     assert result["structured_response"] == Greeting(text="Hello, Ada!")
+    assert model.answer_name == "Greeting"
+    assert "Greeting" not in model.offered_tools[0]
 
 
 def test_agent_is_offered_read_tools_and_its_flows_tools_only():
