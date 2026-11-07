@@ -23,3 +23,8 @@ instrumentations = ["langchain"]
 [observability.trace_redaction]
 hide_inputs = false
 hide_outputs = false
+
+[[agents]]
+name = "career-consultant"
+path = "src/agents/career-consultant/profile.yaml"
+model = "glm-5.3"

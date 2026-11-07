@@ -64,6 +64,7 @@ class ScriptedChatModel(BaseChatModel):
     replies: list[AIMessage]
     requests: list[list[BaseMessage]] = Field(default_factory=list)
     offered_tools: list[set[str]] = Field(default_factory=list)
+    tool_descriptions: list[dict[str, str]] = Field(default_factory=list)
     model_name: str = "glm-5.3"
     provider: str = "openai"
 
@@ -78,8 +79,13 @@ class ScriptedChatModel(BaseChatModel):
 
     @override
     def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> Any:
-        self.offered_tools.append(
-            {convert_to_openai_tool(tool)["function"]["name"] for tool in tools}
+        functions = [convert_to_openai_tool(tool)["function"] for tool in tools]
+        self.offered_tools.append({function["name"] for function in functions})
+        self.tool_descriptions.append(
+            {
+                function["name"]: function.get("description", "")
+                for function in functions
+            }
         )
         return self
 
