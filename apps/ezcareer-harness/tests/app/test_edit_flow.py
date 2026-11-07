@@ -16,7 +16,7 @@ from src.app.a2a import Flow, add_flow_routes
 from src.core.config import AppSettings
 from src.core.errors import FlowError
 from src.features import write_document
-from src.shared.clients import ArtifactService
+from src.shared.clients.artifact_service import ArtifactService
 from tests.conftest import ScriptedChatModel
 from tests.features.write_document.test_career_consultant import (
     BAD_EDIT,

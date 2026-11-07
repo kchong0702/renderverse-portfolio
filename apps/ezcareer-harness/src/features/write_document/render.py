@@ -6,7 +6,7 @@ from document_schema import AnyDocument, FileHash, Report
 
 from src.core.errors import FlowError
 from src.features.write_document.state import Render
-from src.shared.clients import ArtifactService
+from src.shared.clients.artifact_service import ArtifactService
 
 
 def render_with(artifacts: ArtifactService, templates: Path) -> Render:
