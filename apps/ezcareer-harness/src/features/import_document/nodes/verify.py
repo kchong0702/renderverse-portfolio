@@ -3,7 +3,7 @@ from typing import Any
 from langgraph.runtime import Runtime
 
 from src.features.import_document.state import ImportContext, ImportState
-from src.shared.checks import validate_resume
+from src.shared.checks.resume import validate_resume
 
 
 def verify(state: ImportState, runtime: Runtime[ImportContext]) -> dict[str, Any]:
@@ -14,6 +14,6 @@ def verify(state: ImportState, runtime: Runtime[ImportContext]) -> dict[str, Any
     return {
         "rounds": [errors],
         "fix_summary": "\n".join(
-            f"- {error.check} at {error.path}: {error.message}" for error in errors
+            f"- {error.rule} at {error.at}: {error.message}" for error in errors
         ),
     }

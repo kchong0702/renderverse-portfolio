@@ -3,7 +3,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.shared.checks import Check
+from src.shared.checks.resume import Check
 
 
 class ImportConfig(BaseModel):
