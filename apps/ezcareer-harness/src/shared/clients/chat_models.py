@@ -14,7 +14,7 @@ def chat_model(family: str, name: str) -> BaseChatModel:
     if PROVIDERS[family] == "anthropic":
         return ChatAnthropic(model_name=name)
     if family == "openai":
-        return ChatOpenAI(model=name, use_responses_api=False)
+        return ChatOpenAI(model=name, use_responses_api=True)
     settings = get_settings()
     if settings.gateway_url is None or settings.gateway_key is None:
         raise ValueError(
