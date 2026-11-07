@@ -1,9 +1,11 @@
+import operator
 from dataclasses import dataclass
-from typing import Any, TypedDict
+from typing import Annotated, Any, TypedDict
 
 from langchain_core.language_models import BaseChatModel
 
 from src.features.import_document.config import ImportConfig
+from src.shared.checks.check_error import CheckError
 from src.shared.extraction import Line
 
 
@@ -28,3 +30,6 @@ class ImportState(TypedDict, total=False):
 
     fix_summary: str
     """What the last reply got wrong, written for the LLM"""
+
+    rounds: Annotated[list[list[CheckError]], operator.add]
+    """The verifier's errors for each reply, empty for the one that passed"""
