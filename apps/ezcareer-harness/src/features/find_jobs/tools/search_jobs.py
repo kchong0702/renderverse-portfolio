@@ -11,6 +11,9 @@ from src.shared.models import CountryCode
 
 
 class SearchJobsArgs(BaseModel):
+    """Search job postings, newest first, with the same job from several
+    sites listed once."""
+
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
     query: str

@@ -1,7 +1,9 @@
+import json
 from pathlib import Path
 
 import pytest
 import respx
+from langchain_core.utils.function_calling import convert_to_openai_tool
 
 from src.core.config import reload_settings
 from src.features.find_jobs.tools import search_jobs
@@ -85,3 +87,18 @@ async def test_refuses_to_search_without_a_key(isolate_env):
 
     with pytest.raises(RuntimeError, match="JSEARCH__API_KEY"):
         await _search(query="anything")
+
+
+def test_the_model_reads_the_description_and_each_argument_once():
+    definition = json.dumps(convert_to_openai_tool(search_jobs))
+    texts = [
+        search_jobs.description,
+        *(
+            field.description
+            for field in search_jobs.tool_call_schema.model_fields.values()
+        ),
+    ]
+
+    assert [definition.count(json.dumps(text)[1:-1]) for text in texts] == [1] * len(
+        texts
+    )
