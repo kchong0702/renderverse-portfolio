@@ -1,0 +1,8 @@
+[
+  {
+    "id": "k8s",
+    "text": "Ran production workloads on Kubernetes at Lumen Pay since 2022"
+  },
+  { "id": "aws-cert", "text": "AWS Certified Solutions Architect, 2023" },
+  { "id": "mentoring", "text": "Mentored 4 junior engineers at Lumen Pay" }
+]
