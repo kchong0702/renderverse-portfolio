@@ -42,7 +42,7 @@ class Executable(BaseModel):
     """The compiled graph; compile it with a checkpointer to support interrupts"""
 
 
-class FlowExecutor(AgentExecutor):
+class LanggraphExecutor(AgentExecutor):
     def __init__(self, executable: Executable) -> None:
         """Runs the executable's graph as one A2A task per run"""
         self.executable = executable
