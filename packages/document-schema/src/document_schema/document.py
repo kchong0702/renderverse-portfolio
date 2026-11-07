@@ -75,7 +75,7 @@ class Document(BaseModel):
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    format: Literal["document/v2"] = "document/v2"
+    format: Literal["document/v1"] = "document/v1"
     """Schema version"""
 
     language: Annotated[str, StringConstraints(pattern=r"^[a-z]{2,3}(-[A-Z]{2})?$")] = (
