@@ -12,10 +12,10 @@ from src.core.config import get_settings
 from src.features.find_jobs.graph_profile import CHECKS, FindJobsProfile
 from src.features.find_jobs.ranking import matched_jobs
 from src.features.find_jobs.schemas import JobPosting, MatchedJob, RankedJobs
-from src.features.find_jobs.tools import search_jobs
+from src.features.find_jobs.tools import JobSearchState, search_jobs
 from src.shared.checks import CheckError, check_round
 from src.shared.models import Profile
-from src.shared.tools import ProfileState, read_profile_facts
+from src.shared.tools import read_profile_facts
 
 
 class FindJobsInput(BaseModel):
@@ -70,7 +70,7 @@ def build_graph(model: BaseChatModel | None = None) -> CompiledStateGraph:
         load_agents(settings.agents)["job-finder"],
         response_format=RankedJobs,
         tools=(read_profile_facts, search_jobs),
-        state_schema=ProfileState,
+        state_schema=JobSearchState,
         model=model,
     )
 
@@ -80,7 +80,11 @@ def build_graph(model: BaseChatModel | None = None) -> CompiledStateGraph:
             HumanMessage(f"Find jobs for me. My preferences: {preferences}")
         ]
         result = await agent.ainvoke(
-            {"messages": messages, "facts": state.profile.facts},
+            {
+                "messages": messages,
+                "facts": state.profile.facts,
+                "preferences": state.profile.preferences,
+            },
             {"recursion_limit": graph_profile.agent_recursion_limit},
         )
         return {
@@ -94,7 +98,7 @@ def build_graph(model: BaseChatModel | None = None) -> CompiledStateGraph:
             [
                 error
                 for check in checks
-                for error in check(state.ranked, postings, state.profile.facts)
+                for error in check(state.ranked, postings, state.profile)
             ]
         )
 

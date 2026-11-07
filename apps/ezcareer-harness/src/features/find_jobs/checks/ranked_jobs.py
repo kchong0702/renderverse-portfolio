@@ -1,14 +1,15 @@
 from src.features.analyse_job import JobRequirements, check_citations
+from src.features.find_jobs.filters import broken_filters
 from src.features.find_jobs.schemas import JobPosting, RankedJobs
 from src.shared.checks import CheckError
-from src.shared.models import ProfileFact
+from src.shared.models import Profile
 
 
 def check_ranked_jobs(
-    output: RankedJobs, postings: list[JobPosting], facts: list[ProfileFact]
+    output: RankedJobs, postings: list[JobPosting], profile: Profile
 ) -> list[CheckError]:
-    """Errors for jobs search_jobs didn't return, jobs ranked twice, and
-    requirement citations that don't hold for the job's description"""
+    """Errors for jobs search_jobs didn't return, jobs ranked twice or breaking
+    the user's preferences, and citations that don't hold for the job"""
     found = {posting.id: posting for posting in postings}
     seen: set[str] = set()
     errors: list[CheckError] = []
@@ -32,12 +33,20 @@ def check_ranked_jobs(
                 )
             )
         seen.add(job.job_id)
+        if broken := broken_filters(found[job.job_id], profile.preferences):
+            errors.append(
+                CheckError(
+                    rule="breaks_preferences",
+                    at=at,
+                    message=f"{job.job_id!r} breaks the user's {', '.join(broken)} preference; drop it",
+                )
+            )
         errors.extend(
             error.model_copy(update={"at": f"{at}.{error.at}"})
             for error in check_citations(
                 JobRequirements(requirements=job.requirements),
                 found[job.job_id].lines,
-                facts,
+                profile.facts,
             )
         )
     return errors
