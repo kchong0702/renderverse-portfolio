@@ -55,15 +55,15 @@ async def _greet(task: object) -> object:
 
 
 def _candidate(folder: Path) -> Path:
-    """A candidate harness: copies of the greeter and its flow, and a config.toml
-    that names them"""
+    """A candidate harness: copies of the greeter and the greet graph's folder,
+    and a config.toml that names them"""
     shutil.copytree(FIXTURES / "greeter", folder / "greeter")
-    shutil.copy(Path(__file__).parent / "fixtures/greet.yaml", folder / "greet.yaml")
+    shutil.copytree(Path(__file__).parent / "fixtures/greet", folder / "greet")
     config = folder / "config.toml"
     config.write_text(
         f'[[agents]]\nname = "greeter"\npath = "{folder}/greeter/profile.yaml"\n'
         'model = "glm-5.3"\n\n'
-        f'[[graph_profiles]]\nname = "greet"\npath = "{folder}/greet.yaml"\n'
+        f'[[graph_profiles]]\nname = "greet"\npath = "{folder}/greet/profile.yaml"\n'
     )
     return config
 
@@ -113,7 +113,12 @@ def test_editing_any_harness_file_changes_the_harness_hash(task: Path, tmp_path:
     probe.main(["--flow", "greet", "--task", str(task), "--config", str(config)])
     before = probe.harness_hash(get_settings())
 
-    for changed in ("greeter/system.md", "greeter/profile.yaml", "greet.yaml"):
+    for changed in (
+        "greeter/system.md",
+        "greeter/profile.yaml",
+        "greet/profile.yaml",
+        "greet/prompt.md",
+    ):
         path = tmp_path / "candidate" / changed
         path.write_text(path.read_text() + "\n")
         assert probe.harness_hash(reload_settings()) != before

@@ -217,6 +217,12 @@ class GraphProfile(BaseModel):
     """The graph's profile.yaml of tunable settings, such as which checks run and
     its recursion limits, relative to the app folder"""
 
+    @property
+    def folder(self) -> Path:
+        """The graph's harness folder: profile.yaml and every other file the graph
+        reads, such as prompts"""
+        return self.path.parent
+
     @field_validator("path")
     @classmethod
     def _from_app_folder(cls, path: Path) -> Path:
