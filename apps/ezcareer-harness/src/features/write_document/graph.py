@@ -1,8 +1,12 @@
+from langchain_core.language_models import BaseChatModel
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 from langgraph.pregel import Pregel
 from langgraph.types import Checkpointer
 
+from src.agents import Agent
+from src.features.write_document.agent import career_consultant
+from src.features.write_document.flow import EditFlow
 from src.features.write_document.nodes import brief, page_fit, validate
 from src.features.write_document.state import (
     EditGraphState,
@@ -11,28 +15,33 @@ from src.features.write_document.state import (
     Render,
 )
 
-RECURSION_LIMIT = 12
-"""Graph steps before an edit fails; each check round takes two"""
-
 
 def build_graph(
-    agent: Pregel, render: Render, checkpointer: Checkpointer = None
+    agent: Agent,
+    flow: EditFlow,
+    render: Render,
+    checkpointer: Checkpointer = None,
+    model: BaseChatModel | None = None,
 ) -> Pregel:
-    """Turns a chat request into a checked changeset that fits the page"""
+    """Turns a chat request into a checked changeset that fits the page, with the
+    registered career-consultant and the flow's graph settings; model replaces
+    the agent's own"""
+    consultant = career_consultant(agent, model)
 
     async def run_agent(state: EditGraphState, config: RunnableConfig) -> dict:
-        """Runs the agent under its own recursion limit instead of the graph's"""
-        own = {key: value for key, value in config.items() if key != "recursion_limit"}
-        return await agent.ainvoke(state, own)
+        """Runs career-consultant under its own recursion limit"""
+        return await consultant.ainvoke(
+            state, {**config, "recursion_limit": flow.agent_recursion_limit}
+        )
 
     async def fit(state: EditGraphState) -> dict:
         """Fits the changeset to the page with the graph's render function"""
-        return await page_fit(state, render)
+        return await page_fit(state, render, flow.page_fit_trims)
 
     graph = StateGraph(EditGraphState, input_schema=EditInput, output_schema=EditOutput)
     graph.add_node("brief", brief)
     graph.add_node("agent", run_agent)
-    graph.add_node("validate", validate)
+    graph.add_node("validate", lambda state: validate(state, flow.checks))
     graph.add_node("page_fit", fit)
     graph.add_edge(START, "brief")
     graph.add_edge("brief", "agent")
@@ -44,5 +53,5 @@ def build_graph(
     )
     graph.add_edge("page_fit", END)
     return graph.compile(checkpointer=checkpointer).with_config(
-        recursion_limit=RECURSION_LIMIT
+        recursion_limit=flow.recursion_limit
     )

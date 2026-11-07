@@ -11,9 +11,6 @@ from document_schema import (
 
 from src.features.write_document.state import EditGraphState, Render
 
-_TRIMS = 5
-"""Bullets page-fit may remove before it hands the changeset over as it is"""
-
 
 def _touched(edit: AnyEdit) -> str:
     """The path an edit writes to, so page-fit never removes it"""
@@ -46,14 +43,14 @@ def _trim(document: AnyDocument, edits: list[AnyEdit]) -> Delete | None:
     return Delete(kind="delete", path=max(bullet_counts, key=bullet_counts.__getitem__))
 
 
-async def page_fit(state: EditGraphState, render: Render) -> dict:
+async def page_fit(state: EditGraphState, render: Render, trims: int) -> dict:
     """Removes bullets in code until the edited document prints on no more
     pages than before, and adds those deletes to the changeset"""
     assets = state.get("assets", {})
     pages = (state["report"] or await render(state["document"], assets)).pages
     changeset: Changeset = state["structured_response"]
     edits = list(changeset.edits)
-    for _ in range(_TRIMS):
+    for _ in range(trims):
         edited = apply_edits(state["document"], edits)
         if (await render(edited, assets)).pages <= pages or not (
             trim := _trim(edited, edits)

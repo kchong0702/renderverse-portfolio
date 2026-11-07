@@ -8,20 +8,23 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.errors import GraphRecursionError
 from langgraph.types import Command
 
-from src.agents import build_agent
-from src.features.write_document.config import CAREER_CONSULTANT
+from src.core.config import get_settings
+from src.features.write_document.flow import EditFlow
 from src.features.write_document.graph import build_graph
 from src.features.write_document.state import EditInput
 from src.infrastructure.observability import tracing
 from src.infrastructure.observability.instrumentation import instrument
 from tests.conftest import ScriptedChatModel
 from tests.features.write_document.test_career_consultant import (
+    AGENT,
     BAD_EDIT,
     GOOD_EDIT,
     _call,
     _changeset,
     _state,
 )
+
+FLOW = EditFlow.load(get_settings().flow("edit"))
 
 NEW_BULLET = {
     "kind": "insert_item",
@@ -53,9 +56,7 @@ def _graph(
     *replies: AIMessage, checkpointer: Any = None
 ) -> tuple[Any, ScriptedChatModel]:
     model = ScriptedChatModel(replies=list(replies))
-    return build_graph(
-        build_agent(CAREER_CONSULTANT, model), _render, checkpointer
-    ), model
+    return build_graph(AGENT, FLOW, _render, checkpointer, model), model
 
 
 def _input() -> EditInput:
@@ -154,15 +155,15 @@ async def test_trace_records_each_round_of_errors_and_the_config_hash(
     rounds = [
         json.loads(span.attributes["check.errors"])
         for span in exporter.spans
-        if span.name == "check_changeset"
+        if span.name == "checks"
     ]
     assert [[e["rule"] for e in errors] for errors in rounds] == [["unsupported"], []]
     hashes = {
-        json.loads(span.attributes["metadata"]).get("harness_hash")
+        json.loads(span.attributes["metadata"]).get("agent_hash")
         for span in exporter.spans
         if "metadata" in span.attributes
     }
-    assert CAREER_CONSULTANT.hash in hashes
+    assert AGENT.hash in hashes
 
 
 async def test_page_fit_prints_with_the_files_from_the_input():
@@ -173,7 +174,7 @@ async def test_page_fit_prints_with_the_files_from_the_input():
         return await _render(document, assets)
 
     model = ScriptedChatModel(replies=[_call("Changeset", **_changeset(GOOD_EDIT))])
-    graph = build_graph(build_agent(CAREER_CONSULTANT, model), render)
+    graph = build_graph(AGENT, FLOW, render, model=model)
     photo = "a" * 64
     state = _state()
     del state["messages"]
@@ -185,3 +186,19 @@ async def test_page_fit_prints_with_the_files_from_the_input():
     )
 
     assert printed and all(assets == {photo: b"photo"} for assets in printed)
+
+
+async def test_a_flow_without_checks_lets_the_changeset_through():
+    model = ScriptedChatModel(replies=[_call("Changeset", **_changeset(BAD_EDIT))])
+    graph = build_graph(
+        AGENT, FLOW.model_copy(update={"checks": []}), _render, model=model
+    )
+
+    result = await graph.ainvoke(_input())
+
+    assert result["changeset"].edits == _edits(BAD_EDIT)
+
+
+def test_a_flow_file_naming_an_unknown_check_is_refused():
+    with pytest.raises(ValueError, match="unknown checks"):
+        EditFlow.model_validate({**FLOW.model_dump(), "checks": ["spelling"]})
