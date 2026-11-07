@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal, override
@@ -205,6 +206,23 @@ class AgentSettings(BaseModel):
         return path if path.is_absolute() else _ROOT_PATH / path
 
 
+class FlowSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    name: str
+    """Flow name, such as edit"""
+
+    path: Path
+    """The flow's yaml of graph settings, such as its checks and recursion
+    limit, relative to the app folder"""
+
+    @field_validator("path")
+    @classmethod
+    def _from_app_folder(cls, path: Path) -> Path:
+        """Reads a relative path from the app folder"""
+        return path if path.is_absolute() else _ROOT_PATH / path
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EZCAREER_HARNESS_",
@@ -226,6 +244,9 @@ class Settings(BaseSettings):
 
     agents: tuple[AgentSettings, ...] = ()
     """Every agent the app builds, read from config.toml's [[agents]] tables"""
+
+    flows: list[FlowSettings] = Field(default_factory=list)
+    """Every flow's graph settings file, read from config.toml's [[flows]] tables"""
 
     gateway_url: HttpUrl | None = Field(
         default=None, validation_alias=AliasChoices("AIGW_UPSTREAM_URL", "gateway_url")
@@ -252,9 +273,17 @@ class Settings(BaseSettings):
             init_settings,
             env_settings,
             dotenv_settings,
-            TomlConfigSettingsSource(settings_cls),
+            TomlConfigSettingsSource(
+                settings_cls,
+                toml_file=os.environ.get("EZCAREER_HARNESS_CONFIG", _DEFAULT_TOML),
+            ),
             file_secret_settings,
         )
+
+    def flow(self, name: str) -> Path:
+        """The graph settings file of the flow with that name"""
+        [flow] = [flow for flow in self.flows if flow.name == name]
+        return flow.path
 
 
 @lru_cache(maxsize=1)
@@ -272,6 +301,7 @@ def reload_settings() -> Settings:
 __all__ = [
     "AgentSettings",
     "AppSettings",
+    "FlowSettings",
     "Instrumentation",
     "ObservabilitySettings",
     "Settings",

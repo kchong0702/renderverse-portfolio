@@ -68,7 +68,7 @@ def test_config_toml_lists_agents_as_tables(tmp_path: Path, monkeypatch):
         '[[agents]]\nname = "greeter"\npath = "src/agents/greeter/profile.yaml"\n'
         'model = "glm-5.3"\n'
     )
-    monkeypatch.setitem(Settings.model_config, "toml_file", str(toml))
+    monkeypatch.setenv("EZCAREER_HARNESS_CONFIG", str(toml))
 
     [agent] = Settings(_env_file=None).agents
 
