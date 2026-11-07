@@ -2,9 +2,11 @@ from pathlib import Path
 
 import pytest
 import respx
+from langchain.tools import ToolRuntime
 
 from src.core.config import reload_settings
 from src.features.find_jobs.tools import search_jobs
+from src.shared.models import Preferences
 
 URL = "https://jsearch.p.rapidapi.com/search"
 RESPONSE = (Path(__file__).parent / "fixtures" / "jsearch_search.json").read_text()
@@ -19,11 +21,23 @@ def api_key(isolate_env, monkeypatch: pytest.MonkeyPatch):
     reload_settings()
 
 
-async def _search(**args):
-    message = await search_jobs.ainvoke(
-        {"type": "tool_call", "id": "1", "name": "search_jobs", "args": args}
+async def _search(preferences: Preferences | None = None, **args):
+    runtime = ToolRuntime(
+        state={"preferences": preferences or Preferences()},
+        context=None,
+        config={},
+        stream_writer=lambda _: None,
+        tool_call_id="1",
+        store=None,
     )
-    return message
+    return await search_jobs.ainvoke(
+        {
+            "type": "tool_call",
+            "id": "1",
+            "name": "search_jobs",
+            "args": {**args, "runtime": runtime},
+        }
+    )
 
 
 @respx.mock
@@ -47,10 +61,11 @@ async def test_numbers_description_lines_and_keeps_posting_details(api_key):
 
     acme = (await _search(query="backend engineer python")).artifact[1]
 
-    assert (acme.title, acme.company, acme.location, acme.remote) == (
+    assert (acme.title, acme.company, acme.location, acme.country, acme.remote) == (
         "Senior Backend Engineer",
         "ACME",
         "London, GB",
+        "GB",
         False,
     )
     assert acme.apply_url == "https://careers.acme.example/jobs/42"
@@ -61,6 +76,19 @@ async def test_numbers_description_lines_and_keeps_posting_details(api_key):
         (4, "- Experience with FastAPI"),
         (5, "Nice to have: Kubernetes"),
     ]
+
+
+@respx.mock
+async def test_leaves_out_jobs_that_break_the_users_preferences(api_key):
+    respx.get(URL).respond(200, text=RESPONSE)
+
+    message = await _search(
+        Preferences(work_modes=["remote"], countries=["GB"]),
+        query="backend engineer python",
+    )
+
+    assert [job.id for job in message.artifact] == ["pQ7mN2_newest=="]
+    assert "London" not in message.content
 
 
 @respx.mock

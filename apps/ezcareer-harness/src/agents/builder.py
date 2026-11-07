@@ -8,6 +8,7 @@ from deepagents import (
 )
 from deepagents.backends import FilesystemBackend
 from langchain.agents.middleware import AgentMiddleware
+from langchain.agents.structured_output import ToolStrategy
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
 from langgraph.pregel import Pregel
@@ -28,7 +29,8 @@ def build_agent(
     model: BaseChatModel | None = None,
 ) -> Pregel:
     """Builds a registered agent as a deep agent with its skills read-only, under
-    its model's harness profile; model, when given, replaces the agent's own"""
+    its model's harness profile, answering through a tool call on every provider;
+    model, when given, replaces the agent's own"""
     register_harness_profile(f"{agent.provider}:{agent.model}", agent.profile)
     built = create_deep_agent(
         model=model or chat_model(agent.family, agent.model),
@@ -40,7 +42,7 @@ def build_agent(
             FilesystemPermission(operations=["write"], paths=["/**"], mode="deny")
         ],
         backend=FilesystemBackend(root_dir=agent.skills, virtual_mode=True),
-        response_format=response_format,
+        response_format=ToolStrategy(response_format),
         state_schema=state_schema,
         context_schema=context_schema,
         name=agent.name,

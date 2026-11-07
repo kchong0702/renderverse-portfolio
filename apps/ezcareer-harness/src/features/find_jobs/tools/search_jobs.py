@@ -1,17 +1,27 @@
 from datetime import UTC, datetime
 
+from langchain.tools import ToolRuntime
 from langchain_core.tools import tool
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 from src.core.config import get_settings
+from src.features.find_jobs.filters import broken_filters
 from src.features.find_jobs.schemas import JobPosting
 from src.features.find_jobs.sources import search
 from src.features.find_jobs.types import DatePosted
-from src.shared.models import CountryCode
+from src.shared.models import CountryCode, Preferences
+from src.shared.tools import ProfileState
+
+
+class JobSearchState(ProfileState):
+    preferences: Preferences
+    """What the user wants from a job, which search_jobs filters by"""
 
 
 class SearchJobsArgs(BaseModel):
-    model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
+    model_config = ConfigDict(
+        extra="forbid", arbitrary_types_allowed=True, use_attribute_docstrings=True
+    )
 
     query: str
     """Job title and key skills, with a city when the user wants one,
@@ -26,6 +36,9 @@ class SearchJobsArgs(BaseModel):
     date_posted: DatePosted = "week"
     """How recent the jobs must be"""
 
+    runtime: ToolRuntime[None, JobSearchState]
+    """The agent's state, injected by the agent and never set by the model"""
+
 
 @tool(args_schema=SearchJobsArgs, response_format="content_and_artifact")
 async def search_jobs(
@@ -33,9 +46,11 @@ async def search_jobs(
     country: CountryCode | None = None,
     remote_only: bool = False,
     date_posted: DatePosted = "week",
+    *,
+    runtime: ToolRuntime[None, JobSearchState],
 ) -> tuple[str, list[JobPosting]]:
-    """Search job postings, newest first, with the same job from several
-    sites listed once."""
+    """Search job postings, newest first, with the same job from several sites
+    listed once and jobs that break the user's preferences left out."""
     postings = await search(
         get_settings().jsearch, query, country, remote_only, date_posted
     )
@@ -47,5 +62,6 @@ async def search_jobs(
     ):
         key = (posting.title.casefold(), posting.company.casefold(), posting.location)
         unique.setdefault(key, posting)
-    jobs = list(unique.values())
+    preferences = runtime.state["preferences"]
+    jobs = [job for job in unique.values() if not broken_filters(job, preferences)]
     return TypeAdapter(list[JobPosting]).dump_json(jobs).decode(), jobs

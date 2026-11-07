@@ -9,10 +9,12 @@ PROVIDERS = {"claude": "anthropic", "glm": "openai", "openai": "openai"}
 
 
 def chat_model(family: str, name: str) -> BaseChatModel:
-    """The chat model for an exact model name of a family; glm and openai
-    models go through the model gateway"""
+    """The chat model for an exact model name of a family; openai models use
+    OPENAI_API_KEY and glm models go through the model gateway"""
     if PROVIDERS[family] == "anthropic":
         return ChatAnthropic(model_name=name)
+    if family == "openai":
+        return ChatOpenAI(model=name, use_responses_api=True)
     settings = get_settings()
     if settings.gateway_url is None or settings.gateway_key is None:
         raise ValueError(
