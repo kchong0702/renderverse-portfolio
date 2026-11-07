@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from functools import cache
 from hashlib import sha256
 from pathlib import Path
 from typing import Self
@@ -85,6 +85,7 @@ class Agent(BaseModel):
         )
 
 
-def load_agents(agents: Sequence[AgentSettings]) -> dict[str, Agent]:
-    """Every agent the settings list, by name"""
+@cache
+def load_agents(agents: tuple[AgentSettings, ...]) -> dict[str, Agent]:
+    """Every agent the settings list, by name, read once per list"""
     return {settings.name: Agent.load(settings) for settings in agents}

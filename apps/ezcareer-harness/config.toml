@@ -24,6 +24,6 @@ instrumentations = ["langchain"]
 hide_inputs = false
 hide_outputs = false
 
-[[flows]]
+[[graph_profiles]]
 name = "import"
-path = "src/features/import_document/harness"
+path = "src/features/import_document/harness/profile.yaml"

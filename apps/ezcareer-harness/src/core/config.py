@@ -5,6 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal, override
 
+import yaml
 from dotenv import load_dotenv
 from pydantic import (
     AliasChoices,
@@ -219,21 +220,31 @@ class AgentSettings(BaseModel):
         return path if path.is_absolute() else _ROOT_PATH / path
 
 
-class FlowSettings(BaseModel):
+class GraphProfile(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
     name: str
-    """Flow name, such as edit"""
+    """Graph name, such as edit"""
 
     path: Path
-    """The flow's yaml of graph settings, such as its checks and recursion
-    limit, relative to the app folder"""
+    """The graph's profile.yaml of tunable settings, such as which checks run and
+    its recursion limits, relative to the app folder"""
+
+    @property
+    def folder(self) -> Path:
+        """The graph's harness folder: profile.yaml and every other file the graph
+        reads, such as prompts"""
+        return self.path.parent
 
     @field_validator("path")
     @classmethod
     def _from_app_folder(cls, path: Path) -> Path:
         """Reads a relative path from the app folder"""
         return path if path.is_absolute() else _ROOT_PATH / path
+
+    def load[T: BaseModel](self, model: type[T]) -> T:
+        """Reads the profile into the graph's own model of it"""
+        return model.model_validate(yaml.safe_load(self.path.read_text()))
 
 
 class Settings(BaseSettings):
@@ -260,11 +271,11 @@ class Settings(BaseSettings):
     )
     """Where documents are printed"""
 
-    agents: list[AgentSettings] = Field(default_factory=list)
+    agents: tuple[AgentSettings, ...] = ()
     """Every agent the app builds, read from config.toml's [[agents]] tables"""
 
-    flows: list[FlowSettings] = Field(default_factory=list)
-    """Every flow's graph settings file, read from config.toml's [[flows]] tables"""
+    graph_profiles: tuple[GraphProfile, ...] = ()
+    """Every graph's profile, read from config.toml's [[graph_profiles]] tables"""
 
     gateway_url: HttpUrl | None = Field(
         default=None, validation_alias=AliasChoices("AIGW_UPSTREAM_URL", "gateway_url")
@@ -298,10 +309,10 @@ class Settings(BaseSettings):
             file_secret_settings,
         )
 
-    def flow(self, name: str) -> Path:
-        """The graph settings file of the flow with that name"""
-        [flow] = [flow for flow in self.flows if flow.name == name]
-        return flow.path
+    def graph_profile(self, name: str) -> GraphProfile:
+        """The profile of the graph with that name"""
+        [profile] = [profile for profile in self.graph_profiles if profile.name == name]
+        return profile
 
 
 @lru_cache(maxsize=1)
@@ -319,8 +330,7 @@ def reload_settings() -> Settings:
 __all__ = [
     "AgentSettings",
     "AppSettings",
-    "ArtifactServiceSettings",
-    "FlowSettings",
+    "GraphProfile",
     "Instrumentation",
     "ObservabilitySettings",
     "Settings",

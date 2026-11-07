@@ -1,10 +1,11 @@
 import json
 import shutil
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-import yaml
 from langchain_core.messages import HumanMessage
+from pydantic import BaseModel
 
 from scripts import probe
 from src.agents import build_agent, load_agents
@@ -13,13 +14,19 @@ from src.infrastructure import get_tracer
 from tests.agents.test_builder import FIXTURES, Greeting, _call, look_up_name
 from tests.conftest import ScriptedChatModel
 
+
+class GreetProfile(BaseModel):
+    checks: list[str]
+    recursion_limit: int
+
+
 CHECKS = {"polite": lambda greeting: [] if "Hello" in greeting.text else ["rude"]}
 
 
 async def _greet(task: object) -> object:
     """A flow that greets the task's person with its harness and checks the greeting"""
     settings = get_settings()
-    flow = yaml.safe_load(settings.flow("greet").read_text())
+    profile = settings.graph_profile("greet").load(GreetProfile)
     model = ScriptedChatModel(
         replies=[
             _call("look_up_name", person=task["person"]),
@@ -34,13 +41,13 @@ async def _greet(task: object) -> object:
     )
     result = await agent.ainvoke(
         {"messages": [HumanMessage(f"Greet {task['person']}")]},
-        {"recursion_limit": flow["recursion_limit"]},
+        {"recursion_limit": profile.recursion_limit},
     )
     greeting = result["structured_response"]
     with get_tracer(__name__).start_as_current_span("checks") as span:
         span.set_attribute(
             "check.errors",
-            json.dumps([e for name in flow["checks"] for e in CHECKS[name](greeting)]),
+            json.dumps([e for name in profile.checks for e in CHECKS[name](greeting)]),
         )
     if task["person"] == "nobody":
         raise ValueError("nobody to greet")
@@ -48,21 +55,21 @@ async def _greet(task: object) -> object:
 
 
 def _candidate(folder: Path) -> Path:
-    """A candidate harness: copies of the greeter and its flow, and a config.toml
-    that names them"""
+    """A candidate harness: copies of the greeter and the greet graph's folder,
+    and a config.toml that names them"""
     shutil.copytree(FIXTURES / "greeter", folder / "greeter")
-    shutil.copy(Path(__file__).parent / "fixtures/greet.yaml", folder / "greet.yaml")
+    shutil.copytree(Path(__file__).parent / "fixtures/greet", folder / "greet")
     config = folder / "config.toml"
     config.write_text(
         f'[[agents]]\nname = "greeter"\npath = "{folder}/greeter/profile.yaml"\n'
         'model = "glm-5.3"\n\n'
-        f'[[flows]]\nname = "greet"\npath = "{folder}/greet.yaml"\n'
+        f'[[graph_profiles]]\nname = "greet"\npath = "{folder}/greet/profile.yaml"\n'
     )
     return config
 
 
 @pytest.fixture
-def task(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def task(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     monkeypatch.setitem(probe.FLOWS, "greet", _greet)
     monkeypatch.delenv("EZCAREER_HARNESS_CONFIG", raising=False)
     path = tmp_path / "task.json"
@@ -106,7 +113,12 @@ def test_editing_any_harness_file_changes_the_harness_hash(task: Path, tmp_path:
     probe.main(["--flow", "greet", "--task", str(task), "--config", str(config)])
     before = probe.harness_hash(get_settings())
 
-    for changed in ("greeter/system.md", "greeter/profile.yaml", "greet.yaml"):
+    for changed in (
+        "greeter/system.md",
+        "greeter/profile.yaml",
+        "greet/profile.yaml",
+        "greet/prompt.md",
+    ):
         path = tmp_path / "candidate" / changed
         path.write_text(path.read_text() + "\n")
         assert probe.harness_hash(reload_settings()) != before

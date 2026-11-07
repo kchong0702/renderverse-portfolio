@@ -63,14 +63,16 @@ async def run_import(
 
 async def import_resume(file: bytes) -> ImportResult:
     """Imports an uploaded résumé with the app's current settings: the import
-    flow's harness folder and artifact-service"""
+    graph's harness folder and artifact-service"""
     settings = get_settings()
     async with httpx.AsyncClient(
         base_url=settings.artifact_service.url,
         timeout=settings.artifact_service.timeout_s,
     ) as client:
         return await run_import(
-            file, ImportConfig.load(settings.flow("import")), ArtifactService(client)
+            file,
+            ImportConfig.load(settings.graph_profile("import").folder),
+            ArtifactService(client),
         )
 
 

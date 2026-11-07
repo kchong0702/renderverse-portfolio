@@ -12,7 +12,7 @@ from tests.features.import_document.test_import import PDF, answer
 
 def test_a_harness_folder_sets_the_config(tmp_path: Path):
     (tmp_path / "structure.md").write_text("Read the résumé.")
-    (tmp_path / "flow.yaml").write_text(
+    (tmp_path / "profile.yaml").write_text(
         "family: claude\nmodel: claude-haiku-5-5\nrounds: 2\nchecks: [schema, verbatim]\n"
     )
 
@@ -47,12 +47,14 @@ def test_the_probe_runs_the_import_from_config_toml(
 def test_a_prompt_edit_changes_the_harness_hash(tmp_path: Path, monkeypatch):
     harness = tmp_path / "harness"
     harness.mkdir()
-    (harness / "flow.yaml").write_text(
+    (harness / "profile.yaml").write_text(
         "family: glm\nmodel: glm-5.3\nrounds: 4\nchecks: [schema]\n"
     )
     (harness / "structure.md").write_text("Read the résumé.")
     config = tmp_path / "config.toml"
-    config.write_text(f'[[flows]]\nname = "import"\npath = "{harness}"\n')
+    config.write_text(
+        f'[[graph_profiles]]\nname = "import"\npath = "{harness / "profile.yaml"}"\n'
+    )
     monkeypatch.setenv("EZCAREER_HARNESS_CONFIG", str(config))
 
     before = probe.harness_hash(reload_settings())

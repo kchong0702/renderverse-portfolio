@@ -26,13 +26,13 @@ FLOWS: dict[str, Flow] = {
 
 
 def harness_hash(settings: Settings) -> str:
-    """Sha256 of the harness the settings name: every file of every agent
-    folder and every flow's graph settings, with its path"""
+    """Sha256 of the harness the settings name: every file of every agent folder
+    and every graph's harness folder, with its path"""
     paths = [agent.path.parent for agent in settings.agents]
-    paths += [flow.path for flow in settings.flows]
+    paths += [profile.folder for profile in settings.graph_profiles]
     digest = sha256()
     for root in paths:
-        for path in sorted([root] if root.is_file() else root.rglob("*")):
+        for path in sorted(root.rglob("*")):
             if path.is_file():
                 digest.update(str(path).encode() + b"\0" + path.read_bytes() + b"\0")
     return digest.hexdigest()

@@ -36,9 +36,9 @@ class ImportConfig(BaseModel):
 
     @classmethod
     def load(cls, folder: Path) -> "ImportConfig":
-        """Reads the import's harness folder: flow.yaml for the settings,
+        """Reads the import's harness folder: profile.yaml for the settings,
         structure.md for the prompt"""
-        settings = yaml.safe_load((folder / "flow.yaml").read_text())
+        settings = yaml.safe_load((folder / "profile.yaml").read_text())
         return cls(prompt=(folder / "structure.md").read_text(), **settings)
 
     @property

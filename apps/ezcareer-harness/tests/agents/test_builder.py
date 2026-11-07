@@ -51,11 +51,15 @@ def _ask(model: ScriptedChatModel, agent: Agent | None = None, **build) -> dict:
 
 
 def test_the_registry_loads_every_agent_the_settings_list():
-    agents = load_agents([GREETER])
+    agents = load_agents((GREETER,))
 
     assert list(agents) == ["greeter"]
     assert agents["greeter"].family == "glm"
     assert agents["greeter"].system_prompt == FIXTURES / "greeter/system.md"
+
+
+def test_the_registry_reads_each_list_of_agents_once():
+    assert load_agents((GREETER,)) is load_agents((GREETER,))
 
 
 def test_config_toml_lists_agents_as_tables(tmp_path: Path, monkeypatch):
