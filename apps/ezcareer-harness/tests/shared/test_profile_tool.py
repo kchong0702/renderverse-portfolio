@@ -34,7 +34,12 @@ def test_agent_reads_the_facts_passed_with_the_run():
         {
             "messages": [HumanMessage("What do I know?")],
             "facts": [
-                ProfileFact(id="acme", text="Backend engineer at Acme"),
+                ProfileFact(
+                    id="acme",
+                    text="Backend engineer at Acme",
+                    start="2019-01",
+                    end="present",
+                ),
                 ProfileFact(id="pg", text="Tuned PostgreSQL queries"),
             ],
         }
@@ -46,5 +51,6 @@ def test_agent_reads_the_facts_passed_with_the_run():
         if isinstance(m, ToolMessage) and m.name == "read_profile_facts"
     ]
     assert listing.text == (
-        "fact:acme  Backend engineer at Acme\nfact:pg  Tuned PostgreSQL queries"
+        "fact:acme  (2019-01 to present) Backend engineer at Acme\n"
+        "fact:pg  Tuned PostgreSQL queries"
     )

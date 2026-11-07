@@ -23,6 +23,7 @@ def _fit(*requirements: Requirement) -> int:
     analysis = JobAnalysis(
         url="https://jobs.example.com/1",
         lines=[PostingLine(id=1, text="Kubernetes")],
+        filters=[],
         requirements=list(requirements),
     )
     return analysis.model_dump(mode="json")["fit"]
