@@ -36,6 +36,7 @@ def test_openai_models_go_to_openai_with_its_own_key(
     assert model.model_name == "gpt-6-luna"
     assert model.openai_api_base is None
     assert model.openai_api_key.get_secret_value() == "sk-openai"
+    assert model.use_responses_api
 
 
 def test_claude_models_go_to_anthropic(gateway: Settings):
