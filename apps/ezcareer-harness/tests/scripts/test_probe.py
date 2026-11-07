@@ -3,8 +3,8 @@ import shutil
 from pathlib import Path
 
 import pytest
-import yaml
 from langchain_core.messages import HumanMessage
+from pydantic import BaseModel
 
 from scripts import probe
 from src.agents import build_agent, load_agents
@@ -13,13 +13,19 @@ from src.infrastructure import get_tracer
 from tests.agents.test_builder import FIXTURES, Greeting, _call, look_up_name
 from tests.conftest import ScriptedChatModel
 
+
+class GreetProfile(BaseModel):
+    checks: list[str]
+    recursion_limit: int
+
+
 CHECKS = {"polite": lambda greeting: [] if "Hello" in greeting.text else ["rude"]}
 
 
 async def _greet(task: object) -> object:
     """A flow that greets the task's person with its harness and checks the greeting"""
     settings = get_settings()
-    flow = yaml.safe_load(settings.flow("greet").read_text())
+    profile = settings.graph_profile("greet").load(GreetProfile)
     model = ScriptedChatModel(
         replies=[
             _call("look_up_name", person=task["person"]),
@@ -34,13 +40,13 @@ async def _greet(task: object) -> object:
     )
     result = await agent.ainvoke(
         {"messages": [HumanMessage(f"Greet {task['person']}")]},
-        {"recursion_limit": flow["recursion_limit"]},
+        {"recursion_limit": profile.recursion_limit},
     )
     greeting = result["structured_response"]
     with get_tracer(__name__).start_as_current_span("checks") as span:
         span.set_attribute(
             "check.errors",
-            json.dumps([e for name in flow["checks"] for e in CHECKS[name](greeting)]),
+            json.dumps([e for name in profile.checks for e in CHECKS[name](greeting)]),
         )
     if task["person"] == "nobody":
         raise ValueError("nobody to greet")
@@ -56,7 +62,7 @@ def _candidate(folder: Path) -> Path:
     config.write_text(
         f'[[agents]]\nname = "greeter"\npath = "{folder}/greeter/profile.yaml"\n'
         'model = "glm-5.3"\n\n'
-        f'[[flows]]\nname = "greet"\npath = "{folder}/greet.yaml"\n'
+        f'[[graph_profiles]]\nname = "greet"\npath = "{folder}/greet.yaml"\n'
     )
     return config
 
