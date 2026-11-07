@@ -2,6 +2,7 @@ import respx
 from fastapi.testclient import TestClient
 
 from src.app.app import create_app
+from src.app.container import Container
 
 URL = "https://jobs.example.com/gone"
 
@@ -47,3 +48,11 @@ def test_a_posting_that_cannot_be_fetched_fails_the_task_with_the_reason():
     assert task["status"]["message"]["parts"][0]["text"].startswith(
         "Couldn't fetch the posting"
     )
+
+
+def test_job_finder_graphs_keep_runs_in_the_containers_checkpointer():
+    container = Container()
+
+    graphs = [executable.graph for executable in container.executables()]
+
+    assert [graph.checkpointer for graph in graphs] == [container.checkpointer()] * 2

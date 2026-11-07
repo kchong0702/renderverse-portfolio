@@ -7,6 +7,7 @@ from langchain_core.messages import AnyMessage, HumanMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import Checkpointer
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from src.agents import build_agent, load_agents
@@ -91,9 +92,11 @@ def _output(state: AnalyseJobState) -> dict:
     }
 
 
-def build_graph(model: BaseChatModel | None = None) -> CompiledStateGraph:
+def build_graph(
+    model: BaseChatModel | None = None, checkpointer: Checkpointer = None
+) -> CompiledStateGraph:
     """The analyse-job graph with the agent and graph profile the settings name;
-    model replaces the agent's LLM"""
+    model replaces the agent's LLM; checkpointer keeps its runs"""
     settings = get_settings()
     graph_profile = settings.graph_profile("analyse-job").load(AnalyseJobProfile)
     checks = [CHECKS[name] for name in graph_profile.checks]
@@ -138,6 +141,6 @@ def build_graph(model: BaseChatModel | None = None) -> CompiledStateGraph:
         "check", lambda state: "agent" if state.errors else "output"
     )
     graph.add_edge("output", END)
-    return graph.compile().with_config(
+    return graph.compile(checkpointer=checkpointer).with_config(
         recursion_limit=graph_profile.recursion_limit, metadata={"flow": "analyse-job"}
     )
