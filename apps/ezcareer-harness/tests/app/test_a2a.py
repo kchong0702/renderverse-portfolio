@@ -1,4 +1,5 @@
 import pytest
+from dependency_injector import providers
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from langgraph.checkpoint.memory import InMemorySaver
@@ -7,6 +8,8 @@ from langgraph.types import interrupt
 from pydantic import BaseModel
 
 from src.app.a2a import Executable, add_executable_routes
+from src.app.app import create_app
+from src.app.container import Container
 from src.core.config import AppSettings
 from src.core.errors import ExecuteError
 
@@ -38,17 +41,20 @@ def _graph():
     return graph.compile(checkpointer=InMemorySaver()).with_config(recursion_limit=5)
 
 
-@pytest.fixture
-def client() -> TestClient:
-    app = FastAPI()
-    executable = Executable(
+def _executable() -> Executable:
+    return Executable(
         name="greet",
         description="Greets a person",
         input_schema=GreetInput,
         graph=_graph(),
     )
+
+
+@pytest.fixture
+def client() -> TestClient:
+    app = FastAPI()
     add_executable_routes(
-        app, [executable], AppSettings(public_url="https://box.example.ts.net")
+        app, [_executable()], AppSettings(public_url="https://box.example.ts.net")
     )
     return TestClient(app)
 
@@ -130,3 +136,12 @@ def test_interrupt_asks_for_input_and_the_answer_resumes_the_run(
     assert resumed["artifacts"][0]["parts"][0]["data"]["greeting"] == (
         "Hello, Prof ask!"
     )
+
+
+def test_the_app_serves_the_containers_executables():
+    container = Container()
+    container.executables.override(providers.List(providers.Object(_executable())))
+
+    card = TestClient(create_app(container)).get(f"{PATH}/.well-known/agent-card.json")
+
+    assert card.json()["name"] == "greet"
