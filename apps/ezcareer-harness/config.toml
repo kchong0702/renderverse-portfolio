@@ -23,3 +23,7 @@ instrumentations = ["langchain"]
 [observability.trace_redaction]
 hide_inputs = false
 hide_outputs = false
+
+[[graph_profiles]]
+name = "import"
+path = "src/features/import_document/harness/profile.yaml"

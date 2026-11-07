@@ -13,8 +13,11 @@ class ImportConfig(BaseModel):
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
+    family: str
+    """Model family, such as glm or claude, which picks the provider"""
+
     model: str
-    """Anthropic model that reads the résumé"""
+    """Exact model that reads the résumé, such as glm-5.3"""
 
     prompt: str
     """Mustache template of the structure call's system prompt"""
@@ -32,10 +35,10 @@ class ImportConfig(BaseModel):
     """Folder of the renderer's <id>.yaml template specs"""
 
     @classmethod
-    def load(cls, folder: Path = Path(__file__).parent / "harness") -> "ImportConfig":
-        """Reads a harness folder: harness.yaml for the settings, structure.md for
-        the prompt"""
-        settings = yaml.safe_load((folder / "harness.yaml").read_text())
+    def load(cls, folder: Path) -> "ImportConfig":
+        """Reads the import's harness folder: profile.yaml for the settings,
+        structure.md for the prompt"""
+        settings = yaml.safe_load((folder / "profile.yaml").read_text())
         return cls(prompt=(folder / "structure.md").read_text(), **settings)
 
     @property

@@ -1,10 +1,12 @@
+from collections.abc import Awaitable, Callable
+
 import httpx
-from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel
 from langgraph.errors import GraphRecursionError
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from src.core.config import get_settings
 from src.features.import_document.config import ImportConfig
 from src.features.import_document.errors import ImportFailed
 from src.features.import_document.graph import build_graph
@@ -16,6 +18,7 @@ from src.features.import_document.schemas import (
 )
 from src.features.import_document.state import ImportContext
 from src.shared.clients.artifact_service import ArtifactService
+from src.shared.clients.chat_models import chat_model
 from src.shared.extraction import UnreadableFile
 
 
@@ -36,7 +39,7 @@ async def run_import(
             },
             context=ImportContext(
                 config=config,
-                model=model or ChatAnthropic(model=config.model),
+                model=model or chat_model(config.family, config.model),
                 artifacts=artifacts,
             ),
         )
@@ -58,22 +61,32 @@ async def run_import(
     )
 
 
+async def import_resume(file: bytes) -> ImportResult:
+    """Imports an uploaded résumé with the app's current settings: the import
+    graph's harness folder and artifact-service"""
+    settings = get_settings()
+    async with httpx.AsyncClient(
+        base_url=settings.artifact_service.url,
+        timeout=settings.artifact_service.timeout_s,
+    ) as client:
+        return await run_import(
+            file,
+            ImportConfig.load(settings.graph_profile("import").folder),
+            ArtifactService(client),
+        )
+
+
 def build_task_graph(
-    config: ImportConfig,
-    artifacts: ArtifactService,
-    model: BaseChatModel | None = None,
+    importer: Callable[[bytes], Awaitable[ImportResult]] = import_resume,
 ) -> CompiledStateGraph:
     """A one-node graph for the A2A server: imports the input's file and returns
     the ImportResult as JSON under result"""
 
     async def run(task: ImportTask) -> ImportOutput:
-        """Runs the import with the graph's config, client and model"""
-        result = await run_import(task["file"], config, artifacts, model)
-        return {"result": result.model_dump(mode="json")}
+        """Runs the import on the task's file"""
+        return {"result": (await importer(task["file"])).model_dump(mode="json")}
 
-    graph = StateGraph(
-        ImportOutput, input_schema=ImportInput, output_schema=ImportOutput
-    )
+    graph = StateGraph(ImportTask, input_schema=ImportInput, output_schema=ImportOutput)
     graph.add_node("run", run)
     graph.add_edge(START, "run")
     graph.add_edge("run", END)

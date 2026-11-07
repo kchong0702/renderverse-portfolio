@@ -1,3 +1,4 @@
-model: claude-sonnet-5-5
+family: openai
+model: gpt-6-luna
 rounds: 4
 checks: [schema, verbatim, coverage, order]
