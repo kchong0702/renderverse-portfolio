@@ -1,5 +1,5 @@
 from base64 import b64encode
-from typing import Annotated
+from typing import Annotated, Any, TypedDict
 
 from document_schema import Report, ResumeDocument
 from pydantic import Base64Bytes, BaseModel, ConfigDict, PlainSerializer
@@ -44,3 +44,13 @@ class ImportResult(BaseModel):
 
     config_hash: str
     """Hash of the ImportConfig the run used"""
+
+
+class ImportOutput(TypedDict):
+    result: dict[str, Any]
+    """The ImportResult as JSON, the PDF in standard base64"""
+
+
+class ImportTask(ImportOutput, total=False):
+    file: bytes
+    """The uploaded file, decoded"""

@@ -1,5 +1,5 @@
-from src.core.errors import FlowError
+from src.core.errors import ExecuteError
 
 
-class ImportFailed(FlowError):
+class ImportFailed(ExecuteError):
     pass
