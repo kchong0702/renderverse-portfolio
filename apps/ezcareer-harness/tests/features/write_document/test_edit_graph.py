@@ -158,7 +158,7 @@ async def test_trace_records_each_round_of_errors_and_the_config_hash(
     ]
     assert [[e["rule"] for e in errors] for errors in rounds] == [["unsupported"], []]
     hashes = {
-        json.loads(span.attributes["metadata"]).get("agent_config_hash")
+        json.loads(span.attributes["metadata"]).get("harness_hash")
         for span in exporter.spans
         if "metadata" in span.attributes
     }
