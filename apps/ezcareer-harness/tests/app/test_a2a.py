@@ -6,7 +6,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 from pydantic import BaseModel
 
-from src.app.a2a import Flow, add_flow_routes
+from src.app.a2a import Executable, add_executable_routes
 from src.core.config import AppSettings
 from src.core.errors import ExecuteError
 
@@ -41,13 +41,15 @@ def _graph():
 @pytest.fixture
 def client() -> TestClient:
     app = FastAPI()
-    flow = Flow(
+    executable = Executable(
         name="greet",
         description="Greets a person",
         input_schema=GreetInput,
         graph=_graph(),
     )
-    add_flow_routes(app, [flow], AppSettings(public_url="https://box.example.ts.net"))
+    add_executable_routes(
+        app, [executable], AppSettings(public_url="https://box.example.ts.net")
+    )
     return TestClient(app)
 
 
@@ -76,7 +78,7 @@ def _status_text(task: dict) -> str:
     return task["status"]["message"]["parts"][0]["text"]
 
 
-def test_card_points_clients_at_the_flow(client: TestClient):
+def test_card_points_clients_at_the_executable(client: TestClient):
     card = client.get(f"{PATH}/.well-known/agent-card.json").json()
 
     assert card["name"] == "greet"
