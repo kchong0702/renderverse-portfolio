@@ -2,6 +2,9 @@ from a2a.server.tasks import InMemoryTaskStore
 from dependency_injector import containers, providers
 from langgraph.checkpoint.memory import InMemorySaver
 
+from src.app.a2a import Executable
+from src.features import analyse_job, find_jobs
+
 
 class Container(containers.DeclarativeContainer):
     task_store = providers.Singleton(InMemoryTaskStore)
@@ -11,5 +14,22 @@ class Container(containers.DeclarativeContainer):
     """Where graphs keep checkpoints so interrupted runs resume; pass it to
     each executable's graph, and swap in a database saver here"""
 
-    executables = providers.List()
+    executables = providers.List(
+        providers.Singleton(
+            Executable,
+            name="analyse-job",
+            description="Show how well a job posting fits the user's profile, with every point cited",
+            input_schema=analyse_job.AnalyseJobInput,
+            graph=providers.Singleton(
+                analyse_job.build_graph, checkpointer=checkpointer
+            ),
+        ),
+        providers.Singleton(
+            Executable,
+            name="find-jobs",
+            description="Find fresh jobs for the user's profile and preferences, ranked by fit",
+            input_schema=find_jobs.FindJobsInput,
+            graph=providers.Singleton(find_jobs.build_graph, checkpointer=checkpointer),
+        ),
+    )
     """Graphs served as A2A agents; add a feature's Executable provider here"""
