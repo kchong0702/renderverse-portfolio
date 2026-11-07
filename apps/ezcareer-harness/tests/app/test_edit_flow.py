@@ -11,7 +11,6 @@ from langchain_core.messages import AIMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import TypeAdapter
 
-from src.agents import build_agent
 from src.app.a2a import Flow, add_flow_routes
 from src.core.config import AppSettings
 from src.core.errors import FlowError
@@ -33,9 +32,7 @@ REPORT = {"render_id": "0" * 64, "pages": 1, "last_page_fill": 0.5}
 
 def _client(*replies: AIMessage) -> TestClient:
     model = ScriptedChatModel(replies=list(replies))
-    graph = write_document.build_graph(
-        build_agent(write_document.CAREER_CONSULTANT, model), _render, InMemorySaver()
-    )
+    graph = write_document.edit_graph(_render, InMemorySaver(), model)
     app = FastAPI()
     flow = Flow(
         name="edit-document",
