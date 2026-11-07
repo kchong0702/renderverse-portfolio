@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from src.features.analyse_job import PostingLine, Requirement, fit_score
+from src.shared.models import CountryCode
 
 
 class JobPosting(BaseModel):
@@ -21,6 +22,9 @@ class JobPosting(BaseModel):
 
     location: str
     """City and country, as JSearch gives them"""
+
+    country: CountryCode | None
+    """Country the job is in, if JSearch gives one"""
 
     remote: bool
     """Whether the job is remote"""
