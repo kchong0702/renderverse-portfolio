@@ -1,8 +1,5 @@
 from collections.abc import Callable, Mapping
-from pathlib import Path
-from typing import Self
 
-import yaml
 from document_schema import AnyDocument, Changeset
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -16,7 +13,7 @@ CHECKS: dict[str, Check] = {"changeset": check_changeset}
 """Every check the edit flow can run on a changeset, by name"""
 
 
-class EditFlow(BaseModel):
+class EditProfile(BaseModel):
     model_config = ConfigDict(
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
@@ -42,8 +39,3 @@ class EditFlow(BaseModel):
                 f"unknown checks {unknown}; the edit flow has {sorted(CHECKS)}"
             )
         return checks
-
-    @classmethod
-    def load(cls, path: Path) -> Self:
-        """Reads the edit flow's graph settings file"""
-        return cls.model_validate(yaml.safe_load(path.read_text()))

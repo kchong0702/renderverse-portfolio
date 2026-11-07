@@ -9,8 +9,8 @@ from langgraph.errors import GraphRecursionError
 from langgraph.types import Command
 
 from src.core.config import get_settings
-from src.features.write_document.flow import EditFlow
 from src.features.write_document.graph import build_graph
+from src.features.write_document.profile import EditProfile
 from src.features.write_document.state import EditInput
 from src.infrastructure.observability import tracing
 from src.infrastructure.observability.instrumentation import instrument
@@ -24,7 +24,7 @@ from tests.features.write_document.test_career_consultant import (
     _state,
 )
 
-FLOW = EditFlow.load(get_settings().flow("edit"))
+PROFILE = get_settings().graph_profile("edit").load(EditProfile)
 
 NEW_BULLET = {
     "kind": "insert_item",
@@ -56,7 +56,7 @@ def _graph(
     *replies: AIMessage, checkpointer: Any = None
 ) -> tuple[Any, ScriptedChatModel]:
     model = ScriptedChatModel(replies=list(replies))
-    return build_graph(AGENT, FLOW, _render, checkpointer, model), model
+    return build_graph(AGENT, PROFILE, _render, checkpointer, model), model
 
 
 def _input() -> EditInput:
@@ -174,7 +174,7 @@ async def test_page_fit_prints_with_the_files_from_the_input():
         return await _render(document, assets)
 
     model = ScriptedChatModel(replies=[_call("Changeset", **_changeset(GOOD_EDIT))])
-    graph = build_graph(AGENT, FLOW, render, model=model)
+    graph = build_graph(AGENT, PROFILE, render, model=model)
     photo = "a" * 64
     state = _state()
     del state["messages"]
@@ -191,7 +191,7 @@ async def test_page_fit_prints_with_the_files_from_the_input():
 async def test_a_flow_without_checks_lets_the_changeset_through():
     model = ScriptedChatModel(replies=[_call("Changeset", **_changeset(BAD_EDIT))])
     graph = build_graph(
-        AGENT, FLOW.model_copy(update={"checks": []}), _render, model=model
+        AGENT, PROFILE.model_copy(update={"checks": []}), _render, model=model
     )
 
     result = await graph.ainvoke(_input())
@@ -201,7 +201,7 @@ async def test_a_flow_without_checks_lets_the_changeset_through():
 
 def test_a_flow_file_naming_an_unknown_check_is_refused():
     with pytest.raises(ValueError, match="unknown checks"):
-        EditFlow.model_validate({**FLOW.model_dump(), "checks": ["spelling"]})
+        EditProfile.model_validate({**PROFILE.model_dump(), "checks": ["spelling"]})
 
 
 async def test_a_document_never_printed_is_printed_once_for_its_page_count():
@@ -212,7 +212,7 @@ async def test_a_document_never_printed_is_printed_once_for_its_page_count():
         return await _render(document, assets)
 
     model = ScriptedChatModel(replies=[_call("Changeset", **_changeset(GOOD_EDIT))])
-    graph = build_graph(AGENT, FLOW, render, model=model)
+    graph = build_graph(AGENT, PROFILE, render, model=model)
     state = _state()
     del state["messages"], state["report"]
 

@@ -2,7 +2,7 @@ import json
 
 from langchain_core.messages import HumanMessage
 
-from src.features.write_document.flow import CHECKS
+from src.features.write_document.profile import CHECKS
 from src.features.write_document.state import EditGraphState, sources
 from src.infrastructure import get_tracer
 from src.shared.checks import CheckError

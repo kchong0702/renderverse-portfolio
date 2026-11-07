@@ -29,6 +29,6 @@ name = "career-consultant"
 path = "src/agents/career-consultant/profile.yaml"
 model = "glm-5.3"
 
-[[flows]]
+[[graph_profiles]]
 name = "edit"
-path = "src/features/write_document/flow.yaml"
+path = "src/features/write_document/profile.yaml"
