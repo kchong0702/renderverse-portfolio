@@ -2,10 +2,12 @@ import operator
 from dataclasses import dataclass
 from typing import Annotated, Any, TypedDict
 
+from document_schema import Report, ResumeDocument
 from langchain_core.language_models import BaseChatModel
 
 from src.features.import_document.config import ImportConfig
 from src.shared.checks.check_error import CheckError
+from src.shared.clients.artifact_service import ArtifactService
 from src.shared.extraction import Line
 
 
@@ -17,6 +19,9 @@ class ImportContext:
     model: BaseChatModel
     """Chat model named by the config"""
 
+    artifacts: ArtifactService
+    """Prints the draft to PDF"""
+
 
 class ImportState(TypedDict, total=False):
     file: bytes
@@ -25,11 +30,17 @@ class ImportState(TypedDict, total=False):
     lines: list[Line]
     """The file's text lines, returned so ops can keep them with the upload"""
 
-    reply: dict[str, Any]
-    """The LLM's last ResumeImport, as it sent it"""
-
-    fix_summary: str
-    """What the last reply got wrong, written for the LLM"""
+    reply: dict[str, Any] | None
+    """The LLM's last ResumeImport, as it sent it; None when it called no tool"""
 
     rounds: Annotated[list[list[CheckError]], operator.add]
     """The verifier's errors for each reply, empty for the one that passed"""
+
+    document: ResumeDocument
+    """The draft, in the default template"""
+
+    pdf: bytes
+    """The draft printed"""
+
+    report: Report
+    """How the draft's pages came out"""

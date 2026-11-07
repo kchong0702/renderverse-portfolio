@@ -65,7 +65,7 @@ def reply(
         ],
     }
     blocks = [profile, experience] if first == "profile" else [experience, profile]
-    return {"content": {"blocks": blocks}, "skipped": list(skipped)}
+    return {"blocks": blocks, "skipped": list(skipped)}
 
 
 def test_a_faithful_reply_passes():
@@ -74,12 +74,12 @@ def test_a_faithful_reply_passes():
 
 def test_a_reply_that_breaks_the_schema_fails_with_its_path():
     broken = reply()
-    broken["content"]["blocks"] = broken["content"]["blocks"][1:]
+    broken["blocks"] = broken["blocks"][1:]
 
     [error] = validate_resume(broken, LINES)
 
     assert error.rule == Check.SCHEMA
-    assert error.at == "content"
+    assert error.at == ""
     assert "exactly one profile" in error.message
 
 
@@ -89,7 +89,8 @@ def test_reworded_or_uncited_text_fails_verbatim():
     )
 
     assert [(e.rule, e.at) for e in errors] == [
-        (Check.VERBATIM, "content/blocks/experience/items/wholeness/bullets/team/text")
+        (Check.VERBATIM, "blocks/experience/items/wholeness/bullets/team/text"),
+        (Check.COVERAGE, "blocks"),
     ]
     assert "'Managed five nurses' is not the text of p1.s3" in errors[0].message
 
@@ -105,20 +106,61 @@ def test_citing_something_that_is_not_a_line_fails_verbatim():
 def test_a_line_neither_cited_nor_skipped_fails_coverage():
     errors = validate_resume(reply(skipped=("p7.s7",)), LINES)
 
-    assert [(e.rule, e.at, e.message) for e in errors] == [
-        (Check.COVERAGE, "skipped", "p7.s7 are not lines"),
-        (
-            Check.COVERAGE,
-            "content",
-            "these lines are neither cited nor skipped: p1.s5 '1'",
-        ),
+    assert [(e.rule, e.at) for e in errors] == [
+        (Check.COVERAGE, "skipped"),
+        (Check.COVERAGE, "blocks"),
     ]
+    assert errors[0].message == "p7.s7 are not lines"
+    assert "p1.s5 '1' (not cited)" in errors[1].message
+
+
+def test_a_value_that_drops_words_of_its_lines_fails_coverage():
+    errors = validate_resume(
+        reply(bullet={"html": "Led a team", "src": ["p1.s3", "p1.s4"]}), LINES
+    )
+
+    [error] = errors
+    assert error.rule == Check.COVERAGE
+    assert error.message.endswith("p1.s3 '• Led a team of five' (unused: offive)")
+
+
+def test_a_value_without_text_fails_verbatim():
+    errors = validate_resume(
+        reply(bullet={"html": "•", "src": ["p1.s3"]}), LINES, [Check.VERBATIM]
+    )
+
+    assert [e.message for e in errors] == ["has no text"]
+
+
+def test_skipping_a_line_with_content_fails_coverage():
+    errors = validate_resume(reply(skipped=("p1.s5", "p1.s3")), LINES, [Check.COVERAGE])
+
+    assert [e.at for e in errors] == ["skipped"]
+    assert "p1.s3 '• Led a team of five'" in errors[0].message
+
+
+def test_dashes_quotes_and_hyphenated_breaks_still_match():
+    lines = make_lines("Ada O’Brien", "2019 – 2024 project manage-", "ment lead")
+    draft = {
+        "blocks": [
+            {
+                "kind": "profile",
+                "id": "profile",
+                "name": value("Ada O'Brien", "p1.s1"),
+                "headline": value(
+                    "2019 - 2024 project management lead", "p1.s2", "p1.s3"
+                ),
+            }
+        ]
+    }
+
+    assert validate_resume(draft, lines) == []
 
 
 def test_blocks_out_of_line_order_fail_order():
     errors = validate_resume(reply(first="experience"), LINES)
 
-    assert [(e.rule, e.at) for e in errors] == [(Check.ORDER, "content/blocks/profile")]
+    assert [(e.rule, e.at) for e in errors] == [(Check.ORDER, "blocks/profile")]
 
 
 def test_only_the_chosen_checks_run():

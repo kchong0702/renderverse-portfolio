@@ -1,9 +1,13 @@
+from base64 import b64encode
 from typing import Any, override
 
+import httpx
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatResult
 from pydantic import Field
+
+from src.shared.clients.artifact_service import ArtifactService
 
 
 class FakeModel(GenericFakeChatModel):
@@ -24,13 +28,39 @@ class FakeModel(GenericFakeChatModel):
         return super()._generate(messages, *args, **kwargs)
 
 
-def replying(*replies: dict[str, Any]) -> FakeModel:
-    """A model that answers each call with the next ResumeImport"""
+def replying(*replies: dict[str, Any] | None) -> FakeModel:
+    """A model that answers each call with the next ResumeImport, or with plain
+    text for None"""
     return FakeModel(
         messages=iter(
-            AIMessage(
+            AIMessage("Here is the résumé.")
+            if reply is None
+            else AIMessage(
                 "", tool_calls=[{"name": "ResumeImport", "args": reply, "id": str(n)}]
             )
             for n, reply in enumerate(replies)
+        )
+    )
+
+
+REPORT = {"render_id": "0" * 64, "pages": 1, "last_page_fill": 0.5}
+
+
+def artifact_service(
+    requests: list[httpx.Request], status: int = 200
+) -> ArtifactService:
+    """An ArtifactService that records each request and prints b"%PDF-fake" """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            status,
+            json={"artifact": b64encode(b"%PDF-fake").decode(), "report": REPORT},
+        )
+
+    return ArtifactService(
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(handler),
+            base_url="http://artifact-service.test/artifact-service",
         )
     )
