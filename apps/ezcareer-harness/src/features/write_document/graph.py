@@ -4,13 +4,20 @@ from langgraph.pregel import Pregel
 from langgraph.types import Checkpointer
 
 from src.features.write_document.nodes import brief, page_fit, validate
-from src.features.write_document.state import EditContext, EditGraphState
+from src.features.write_document.state import (
+    EditGraphState,
+    EditInput,
+    EditOutput,
+    Render,
+)
 
 RECURSION_LIMIT = 12
 """Graph steps before an edit fails; each check round takes two"""
 
 
-def build_graph(agent: Pregel, checkpointer: Checkpointer = None) -> Pregel:
+def build_graph(
+    agent: Pregel, render: Render, checkpointer: Checkpointer = None
+) -> Pregel:
     """Turns a chat request into a checked changeset that fits the page"""
 
     async def run_agent(state: EditGraphState, config: RunnableConfig) -> dict:
@@ -18,11 +25,15 @@ def build_graph(agent: Pregel, checkpointer: Checkpointer = None) -> Pregel:
         own = {key: value for key, value in config.items() if key != "recursion_limit"}
         return await agent.ainvoke(state, own)
 
-    graph = StateGraph(EditGraphState, context_schema=EditContext)
+    async def fit(state: EditGraphState) -> dict:
+        """Fits the changeset to the page with the graph's render function"""
+        return await page_fit(state, render)
+
+    graph = StateGraph(EditGraphState, input_schema=EditInput, output_schema=EditOutput)
     graph.add_node("brief", brief)
     graph.add_node("agent", run_agent)
     graph.add_node("validate", validate)
-    graph.add_node("page_fit", page_fit)
+    graph.add_node("page_fit", fit)
     graph.add_edge(START, "brief")
     graph.add_edge("brief", "agent")
     graph.add_edge("agent", "validate")

@@ -2,7 +2,7 @@ import json
 from typing import Any
 
 import pytest
-from document_schema import AnyDocument, Changeset, Report
+from document_schema import AnyDocument, Changeset, FileHash, Report
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.errors import GraphRecursionError
@@ -11,7 +11,7 @@ from langgraph.types import Command
 from src.agents import build_agent
 from src.features.write_document.config import CAREER_CONSULTANT
 from src.features.write_document.graph import build_graph
-from src.features.write_document.state import EditContext
+from src.features.write_document.state import EditInput
 from src.infrastructure.observability import tracing
 from src.infrastructure.observability.instrumentation import instrument
 from tests.conftest import ScriptedChatModel
@@ -37,7 +37,7 @@ NEW_BULLET = {
 }
 
 
-async def _render(document: AnyDocument) -> Report:
+async def _render(document: AnyDocument, assets: dict[FileHash, bytes]) -> Report:
     """One page holds three bullets"""
     bullets = sum(
         len(getattr(entry, "bullets", []))
@@ -53,12 +53,15 @@ def _graph(
     *replies: AIMessage, checkpointer: Any = None
 ) -> tuple[Any, ScriptedChatModel]:
     model = ScriptedChatModel(replies=list(replies))
-    return build_graph(build_agent(CAREER_CONSULTANT, model), checkpointer), model
+    return build_graph(
+        build_agent(CAREER_CONSULTANT, model), _render, checkpointer
+    ), model
 
 
-def _input() -> dict[str, Any]:
+def _input() -> EditInput:
     state = _state()
-    return {**state, "messages": [], "request": "Mention my Kubernetes work"}
+    del state["messages"]
+    return EditInput(**state, request="Mention my Kubernetes work")
 
 
 def _edits(*edits: dict[str, Any]) -> list[Any]:
@@ -67,7 +70,7 @@ def _edits(*edits: dict[str, Any]) -> list[Any]:
 
 async def _edit(*replies: AIMessage) -> tuple[dict[str, Any], ScriptedChatModel]:
     graph, model = _graph(*replies)
-    return await graph.ainvoke(_input(), context=EditContext(render=_render)), model
+    return await graph.ainvoke(_input()), model
 
 
 async def test_a_passing_changeset_goes_out_with_a_fresh_id():
@@ -79,7 +82,7 @@ async def test_a_passing_changeset_goes_out_with_a_fresh_id():
         _call("Changeset", **_changeset(GOOD_EDIT)),
     )
 
-    assert result["errors"] == []
+    assert list(result) == ["changeset"]
     assert result["changeset"].edits == _edits(GOOD_EDIT)
     assert result["changeset"].id != "cs1"
     assert "<document>" in model.requests[0][1].text
@@ -122,10 +125,9 @@ async def test_ask_user_pauses_the_edit_until_the_user_answers():
         checkpointer=InMemorySaver(),
     )
     run = {"configurable": {"thread_id": "t1"}}
-    context = EditContext(render=_render)
 
-    paused = await graph.ainvoke(_input(), run, context=context)
-    done = await graph.ainvoke(Command(resume="Lumen Pay"), run, context=context)
+    paused = await graph.ainvoke(_input(), run)
+    done = await graph.ainvoke(Command(resume="Lumen Pay"), run)
 
     assert paused["__interrupt__"][0].value == "Which job?"
     assert done["changeset"].edits == _edits(GOOD_EDIT)
@@ -161,3 +163,25 @@ async def test_trace_records_each_round_of_errors_and_the_config_hash(
         if "metadata" in span.attributes
     }
     assert CAREER_CONSULTANT.hash in hashes
+
+
+async def test_page_fit_prints_with_the_files_from_the_input():
+    printed: list[dict[FileHash, bytes]] = []
+
+    async def render(document: AnyDocument, assets: dict[FileHash, bytes]) -> Report:
+        printed.append(assets)
+        return await _render(document, assets)
+
+    model = ScriptedChatModel(replies=[_call("Changeset", **_changeset(GOOD_EDIT))])
+    graph = build_graph(build_agent(CAREER_CONSULTANT, model), render)
+    photo = "a" * 64
+    state = _state()
+    del state["messages"]
+
+    await graph.ainvoke(
+        EditInput.model_validate(
+            {**state, "request": "Tighten it", "assets": {photo: "cGhvdG8="}}
+        )
+    )
+
+    assert printed and all(assets == {photo: b"photo"} for assets in printed)
