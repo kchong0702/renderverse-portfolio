@@ -6,7 +6,7 @@ from langchain_core.prompts import PromptTemplate
 from langgraph.runtime import Runtime
 
 from src.features.import_document.state import ImportContext, ImportState
-from src.shared.models import ResumeImport
+from src.shared.models.resume_import import ResumeImport
 
 
 async def structure(
