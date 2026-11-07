@@ -22,3 +22,5 @@ glm:
 claude:
   claude-sonnet-5-5:
     <<: *job-finder
+openai:
+  gpt-6-luna: *job-finder
