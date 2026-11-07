@@ -14,7 +14,7 @@ from src.features.write_document.tools import (
 )
 from src.shared.tools import read_profile_facts
 
-TEMPLATES = Path(__file__).parents[4] / "packages/document-renderer/templates"
+TEMPLATES = Path(__file__).parents[5] / "packages/document-renderer/templates"
 """Folder of the renderer's <id>.yaml template specs"""
 
 TOOLS = (
