@@ -14,11 +14,16 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from pydantic_core import to_jsonable_python
 
 from src.core.config import Settings, reload_settings
+from src.features.analyse_job import analyse_posting
+from src.features.find_jobs import find_matching_jobs
 
 Flow = Callable[[object], Awaitable[object]]
 """Runs one flow on one task through its service, returning its output"""
 
-FLOWS: dict[str, Flow] = {}
+FLOWS: dict[str, Flow] = {
+    "analyse-job": analyse_posting,
+    "find-jobs": find_matching_jobs,
+}
 """Every flow a probe can run, by name; each feature adds its own"""
 
 
