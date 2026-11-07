@@ -1,8 +1,20 @@
+from base64 import b64encode
+from typing import Annotated
+
 from document_schema import Report, ResumeDocument
-from pydantic import BaseModel, ConfigDict
+from pydantic import Base64Bytes, BaseModel, ConfigDict, PlainSerializer
 
 from src.shared.checks.check_error import CheckError
 from src.shared.extraction import Line
+
+
+class ImportInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, use_attribute_docstrings=True
+    )
+
+    file: Base64Bytes
+    """The uploaded PDF or Word file, base64 in JSON"""
 
 
 class ImportResult(BaseModel):
@@ -13,8 +25,13 @@ class ImportResult(BaseModel):
     document: ResumeDocument
     """The draft, in the default template"""
 
-    pdf: bytes
-    """The draft printed"""
+    pdf: Annotated[
+        bytes,
+        PlainSerializer(
+            lambda pdf: b64encode(pdf).decode(), return_type=str, when_used="json"
+        ),
+    ]
+    """The draft printed, standard base64 in JSON"""
 
     report: Report
     """How the draft's pages came out"""

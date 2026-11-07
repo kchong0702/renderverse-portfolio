@@ -1,12 +1,15 @@
+from typing import Any
+
 import httpx
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel
 from langgraph.errors import GraphRecursionError
 
+from src.core.config import get_settings
 from src.features.import_document.config import ImportConfig
 from src.features.import_document.errors import ImportFailed
 from src.features.import_document.graph import build_graph
-from src.features.import_document.schemas import ImportResult
+from src.features.import_document.schemas import ImportInput, ImportResult
 from src.features.import_document.state import ImportContext
 from src.shared.clients.artifact_service import ArtifactService
 from src.shared.extraction import UnreadableFile
@@ -49,3 +52,16 @@ async def run_import(
         rounds=state["rounds"],
         config_hash=config.hash,
     )
+
+
+async def import_task(task: ImportInput) -> dict[str, Any]:
+    """Runs one import for the A2A server with the bundled harness, returning the
+    result as JSON"""
+    settings = get_settings().artifact_service
+    async with httpx.AsyncClient(
+        base_url=settings.url, timeout=settings.timeout_s
+    ) as client:
+        result = await run_import(
+            task.file, ImportConfig.load(), ArtifactService(client)
+        )
+    return result.model_dump(mode="json")

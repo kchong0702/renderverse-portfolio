@@ -186,6 +186,16 @@ class ObservabilitySettings(BaseModel):
         return self
 
 
+class ArtifactServiceSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    url: str = "http://127.0.0.1:8210/artifact-service"
+    """artifact-service's base URL, route prefix included"""
+
+    timeout_s: float = Field(default=120, gt=0)
+    """Seconds a render may take"""
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EZCAREER_HARNESS_",
@@ -204,6 +214,11 @@ class Settings(BaseSettings):
 
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     """Logging, tracing and metrics settings"""
+
+    artifact_service: ArtifactServiceSettings = Field(
+        default_factory=ArtifactServiceSettings
+    )
+    """Where documents are printed"""
 
     @classmethod
     @override
@@ -238,6 +253,7 @@ def reload_settings() -> Settings:
 
 __all__ = [
     "AppSettings",
+    "ArtifactServiceSettings",
     "Instrumentation",
     "ObservabilitySettings",
     "Settings",
