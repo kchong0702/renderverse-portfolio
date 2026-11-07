@@ -1,3 +1,4 @@
+import json
 import os
 from collections.abc import Callable, Sequence
 from typing import Any, override
@@ -66,6 +67,7 @@ class ScriptedChatModel(BaseChatModel):
     offered_tools: list[set[str]] = Field(default_factory=list)
     model_name: str = "glm-5.3"
     provider: str = "openai"
+    answer_name: str | None = None
 
     @property
     @override
@@ -81,6 +83,8 @@ class ScriptedChatModel(BaseChatModel):
         self.offered_tools.append(
             {convert_to_openai_tool(tool)["function"]["name"] for tool in tools}
         )
+        if response_format := kwargs.get("response_format"):
+            self.answer_name = response_format["json_schema"]["name"]
         return self
 
     @override
@@ -93,6 +97,8 @@ class ScriptedChatModel(BaseChatModel):
     ) -> ChatResult:
         self.requests.append(messages)
         reply = self.replies[min(len(self.requests), len(self.replies)) - 1]
+        if [call["name"] for call in reply.tool_calls] == [self.answer_name]:
+            reply = AIMessage(json.dumps(reply.tool_calls[0]["args"]))
         return ChatResult(generations=[ChatGeneration(message=reply)])
 
 

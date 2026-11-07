@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal, override
 
+import yaml
 from dotenv import load_dotenv
 from pydantic import (
     AliasChoices,
@@ -208,6 +210,33 @@ class AgentSettings(BaseModel):
         return path if path.is_absolute() else _ROOT_PATH / path
 
 
+class GraphProfile(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    name: str
+    """Graph name, such as edit"""
+
+    path: Path
+    """The graph's profile.yaml of tunable settings, such as which checks run and
+    its recursion limits, relative to the app folder"""
+
+    @property
+    def folder(self) -> Path:
+        """The graph's harness folder: profile.yaml and every other file the graph
+        reads, such as prompts"""
+        return self.path.parent
+
+    @field_validator("path")
+    @classmethod
+    def _from_app_folder(cls, path: Path) -> Path:
+        """Reads a relative path from the app folder"""
+        return path if path.is_absolute() else _ROOT_PATH / path
+
+    def load[T: BaseModel](self, model: type[T]) -> T:
+        """Reads the profile into the graph's own model of it"""
+        return model.model_validate(yaml.safe_load(self.path.read_text()))
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EZCAREER_HARNESS_",
@@ -229,6 +258,9 @@ class Settings(BaseSettings):
 
     agents: tuple[AgentSettings, ...] = ()
     """Every agent the app builds, read from config.toml's [[agents]] tables"""
+
+    graph_profiles: tuple[GraphProfile, ...] = ()
+    """Every graph's profile, read from config.toml's [[graph_profiles]] tables"""
 
     gateway_url: HttpUrl | None = Field(
         default=None, validation_alias=AliasChoices("AIGW_UPSTREAM_URL", "gateway_url")
@@ -255,9 +287,17 @@ class Settings(BaseSettings):
             init_settings,
             env_settings,
             dotenv_settings,
-            TomlConfigSettingsSource(settings_cls),
+            TomlConfigSettingsSource(
+                settings_cls,
+                toml_file=os.environ.get("EZCAREER_HARNESS_CONFIG", _DEFAULT_TOML),
+            ),
             file_secret_settings,
         )
+
+    def graph_profile(self, name: str) -> GraphProfile:
+        """The profile of the graph with that name"""
+        [profile] = [profile for profile in self.graph_profiles if profile.name == name]
+        return profile
 
 
 @lru_cache(maxsize=1)
@@ -275,6 +315,7 @@ def reload_settings() -> Settings:
 __all__ = [
     "AgentSettings",
     "AppSettings",
+    "GraphProfile",
     "Instrumentation",
     "ObservabilitySettings",
     "Settings",
