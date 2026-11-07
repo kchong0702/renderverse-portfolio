@@ -6,8 +6,8 @@ from langgraph.types import Checkpointer
 from src.agents import load_agents
 from src.core.config import get_settings
 from src.features.write_document.agent import TEMPLATES
-from src.features.write_document.flow import EditFlow
 from src.features.write_document.graph import build_graph
+from src.features.write_document.profile import EditProfile
 from src.features.write_document.render import render_with
 from src.features.write_document.state import Render
 from src.shared.clients.artifact_service import ArtifactService
@@ -26,12 +26,12 @@ def edit_graph(
     checkpointer: Checkpointer = None,
     model: BaseChatModel | None = None,
 ) -> Pregel:
-    """The edit flow's graph, built from the registered career-consultant and the
-    edit flow's settings file; model replaces the agent's own"""
+    """The edit graph, built from the registered career-consultant and the edit
+    graph's profile; model replaces the agent's own"""
     settings = get_settings()
     return build_graph(
         load_agents(settings.agents)["career-consultant"],
-        EditFlow.load(settings.flow("edit")),
+        settings.graph_profile("edit").load(EditProfile),
         render,
         checkpointer,
         model,
