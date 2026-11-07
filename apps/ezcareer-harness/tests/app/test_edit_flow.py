@@ -118,7 +118,7 @@ async def test_render_prints_with_the_documents_template_spec():
 
     def answer(request: httpx.Request) -> httpx.Response:
         sent.append(json.loads(request.content))
-        return httpx.Response(200, json={"pdf": "JVBERg==", "report": REPORT})
+        return httpx.Response(200, json={"artifact": "JVBERg==", "report": REPORT})
 
     render = write_document.render_with(
         ArtifactService(
