@@ -38,7 +38,7 @@ async def verify(
         update={
             "rounds": [[]],
             "document": document,
-            "pdf": rendered.pdf,
+            "pdf": rendered.artifact,
             "report": rendered.report,
         },
         goto=END,

@@ -54,7 +54,8 @@ def artifact_service(
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
         return httpx.Response(
-            status, json={"pdf": b64encode(b"%PDF-fake").decode(), "report": REPORT}
+            status,
+            json={"artifact": b64encode(b"%PDF-fake").decode(), "report": REPORT},
         )
 
     return ArtifactService(

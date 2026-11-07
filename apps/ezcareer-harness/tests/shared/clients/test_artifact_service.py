@@ -33,7 +33,7 @@ async def test_render_posts_the_document_template_and_assets():
         "template": {"id": "classic"},
         "assets": {sha256(photo).hexdigest(): b64encode(photo).decode()},
     }
-    assert rendered.pdf == b"%PDF-fake"
+    assert rendered.artifact == b"%PDF-fake"
     assert rendered.report.pages == 1
 
 
