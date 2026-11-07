@@ -1,0 +1,7 @@
+{
+  "name": "document-renderer",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "packages/document-renderer/src",
+  "tags": ["type:lib", "scope:frontend"]
+}
