@@ -1,4 +1,7 @@
+from typing import override
+
 import pytest
+from a2a.server.tasks import InMemoryTaskStore
 from dependency_injector import providers
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -54,7 +57,10 @@ def _executable() -> Executable:
 def client() -> TestClient:
     app = FastAPI()
     add_executable_routes(
-        app, [_executable()], AppSettings(public_url="https://box.example.ts.net")
+        app,
+        [_executable()],
+        InMemoryTaskStore(),
+        AppSettings(public_url="https://box.example.ts.net"),
     )
     return TestClient(app)
 
@@ -145,3 +151,21 @@ def test_the_app_serves_the_containers_executables():
     card = TestClient(create_app(container)).get(f"{PATH}/.well-known/agent-card.json")
 
     assert card.json()["name"] == "greet"
+
+
+def test_the_app_keeps_tasks_in_the_containers_task_store():
+    saved: list[str] = []
+
+    class RecordingStore(InMemoryTaskStore):
+        @override
+        async def save(self, task, context) -> None:
+            saved.append(task.id)
+            await super().save(task, context)
+
+    container = Container()
+    container.executables.override(providers.List(providers.Object(_executable())))
+    container.task_store.override(providers.Singleton(RecordingStore))
+
+    task = _send(TestClient(create_app(container)), {"name": "Ada"})
+
+    assert task["id"] in saved

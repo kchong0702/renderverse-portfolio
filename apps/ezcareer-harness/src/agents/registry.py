@@ -62,10 +62,14 @@ class Agent(BaseModel):
     @classmethod
     def load(cls, settings: AgentSettings) -> Self:
         """Reads an agent's profile.yaml, whose profiles are grouped by family and
-        then exact model, and picks the profile of the model it runs on"""
-        families: dict[str, dict[str, dict]] = yaml.safe_load(settings.path.read_text())
+        then exact model, and gives the model it runs on the default profile with
+        that model's own settings over it"""
+        families: dict[str, dict[str, dict | None]] = yaml.safe_load(
+            settings.path.read_text()
+        )
+        default = families.pop("default", None) or {}
         found = [
-            (family, models[settings.model])
+            (family, {**default, **(models[settings.model] or {})})
             for family, models in families.items()
             if settings.model in models
         ]

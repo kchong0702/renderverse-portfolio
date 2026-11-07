@@ -4,7 +4,7 @@ from a2a.server.routes import (
     create_agent_card_routes,
     create_jsonrpc_routes,
 )
-from a2a.server.tasks import InMemoryTaskStore
+from a2a.server.tasks import TaskStore
 from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
 from fastapi import FastAPI
 
@@ -13,10 +13,13 @@ from src.core.config import AppSettings
 
 
 def add_executable_routes(
-    app: FastAPI, executables: list[Executable], settings: AppSettings
+    app: FastAPI,
+    executables: list[Executable],
+    task_store: TaskStore,
+    settings: AppSettings,
 ) -> None:
     """Serve each executable as its own A2A agent at <route_prefix>/a2a/<name>,
-    with its agent card under that path"""
+    with its agent card under that path, keeping every task in task_store"""
     for executable in executables:
         path = f"{settings.route_prefix}/a2a/{executable.name}"
         card = AgentCard(
@@ -42,9 +45,7 @@ def add_executable_routes(
                 )
             ],
         )
-        handler = DefaultRequestHandler(
-            LanggraphExecutor(executable), InMemoryTaskStore(), card
-        )
+        handler = DefaultRequestHandler(LanggraphExecutor(executable), task_store, card)
         add_a2a_routes_to_fastapi(
             app,
             agent_card_routes=create_agent_card_routes(

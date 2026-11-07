@@ -61,6 +61,8 @@ def create_app(container: Container | None = None) -> FastAPI:
         endpoint=health_check,
         methods=["GET"],
     )
-    add_executable_routes(app, container.executables(), _settings.app)
+    add_executable_routes(
+        app, container.executables(), container.task_store(), _settings.app
+    )
 
     return app
