@@ -3,7 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.app.a2a import EXECUTABLES, add_executable_routes
+from src.app.a2a import add_executable_routes
+from src.app.container import Container
 from src.core.config import get_settings
 from src.infrastructure import (
     configure_logging,
@@ -31,8 +32,10 @@ async def lifespan(app: FastAPI):
     shutdown_tracing()
 
 
-def create_app() -> FastAPI:
-    """Create the FastAPI app, configuring observability for the serving process"""
+def create_app(container: Container | None = None) -> FastAPI:
+    """Create the FastAPI app, configuring observability for the serving process;
+    tests pass a container with overridden providers"""
+    container = container or Container()
     configure_logging(_settings)
     configure_tracing(_settings)
     configure_metrics(_settings)
@@ -58,6 +61,6 @@ def create_app() -> FastAPI:
         endpoint=health_check,
         methods=["GET"],
     )
-    add_executable_routes(app, EXECUTABLES, _settings.app)
+    add_executable_routes(app, container.executables(), _settings.app)
 
     return app
