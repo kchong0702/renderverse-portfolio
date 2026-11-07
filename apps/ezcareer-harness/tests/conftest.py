@@ -105,6 +105,8 @@ class ScriptedChatModel(BaseChatModel):
 def pytest_configure(config: pytest.Config) -> None:
     os.environ["EZCAREER_HARNESS_OBSERVABILITY__TRACING_ENABLED"] = "false"
     os.environ["EZCAREER_HARNESS_OBSERVABILITY__METRICS_ENABLED"] = "false"
+    os.environ.setdefault("AIGW_UPSTREAM_URL", "https://gateway.invalid/v1")
+    os.environ.setdefault("AIGW_PASSTHROUGH_KEY", "test")
 
 
 @pytest.fixture

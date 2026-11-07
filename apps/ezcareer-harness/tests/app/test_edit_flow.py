@@ -11,9 +11,9 @@ from langchain_core.messages import AIMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import TypeAdapter
 
-from src.app.a2a import Flow, add_flow_routes
+from src.app.a2a import Executable, add_executable_routes
 from src.core.config import AppSettings
-from src.core.errors import FlowError
+from src.core.errors import ExecuteError
 from src.features import write_document
 from src.shared.clients.artifact_service import ArtifactService
 from tests.conftest import ScriptedChatModel
@@ -34,13 +34,13 @@ def _client(*replies: AIMessage) -> TestClient:
     model = ScriptedChatModel(replies=list(replies))
     graph = write_document.edit_graph(_render, InMemorySaver(), model)
     app = FastAPI()
-    flow = Flow(
+    executable = Executable(
         name="edit-document",
         description="Edits",
         input_schema=write_document.EditInput,
         graph=graph,
     )
-    add_flow_routes(app, [flow], AppSettings())
+    add_executable_routes(app, [executable], AppSettings())
     return TestClient(app)
 
 
@@ -150,5 +150,5 @@ async def test_a_failed_print_fails_the_edit_with_a_reason():
         FIXTURES / "templates",
     )
 
-    with pytest.raises(FlowError, match="Couldn't print"):
+    with pytest.raises(ExecuteError, match="Couldn't print"):
         await render(document, {})

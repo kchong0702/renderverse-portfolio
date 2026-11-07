@@ -4,7 +4,7 @@ import httpx
 import yaml
 from document_schema import AnyDocument, FileHash, Report
 
-from src.core.errors import FlowError
+from src.core.errors import ExecuteError
 from src.features.write_document.state import Render
 from src.shared.clients.artifact_service import ArtifactService
 
@@ -21,6 +21,8 @@ def render_with(artifacts: ArtifactService, templates: Path) -> Render:
         try:
             return (await artifacts.render(document, template, assets)).report
         except httpx.HTTPError as error:
-            raise FlowError(f"Couldn't print the edited document: {error}") from error
+            raise ExecuteError(
+                f"Couldn't print the edited document: {error}"
+            ) from error
 
     return render
