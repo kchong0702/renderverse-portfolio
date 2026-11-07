@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 from collections.abc import Iterator
 from pathlib import Path
@@ -75,7 +76,7 @@ def task(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     path = tmp_path / "task.json"
     path.write_text(json.dumps({"person": "Lovelace"}))
     yield path
-    monkeypatch.delenv("EZCAREER_HARNESS_CONFIG", raising=False)
+    os.environ.pop("EZCAREER_HARNESS_CONFIG", None)
     reload_settings()
 
 

@@ -27,7 +27,7 @@ hide_outputs = false
 [[agents]]
 name = "career-consultant"
 path = "src/agents/career-consultant/profile.yaml"
-model = "glm-5.3"
+model = "gpt-6-luna"
 
 [[graph_profiles]]
 name = "edit"

@@ -14,11 +14,16 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from pydantic_core import to_jsonable_python
 
 from src.core.config import Settings, reload_settings
+from src.features import write_document
 
 Flow = Callable[[object], Awaitable[object]]
 """Runs one flow on one task through its service, returning its output"""
 
-FLOWS: dict[str, Flow] = {}
+FLOWS: dict[str, Flow] = {
+    "edit": lambda task: write_document.edit(
+        write_document.EditInput.model_validate(task)
+    ),
+}
 """Every flow a probe can run, by name; each feature adds its own"""
 
 

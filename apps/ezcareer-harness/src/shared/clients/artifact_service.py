@@ -14,7 +14,7 @@ class Rendered(BaseModel):
         val_json_bytes="base64",
     )
 
-    pdf: bytes
+    artifact: bytes
     """The printed PDF"""
 
     report: Report
