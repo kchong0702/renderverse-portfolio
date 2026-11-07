@@ -66,7 +66,9 @@ def _state() -> dict[str, Any]:
 def _run(
     *replies: AIMessage, tools: tuple = TOOLS
 ) -> tuple[dict[str, Any], ScriptedChatModel]:
-    model = ScriptedChatModel(replies=list(replies))
+    model = ScriptedChatModel(
+        replies=list(replies), model_name=AGENT.model, provider=AGENT.provider
+    )
     agent = build_agent(
         AGENT,
         response_format=Changeset,

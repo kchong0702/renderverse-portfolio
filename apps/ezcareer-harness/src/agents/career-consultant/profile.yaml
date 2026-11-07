@@ -30,3 +30,5 @@ glm:
 claude:
   claude-opus-5-5: *career-consultant
   claude-sonnet-5-5: *career-consultant
+openai:
+  gpt-6-luna: *career-consultant
