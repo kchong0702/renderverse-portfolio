@@ -1,12 +1,13 @@
 import json
 from hashlib import sha256
 from pathlib import Path
+from typing import Annotated
 
 from deepagents import DeepAgentState
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation
 
 
 class AgentConfig(BaseModel):
@@ -38,7 +39,7 @@ class AgentConfig(BaseModel):
     response_format: type[BaseModel]
     """What the agent answers with"""
 
-    state_schema: type[DeepAgentState] = DeepAgentState
+    state_schema: Annotated[type[DeepAgentState], SkipValidation] = DeepAgentState
     """The agent's state, which the stage's tools read"""
 
     recursion_limit: int = Field(gt=0)

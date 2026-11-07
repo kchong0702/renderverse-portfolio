@@ -3,6 +3,8 @@ import shutil
 from pathlib import Path
 
 import pytest
+from deepagents import DeepAgentState
+from langchain.tools import ToolRuntime
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
@@ -98,6 +100,35 @@ def test_agent_reads_a_skill_but_cannot_change_it():
     assert "Hello, <name>!" in read.text
     assert write.status == "error"
     assert "Be rude." not in (FIXTURES / "skills/greet/SKILL.md").read_text()
+
+
+class _NamesState(DeepAgentState):
+    names: dict[str, str]
+
+
+@tool
+def look_up_in_state(person: str, runtime: ToolRuntime) -> str:
+    """Looks up a person's first name in the run's state"""
+    return runtime.state["names"][person]
+
+
+def test_stage_tools_read_the_stage_state():
+    model = ScriptedChatModel(
+        replies=[
+            _call("look_up_in_state", person="Lovelace"),
+            _call("Greeting", text="Hello, Ada!"),
+        ]
+    )
+    agent = build_agent(
+        _config(tools=(look_up_in_state,), state_schema=_NamesState), model
+    )
+
+    result = agent.invoke(
+        {"messages": [HumanMessage("Greet Lovelace")], "names": {"Lovelace": "Ada"}}
+    )
+
+    [found] = [m for m in result["messages"] if m.name == "look_up_in_state"]
+    assert found.text == "Ada"
 
 
 def test_recursion_limit_stops_an_agent_that_never_answers():
