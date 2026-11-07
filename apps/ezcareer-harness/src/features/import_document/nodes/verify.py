@@ -1,3 +1,4 @@
+import json
 from typing import Literal
 
 from document_schema import DocumentKind, ResumeDocument
@@ -7,6 +8,7 @@ from langgraph.types import Command
 from pydantic import ValidationError
 
 from src.features.import_document.state import ImportContext, ImportState
+from src.infrastructure import get_tracer
 from src.shared.checks.resume import schema_errors, validate_resume
 from src.shared.models.resume_import import ResumeImport
 
@@ -26,6 +28,10 @@ async def verify(
             )
         except ValidationError as error:
             errors = schema_errors(error)
+    with get_tracer(__name__).start_as_current_span("check") as span:
+        span.set_attribute(
+            "check.errors", json.dumps([error.model_dump() for error in errors])
+        )
     if errors:
         retry = len(state.get("rounds", [])) + 1 < config.rounds
         return Command(update={"rounds": [errors]}, goto="structure" if retry else END)

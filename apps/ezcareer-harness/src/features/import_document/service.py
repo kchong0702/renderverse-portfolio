@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -28,7 +29,7 @@ async def run_import(
             {"file": file},
             config={
                 "recursion_limit": config.recursion_limit,
-                "metadata": {"import_config_hash": config.hash},
+                "metadata": {"flow": "import", "harness_hash": config.hash},
             },
             context=ImportContext(
                 config=config,
@@ -54,14 +55,16 @@ async def run_import(
     )
 
 
-async def import_task(task: ImportInput) -> dict[str, Any]:
-    """Runs one import for the A2A server with the bundled harness, returning the
-    result as JSON"""
+async def import_task(
+    task: ImportInput, harness: Path = Path(__file__).parent / "harness"
+) -> dict[str, Any]:
+    """Runs one import with a harness folder, the bundled one by default, returning
+    the result as JSON"""
     settings = get_settings().artifact_service
     async with httpx.AsyncClient(
         base_url=settings.url, timeout=settings.timeout_s
     ) as client:
         result = await run_import(
-            task.file, ImportConfig.load(), ArtifactService(client)
+            task.file, ImportConfig.load(harness), ArtifactService(client)
         )
     return result.model_dump(mode="json")

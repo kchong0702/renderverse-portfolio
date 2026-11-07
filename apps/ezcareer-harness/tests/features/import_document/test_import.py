@@ -142,5 +142,5 @@ async def test_each_run_records_its_config_hash(config: ImportConfig):
             PDF, config, artifact_service([]), replying(answer("Engineer"))
         )
 
-    assert runs.traced_runs[0].extra["metadata"]["import_config_hash"] == config.hash
+    assert runs.traced_runs[0].extra["metadata"]["harness_hash"] == config.hash
     assert config.model_copy(update={"prompt": "Read it."}).hash != config.hash

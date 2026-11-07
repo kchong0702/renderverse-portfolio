@@ -11,10 +11,16 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from pydantic_core import to_jsonable_python
 
+from src.features.import_document import ImportInput, import_task
+
 Flow = Callable[[Path, object], Awaitable[object]]
 """Runs one flow on one task with the harness in a folder, returning its output"""
 
-FLOWS: dict[str, Flow] = {}
+FLOWS: dict[str, Flow] = {
+    "import": lambda harness, task: import_task(
+        ImportInput.model_validate(task), harness
+    ),
+}
 """Every flow a probe can run, by name; each feature adds its own"""
 
 
