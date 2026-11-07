@@ -70,6 +70,9 @@ class AppSettings(BaseModel):
     public_url: str = "http://127.0.0.1:8200"
     """Origin clients reach the server at, written into A2A agent cards"""
 
+    artifact_service_url: str = "http://127.0.0.1:8210/artifact-service"
+    """artifact-service's address and route prefix, for printing documents"""
+
     host: str = "127.0.0.1"
     """Host address to bind the server to"""
 
