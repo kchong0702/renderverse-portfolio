@@ -7,7 +7,7 @@ from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatResult
 from pydantic import Field
 
-from src.shared.clients import ArtifactService
+from src.shared.clients.artifact_service import ArtifactService
 
 
 class FakeModel(GenericFakeChatModel):

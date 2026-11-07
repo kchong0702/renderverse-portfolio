@@ -4,10 +4,11 @@ from enum import StrEnum
 from itertools import pairwise
 
 from document_schema import RichValue, Value
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ValidationError
 
+from src.shared.checks.check_error import CheckError
 from src.shared.extraction import Line
-from src.shared.models import ResumeImport
+from src.shared.models.resume_import import ResumeImport
 
 
 class Check(StrEnum):
@@ -22,21 +23,6 @@ class Check(StrEnum):
 
     ORDER = "order"
     """Blocks follow the order of their lines"""
-
-
-class CheckError(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid", frozen=True, use_attribute_docstrings=True
-    )
-
-    check: Check
-    """The check that failed"""
-
-    path: str
-    """Where in the reply, such as content/blocks/experience/items/acme/role"""
-
-    message: str
-    """What is wrong, written for the LLM"""
 
 
 def _normal(text: str) -> str:
@@ -71,7 +57,7 @@ def _verbatim(draft: ResumeImport, lines: Sequence[Line]) -> list[CheckError]:
             message = f"{value.text!r} is not the text of {', '.join(value.src)}"
         else:
             continue
-        errors.append(CheckError(check=Check.VERBATIM, path=path, message=message))
+        errors.append(CheckError(rule=Check.VERBATIM, at=path, message=message))
     return errors
 
 
@@ -83,8 +69,8 @@ def _coverage(draft: ResumeImport, lines: Sequence[Line]) -> list[CheckError]:
     if unknown := [source for source in draft.skipped if source not in ids]:
         errors.append(
             CheckError(
-                check=Check.COVERAGE,
-                path="skipped",
+                rule=Check.COVERAGE,
+                at="skipped",
                 message=f"{', '.join(unknown)} are not lines",
             )
         )
@@ -93,8 +79,8 @@ def _coverage(draft: ResumeImport, lines: Sequence[Line]) -> list[CheckError]:
     ]:
         errors.append(
             CheckError(
-                check=Check.COVERAGE,
-                path="content",
+                rule=Check.COVERAGE,
+                at="content",
                 message="these lines are neither cited nor skipped: "
                 + "; ".join(f"{line.id} {line.text!r}" for line in missing),
             )
@@ -119,8 +105,8 @@ def _order(draft: ResumeImport, lines: Sequence[Line]) -> list[CheckError]:
     ]
     return [
         CheckError(
-            check=Check.ORDER,
-            path=f"content/blocks/{block}",
+            rule=Check.ORDER,
+            at=f"content/blocks/{block}",
             message=f"starts at {lines[start].id}, before {previous} at"
             f" {lines[previous_start].id}, so it must come first",
         )
@@ -147,8 +133,8 @@ def validate_resume(
     except ValidationError as error:
         return [
             CheckError(
-                check=Check.SCHEMA,
-                path="/".join(str(part) for part in issue["loc"]),
+                rule=Check.SCHEMA,
+                at="/".join(str(part) for part in issue["loc"]),
                 message=issue["msg"],
             )
             for issue in error.errors()

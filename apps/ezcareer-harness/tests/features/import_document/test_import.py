@@ -5,7 +5,7 @@ import pytest
 from langchain_core.tracers.context import collect_runs
 
 from src.features.import_document import ImportConfig, ImportFailed, run_import
-from src.shared.checks import Check
+from src.shared.checks.resume import Check
 from tests.fakes import artifact_service, replying
 from tests.pdfs import make_pdf
 
@@ -34,7 +34,7 @@ async def test_a_failed_reply_goes_back_to_the_llm_with_its_errors(
 
     result = await run_import(PDF, config, artifact_service([]), model)
 
-    assert [[e.check for e in errors] for errors in result.rounds] == [
+    assert [[e.rule for e in errors] for errors in result.rounds] == [
         [Check.VERBATIM],
         [],
     ]

@@ -1,7 +1,7 @@
 from document_schema import Report, ResumeDocument
 from pydantic import BaseModel, ConfigDict
 
-from src.shared.checks import CheckError
+from src.shared.checks.check_error import CheckError
 from src.shared.extraction import Line
 
 

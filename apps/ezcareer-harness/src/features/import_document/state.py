@@ -6,8 +6,8 @@ from document_schema import Report, ResumeDocument
 from langchain_core.language_models import BaseChatModel
 
 from src.features.import_document.config import ImportConfig
-from src.shared.checks import CheckError
-from src.shared.clients import ArtifactService
+from src.shared.checks.check_error import CheckError
+from src.shared.clients.artifact_service import ArtifactService
 from src.shared.extraction import Line
 
 

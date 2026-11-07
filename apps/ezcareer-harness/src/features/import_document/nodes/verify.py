@@ -4,8 +4,8 @@ from document_schema import DocumentKind, ResumeDocument
 from langgraph.runtime import Runtime
 
 from src.features.import_document.state import ImportContext, ImportState
-from src.shared.checks import validate_resume
-from src.shared.models import ResumeImport
+from src.shared.checks.resume import validate_resume
+from src.shared.models.resume_import import ResumeImport
 
 
 async def verify(state: ImportState, runtime: Runtime[ImportContext]) -> dict[str, Any]:
@@ -16,7 +16,7 @@ async def verify(state: ImportState, runtime: Runtime[ImportContext]) -> dict[st
         return {
             "rounds": [errors],
             "fix_summary": "\n".join(
-                f"- {error.check} at {error.path}: {error.message}" for error in errors
+                f"- {error.rule} at {error.at}: {error.message}" for error in errors
             ),
         }
     document = ResumeDocument(

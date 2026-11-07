@@ -1,4 +1,4 @@
-from src.shared.checks import Check, validate_resume
+from src.shared.checks.resume import Check, validate_resume
 from src.shared.extraction import Line
 
 
@@ -78,8 +78,8 @@ def test_a_reply_that_breaks_the_schema_fails_with_its_path():
 
     [error] = validate_resume(broken, LINES)
 
-    assert error.check == Check.SCHEMA
-    assert error.path == "content"
+    assert error.rule == Check.SCHEMA
+    assert error.at == "content"
     assert "exactly one profile" in error.message
 
 
@@ -88,7 +88,7 @@ def test_reworded_or_uncited_text_fails_verbatim():
         reply(bullet={"html": "Managed five nurses", "src": ["p1.s3"]}), LINES
     )
 
-    assert [(e.check, e.path) for e in errors] == [
+    assert [(e.rule, e.at) for e in errors] == [
         (Check.VERBATIM, "content/blocks/experience/items/wholeness/bullets/team/text")
     ]
     assert "'Managed five nurses' is not the text of p1.s3" in errors[0].message
@@ -105,7 +105,7 @@ def test_citing_something_that_is_not_a_line_fails_verbatim():
 def test_a_line_neither_cited_nor_skipped_fails_coverage():
     errors = validate_resume(reply(skipped=("p7.s7",)), LINES)
 
-    assert [(e.check, e.path, e.message) for e in errors] == [
+    assert [(e.rule, e.at, e.message) for e in errors] == [
         (Check.COVERAGE, "skipped", "p7.s7 are not lines"),
         (
             Check.COVERAGE,
@@ -118,9 +118,7 @@ def test_a_line_neither_cited_nor_skipped_fails_coverage():
 def test_blocks_out_of_line_order_fail_order():
     errors = validate_resume(reply(first="experience"), LINES)
 
-    assert [(e.check, e.path) for e in errors] == [
-        (Check.ORDER, "content/blocks/profile")
-    ]
+    assert [(e.rule, e.at) for e in errors] == [(Check.ORDER, "content/blocks/profile")]
 
 
 def test_only_the_chosen_checks_run():
