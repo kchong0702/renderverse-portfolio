@@ -224,7 +224,7 @@ class Settings(BaseSettings):
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     """Logging, tracing and metrics settings"""
 
-    agents: list[AgentSettings] = Field(default_factory=list)
+    agents: tuple[AgentSettings, ...] = ()
     """Every agent the app builds, read from config.toml's [[agents]] tables"""
 
     gateway_url: HttpUrl | None = Field(
