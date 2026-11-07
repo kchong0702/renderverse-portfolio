@@ -67,6 +67,9 @@ class AppSettings(BaseModel):
     route_prefix: str = "/ezcareer"
     """FastAPI router prefix, matching the `tailscale serve` path"""
 
+    public_url: str = "http://127.0.0.1:8200"
+    """Origin clients reach the server at, written into A2A agent cards"""
+
     host: str = "127.0.0.1"
     """Host address to bind the server to"""
 

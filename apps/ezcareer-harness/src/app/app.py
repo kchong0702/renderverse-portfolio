@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.app.a2a import FLOWS, add_flow_routes
 from src.core.config import get_settings
 from src.infrastructure import (
     configure_logging,
@@ -57,5 +58,6 @@ def create_app() -> FastAPI:
         endpoint=health_check,
         methods=["GET"],
     )
+    add_flow_routes(app, FLOWS, _settings.app)
 
     return app
