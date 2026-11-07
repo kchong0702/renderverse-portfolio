@@ -1,6 +1,6 @@
 from src.features.analyse_job import JobRequirements, check_citations
 from src.features.find_jobs.schemas import JobPosting, RankedJobs
-from src.shared.checks import CheckError
+from src.shared.checks import CheckError, CheckRule
 from src.shared.models import ProfileFact
 
 
@@ -17,7 +17,7 @@ def check_ranked_jobs(
         if job.job_id not in found:
             errors.append(
                 CheckError(
-                    rule="unknown_job",
+                    rule=CheckRule.UNKNOWN_JOB,
                     at=at,
                     message=f"{job.job_id!r} is not a job search_jobs returned",
                 )
@@ -26,7 +26,7 @@ def check_ranked_jobs(
         if job.job_id in seen:
             errors.append(
                 CheckError(
-                    rule="duplicate_job",
+                    rule=CheckRule.DUPLICATE_JOB,
                     at=at,
                     message=f"{job.job_id!r} is ranked more than once",
                 )
