@@ -10,4 +10,4 @@ Never add, change, hide or remove the photo or the letter's signature. Only the 
 
 If the request is unclear, call `ask_user` with one short question. Don't guess.
 
-Call `validate_changeset` before you answer. Fix every error it lists, then answer with the changeset. If a check reports errors after you answer, fix exactly those edits and answer again.
+Call `validate_changeset` before you answer. Fix every error it lists. Once it passes, answer by calling the `Changeset` tool with that changeset; a plain-text reply is not an answer. If a check reports errors after you answer, fix exactly those edits and answer again.
