@@ -8,18 +8,20 @@ from a2a.server.tasks import InMemoryTaskStore
 from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
 from fastapi import FastAPI
 
-from src.app.a2a.flow import Flow, FlowExecutor
+from src.app.a2a.executable import Executable, FlowExecutor
 from src.core.config import AppSettings
 
 
-def add_flow_routes(app: FastAPI, flows: list[Flow], settings: AppSettings) -> None:
-    """Serve each flow as its own A2A agent at <route_prefix>/a2a/<name>,
+def add_executable_routes(
+    app: FastAPI, executables: list[Executable], settings: AppSettings
+) -> None:
+    """Serve each executable as its own A2A agent at <route_prefix>/a2a/<name>,
     with its agent card under that path"""
-    for flow in flows:
-        path = f"{settings.route_prefix}/a2a/{flow.name}"
+    for executable in executables:
+        path = f"{settings.route_prefix}/a2a/{executable.name}"
         card = AgentCard(
-            name=flow.name,
-            description=flow.description,
+            name=executable.name,
+            description=executable.description,
             version=settings.version,
             supported_interfaces=[
                 AgentInterface(
@@ -33,14 +35,16 @@ def add_flow_routes(app: FastAPI, flows: list[Flow], settings: AppSettings) -> N
             default_output_modes=["application/json"],
             skills=[
                 AgentSkill(
-                    id=flow.name,
-                    name=flow.name,
-                    description=flow.description,
-                    tags=[flow.name],
+                    id=executable.name,
+                    name=executable.name,
+                    description=executable.description,
+                    tags=[executable.name],
                 )
             ],
         )
-        handler = DefaultRequestHandler(FlowExecutor(flow), InMemoryTaskStore(), card)
+        handler = DefaultRequestHandler(
+            FlowExecutor(executable), InMemoryTaskStore(), card
+        )
         add_a2a_routes_to_fastapi(
             app,
             agent_card_routes=create_agent_card_routes(

@@ -1,4 +1,4 @@
-from src.app.a2a.flow import Flow
+from src.app.a2a.executable import Executable
 
-FLOWS: list[Flow] = []
-"""Every flow the server runs; add a feature's Flow here to serve it"""
+EXECUTABLES: list[Executable] = []
+"""Every graph the server runs as an A2A agent; add a feature's Executable here"""
