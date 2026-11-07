@@ -8,7 +8,7 @@ import type {
   Project,
   Publication,
 } from "../generated/document";
-import type { EntryView } from "./types";
+import type { EntryView } from "../types";
 
 const date = (value?: Date | null) => value?.text.text;
 

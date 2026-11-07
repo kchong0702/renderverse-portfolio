@@ -1,4 +1,4 @@
-import type { BlockProps } from "./types";
+import type { BlockProps } from "../types";
 
 export const ProfileBlock = ({ block }: BlockProps<"profile">) => (
   <header className="dr-block dr-profile" data-block={block.id}>

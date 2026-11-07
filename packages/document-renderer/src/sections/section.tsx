@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Block, Context, SectionKind } from "./types";
+import type { Block, Context, SectionKind } from "../types";
 
 export const Section = ({
   block,

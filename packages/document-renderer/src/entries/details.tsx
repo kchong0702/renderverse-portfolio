@@ -1,14 +1,14 @@
-import { Rich } from "./rich";
-import type { EntryView } from "./types";
+import { RichText } from "../text/rich-text";
+import type { EntryView } from "../types";
 
-export const What = ({ entry }: { entry: EntryView }) => (
+export const EntryTitle = ({ entry }: { entry: EntryView }) => (
   <div className="dr-entry-what">
     <strong>{entry.title}</strong>
     {entry.subtitle && <span className="dr-entry-sub">{entry.subtitle}</span>}
   </div>
 );
 
-export const When = ({ entry }: { entry: EntryView }) =>
+export const EntryMeta = ({ entry }: { entry: EntryView }) =>
   (entry.dates || entry.place) && (
     <div className="dr-entry-when">
       {entry.dates && <span>{entry.dates}</span>}
@@ -16,10 +16,10 @@ export const When = ({ entry }: { entry: EntryView }) =>
     </div>
   );
 
-export const Details = ({ entry }: { entry: EntryView }) => (
+export const EntryDetails = ({ entry }: { entry: EntryView }) => (
   <>
     {entry.note && <p className="dr-entry-note">{entry.note}</p>}
-    {entry.text && <Rich value={entry.text} />}
+    {entry.text && <RichText value={entry.text} />}
     {!!entry.bullets?.length && (
       <ul className="dr-bullets">
         {entry.bullets.map((bullet) => (

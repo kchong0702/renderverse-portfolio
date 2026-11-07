@@ -1,4 +1,4 @@
-import type { BlockProps } from "./types";
+import type { BlockProps } from "../types";
 
 export const RecipientBlock = ({ block }: BlockProps<"recipient">) => (
   <address className="dr-block dr-recipient" data-block={block.id}>

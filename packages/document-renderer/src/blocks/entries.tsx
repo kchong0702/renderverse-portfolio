@@ -1,40 +1,9 @@
-import type { ReactNode } from "react";
-import type { EntryLayout } from "../generated/template";
-import { Details, What, When } from "./details";
-import { Rich } from "./rich";
-import { Section } from "./section";
-import type { Block, Context, EntryKind, EntryView } from "./types";
+import { entryLayouts } from "../entries/layouts";
+import { Section } from "../sections/section";
+import { RichText } from "../text/rich-text";
+import type { Block, Context, EntryKind, EntryView } from "../types";
 
-const HeadFirst = ({ entry }: { entry: EntryView }) => (
-  <>
-    <div className="dr-entry-head">
-      <What entry={entry} />
-      <When entry={entry} />
-    </div>
-    <Details entry={entry} />
-  </>
-);
-
-const entryLayouts: Record<
-  EntryLayout,
-  (props: { entry: EntryView }) => ReactNode
-> = {
-  inline: HeadFirst,
-  "dates-left": ({ entry }) => (
-    <>
-      <When entry={entry} />
-      <div className="dr-entry-body">
-        <div className="dr-entry-head">
-          <What entry={entry} />
-        </div>
-        <Details entry={entry} />
-      </div>
-    </>
-  ),
-  "dates-below": HeadFirst,
-};
-
-export const Entries = ({
+export const EntriesBlock = ({
   block,
   ctx,
   entries = [],
@@ -46,7 +15,7 @@ export const Entries = ({
   const Layout = entryLayouts[ctx.spec.entry];
   return (
     <Section block={block} ctx={ctx}>
-      {block.kind === "custom" && block.text && <Rich value={block.text} />}
+      {block.kind === "custom" && block.text && <RichText value={block.text} />}
       {entries.map((entry) => (
         <article
           key={entry.id}

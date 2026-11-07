@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import type { AnyBlock } from "../layout/place";
 import { ContactsBlock } from "./contacts";
-import { Entries } from "./entries";
-import { entryViews } from "./entry-views";
+import { EntriesBlock } from "./entries";
+import { entryViews } from "../entries/views";
 import { LanguagesBlock } from "./languages";
 import { LetterBlock } from "./letter";
 import { PhotoBlock } from "./photo";
@@ -10,9 +10,7 @@ import { ProfileBlock } from "./profile";
 import { RecipientBlock } from "./recipient";
 import { SkillsBlock } from "./skills";
 import { SummaryBlock } from "./summary";
-import type { BlockProps } from "./types";
-
-export type { Context } from "./types";
+import type { BlockProps } from "../types";
 
 export const blocks: {
   [K in AnyBlock["kind"]]: (props: BlockProps<K>) => ReactNode;
@@ -24,49 +22,49 @@ export const blocks: {
   skills: SkillsBlock,
   languages: LanguagesBlock,
   experience: ({ block, ctx }) => (
-    <Entries
+    <EntriesBlock
       block={block}
       ctx={ctx}
       entries={block.items?.map(entryViews.experience)}
     />
   ),
   education: ({ block, ctx }) => (
-    <Entries
+    <EntriesBlock
       block={block}
       ctx={ctx}
       entries={block.items?.map(entryViews.education)}
     />
   ),
   projects: ({ block, ctx }) => (
-    <Entries
+    <EntriesBlock
       block={block}
       ctx={ctx}
       entries={block.items?.map(entryViews.projects)}
     />
   ),
   certifications: ({ block, ctx }) => (
-    <Entries
+    <EntriesBlock
       block={block}
       ctx={ctx}
       entries={block.items?.map(entryViews.certifications)}
     />
   ),
   awards: ({ block, ctx }) => (
-    <Entries
+    <EntriesBlock
       block={block}
       ctx={ctx}
       entries={block.items?.map(entryViews.awards)}
     />
   ),
   publications: ({ block, ctx }) => (
-    <Entries
+    <EntriesBlock
       block={block}
       ctx={ctx}
       entries={block.items?.map(entryViews.publications)}
     />
   ),
   custom: ({ block, ctx }) => (
-    <Entries
+    <EntriesBlock
       block={block}
       ctx={ctx}
       entries={block.items?.map(entryViews.custom)}

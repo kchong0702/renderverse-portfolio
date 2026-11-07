@@ -1,10 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
-import { blocks, type Context } from "../blocks";
+import { blocks } from "../blocks";
 import { defaults } from "../generated/defaults";
 import type { AnyDocument, Design, Font } from "../generated/document";
 import type { TemplateSpec } from "../generated/template";
-import { translator } from "../i18n";
+import { translator } from "../../i18n";
 import { place, type AnyBlock, type PlacedRegion } from "../layout/place";
+import type { Context } from "../types";
 
 export const GUTTER_MM = 6;
 

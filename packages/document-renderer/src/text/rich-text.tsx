@@ -1,6 +1,6 @@
 import type { RichValue } from "../generated/document";
 
-export const Rich = ({ value }: { value: RichValue }) => (
+export const RichText = ({ value }: { value: RichValue }) => (
   <div
     className="dr-rich"
     style={value.align ? { textAlign: value.align } : undefined}

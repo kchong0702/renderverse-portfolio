@@ -1,5 +1,5 @@
-import { Section } from "./section";
-import type { BlockProps } from "./types";
+import { Section } from "../sections/section";
+import type { BlockProps } from "../types";
 
 export const LanguagesBlock = ({ block, ctx }: BlockProps<"languages">) => (
   <Section block={block} ctx={ctx}>

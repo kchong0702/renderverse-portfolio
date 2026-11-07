@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import type { Skill } from "../generated/document";
 import type { SkillsStyle } from "../generated/template";
-import { Section } from "./section";
-import type { BlockProps } from "./types";
+import { Section } from "../sections/section";
+import type { BlockProps } from "../types";
 
 const Pills = ({ rows }: { rows: Skill[] }) =>
   rows.map((row) => (

@@ -1,5 +1,5 @@
-import { Rich } from "./rich";
-import type { BlockProps } from "./types";
+import { RichText } from "../text/rich-text";
+import type { BlockProps } from "../types";
 
 export const LetterBlock = ({ block, ctx }: BlockProps<"letter">) => {
   const profile = ctx.document.content.blocks.find(
@@ -13,7 +13,7 @@ export const LetterBlock = ({ block, ctx }: BlockProps<"letter">) => {
       )}
       <p>{block.greeting.text}</p>
       {block.paragraphs.map((paragraph) => (
-        <Rich key={paragraph.id} value={paragraph.text} />
+        <RichText key={paragraph.id} value={paragraph.text} />
       ))}
       <p className="dr-letter-closing">{block.closing.text}</p>
       {block.signature && (

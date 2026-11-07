@@ -4,9 +4,9 @@ import type {
   Bullet,
   Link,
   RichValue,
-} from "../generated/document";
-import type { PhotoSpot } from "../generated/template";
-import type { AnyBlock, Spec } from "../layout/place";
+} from "./generated/document";
+import type { PhotoSpot } from "./generated/template";
+import type { AnyBlock, Spec } from "./layout/place";
 
 export interface Context {
   document: AnyDocument;

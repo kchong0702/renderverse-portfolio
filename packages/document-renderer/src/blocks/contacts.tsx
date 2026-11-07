@@ -12,7 +12,7 @@ import {
 } from "react-icons/fa6";
 import type { Contact, ContactKind } from "../generated/document";
 import type { ContactsStyle } from "../generated/template";
-import type { BlockProps } from "./types";
+import type { BlockProps } from "../types";
 
 const contactIcons: Record<ContactKind, IconType> = {
   email: FaEnvelope,
