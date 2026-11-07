@@ -23,3 +23,16 @@ instrumentations = ["langchain"]
 [observability.trace_redaction]
 hide_inputs = false
 hide_outputs = false
+
+[[agents]]
+name = "job-finder"
+path = "src/agents/job-finder/profile.yaml"
+model = "glm-5.3"
+
+[[graph_profiles]]
+name = "analyse-job"
+path = "src/features/analyse_job/harness/configurations.yaml"
+
+[[graph_profiles]]
+name = "find-jobs"
+path = "src/features/find_jobs/harness/configurations.yaml"

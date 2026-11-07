@@ -77,6 +77,9 @@ async def search(
             title=job.job_title,
             company=job.employer_name,
             location=", ".join(filter(None, [job.job_city, job.job_country])),
+            country=job.job_country.upper()
+            if job.job_country and len(job.job_country) == 2
+            else None,
             remote=job.job_is_remote,
             posted_at=job.job_posted_at_datetime_utc,
             apply_url=job.job_apply_link,
