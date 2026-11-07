@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from src.app.a2a import Flow, add_flow_routes
 from src.core.config import AppSettings
-from src.core.errors import FlowError
+from src.core.errors import ExecuteError
 
 PATH = "/ezcareer/a2a/greet"
 
@@ -23,7 +23,7 @@ class GreetState(GreetInput):
 
 def _greet(state: GreetState) -> dict:
     if state.name == "nobody":
-        raise FlowError("Nobody to greet")
+        raise ExecuteError("Nobody to greet")
     if state.name == "loop":
         return {}
     title = interrupt("Which title?") if state.name == "ask" else "Dr"
@@ -93,7 +93,7 @@ def test_completed_run_returns_the_final_state_as_an_artifact(client: TestClient
     }
 
 
-def test_flow_error_fails_the_task_with_its_reason(client: TestClient):
+def test_execute_error_fails_the_task_with_its_reason(client: TestClient):
     task = _send(client, {"name": "nobody"})
 
     assert task["status"]["state"] == "TASK_STATE_FAILED"

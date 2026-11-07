@@ -16,7 +16,7 @@ from langgraph.types import Command
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic_core import to_jsonable_python
 
-from src.core.errors import FlowError
+from src.core.errors import ExecuteError
 
 
 def _reason(updater: TaskUpdater, text: str) -> Message:
@@ -73,7 +73,7 @@ class FlowExecutor(AgentExecutor):
         except GraphRecursionError:
             await updater.failed(_reason(updater, "Ran out of steps before finishing"))
             return
-        except FlowError as error:
+        except ExecuteError as error:
             await updater.failed(_reason(updater, str(error)))
             return
         if interrupts := result.pop("__interrupt__", None):
