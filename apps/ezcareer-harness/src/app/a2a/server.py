@@ -8,7 +8,7 @@ from a2a.server.tasks import InMemoryTaskStore
 from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
 from fastapi import FastAPI
 
-from src.app.a2a.executable import Executable, FlowExecutor
+from src.app.a2a.executable import Executable, LanggraphExecutor
 from src.core.config import AppSettings
 
 
@@ -43,7 +43,7 @@ def add_executable_routes(
             ],
         )
         handler = DefaultRequestHandler(
-            FlowExecutor(executable), InMemoryTaskStore(), card
+            LanggraphExecutor(executable), InMemoryTaskStore(), card
         )
         add_a2a_routes_to_fastapi(
             app,
