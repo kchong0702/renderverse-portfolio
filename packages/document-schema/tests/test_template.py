@@ -25,14 +25,14 @@ def sidebar_band() -> dict[str, Any]:
             },
             "main": {"area": {"column": 5, "span": 8}, "entry": "dates-left"},
         },
-        "home": {"default": "main", "photo": "side", "profile": "side"},
+        "layout": {"default": "main", "photo": "side", "profile": "side"},
     }
 
 
-def test_a_template_reads_its_regions_and_homes(sidebar_band: dict) -> None:
+def test_a_template_reads_its_regions_and_layout(sidebar_band: dict) -> None:
     template = TemplateSpec(**sidebar_band)
 
-    assert (template.regions["side"].skills, template.home["photo"]) == (
+    assert (template.regions["side"].skills, template.layout["photo"]) == (
         "outline-pills",
         "side",
     )
@@ -51,8 +51,8 @@ def test_block_kinds_match_the_blocks_documents_hold() -> None:
 @pytest.mark.parametrize(
     ("change", "message"),
     [
-        ({"home": {"photo": "side"}}, "no default"),
-        ({"home": {"default": "top"}}, "missing regions"),
+        ({"layout": {"photo": "side"}}, "no default"),
+        ({"layout": {"default": "top"}}, "missing regions"),
         (
             {"regions": {"main": {}, "side": {"area": {"column": 9, "span": 4}}}},
             "overlap",

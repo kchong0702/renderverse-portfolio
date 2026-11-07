@@ -234,7 +234,7 @@ class TemplateSpec(BaseModel):
     regions: dict[Region, RegionSpec] = Field(min_length=1)
     """The regions it has"""
 
-    home: dict[BlockKind | Literal["default"], Region]
+    layout: dict[BlockKind | Literal["default"], Region]
     """Region each block kind goes to unless the user places it; default for the rest"""
 
     photo: PhotoSpot = PhotoSpot.TOP
@@ -242,7 +242,7 @@ class TemplateSpec(BaseModel):
 
     @model_validator(mode="after")
     def _regions_fit(self) -> Self:
-        """Rejects overlaps, a missing home, and a default region short of the last row"""
+        """Rejects overlaps, a layout without a default, and a default region short of the last row"""
         cells = [
             (row, column)
             for area in (spec.area for spec in self.regions.values())
@@ -251,13 +251,13 @@ class TemplateSpec(BaseModel):
         ]
         if len(cells) != len(set(cells)):
             raise ValueError(f"regions of {self.id} overlap")
-        if "default" not in self.home:
-            raise ValueError(f"home of {self.id} has no default")
-        if missing := set(self.home.values()) - set(self.regions):
-            raise ValueError(f"home of {self.id} names missing regions: {missing}")
+        if "default" not in self.layout:
+            raise ValueError(f"layout of {self.id} has no default")
+        if missing := set(self.layout.values()) - set(self.regions):
+            raise ValueError(f"layout of {self.id} names missing regions: {missing}")
         ends = {
             name: spec.area.row + spec.area.rows for name, spec in self.regions.items()
         }
-        if ends[self.home["default"]] < max(ends.values()):
+        if ends[self.layout["default"]] < max(ends.values()):
             raise ValueError(f"the default region of {self.id} must reach the last row")
         return self
