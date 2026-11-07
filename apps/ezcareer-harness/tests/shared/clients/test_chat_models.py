@@ -25,6 +25,19 @@ def test_glm_models_go_through_the_gateway(gateway: Settings):
     assert not model.use_responses_api
 
 
+def test_openai_models_go_to_openai_with_its_own_key(
+    gateway: Settings, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
+
+    model = chat_models.chat_model("openai", "gpt-6-luna")
+
+    assert isinstance(model, ChatOpenAI)
+    assert model.model_name == "gpt-6-luna"
+    assert model.openai_api_base is None
+    assert model.openai_api_key.get_secret_value() == "sk-openai"
+
+
 def test_claude_models_go_to_anthropic(gateway: Settings):
     model = chat_models.chat_model("claude", "claude-opus-5-5")
 
