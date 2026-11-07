@@ -6,6 +6,7 @@ from typing import Literal, override
 
 from dotenv import load_dotenv
 from pydantic import (
+    AliasChoices,
     BaseModel,
     Field,
     HttpUrl,
@@ -186,6 +187,27 @@ class ObservabilitySettings(BaseModel):
         return self
 
 
+class AgentSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    name: str
+    """Agent name, such as career-consultant"""
+
+    path: Path
+    """The agent's profile.yaml, relative to the app folder; its folder holds
+    system.md and skills/"""
+
+    model: str
+    """Exact model the agent runs on, such as glm-5.3; profile.yaml must hold
+    its harness profile"""
+
+    @field_validator("path")
+    @classmethod
+    def _from_app_folder(cls, path: Path) -> Path:
+        """Reads a relative path from the app folder"""
+        return path if path.is_absolute() else _ROOT_PATH / path
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EZCAREER_HARNESS_",
@@ -204,6 +226,20 @@ class Settings(BaseSettings):
 
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     """Logging, tracing and metrics settings"""
+
+    agents: tuple[AgentSettings, ...] = ()
+    """Every agent the app builds, read from config.toml's [[agents]] tables"""
+
+    gateway_url: HttpUrl | None = Field(
+        default=None, validation_alias=AliasChoices("AIGW_UPSTREAM_URL", "gateway_url")
+    )
+    """OpenAI-compatible gateway that serves the glm and openai model families"""
+
+    gateway_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("AIGW_PASSTHROUGH_KEY", "gateway_key"),
+    )
+    """Key for the model gateway"""
 
     @classmethod
     @override
@@ -237,6 +273,7 @@ def reload_settings() -> Settings:
 
 
 __all__ = [
+    "AgentSettings",
     "AppSettings",
     "Instrumentation",
     "ObservabilitySettings",
