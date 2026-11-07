@@ -36,7 +36,7 @@ def check_ranked_jobs(
         if broken := broken_filters(found[job.job_id], profile.preferences):
             errors.append(
                 CheckError(
-                    rule="breaks_preferences",
+                    rule=CheckRule.BREAKS_PREFERENCES,
                     at=at,
                     message=f"{job.job_id!r} breaks the user's {', '.join(broken)} preference; drop it",
                 )
