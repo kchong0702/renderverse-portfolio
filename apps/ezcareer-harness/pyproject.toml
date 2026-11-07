@@ -20,6 +20,7 @@ dependencies = [
     "structlog>=26.1.0",
     "uvicorn[standard]>=0.54.0",
     "deepagents>=0.7.32",
+    "pyyaml>=6.0.3",
 ]
 
 [tool.uv.sources]

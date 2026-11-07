@@ -1,0 +1,6 @@
+name: greeter
+model: anthropic:claude-sonnet-5-5
+tools: [look_up_name]
+checks: [polite]
+response_format: Greeting
+recursion_limit: 12

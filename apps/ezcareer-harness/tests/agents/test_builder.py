@@ -11,7 +11,7 @@ from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
 from pydantic import BaseModel
 
-from src.agents import AgentConfig, build_agent
+from src.agents import AgentConfig, Stage, build_agent
 from src.infrastructure.observability import tracing
 from src.infrastructure.observability.instrumentation import instrument
 from tests.conftest import ScriptedChatModel
@@ -29,16 +29,15 @@ def look_up_name(person: str) -> str:
     return "Ada"
 
 
+STAGE = Stage(
+    tools={"look_up_name": look_up_name},
+    response_formats={"Greeting": Greeting},
+    checks={"polite": lambda greeting: [] if "Hello" in greeting.text else ["rude"]},
+)
+
+
 def _config(**changes) -> AgentConfig:
-    return AgentConfig(
-        name="greeter",
-        model="anthropic:claude-sonnet-5-5",
-        system_prompt=FIXTURES / "system.md",
-        skills=FIXTURES / "skills",
-        tools=(look_up_name,),
-        response_format=Greeting,
-        recursion_limit=12,
-    ).model_copy(update=changes)
+    return AgentConfig.load(FIXTURES, STAGE).model_copy(update=changes)
 
 
 def _call(name: str, **args) -> AIMessage:
@@ -172,24 +171,44 @@ def test_recursion_limit_stops_an_agent_that_never_answers():
     assert len(model.requests) < 6
 
 
-def test_config_hash_changes_with_the_prompt_only(tmp_path: Path):
+def test_config_hash_is_the_hash_of_the_harness_folder(tmp_path: Path):
     shutil.copytree(FIXTURES, tmp_path, dirs_exist_ok=True)
-    config = _config(system_prompt=tmp_path / "system.md", skills=tmp_path / "skills")
-    before = config.hash
+    before = AgentConfig.load(tmp_path, STAGE).hash
 
     assert _config().hash == before
-    (tmp_path / "system.md").write_text("You greet people warmly.")
-    assert config.hash != before
+    for changed in (
+        "system.md",
+        "harness.yaml",
+        "tools/look_up_name.md",
+        "skills/greet/SKILL.md",
+    ):
+        (tmp_path / changed).write_text((tmp_path / changed).read_text() + "\n")
+        assert AgentConfig.load(tmp_path, STAGE).hash != before
 
 
-def test_config_hash_changes_with_a_skill(tmp_path: Path):
+def test_tool_guidance_files_describe_the_tools():
+    [tool] = _config().tools
+
+    assert tool.description == "Looks up a person's first name from their family name."
+    assert look_up_name.description == "Looks up a person's first name"
+
+
+def test_harness_yaml_picks_checks_and_the_answer_model_by_name():
+    config = _config()
+
+    assert config.response_format is Greeting
+    assert [check(Greeting(text="Hi")) for check in config.checks] == [["rude"]]
+
+
+def test_a_name_the_stage_doesnt_offer_is_refused(tmp_path: Path):
     shutil.copytree(FIXTURES, tmp_path, dirs_exist_ok=True)
-    config = _config(skills=tmp_path / "skills")
-    before = config.hash
+    yaml_file = tmp_path / "harness.yaml"
+    yaml_file.write_text(
+        yaml_file.read_text().replace("[look_up_name]", "[send_email]")
+    )
 
-    (tmp_path / "skills/greet/SKILL.md").write_text("Wave.")
-
-    assert config.hash != before
+    with pytest.raises(ValueError, match="unknown tools \\['send_email'\\]"):
+        AgentConfig.load(tmp_path, STAGE)
 
 
 def test_trace_records_the_config_hash_and_the_tool_calls(
