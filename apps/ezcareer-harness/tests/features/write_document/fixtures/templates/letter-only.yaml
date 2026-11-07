@@ -1,0 +1,7 @@
+id: letter-only
+name: Letter only
+description: A plain letter.
+kinds: [cover_letter]
+body_font: lato
+heading_font: lato
+accent: "#222222"
