@@ -1,4 +1,4 @@
 from src.agents.builder import build_agent
-from src.agents.config import AgentConfig
+from src.agents.registry import Agent, load_agents
 
-__all__ = ["AgentConfig", "build_agent"]
+__all__ = ["Agent", "build_agent", "load_agents"]

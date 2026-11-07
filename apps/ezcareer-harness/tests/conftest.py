@@ -64,7 +64,8 @@ class ScriptedChatModel(BaseChatModel):
     replies: list[AIMessage]
     requests: list[list[BaseMessage]] = Field(default_factory=list)
     offered_tools: list[set[str]] = Field(default_factory=list)
-    model_name: str = "claude-scripted"
+    model_name: str = "glm-5.3"
+    provider: str = "openai"
 
     @property
     @override
@@ -73,7 +74,7 @@ class ScriptedChatModel(BaseChatModel):
 
     @override
     def _get_ls_params(self, stop: list[str] | None = None, **kwargs: Any) -> Any:
-        return {"ls_provider": "anthropic", "ls_model_name": self.model_name}
+        return {"ls_provider": self.provider, "ls_model_name": self.model_name}
 
     @override
     def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> Any:
