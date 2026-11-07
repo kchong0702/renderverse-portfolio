@@ -22,7 +22,7 @@ export type ContactKind =
 export type Align = "left" | "center" | "justify";
 
 export interface ResumeDocument {
-  format?: "document/v2";
+  format?: "document/v1";
   language?: string;
   design?: Design;
   assets?: {
@@ -269,7 +269,7 @@ export interface CustomEntry {
   location?: Value | null;
 }
 export interface LetterDocument {
-  format?: "document/v2";
+  format?: "document/v1";
   language?: string;
   design?: Design;
   assets?: {

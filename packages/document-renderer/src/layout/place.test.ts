@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { place } from "./place";
 import { templates } from "../templates";
-import { resume } from "../test/fixtures";
+import { resume } from "../../tests/fixtures";
 
 const regionsOf = (...args: Parameters<typeof place>) =>
   Object.fromEntries(

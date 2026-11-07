@@ -1,4 +1,4 @@
-import type { AnyDocument } from "../generated/document";
+import type { AnyDocument } from "../src/generated/document";
 
 const value = (text: string) => ({ text, src: ["p1.s1"] });
 const rich = (html: string) => ({ html, src: ["p1.s2"] });
