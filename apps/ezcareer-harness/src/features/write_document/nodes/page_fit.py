@@ -47,7 +47,7 @@ async def page_fit(state: EditGraphState, render: Render, trims: int) -> dict:
     """Removes bullets in code until the edited document prints on no more
     pages than before, and adds those deletes to the changeset"""
     assets = state.get("assets", {})
-    pages = (state["report"] or await render(state["document"], assets)).pages
+    pages = (state.get("report") or await render(state["document"], assets)).pages
     changeset: Changeset = state["structured_response"]
     edits = list(changeset.edits)
     for _ in range(trims):

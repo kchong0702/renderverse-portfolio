@@ -202,3 +202,22 @@ async def test_a_flow_without_checks_lets_the_changeset_through():
 def test_a_flow_file_naming_an_unknown_check_is_refused():
     with pytest.raises(ValueError, match="unknown checks"):
         EditFlow.model_validate({**FLOW.model_dump(), "checks": ["spelling"]})
+
+
+async def test_a_document_never_printed_is_printed_once_for_its_page_count():
+    printed: list[AnyDocument] = []
+
+    async def render(document: AnyDocument, assets: dict[FileHash, bytes]) -> Report:
+        printed.append(document)
+        return await _render(document, assets)
+
+    model = ScriptedChatModel(replies=[_call("Changeset", **_changeset(GOOD_EDIT))])
+    graph = build_graph(AGENT, FLOW, render, model=model)
+    state = _state()
+    del state["messages"], state["report"]
+
+    result = await graph.ainvoke(EditInput(**state, request="Tighten it"))
+
+    assert result["changeset"].edits == _edits(GOOD_EDIT)
+    assert printed[0] == state["document"]
+    assert len(printed) == 2
