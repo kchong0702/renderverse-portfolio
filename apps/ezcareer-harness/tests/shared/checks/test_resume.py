@@ -89,7 +89,8 @@ def test_reworded_or_uncited_text_fails_verbatim():
     )
 
     assert [(e.rule, e.at) for e in errors] == [
-        (Check.VERBATIM, "content/blocks/experience/items/wholeness/bullets/team/text")
+        (Check.VERBATIM, "content/blocks/experience/items/wholeness/bullets/team/text"),
+        (Check.COVERAGE, "content"),
     ]
     assert "'Managed five nurses' is not the text of p1.s3" in errors[0].message
 
@@ -105,14 +106,57 @@ def test_citing_something_that_is_not_a_line_fails_verbatim():
 def test_a_line_neither_cited_nor_skipped_fails_coverage():
     errors = validate_resume(reply(skipped=("p7.s7",)), LINES)
 
-    assert [(e.rule, e.at, e.message) for e in errors] == [
-        (Check.COVERAGE, "skipped", "p7.s7 are not lines"),
-        (
-            Check.COVERAGE,
-            "content",
-            "these lines are neither cited nor skipped: p1.s5 '1'",
-        ),
+    assert [(e.rule, e.at) for e in errors] == [
+        (Check.COVERAGE, "skipped"),
+        (Check.COVERAGE, "content"),
     ]
+    assert errors[0].message == "p7.s7 are not lines"
+    assert "p1.s5 '1' (not cited)" in errors[1].message
+
+
+def test_a_value_that_drops_words_of_its_lines_fails_coverage():
+    errors = validate_resume(
+        reply(bullet={"html": "Led a team", "src": ["p1.s3", "p1.s4"]}), LINES
+    )
+
+    [error] = errors
+    assert error.rule == Check.COVERAGE
+    assert error.message.endswith("p1.s3 '• Led a team of five' (unused: offive)")
+
+
+def test_a_value_without_text_fails_verbatim():
+    errors = validate_resume(
+        reply(bullet={"html": "•", "src": ["p1.s3"]}), LINES, [Check.VERBATIM]
+    )
+
+    assert [e.message for e in errors] == ["has no text"]
+
+
+def test_skipping_a_line_with_content_fails_coverage():
+    errors = validate_resume(reply(skipped=("p1.s5", "p1.s3")), LINES, [Check.COVERAGE])
+
+    assert [e.at for e in errors] == ["skipped"]
+    assert "p1.s3 '• Led a team of five'" in errors[0].message
+
+
+def test_dashes_quotes_and_hyphenated_breaks_still_match():
+    lines = make_lines("Ada O’Brien", "2019 – 2024 project manage-", "ment lead")
+    draft = {
+        "content": {
+            "blocks": [
+                {
+                    "kind": "profile",
+                    "id": "profile",
+                    "name": value("Ada O'Brien", "p1.s1"),
+                    "headline": value(
+                        "2019 - 2024 project management lead", "p1.s2", "p1.s3"
+                    ),
+                }
+            ]
+        }
+    }
+
+    assert validate_resume(draft, lines) == []
 
 
 def test_blocks_out_of_line_order_fail_order():

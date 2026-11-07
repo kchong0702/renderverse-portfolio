@@ -1,0 +1,3 @@
+model: claude-sonnet-5-5
+rounds: 4
+checks: [schema, verbatim, coverage, order]

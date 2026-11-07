@@ -1,3 +1,4 @@
+import httpx
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel
 from langgraph.errors import GraphRecursionError
@@ -17,14 +18,14 @@ async def run_import(
     artifacts: ArtifactService,
     model: BaseChatModel | None = None,
 ) -> ImportResult:
-    """Imports an uploaded résumé, failing when it can't be read or never passes
-    the checks; model defaults to the config's"""
+    """Imports an uploaded résumé; fails when it can't be read, never passes the
+    checks or can't be printed. model defaults to the config's"""
     try:
         state = await build_graph().ainvoke(
             {"file": file},
             config={
                 "recursion_limit": config.recursion_limit,
-                "metadata": {"import_config": config.version},
+                "metadata": {"import_config_hash": config.hash},
             },
             context=ImportContext(
                 config=config,
@@ -32,13 +33,19 @@ async def run_import(
                 artifacts=artifacts,
             ),
         )
-    except (UnreadableFile, GraphRecursionError) as error:
+    except UnreadableFile as error:
+        raise ImportFailed(str(error)) from error
+    except GraphRecursionError as error:
         raise ImportFailed("couldn't read this file") from error
+    except httpx.HTTPError as error:
+        raise ImportFailed("couldn't print the draft; try again") from error
+    if "document" not in state:
+        raise ImportFailed("couldn't read this file")
     return ImportResult(
         document=state["document"],
         pdf=state["pdf"],
         report=state["report"],
         lines=state["lines"],
         rounds=state["rounds"],
-        config_version=config.version,
+        config_hash=config.hash,
     )

@@ -30,11 +30,8 @@ class ImportState(TypedDict, total=False):
     lines: list[Line]
     """The file's text lines, returned so ops can keep them with the upload"""
 
-    reply: dict[str, Any]
-    """The LLM's last ResumeImport, as it sent it"""
-
-    fix_summary: str
-    """What the last reply got wrong, written for the LLM"""
+    reply: dict[str, Any] | None
+    """The LLM's last ResumeImport, as it sent it; None when it called no tool"""
 
     rounds: Annotated[list[list[CheckError]], operator.add]
     """The verifier's errors for each reply, empty for the one that passed"""

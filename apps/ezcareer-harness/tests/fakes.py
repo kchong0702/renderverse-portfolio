@@ -28,11 +28,14 @@ class FakeModel(GenericFakeChatModel):
         return super()._generate(messages, *args, **kwargs)
 
 
-def replying(*replies: dict[str, Any]) -> FakeModel:
-    """A model that answers each call with the next ResumeImport"""
+def replying(*replies: dict[str, Any] | None) -> FakeModel:
+    """A model that answers each call with the next ResumeImport, or with plain
+    text for None"""
     return FakeModel(
         messages=iter(
-            AIMessage(
+            AIMessage("Here is the résumé.")
+            if reply is None
+            else AIMessage(
                 "", tool_calls=[{"name": "ResumeImport", "args": reply, "id": str(n)}]
             )
             for n, reply in enumerate(replies)

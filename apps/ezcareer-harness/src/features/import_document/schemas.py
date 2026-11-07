@@ -25,5 +25,5 @@ class ImportResult(BaseModel):
     rounds: list[list[CheckError]]
     """The verifier's errors for each reply, empty for the one that passed"""
 
-    config_version: str
-    """Version of the ImportConfig the run used"""
+    config_hash: str
+    """Hash of the ImportConfig the run used"""

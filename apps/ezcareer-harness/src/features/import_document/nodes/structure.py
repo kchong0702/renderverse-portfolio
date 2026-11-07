@@ -12,21 +12,30 @@ from src.shared.models.resume_import import ResumeImport
 async def structure(
     state: ImportState, runtime: Runtime[ImportContext]
 ) -> dict[str, Any]:
-    """Asks the LLM for the résumé's content, each value citing its lines"""
+    """Asks the LLM for the résumé's content, each value citing its lines, with the
+    last reply's errors when it failed"""
     prompt = PromptTemplate.from_template(
         runtime.context.config.prompt, template_format="mustache"
     )
-    data = {
-        "lines": [{"id": line.id, "text": line.text} for line in state["lines"]],
-        "previous_reply": state.get("reply"),
+    data: dict[str, Any] = {
+        "lines": [{"id": line.id, "text": line.text} for line in state["lines"]]
     }
-    reply = await runtime.context.model.with_structured_output(
-        ResumeImport, include_raw=True
-    ).ainvoke(
+    if rounds := state.get("rounds"):
+        data["previous_reply"] = state["reply"]
+        data["errors"] = [error.model_dump() for error in rounds[-1]]
+    reply = await runtime.context.model.bind_tools([ResumeImport]).ainvoke(
         [
-            SystemMessage(prompt.format(fix_summary=state.get("fix_summary", ""))),
+            SystemMessage(prompt.format()),
             HumanMessage(json.dumps(data, ensure_ascii=False)),
         ]
     )
-    calls = reply["raw"].tool_calls
-    return {"reply": calls[0]["args"] if calls else {}}
+    return {
+        "reply": next(
+            (
+                call["args"]
+                for call in reply.tool_calls
+                if call["name"] == "ResumeImport"
+            ),
+            None,
+        )
+    }

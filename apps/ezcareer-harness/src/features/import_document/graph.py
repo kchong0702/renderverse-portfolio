@@ -1,4 +1,4 @@
-from langgraph.graph import END, START, StateGraph
+from langgraph.graph import START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from src.features.import_document.nodes import extract, structure, verify
@@ -14,9 +14,4 @@ def build_graph() -> CompiledStateGraph:
     graph.add_edge(START, "extract")
     graph.add_edge("extract", "structure")
     graph.add_edge("structure", "verify")
-    graph.add_conditional_edges(
-        "verify",
-        lambda state: "structure" if state["rounds"][-1] else END,
-        ["structure", END],
-    )
     return graph.compile()
