@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.app.routes import router
 from src.core.config import get_settings
+from src.features.render_document.browser import Browser
 from src.infrastructure import (
     configure_logging,
     configure_metrics,
@@ -24,8 +25,10 @@ def health_check():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI lifecycle manager"""
+    app.state.browser = Browser(_settings.renderer.max_concurrent_renders)
     yield
 
+    await app.state.browser.close()
     shutdown_metrics()
     shutdown_tracing()
 

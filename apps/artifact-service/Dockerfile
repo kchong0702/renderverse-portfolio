@@ -1,3 +1,16 @@
+FROM node:24-bookworm-slim AS document-renderer-build
+
+RUN corepack enable
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+COPY packages/document-renderer ./packages/document-renderer
+
+RUN pnpm install --frozen-lockfile --ignore-scripts --filter @renderverse/document-renderer \
+    && pnpm --filter @renderverse/document-renderer build
+
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS artifact-service-build
 
 ENV UV_COMPILE_BYTECODE=1 \
@@ -21,6 +34,7 @@ FROM python:3.13-slim-bookworm AS artifact-service
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH" \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     ARTIFACT_SERVICE_APP__HOST=0.0.0.0 \
     ARTIFACT_SERVICE_APP__PORT=8000
 
@@ -29,6 +43,10 @@ COPY --from=artifact-service-build /app/.venv /app/.venv
 COPY --from=artifact-service-build /app/packages/document-schema /app/packages/document-schema
 
 COPY --from=artifact-service-build /app/apps/artifact-service /app/apps/artifact-service
+
+COPY --from=document-renderer-build /app/packages/document-renderer/dist/print /app/packages/document-renderer/dist/print
+
+RUN playwright install --with-deps chromium
 
 RUN useradd --create-home --uid 10001 artifact
 
