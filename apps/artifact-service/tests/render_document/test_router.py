@@ -65,7 +65,7 @@ def body() -> dict[str, Any]:
                 "side": {"area": {"column": 1, "span": 4}, "fill": "accent"},
                 "main": {"area": {"column": 5, "span": 8}},
             },
-            "home": {"default": "main", "photo": "side", "profile": "side"},
+            "layout": {"default": "main", "photo": "side", "profile": "side"},
         },
         "assets": {PHOTO: base64.b64encode(PNG).decode()},
     }
@@ -77,7 +77,7 @@ def test_render_returns_the_pdf_and_its_report(
     response = client.post(URL, json=body)
 
     assert response.status_code == 200, response.text
-    pdf = base64.b64decode(response.json()["pdf"])
+    pdf = base64.b64decode(response.json()["artifact"])
     report = response.json()["report"]
     assert pdf.startswith(b"%PDF")
     assert report["render_id"] == hashlib.sha256(pdf).hexdigest()
@@ -101,7 +101,7 @@ def test_a_long_document_runs_onto_more_pages(
 def test_a_side_column_past_the_first_page_is_reported(
     client: TestClient, body: dict[str, Any]
 ) -> None:
-    body["template"]["home"]["experience"] = "side"
+    body["template"]["layout"]["experience"] = "side"
     body["document"]["content"]["blocks"][2]["items"] = [job(i) for i in range(12)]
 
     warnings = client.post(URL, json=body).json()["report"]["warnings"]

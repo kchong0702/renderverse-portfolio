@@ -137,6 +137,9 @@ class RendererSettings(BaseModel):
     dist: Path = _ROOT_PATH.parents[1] / "packages/document-renderer/dist/print"
     """The print page that document-renderer builds"""
 
+    origin: str = "http://renderer/"
+    """Made-up origin Chromium loads the print page and assets from, never the network"""
+
     max_concurrent_renders: int = Field(default=4, gt=0)
     """Renders that may run in Chromium at once, the rest wait their turn"""
 

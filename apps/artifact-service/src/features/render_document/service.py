@@ -9,18 +9,17 @@ from src.core.config import get_settings
 from src.features.render_document.browser import Browser
 from src.features.render_document.schemas import RenderRequest, RenderResponse
 
-_ORIGIN = "http://renderer/"
-
 _settings = get_settings()
 
 
 async def render_document(request: RenderRequest, browser: Browser) -> RenderResponse:
     """Prints the document as a PDF and measures its pages"""
     dist = _settings.renderer.dist.resolve()
+    origin = _settings.renderer.origin
 
     async def serve(route: Route) -> None:
         """Answers with an asset's bytes or a renderer file, and fails the rest"""
-        path = route.request.url.removeprefix(_ORIGIN).split("?")[0]
+        path = route.request.url.removeprefix(origin).split("?")[0]
         file = (dist / path).resolve()
         asset = path.removeprefix("assets/")
         if asset in request.assets:
@@ -36,8 +35,8 @@ async def render_document(request: RenderRequest, browser: Browser) -> RenderRes
     async def work(page: Page) -> tuple[Any, bytes]:
         """Loads the renderer on page, lays the document out and prints it"""
         async with asyncio.timeout(_settings.renderer.timeout_s):
-            await page.route(f"{_ORIGIN}**", serve)
-            await page.goto(f"{_ORIGIN}index.html")
+            await page.route(f"{origin}**", serve)
+            await page.goto(f"{origin}index.html")
             measurement = await page.evaluate(
                 "input => window.render(input)",
                 {
@@ -52,4 +51,4 @@ async def render_document(request: RenderRequest, browser: Browser) -> RenderRes
     report = Report.model_validate(
         {**measurement, "render_id": sha256(pdf).hexdigest()}
     )
-    return RenderResponse(pdf=pdf, report=report)
+    return RenderResponse(artifact=pdf, report=report)

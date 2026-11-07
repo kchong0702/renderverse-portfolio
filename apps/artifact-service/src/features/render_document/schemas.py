@@ -44,10 +44,12 @@ class RenderResponse(BaseModel):
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    pdf: Annotated[
+    artifact: Annotated[
         bytes,
         PlainSerializer(
-            lambda pdf: b64encode(pdf).decode(), return_type=str, when_used="json"
+            lambda artifact: b64encode(artifact).decode(),
+            return_type=str,
+            when_used="json",
         ),
     ]
     """The printed PDF, base64 in JSON"""

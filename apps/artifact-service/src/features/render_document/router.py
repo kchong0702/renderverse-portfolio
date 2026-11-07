@@ -1,29 +1,18 @@
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
-from src.core.config import get_settings
 from src.features.render_document.browser import Browser
 from src.features.render_document.schemas import RenderRequest, RenderResponse
 from src.features.render_document.service import render_document
 
 
-@asynccontextmanager
-async def _lifespan(_: FastAPI) -> AsyncIterator[dict[str, Browser]]:
-    """Keeps one Chromium for the app's lifetime"""
-    browser = Browser(get_settings().renderer.max_concurrent_renders)
-    yield {"browser": browser}
-    await browser.close()
-
-
 def _browser(request: Request) -> Browser:
     """The app's Chromium"""
-    return request.state.browser
+    return request.app.state.browser
 
 
-router = APIRouter(tags=["render"], lifespan=_lifespan)
+router = APIRouter(tags=["render"])
 
 
 @router.post("/render")
