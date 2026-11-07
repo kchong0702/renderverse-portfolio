@@ -50,4 +50,14 @@ def check_citations(
                     message=f"{requirement.match} needs the facts that show it",
                 )
             )
+    for name, term in output.terms:
+        unknown_lines = [i for i in term.line_ids if i not in texts] if term else []
+        if unknown_lines:
+            errors.append(
+                CheckError(
+                    rule=CheckRule.UNKNOWN_LINE,
+                    at=f"terms.{name}",
+                    message=f"lines {unknown_lines} are not in the posting",
+                )
+            )
     return errors
