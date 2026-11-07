@@ -31,8 +31,8 @@ model = "glm-5.3"
 
 [[graph_profiles]]
 name = "analyse-job"
-path = "src/features/analyse_job/harness/profile.yaml"
+path = "src/features/analyse_job/harness/configurations.yaml"
 
 [[graph_profiles]]
 name = "find-jobs"
-path = "src/features/find_jobs/harness/profile.yaml"
+path = "src/features/find_jobs/harness/configurations.yaml"

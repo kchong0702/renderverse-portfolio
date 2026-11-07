@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.agents import build_agent, load_agents
 from src.core.config import get_settings
-from src.features.find_jobs.graph_profile import CHECKS, FindJobsProfile
+from src.features.find_jobs.configurations import CHECKS, FindJobsConfigurations
 from src.features.find_jobs.ranking import matched_jobs
 from src.features.find_jobs.schemas import JobPosting, MatchedJob, RankedJobs
 from src.features.find_jobs.tools import JobSearchState, search_jobs
@@ -64,11 +64,11 @@ def _output(state: FindJobsState) -> dict:
 def build_graph(
     model: BaseChatModel | None = None, checkpointer: Checkpointer = None
 ) -> CompiledStateGraph:
-    """The find-jobs graph with the agent and graph profile the settings name;
+    """The find-jobs graph with the agent and configurations the settings name;
     model replaces the agent's LLM; checkpointer keeps its runs"""
     settings = get_settings()
-    graph_profile = settings.graph_profile("find-jobs").load(FindJobsProfile)
-    checks = [CHECKS[name] for name in graph_profile.checks]
+    configurations = settings.graph_profile("find-jobs").load(FindJobsConfigurations)
+    checks = [CHECKS[name] for name in configurations.checks]
     agent = build_agent(
         load_agents(settings.agents)["job-finder"],
         response_format=RankedJobs,
@@ -88,7 +88,7 @@ def build_graph(
                 "facts": state.profile.facts,
                 "preferences": state.profile.preferences,
             },
-            {"recursion_limit": graph_profile.agent_recursion_limit},
+            {"recursion_limit": configurations.agent_recursion_limit},
         )
         return {
             "messages": result["messages"],
@@ -118,5 +118,5 @@ def build_graph(
     )
     graph.add_edge("output", END)
     return graph.compile(checkpointer=checkpointer).with_config(
-        recursion_limit=graph_profile.recursion_limit, metadata={"flow": "find-jobs"}
+        recursion_limit=configurations.recursion_limit, metadata={"flow": "find-jobs"}
     )

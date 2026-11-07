@@ -13,8 +13,8 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from src.agents import build_agent, load_agents
 from src.core.config import get_settings
 from src.core.errors import ExecuteError
+from src.features.analyse_job.configurations import CHECKS, AnalyseJobConfigurations
 from src.features.analyse_job.filters import hard_filters
-from src.features.analyse_job.graph_profile import CHECKS, AnalyseJobProfile
 from src.features.analyse_job.nodes import fetch_posting
 from src.features.analyse_job.schemas import (
     JobAnalysis,
@@ -95,11 +95,13 @@ def _output(state: AnalyseJobState) -> dict:
 def build_graph(
     model: BaseChatModel | None = None, checkpointer: Checkpointer = None
 ) -> CompiledStateGraph:
-    """The analyse-job graph with the agent and graph profile the settings name;
+    """The analyse-job graph with the agent and configurations the settings name;
     model replaces the agent's LLM; checkpointer keeps its runs"""
     settings = get_settings()
-    graph_profile = settings.graph_profile("analyse-job").load(AnalyseJobProfile)
-    checks = [CHECKS[name] for name in graph_profile.checks]
+    configurations = settings.graph_profile("analyse-job").load(
+        AnalyseJobConfigurations
+    )
+    checks = [CHECKS[name] for name in configurations.checks]
     agent = build_agent(
         load_agents(settings.agents)["job-finder"],
         response_format=JobRequirements,
@@ -111,7 +113,7 @@ def build_graph(
     async def run_agent(state: AnalyseJobState) -> dict:
         result = await agent.ainvoke(
             {"messages": state.messages, "facts": state.profile.facts},
-            {"recursion_limit": graph_profile.agent_recursion_limit},
+            {"recursion_limit": configurations.agent_recursion_limit},
         )
         return {
             "messages": result["messages"],
@@ -142,5 +144,5 @@ def build_graph(
     )
     graph.add_edge("output", END)
     return graph.compile(checkpointer=checkpointer).with_config(
-        recursion_limit=graph_profile.recursion_limit, metadata={"flow": "analyse-job"}
+        recursion_limit=configurations.recursion_limit, metadata={"flow": "analyse-job"}
     )

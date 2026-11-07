@@ -158,12 +158,12 @@ async def test_trace_records_the_agent_hash_check_rounds_and_tool_calls(
     assert "read_profile_facts" in {s.name for s in exporter.spans}
 
 
-async def test_a_candidate_graph_profile_without_the_check_takes_the_first_answer(
+async def test_candidate_configurations_without_the_check_take_the_first_answer(
     posting, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     settings = get_settings()
-    profile = tmp_path / "profile.yaml"
-    profile.write_text(
+    configurations = tmp_path / "configurations.yaml"
+    configurations.write_text(
         settings.graph_profile("analyse-job")
         .path.read_text()
         .replace("[citations]", "[]")
@@ -173,7 +173,7 @@ async def test_a_candidate_graph_profile_without_the_check_takes_the_first_answe
     config.write_text(
         f'[[agents]]\nname = "job-finder"\npath = "{agent.path}"\n'
         f'model = "{agent.model}"\n\n'
-        f'[[graph_profiles]]\nname = "analyse-job"\npath = "{profile}"\n'
+        f'[[graph_profiles]]\nname = "analyse-job"\npath = "{configurations}"\n'
     )
     monkeypatch.setenv("EZCAREER_HARNESS_CONFIG", str(config))
     reload_settings()

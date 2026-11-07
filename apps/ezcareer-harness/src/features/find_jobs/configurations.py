@@ -2,18 +2,18 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.features.analyse_job.checks import check_citations
+from src.features.find_jobs.checks import check_ranked_jobs
 
-CHECKS = {"citations": check_citations}
-"""Every check the analyse profile.yaml may turn on, by name"""
+CHECKS = {"ranked_jobs": check_ranked_jobs}
+"""Every check the find-jobs configurations.yaml may turn on, by name"""
 
 
-class AnalyseJobProfile(BaseModel):
+class FindJobsConfigurations(BaseModel):
     model_config = ConfigDict(
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    checks: list[Literal["citations"]]
+    checks: list[Literal["ranked_jobs"]]
     """Checks run on each answer; errors go back to the agent"""
 
     recursion_limit: int = Field(gt=0)
