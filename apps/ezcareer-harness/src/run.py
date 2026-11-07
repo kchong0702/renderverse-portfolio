@@ -28,9 +28,7 @@ def _trace(spans: Sequence[ReadableSpan]) -> dict:
                 for span in spans
                 if "metadata" in span.attributes
                 and (
-                    hash_ := json.loads(span.attributes["metadata"]).get(
-                        "agent_config_hash"
-                    )
+                    hash_ := json.loads(span.attributes["metadata"]).get("harness_hash")
                 )
             }
         ),

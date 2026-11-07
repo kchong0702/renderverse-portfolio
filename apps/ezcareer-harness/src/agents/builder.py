@@ -43,5 +43,5 @@ def build_agent(config: AgentConfig, model: BaseChatModel | None = None) -> Preg
     )
     return agent.with_config(
         recursion_limit=config.recursion_limit,
-        metadata={"agent": config.name, "agent_config_hash": config.hash},
+        metadata={"agent": config.name, "harness_hash": config.hash},
     )

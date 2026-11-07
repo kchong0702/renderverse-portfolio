@@ -233,7 +233,7 @@ def test_trace_records_the_config_hash_and_the_tool_calls(
 
     [exporter] = span_exporters
     hashes = {
-        json.loads(span.attributes["metadata"]).get("agent_config_hash")
+        json.loads(span.attributes["metadata"]).get("harness_hash")
         for span in exporter.spans
         if "metadata" in span.attributes
     }
