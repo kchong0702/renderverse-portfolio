@@ -1,0 +1,50 @@
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from pydantic import BaseModel
+
+from src.agents import Agent, build_agent
+from src.shared.models import ProfileFact
+from src.shared.tools import ProfileState, read_profile_facts
+from tests.agents.test_builder import GREETER
+from tests.conftest import ScriptedChatModel
+
+
+class Done(BaseModel):
+    ok: bool
+
+
+def _call(name: str, **args) -> AIMessage:
+    return AIMessage(
+        content="", tool_calls=[{"name": name, "args": args, "id": f"call-{name}"}]
+    )
+
+
+def test_agent_reads_the_facts_passed_with_the_run():
+    model = ScriptedChatModel(
+        replies=[_call("read_profile_facts"), _call("Done", ok=True)]
+    )
+    agent = build_agent(
+        Agent.load(GREETER),
+        response_format=Done,
+        tools=(read_profile_facts,),
+        state_schema=ProfileState,
+        model=model,
+    )
+
+    result = agent.invoke(
+        {
+            "messages": [HumanMessage("What do I know?")],
+            "facts": [
+                ProfileFact(id="acme", text="Backend engineer at Acme"),
+                ProfileFact(id="pg", text="Tuned PostgreSQL queries"),
+            ],
+        }
+    )
+
+    [listing] = [
+        m
+        for m in result["messages"]
+        if isinstance(m, ToolMessage) and m.name == "read_profile_facts"
+    ]
+    assert listing.text == (
+        "fact:acme  Backend engineer at Acme\nfact:pg  Tuned PostgreSQL queries"
+    )
