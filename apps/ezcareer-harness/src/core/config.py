@@ -287,8 +287,7 @@ class Settings(BaseSettings):
     """Job search API settings"""
 
     job_sources: tuple[str, ...] = ("jsearch",)
-    """Job sources search_jobs searches, by adapter name, from config.toml's
-    job_sources"""
+    """Names of the enabled job sources"""
 
     @classmethod
     @override

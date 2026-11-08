@@ -18,7 +18,7 @@ class Container(containers.DeclarativeContainer):
     job_sources = providers.Singleton(
         Factory[find_jobs.SearchProtocol], {"jsearch": find_jobs.JSearchAdapter}
     )
-    """Creates each job source search_jobs uses, once, by its job_sources name"""
+    """Job sources by name, each created once"""
 
     executables = providers.List(
         providers.Singleton(

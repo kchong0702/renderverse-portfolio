@@ -4,4 +4,4 @@ from src.shared.profile import Preferences
 
 class JobFinderState(ProfileState):
     preferences: Preferences
-    """What the user wants from a job, which search_jobs filters by"""
+    """What the user wants from a job"""
