@@ -23,7 +23,7 @@ RunWorkflow = Callable[[object], Awaitable[object]]
 """Runs one workflow on one task, returning its output"""
 
 CONTAINER = Container()
-"""Builds each flow's graph the first time a probe runs it"""
+"""Builds each workflow's graph the first time a probe runs it"""
 
 
 async def _run_graph(graph: Callable[[], CompiledStateGraph], task: object) -> object:
