@@ -7,6 +7,7 @@ from a2a.server.routes import (
 from a2a.server.tasks import TaskStore
 from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
 from fastapi import FastAPI
+from langgraph.types import Checkpointer
 
 from src.app.a2a.executable import Executable, LanggraphExecutor
 from src.core.config import AppSettings
@@ -16,10 +17,11 @@ def add_executable_routes(
     app: FastAPI,
     executables: list[Executable],
     task_store: TaskStore,
+    checkpointer: Checkpointer,
     settings: AppSettings,
 ) -> None:
     """Serve each executable as its own A2A agent at <route_prefix>/a2a/<name>,
-    with its agent card under that path, keeping every task in task_store"""
+    keeping tasks in task_store and giving checkpointer to graphs without one"""
     for executable in executables:
         path = f"{settings.route_prefix}/a2a/{executable.name}"
         card = AgentCard(
@@ -45,6 +47,14 @@ def add_executable_routes(
                 )
             ],
         )
+        if executable.graph.checkpointer is None:
+            executable = executable.model_copy(
+                update={
+                    "graph": executable.graph.copy(
+                        update={"checkpointer": checkpointer}
+                    )
+                }
+            )
         handler = DefaultRequestHandler(LanggraphExecutor(executable), task_store, card)
         add_a2a_routes_to_fastapi(
             app,

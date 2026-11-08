@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from langchain.agents import create_agent
 from langchain_core.messages import AIMessage
+from langchain_core.tools import tool
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
@@ -63,6 +64,7 @@ def client() -> TestClient:
         app,
         [_executable()],
         InMemoryTaskStore(),
+        InMemorySaver(),
         AppSettings(public_url="https://box.example.ts.net"),
     )
     return TestClient(app)
@@ -196,12 +198,16 @@ def _agent_client(agent) -> TestClient:
             )
         ],
         InMemoryTaskStore(),
+        InMemorySaver(),
         AppSettings(),
     )
     return TestClient(app)
 
 
-def _say(client: TestClient, text: str) -> dict:
+def _say(client: TestClient, text: str, task: dict | None = None) -> dict:
+    message = {"messageId": f"m-{text}", "role": "ROLE_USER", "parts": [{"text": text}]}
+    if task:
+        message |= {"taskId": task["id"], "contextId": task["contextId"]}
     response = client.post(
         "/ezcareer/a2a/greeter",
         headers={"A2A-Version": "1.0"},
@@ -209,13 +215,7 @@ def _say(client: TestClient, text: str) -> dict:
             "jsonrpc": "2.0",
             "id": 1,
             "method": "SendMessage",
-            "params": {
-                "message": {
-                    "messageId": "m1",
-                    "role": "ROLE_USER",
-                    "parts": [{"text": text}],
-                }
-            },
+            "params": {"message": message},
         },
     )
     return response.json()["result"]["task"]
@@ -244,3 +244,39 @@ def test_an_agent_that_answers_with_a_structure_replies_in_data():
     task = _say(_agent_client(create_agent(model, response_format=Title)), "Title?")
 
     assert task["artifacts"][0]["parts"][0]["data"] == {"title": "Dr"}
+
+
+@tool
+def ask_user(question: str) -> str:
+    """Asks the user a question and returns their answer"""
+    return interrupt(question)
+
+
+def test_a_served_agent_asks_the_user_and_resumes_on_the_same_task():
+    model = ScriptedChatModel(
+        replies=[
+            AIMessage(
+                "",
+                tool_calls=[
+                    {
+                        "name": "ask_user",
+                        "args": {"question": "Which title?"},
+                        "id": "c1",
+                    }
+                ],
+            ),
+            AIMessage("Hello, Dr Ada!"),
+        ]
+    )
+    client = _agent_client(create_agent(model, tools=[ask_user]))
+
+    asked = _say(client, "Greet me")
+
+    assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
+    assert asked["status"]["message"]["parts"][0]["data"] == "Which title?"
+
+    resumed = _say(client, "Dr", task=asked)
+
+    assert resumed["status"]["state"] == "TASK_STATE_COMPLETED"
+    assert resumed["artifacts"][0]["parts"][0]["text"] == "Hello, Dr Ada!"
+    assert model.requests[-1][-1].text == "Dr"

@@ -62,7 +62,11 @@ def create_app(container: Container | None = None) -> FastAPI:
         methods=["GET"],
     )
     add_executable_routes(
-        app, container.executables(), container.task_store(), _settings.app
+        app,
+        container.executables(),
+        container.task_store(),
+        container.checkpointer(),
+        _settings.app,
     )
 
     return app
