@@ -58,7 +58,9 @@ class Container(containers.DeclarativeContainer):
             kind="agent",
             name="job-finder",
             description="Talk to job-finder about how jobs fit the user's profile",
-            graph=job_finder,
+            graph=job_finder.provided.copy.call(
+                update=providers.Dict(checkpointer=checkpointer)
+            ),
         ),
         providers.Singleton(
             Executable,

@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 from src.app.app import create_app
 from src.app.container import Container
+from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.analyse_job import test_analyse_job_graph as analyse_job
 
@@ -89,24 +90,40 @@ def test_find_jobs_gets_its_sources_from_the_containers_one_factory():
     assert factory.create("jsearch") is factory.create("jsearch")
 
 
-def test_job_finder_is_served_as_an_agent_beside_its_workflows():
-    client = TestClient(create_app())
+def test_job_finder_is_served_as_an_agent_with_the_containers_checkpointer():
+    container = Container()
+    container.job_finder(model=ScriptedChatModel(replies=[]))
 
-    card = client.get("/ezcareer/a2a/job-finder/.well-known/agent-card.json")
+    card = TestClient(create_app(container)).get(
+        "/ezcareer/a2a/job-finder/.well-known/agent-card.json"
+    )
+    [served] = [e.graph for e in container.executables() if e.kind == "agent"]
 
     assert card.json()["name"] == "job-finder"
-    assert [e.kind for e in Container().executables()] == [
-        "agent",
-        "workflow",
-        "workflow",
-    ]
+    assert served.checkpointer is container.checkpointer()
+    assert container.job_finder().checkpointer is None
 
 
-def test_both_workflows_run_on_the_containers_one_job_finder():
+@respx.mock
+async def test_both_workflows_run_on_the_containers_one_job_finder():
+    respx.get(analyse_job.URL).respond(200, html=analyse_job.POSTING)
+    model = ScriptedChatModel(
+        replies=[
+            analyse_job._answer("5+ years of Python in production"),
+            _call("RankedJobs", jobs=[]),
+        ]
+    )
     container = Container()
+    container.job_finder(model=model)
 
-    analyse, find = container.analyse_job_graph(), container.find_jobs_graph()
+    analysed = await container.analyse_job_graph().ainvoke(
+        analyse_job.INPUT, {"configurable": {"thread_id": "analyse"}}
+    )
+    found = await container.find_jobs_graph().ainvoke(
+        {"profile": {"facts": []}}, {"configurable": {"thread_id": "find"}}
+    )
 
-    assert container.job_finder() is container.job_finder()
-    assert analyse is container.analyse_job_graph()
-    assert find is container.find_jobs_graph()
+    assert analysed["analysis"].fit == 67
+    assert found["jobs"] == []
+    assert "<posting untrusted>" in model.requests[0][1].text
+    assert "Find jobs for me" in model.requests[1][1].text
