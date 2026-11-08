@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from document_schema import AnyDocument, AnyEdit, Changeset, RichValue, UpdateField
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import BaseTool
@@ -11,15 +12,12 @@ from pydantic import TypeAdapter
 
 from src.agents import AgentOverride, build_agent, load_agents
 from src.agents.career_consultant import CareerConsultantState
-from src.agents.career_consultant.tools import (
-    ask_user,
-    list_design_options,
-    read_pdf_lines,
-)
+from src.agents.career_consultant.tools import list_design_options, read_pdf_lines
 from src.core.config import get_settings
 from src.shared.extraction.types import Line
 from src.shared.profile import ProfileFact
-from src.tools import read_profile_facts
+from src.shared.widget import Answer, WidgetSetting
+from src.tools import clarify, permission, read_profile_facts
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 
@@ -29,7 +27,8 @@ TOOLS: tuple[BaseTool, ...] = (
     read_pdf_lines,
     read_profile_facts,
     list_design_options,
-    ask_user,
+    clarify,
+    permission,
 )
 EDIT = AgentOverride(response_format=Changeset)
 GOOD_EDIT = UpdateField(
@@ -123,23 +122,69 @@ def test_agent_reads_the_pdf_lines_and_profile_facts():
     assert result["structured_response"] == _changeset(GOOD_EDIT)
 
 
-def test_ask_user_pauses_the_run_until_the_user_answers():
-    agent = _agent(
-        _model(
-            _call("ask_user", question="Which bullet should mention Kubernetes?"),
-            _answer(GOOD_EDIT),
-        )
-    ).copy(update={"checkpointer": InMemorySaver()})
-    thread = EDIT.config({"configurable": {"thread_id": "t1"}})
+def _asked(
+    ask: AIMessage, answer: Answer, configurable: dict[str, str] | None = None
+) -> tuple[CareerConsultantState, CareerConsultantState]:
+    agent = _agent(_model(ask, _answer(GOOD_EDIT))).copy(
+        update={"checkpointer": InMemorySaver()}
+    )
+    thread = EDIT.config({"configurable": {"thread_id": "t1", **(configurable or {})}})
+    return (
+        agent.invoke(_state(), thread),
+        agent.invoke(Command(resume=answer.model_dump()), thread),
+    )
 
-    paused = agent.invoke(_state(), thread)
-    resumed = agent.invoke(Command(resume="The queue migration one"), thread)
+
+def test_clarify_shows_the_user_a_widget_and_returns_what_they_typed():
+    paused, resumed = _asked(
+        _call("clarify", question="Which bullet should mention Kubernetes?"),
+        Answer(input="The queue migration one"),
+    )
+
+    assert [WidgetSetting.model_validate(i.value) for i in paused["__interrupt__"]] == [
+        WidgetSetting(
+            label="Which bullet should mention Kubernetes?",
+            input_placeholder="Type your answer here...",
+            submit_btn="Send",
+        )
+    ]
+    assert _tool_results(resumed)["clarify"] == "The queue migration one"
+    assert resumed["structured_response"] == _changeset(GOOD_EDIT)
+
+
+@pytest.mark.parametrize(
+    ("accept", "reply"),
+    [
+        (True, "Permission granted: Replace the summary. Go ahead."),
+        (False, "Permission refused: Replace the summary. Don't do it."),
+    ],
+)
+def test_permission_asks_the_user_to_confirm_and_returns_their_choice(
+    accept: bool, reply: str
+):
+    paused, resumed = _asked(
+        _call("permission", summary="Replace the summary"), Answer(accept=accept)
+    )
+
+    assert [WidgetSetting.model_validate(i.value) for i in paused["__interrupt__"]] == [
+        WidgetSetting(
+            label="Replace the summary", submit_btn="Confirm", cancel_btn="Cancel"
+        )
+    ]
+    assert _tool_results(resumed)["permission"] == reply
+
+
+def test_with_a_parent_clarify_asks_the_parent_the_plain_question():
+    paused, resumed = _asked(
+        _call("clarify", question="Which job?"),
+        Answer(input="Lumen Pay"),
+        {"parent": "career-director"},
+    )
 
     assert [i.value for i in paused["__interrupt__"]] == [
-        "Which bullet should mention Kubernetes?"
+        {"kind": "question", "text": "Which job?"}
     ]
-    assert _tool_results(resumed)["ask_user"] == "The queue migration one"
-    assert resumed["structured_response"] == _changeset(GOOD_EDIT)
+    assert _tool_results(resumed)["clarify"] == "Lumen Pay"
 
 
 def test_design_options_list_the_renderers_templates_for_the_document_kind():
