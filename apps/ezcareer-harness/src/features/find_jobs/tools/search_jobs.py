@@ -26,7 +26,7 @@ class _SearchJobsContent(BaseModel):
     requests_left: int | None
     """Fewest requests any source has left, if one says"""
 
-    unavailable: list[str]
+    failures: list[str]
     """Why each source that couldn't search failed"""
 
 
@@ -38,7 +38,7 @@ async def _search_jobs(
     """Searches job postings, newest first, with each job once and without jobs
     that break the user's preferences"""
     results: list[SearchResult] = []
-    unavailable: list[str] = []
+    failures: list[str] = []
     for source in sources:
         try:
             results.append(
@@ -53,9 +53,9 @@ async def _search_jobs(
                 )
             )
         except SourceUnavailable as error:
-            unavailable.append(str(error))
-    if unavailable and not results:
-        raise ToolException("; ".join(unavailable))
+            failures.append(str(error))
+    if failures and not results:
+        raise ToolException("; ".join(failures))
     unique: dict[tuple[str, str, str], JobPosting] = {}
     for posting in sorted(
         (posting for result in results for posting in result.postings),
@@ -77,7 +77,7 @@ async def _search_jobs(
             (r.requests_left for r in results if r.requests_left is not None),
             default=None,
         ),
-        unavailable=unavailable,
+        failures=failures,
     ).model_dump_json(), jobs
 
 

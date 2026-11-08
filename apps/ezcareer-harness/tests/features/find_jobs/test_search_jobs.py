@@ -309,7 +309,7 @@ async def test_one_unavailable_source_leaves_the_others_jobs(api_key):
     message = await _search(tool, query="backend engineer python")
 
     assert len(message.artifact) == 3
-    assert json.loads(message.content)["unavailable"] == ["other is down"]
+    assert json.loads(message.content)["failures"] == ["other is down"]
 
 
 def test_sources_share_fields_named_alike():
