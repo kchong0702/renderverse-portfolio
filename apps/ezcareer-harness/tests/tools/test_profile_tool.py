@@ -3,8 +3,8 @@ from pydantic import BaseModel
 
 from src.agents import Agent, build_agent
 from src.agents.state import ProfileState
-from src.agents.tools import read_profile_facts
 from src.shared.models import ProfileFact
+from src.tools import read_profile_facts
 from tests.agents.test_builder import GREETER
 from tests.conftest import ScriptedChatModel
 

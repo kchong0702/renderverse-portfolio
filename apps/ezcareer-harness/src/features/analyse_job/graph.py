@@ -12,7 +12,6 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from src.agents import build_agent, load_agents
 from src.agents.state import ProfileState
-from src.agents.tools import read_profile_facts
 from src.core.config import get_settings
 from src.core.errors import ExecuteError
 from src.features.analyse_job.configurations import CHECKS, AnalyseJobConfigurations
@@ -25,6 +24,7 @@ from src.features.analyse_job.schemas import (
 )
 from src.shared.checks import CheckError, CheckRound, check_round
 from src.shared.models import Profile
+from src.tools import read_profile_facts
 
 
 class AnalyseJobInput(BaseModel):

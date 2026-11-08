@@ -5,7 +5,7 @@ SRC = Path(__file__).resolve().parents[1] / "src"
 
 # Features never import each other; find_jobs runs analyse_job through its barrel
 BARRELS = {"find_jobs": {"src.features.analyse_job"}}
-LAYERS_WITHOUT_FEATURES = ("agents", "clients", "shared")
+LAYERS_WITHOUT_FEATURES = ("agents", "clients", "shared", "tools")
 
 
 def _module_name(path: Path, root: Path) -> str:
@@ -81,7 +81,7 @@ def test_boundary_check_catches_cross_feature_imports(tmp_path: Path):
         "features/find_jobs/nodes/fetch.py": "from src.features.analyse_job import nodes\n",
         "features/analyse_job/nodes/rate.py": "",
         "features/analyse_job/graph.py": "from ..find_jobs import graph\n",
-        "shared/tools/render.py": "import src.features.write_document\n",
+        "tools/render.py": "import src.features.write_document\n",
         "agents/job_finder.py": "from src.features import find_jobs\n",
         "app/container.py": "from src.features.find_jobs import graph\n",
     }
@@ -96,7 +96,7 @@ def test_boundary_check_catches_cross_feature_imports(tmp_path: Path):
         "src.features.find_jobs.nodes.rate",
         "src.features.find_jobs.nodes.fetch",
         "src.features.analyse_job.graph",
-        "src.shared.tools.render",
+        "src.tools.render",
         "src.agents.job_finder",
     }
 
