@@ -7,7 +7,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.agents import Workflow
 from src.core.config import get_settings
@@ -20,6 +20,7 @@ from src.features.analyse_job.schemas import (
     JobRequirements,
     PostingLine,
 )
+from src.features.analyse_job.types import Url
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
 from src.shared.profile import Profile
 
@@ -27,7 +28,7 @@ from src.shared.profile import Profile
 class AnalyseJobInput(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
-    url: HttpUrl
+    url: Url
     """The posting the user pasted"""
 
     profile: Profile
@@ -60,7 +61,7 @@ class AnalyseJobState(AnalyseJobInput, AnalyseJobOutput):
 async def _fetch(state: AnalyseJobState) -> dict:
     """Fetch the posting and hand its lines to the agent as untrusted text"""
     try:
-        lines = await fetch_posting(str(state.url))
+        lines = await fetch_posting(state.url)
     except httpx.HTTPError as error:
         raise ExecuteError(f"Couldn't fetch the posting: {error}") from error
     if not lines:

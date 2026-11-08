@@ -1,6 +1,7 @@
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from src.features.analyse_job.enums import FilterKind, Importance, Match
+from src.features.analyse_job.types import Url
 from src.shared.profile import CountryCode, FactRef, Salary, WorkMode
 
 _WEIGHTS = {Importance.REQUIRED: 2, Importance.NICE_TO_HAVE: 1}
@@ -116,7 +117,7 @@ class JobAnalysis(JobRequirements):
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    url: HttpUrl
+    url: Url
     """Where the posting was fetched from"""
 
     lines: list[PostingLine]

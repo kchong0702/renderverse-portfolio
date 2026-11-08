@@ -3,6 +3,8 @@ from fastapi.testclient import TestClient
 
 from src.app.app import create_app
 from src.app.container import Container
+from tests.conftest import ScriptedChatModel
+from tests.features.analyse_job import test_analyse_job_graph as analyse_job
 
 URL = "https://jobs.example.com/gone"
 
@@ -48,6 +50,26 @@ def test_a_posting_that_cannot_be_fetched_fails_the_task_with_the_reason():
     assert task["status"]["message"]["parts"][0]["text"].startswith(
         "Couldn't fetch the posting"
     )
+
+
+@respx.mock
+def test_a_served_analysis_completes_through_the_containers_checkpointer():
+    respx.get(analyse_job.URL).respond(200, html=analyse_job.POSTING)
+    container = Container()
+    container.job_finder(
+        model=ScriptedChatModel(
+            replies=[analyse_job._answer("5+ years of Python in production")]
+        )
+    )
+
+    task = _send(
+        TestClient(create_app(container)),
+        "/ezcareer/a2a/analyse-job",
+        analyse_job.INPUT,
+    )
+
+    assert task["status"]["state"] == "TASK_STATE_COMPLETED"
+    assert task["artifacts"][0]["parts"][0]["data"]["analysis"]["fit"] == 67
 
 
 def test_job_finder_workflows_keep_runs_in_the_containers_checkpointer():
