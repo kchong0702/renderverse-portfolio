@@ -38,6 +38,9 @@ class CheckRule(StrEnum):
     UNSUPPORTED = "unsupported"
     """An edited value claims something its sources don't say"""
 
+    NO_ANSWER = "no_answer"
+    """The agent ended without calling its answer tool"""
+
     NO_CHANGESET = "no_changeset"
     """The agent ended without answering with a changeset"""
 

@@ -187,3 +187,16 @@ async def test_candidate_configurations_without_the_check_take_the_first_answer(
 
     assert result["analysis"].requirements[0].text == "Five years of Python"
     assert len(model.requests) == 3
+
+
+async def test_an_agent_that_ends_without_an_answer_is_asked_for_one(posting):
+    model = _scripted(
+        AIMessage("It looks like a good fit."),
+        _answer("5+ years of Python in production"),
+    )
+
+    result = await build_graph(model=model).ainvoke(INPUT)
+
+    assert result["analysis"].fit == 67
+    feedback = [m.text for m in model.requests[-1] if isinstance(m, HumanMessage)]
+    assert "no_answer" in feedback[-1]

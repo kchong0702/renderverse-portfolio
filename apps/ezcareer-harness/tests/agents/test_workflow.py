@@ -1,10 +1,14 @@
+from typing import override
+
 import pytest
 from deepagents import HarnessProfileConfig
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.tools import tool
-from pydantic import BaseModel
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
 
-from src.agents import Agent, Workflow, build_agent
+from src.agents import Agent, Workflow, answer_of, build_agent
 from tests.agents.test_builder import GREETER, look_up_name
 from tests.conftest import ScriptedChatModel
 
@@ -29,7 +33,7 @@ def _call(name: str, **args) -> AIMessage:
     )
 
 
-def _agent(model: ScriptedChatModel, model_name: str = "glm-5.3"):
+def _agent(model, model_name: str = "glm-5.3"):
     agent = Agent.load(GREETER.model_copy(update={"model": model_name}))
     agent = agent.model_copy(
         update={
@@ -38,9 +42,7 @@ def _agent(model: ScriptedChatModel, model_name: str = "glm-5.3"):
             )
         }
     )
-    return build_agent(
-        agent, answers=(Greeting, Farewell), tools=(look_up_name,), model=model
-    )
+    return build_agent(agent, tools=(look_up_name,), model=model)
 
 
 async def _ask(agent, workflow: Workflow) -> dict:
@@ -60,8 +62,36 @@ async def test_one_agent_answers_with_each_workflows_answer(model_name: str):
     greeted = await _ask(agent, Workflow(answer=Greeting))
     left = await _ask(agent, Workflow(answer=Farewell))
 
-    assert greeted["structured_response"] == Greeting(text="Hello!")
-    assert left["structured_response"] == Farewell(text="Bye!")
+    assert answer_of(greeted["messages"], Greeting) == Greeting(text="Hello!")
+    assert answer_of(left["messages"], Farewell) == Farewell(text="Bye!")
+    assert "Farewell" not in model.offered_tools[0]
+
+
+async def test_a_valid_answer_ends_the_run():
+    model = ScriptedChatModel(
+        replies=[_call("Greeting", text="Hi"), _call("look_up_name", person="x")]
+    )
+
+    await _ask(_agent(model), Workflow(answer=Greeting))
+
+    assert len(model.requests) == 1
+
+
+async def test_an_invalid_answer_goes_back_to_the_model_to_retry():
+    model = ScriptedChatModel(
+        replies=[_call("Greeting", greeting="Hi"), _call("Greeting", text="Hi")]
+    )
+
+    result = await _ask(_agent(model), Workflow(answer=Greeting))
+
+    [error] = [
+        m
+        for m in result["messages"]
+        if isinstance(m, ToolMessage) and m.status == "error"
+    ]
+    assert error.name == "Greeting"
+    assert answer_of(result["messages"], Greeting) == Greeting(text="Hi")
+    assert len(model.requests) == 2
 
 
 async def test_a_workflows_tools_are_offered_described_and_run():
@@ -109,5 +139,28 @@ async def test_a_workflow_runs_the_agent_on_its_own_model():
         _agent(built_with), Workflow(answer=Greeting, model=workflow_model)
     )
 
-    assert result["structured_response"] == Greeting(text="from the workflow")
+    assert answer_of(result["messages"], Greeting) == Greeting(text="from the workflow")
     assert built_with.requests == []
+
+
+class _RecordingOpenAI(ChatOpenAI):
+    sent: list[list[dict]] = Field(default_factory=list)
+
+    @override
+    async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+        self.sent.append(kwargs["tools"])
+        message = AIMessage(
+            "", tool_calls=[{"name": "Greeting", "args": {"text": "Hi"}, "id": "c1"}]
+        )
+        return ChatResult(generations=[ChatGeneration(message=message)])
+
+
+async def test_openai_models_get_the_answer_tool_in_strict_mode():
+    model = _RecordingOpenAI(model="gpt-test", api_key="test")
+
+    result = await _ask(_agent(model), Workflow(answer=Greeting))
+
+    tools = {t["function"]["name"]: t["function"] for t in model.sent[0]}
+    assert tools["Greeting"]["strict"] is True
+    assert not tools["look_up_name"].get("strict")
+    assert answer_of(result["messages"], Greeting) == Greeting(text="Hi")

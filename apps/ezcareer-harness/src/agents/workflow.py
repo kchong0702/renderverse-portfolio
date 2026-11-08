@@ -1,12 +1,32 @@
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any, override
 
-from langchain.agents.middleware import AgentMiddleware, ModelRequest, ToolCallRequest
+from langchain.agents.middleware import (
+    AgentMiddleware,
+    AgentState,
+    ModelRequest,
+    ToolCallRequest,
+    hook_config,
+)
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import AIMessage, AnyMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_core.tools import BaseTool
+from langchain_core.tools import BaseTool, StructuredTool
+from langchain_core.utils.function_calling import convert_to_openai_tool
+from langchain_openai import ChatOpenAI
 from langgraph.config import get_config
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+
+def _answer_tool(answer: type[BaseModel]) -> StructuredTool:
+    """The tool the agent calls with its final answer, its arguments being the answer"""
+    return StructuredTool.from_function(
+        func=lambda **fields: ("Answer received", answer.model_validate(fields)),
+        name=answer.__name__,
+        description=f"Give your final answer as {answer.__name__}. Call it once, when you are done.",
+        args_schema=answer,
+        response_format="content_and_artifact",
+    )
 
 
 class Workflow(BaseModel):
@@ -17,8 +37,8 @@ class Workflow(BaseModel):
         use_attribute_docstrings=True,
     )
 
-    answer: type[BaseModel]
-    """What the agent answers with on this call; one of the answers it was built with"""
+    answer: type[BaseModel] | None = None
+    """What the workflow wants back; the agent gets an answer tool with this as its arguments"""
 
     tools: tuple[BaseTool, ...] = ()
     """Tools only this workflow gives the agent"""
@@ -38,6 +58,22 @@ class Workflow(BaseModel):
         }
 
 
+def answer_of[T: BaseModel](
+    messages: Sequence[AnyMessage], answer: type[T]
+) -> T | None:
+    """The agent's last valid answer of that type in a run's messages, if it gave one"""
+    return next(
+        (
+            message.artifact
+            for message in reversed(messages)
+            if isinstance(message, ToolMessage)
+            and message.name == answer.__name__
+            and isinstance(message.artifact, answer)
+        ),
+        None,
+    )
+
+
 def _workflow() -> Workflow | None:
     """The workflow the current run's config names, if any"""
     return get_config().get("configurable", {}).get("workflow")
@@ -51,31 +87,41 @@ class WorkflowHook(AgentMiddleware):
         self.descriptions = descriptions
 
     def _tools(self, workflow: Workflow) -> dict[str, BaseTool]:
-        """The workflow's own tools by name, described as the agent's profile says"""
+        """The workflow's tools and answer tool by name, described as the profile says"""
+        tools = [
+            *workflow.tools,
+            *([_answer_tool(workflow.answer)] if workflow.answer else []),
+        ]
         return {
             tool.name: tool.model_copy(
                 update={"description": self.descriptions[tool.name]}
             )
             if tool.name in self.descriptions
             else tool
-            for tool in workflow.tools
+            for tool in tools
         }
 
     def _model_request(self, request: ModelRequest) -> ModelRequest:
-        """The model call as the workflow wants it: its answer, its tools, its model"""
+        """The model call as the workflow wants it: its tools, its answer tool, its model;
+        OpenAI models get the answer tool in strict mode"""
         workflow = _workflow()
         if workflow is None:
             return request
+        model = workflow.model or request.model
         own = [
             tool
             for tool in request.tools
             if getattr(tool, "name", None) not in workflow.hidden_tools
         ]
-        return request.override(
-            tools=[*own, *self._tools(workflow).values()],
-            response_format=workflow.answer,
-            model=workflow.model or request.model,
-        )
+        added = [
+            convert_to_openai_tool(tool, strict=True)
+            if workflow.answer
+            and tool.name == workflow.answer.__name__
+            and isinstance(model, ChatOpenAI)
+            else tool
+            for tool in self._tools(workflow).values()
+        ]
+        return request.override(tools=[*own, *added], model=model)
 
     def _tool_request(self, request: ToolCallRequest) -> ToolCallRequest:
         """The tool call, run with the workflow's tool when it names one"""
@@ -96,6 +142,42 @@ class WorkflowHook(AgentMiddleware):
     ) -> Any:
         """Runs the model call with the workflow applied"""
         return await handler(self._model_request(request))
+
+    @hook_config(can_jump_to=["end"])
+    @override
+    def after_model(self, state: AgentState, runtime: Any) -> dict[str, Any] | None:
+        """Ends the run when the model's only tool call is a valid answer, keeping
+        the answer as that call's result; an invalid one goes on to fail as a tool"""
+        workflow = _workflow()
+        message = state["messages"][-1]
+        if not (workflow and workflow.answer and isinstance(message, AIMessage)):
+            return None
+        if [call["name"] for call in message.tool_calls] != [workflow.answer.__name__]:
+            return None
+        [call] = message.tool_calls
+        try:
+            answer = workflow.answer.model_validate(call["args"])
+        except ValidationError:
+            return None
+        return {
+            "messages": [
+                ToolMessage(
+                    "Answer received",
+                    tool_call_id=call["id"],
+                    name=call["name"],
+                    artifact=answer,
+                )
+            ],
+            "jump_to": "end",
+        }
+
+    @hook_config(can_jump_to=["end"])
+    @override
+    async def aafter_model(
+        self, state: AgentState, runtime: Any
+    ) -> dict[str, Any] | None:
+        """Ends the run on a valid answer, as after_model does"""
+        return self.after_model(state, runtime)
 
     @override
     def wrap_tool_call(
