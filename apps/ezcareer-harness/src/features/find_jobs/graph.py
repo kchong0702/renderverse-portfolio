@@ -9,12 +9,15 @@ from langgraph.types import Checkpointer
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.agents import build_agent, load_agents
+from src.agents.job_finder import JobFinderState
 from src.core.config import get_settings
+from src.features.find_jobs.adapters import JOB_SOURCES, SearchProtocol
 from src.features.find_jobs.configurations import CHECKS, FindJobsConfigurations
 from src.features.find_jobs.ranking import matched_jobs
 from src.features.find_jobs.schemas import JobPosting, MatchedJob, RankedJobs
-from src.features.find_jobs.tools import JobSearchState, search_jobs_tool
+from src.features.find_jobs.tools import search_jobs_tool
 from src.shared.checks import CheckError, CheckRound, check_round
+from src.shared.factory import Factory
 from src.shared.models import Profile
 from src.shared.tools import read_profile_facts
 
@@ -62,18 +65,26 @@ def _output(state: FindJobsState) -> dict:
 
 
 def build_graph(
-    model: BaseChatModel | None = None, checkpointer: Checkpointer = None
+    model: BaseChatModel | None = None,
+    checkpointer: Checkpointer = None,
+    job_sources: Factory[SearchProtocol] | None = None,
 ) -> CompiledStateGraph:
-    """The find-jobs graph with the agent and configurations the settings name;
-    model replaces the agent's LLM; checkpointer keeps its runs"""
+    """The find-jobs graph with the agent, configurations and job sources the
+    settings name; model replaces the agent's LLM; checkpointer keeps its runs"""
     settings = get_settings()
+    job_sources = job_sources or Factory[SearchProtocol](JOB_SOURCES)
     configurations = settings.graph_profile("find-jobs").load(FindJobsConfigurations)
     checks = [CHECKS[name] for name in configurations.checks]
     agent = build_agent(
         load_agents(settings.agents)["job-finder"],
         response_format=RankedJobs,
-        tools=(read_profile_facts, search_jobs_tool(settings.job_sources)),
-        state_schema=JobSearchState,
+        tools=(
+            read_profile_facts,
+            search_jobs_tool(
+                [job_sources.create(name) for name in settings.job_sources]
+            ),
+        ),
+        state_schema=JobFinderState,
         model=model,
     )
 

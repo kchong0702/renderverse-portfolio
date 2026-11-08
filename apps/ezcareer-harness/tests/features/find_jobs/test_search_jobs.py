@@ -10,14 +10,14 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import BaseModel
 
 from src.core.config import reload_settings
-from src.features.find_jobs.adapters import JOB_SOURCES, SearchResult
+from src.features.find_jobs.adapters import SearchResult, SourceUnavailable
+from src.features.find_jobs.adapters.jsearch import JSearchAdapter
 from src.features.find_jobs.adapters.jsearch import client as jsearch
 from src.features.find_jobs.tools import search_jobs_tool
-from src.shared.adapters import Adapter, AdapterUnavailable
 from src.shared.models import Preferences
 
 URL = "https://jsearch.p.rapidapi.com/search-v2"
-search_jobs = search_jobs_tool(["jsearch"])
+search_jobs = search_jobs_tool([JSearchAdapter()])
 RESPONSE = (Path(__file__).parent / "fixtures" / "jsearch_search.json").read_text()
 
 
@@ -279,16 +279,20 @@ class _OtherQuery(BaseModel):
     """Job title and key skills"""
 
 
-async def test_one_unavailable_source_leaves_the_others_jobs(api_key, monkeypatch):
-    async def down(query: _OtherQuery) -> SearchResult:
-        raise AdapterUnavailable("other is down")
+class _DownSource:
+    query = _OtherQuery
+    """Its own arguments"""
 
-    monkeypatch.setitem(
-        JOB_SOURCES.adapters,
-        "other",
-        Adapter[SearchResult](name="other", query=_OtherQuery, usage="", run=down),
-    )
-    tool = search_jobs_tool(["jsearch", "other"])
+    usage = ""
+    """What a search costs"""
+
+    async def search(self, query: _OtherQuery) -> SearchResult:
+        """Can't search"""
+        raise SourceUnavailable("other is down")
+
+
+async def test_one_unavailable_source_leaves_the_others_jobs(api_key):
+    tool = search_jobs_tool([JSearchAdapter(), _DownSource()])
     runtime = ToolRuntime(
         state={"preferences": Preferences()},
         context=None,
@@ -314,6 +318,34 @@ async def test_one_unavailable_source_leaves_the_others_jobs(api_key, monkeypatc
     assert content["unavailable"] == ["other is down"]
 
 
-def test_an_unknown_job_source_is_refused():
-    with pytest.raises(ValueError, match="linkedin"):
-        search_jobs_tool(["linkedin"])
+class _SalaryQuery(BaseModel):
+    query: str
+    """Job title and key skills"""
+
+    min_salary: int | None = None
+    """Lowest yearly salary"""
+
+
+def test_sources_share_fields_named_alike():
+    class _Salary(_DownSource):
+        query = _SalaryQuery
+        """Its own arguments"""
+
+    tool = search_jobs_tool([JSearchAdapter(), _Salary()])
+
+    properties = tool.tool_call_schema.model_json_schema()["properties"]
+    assert "min_salary" in properties
+    assert list(properties).count("query") == 1
+
+
+def test_sources_that_disagree_on_a_field_are_refused():
+    class _Clash(BaseModel):
+        query: int
+        """Wrong type"""
+
+    class _ClashSource(_DownSource):
+        query = _Clash
+        """Its own arguments"""
+
+    with pytest.raises(ValueError, match="'query'"):
+        search_jobs_tool([JSearchAdapter(), _ClashSource()])

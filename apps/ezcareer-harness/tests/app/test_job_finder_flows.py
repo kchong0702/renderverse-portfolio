@@ -56,3 +56,12 @@ def test_job_finder_graphs_keep_runs_in_the_containers_checkpointer():
     graphs = [executable.graph for executable in container.executables()]
 
     assert [graph.checkpointer for graph in graphs] == [container.checkpointer()] * 2
+
+
+def test_find_jobs_gets_its_sources_from_the_containers_one_factory():
+    container = Container()
+
+    factory = container.job_sources()
+
+    assert container.job_sources() is factory
+    assert factory.create("jsearch") is factory.create("jsearch")
