@@ -88,11 +88,18 @@ def check(
     )["errors"]
 
 
-def test_a_faithful_reply_passes(configurations: ImportResumeConfigurations):
-    assert verify(
+def test_a_faithful_reply_passes_and_becomes_the_draft(
+    configurations: ImportResumeConfigurations,
+):
+    result = verify(
         {"structured_response": ResumeImport.model_validate(reply()), "lines": LINES},
         configurations,
-    ) == {"errors": []}
+    )
+
+    assert result["errors"] == []
+    assert (
+        result["document"].content.blocks == ResumeImport.model_validate(reply()).blocks
+    )
 
 
 def test_a_reply_that_is_no_resume_import_fails_schema_and_asks_for_a_fix(

@@ -9,25 +9,28 @@ from src.clients.artifact_service import ArtifactServiceClient
 from src.clients.llm_providers import llm_provider
 from src.core.config import get_settings
 from src.features.import_document.configurations import ImportResumeConfigurations
-from src.features.import_document.nodes import extract, structure, verify
-from src.features.import_document.schemas import ImportInput
+from src.features.import_document.nodes import extract, render, structure, verify
+from src.features.import_document.schemas import ImportInput, ImportResult
 from src.features.import_document.state import ImportState
 
 
-def _after_verify(state: ImportState) -> Literal["structure", "__end__"]:
-    """Sends a reply that failed the checks back to structure"""
-    return "structure" if state["errors"] else END
+def _after_verify(state: ImportState) -> Literal["structure", "render"]:
+    """Sends a reply that failed the checks back to structure and prints one that
+    passed"""
+    return "structure" if state["errors"] else "render"
 
 
 def build_graph(
     artifact_service: ArtifactServiceClient, model: BaseChatModel | None = None
 ) -> CompiledStateGraph:
-    """The import-resume graph on its graph profile, converting the upload through
-    artifact_service; model replaces the configured LLM"""
+    """The import-resume graph on its graph profile, converting the upload and
+    printing the draft through artifact_service; model replaces the configured LLM"""
     settings = get_settings()
     profile = settings.graph_profile("import-resume")
     configurations = profile.load(ImportResumeConfigurations)
-    graph = StateGraph(ImportState, input_schema=ImportInput)
+    graph = StateGraph(
+        ImportState, input_schema=ImportInput, output_schema=ImportResult
+    )
     graph.add_node("extract", partial(extract, artifact_service=artifact_service))
     graph.add_node(
         "structure",
@@ -38,10 +41,12 @@ def build_graph(
         ),
     )
     graph.add_node("verify", partial(verify, configurations=configurations))
+    graph.add_node("render", partial(render, artifact_service=artifact_service))
     graph.add_edge(START, "extract")
     graph.add_edge("extract", "structure")
     graph.add_edge("structure", "verify")
     graph.add_conditional_edges("verify", _after_verify)
+    graph.add_edge("render", END)
     return graph.compile().with_config(
         recursion_limit=configurations.recursion_limit,
         metadata={"flow": "import-resume"},

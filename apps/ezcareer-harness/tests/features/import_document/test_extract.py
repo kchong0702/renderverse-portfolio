@@ -1,6 +1,7 @@
 import json
 from base64 import b64decode, b64encode
 from collections.abc import Callable
+from functools import partial
 
 import httpx
 import pytest
@@ -27,14 +28,27 @@ def _convert(request: httpx.Request) -> httpx.Response:
     return httpx.Response(200, json={"pdf": b64encode(pdf).decode()})
 
 
+def _serve(
+    request: httpx.Request,
+    render: Callable[[httpx.Request], httpx.Response],
+    convert: Callable[[httpx.Request], httpx.Response],
+) -> httpx.Response:
+    """Answers a /v1/convert request with convert and any other with render"""
+    return (convert if request.url.path.endswith("/v1/convert") else render)(request)
+
+
 def _artifact_service(
+    render: Callable[[httpx.Request], httpx.Response] = _fail,
     convert: Callable[[httpx.Request], httpx.Response] = _convert,
 ) -> ArtifactServiceClient:
-    """An ArtifactServiceClient on a fake artifact-service that converts with
-    convert"""
+    """An ArtifactServiceClient on a fake artifact-service that prints with render
+    and converts with convert"""
     return ArtifactServiceClient(
         httpx.AsyncClient(
-            transport=httpx.MockTransport(convert), base_url="http://artifact-service"
+            transport=httpx.MockTransport(
+                partial(_serve, render=render, convert=convert)
+            ),
+            base_url="http://artifact-service",
         )
     )
 
@@ -54,7 +68,7 @@ async def test_a_file_artifact_service_refuses_fails_the_import_with_its_reason(
 
 async def test_an_artifact_service_outage_fails_the_import_until_a_retry():
     with pytest.raises(ImportFailed) as failed:
-        await extract({"file": WORD}, _artifact_service(_fail))
+        await extract({"file": WORD}, _artifact_service(convert=_fail))
 
     assert str(failed.value) == "couldn't read the file; try again"
 
