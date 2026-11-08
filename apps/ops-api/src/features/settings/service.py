@@ -14,7 +14,6 @@ from src.features.settings.schemas import (
     SettingsUpdate,
 )
 
-# Schema field → column, for the sections that are stored flat
 _JOB_AGENT_COLUMNS = {
     "query": "job_query",
     "location": "job_location",
