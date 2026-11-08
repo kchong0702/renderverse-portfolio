@@ -133,7 +133,10 @@ class AuthSettings(BaseModel):
     """A session expires after this many days without a request"""
 
     google: GoogleOAuthSettings = Field(default_factory=GoogleOAuthSettings)
+    """Sign in with Google"""
+
     github: GitHubOAuthSettings = Field(default_factory=GitHubOAuthSettings)
+    """Sign in with GitHub"""
 
     @field_validator("allowed_emails", mode="before")
     @classmethod
@@ -182,8 +185,13 @@ class ObservabilitySettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
     service_name: str = _APP_NAME
+    """Service name every log line is tagged with"""
+
     log_level: LogLevel = "INFO"
+    """Application log level"""
+
     log_format: LogFormat = "json"
+    """Logging format"""
 
 
 class Settings(BaseSettings):
@@ -200,9 +208,16 @@ class Settings(BaseSettings):
     )
 
     app: AppSettings = Field(default_factory=AppSettings)
+    """Server and HTTP settings"""
+
     auth: AuthSettings = Field(default_factory=AuthSettings)
+    """Sign-in and session settings"""
+
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+    """Database connection settings"""
+
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
+    """Logging settings"""
 
     @classmethod
     @override
