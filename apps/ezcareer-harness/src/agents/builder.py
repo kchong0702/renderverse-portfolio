@@ -12,7 +12,7 @@ from deepagents.backends import CompositeBackend, FilesystemBackend, StateBacken
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
-from langgraph.pregel import Pregel
+from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
 from src.agents.middlewares import InjectToolsMiddleware, ResponseFormatMiddleware
@@ -29,7 +29,7 @@ def build_agent(
     state_schema: type[DeepAgentState] = DeepAgentState,
     context_schema: type | None = None,
     model: BaseChatModel | None = None,
-) -> Pregel:
+) -> CompiledStateGraph:
     """Builds a registered agent as a deep agent with its skills read-only, under
     its model's harness profile, able to reply in any of response_formats"""
     register_harness_profile(f"{agent.provider}:{agent.model}", agent.profile)

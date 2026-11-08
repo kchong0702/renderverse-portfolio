@@ -7,7 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
 from langgraph.graph import END, START, StateGraph
-from langgraph.pregel import Pregel
+from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
 from src.agents import Agent, Workflow, build_agent
@@ -29,7 +29,7 @@ def look_up_title(person: str) -> str:
     return "Countess"
 
 
-def _agent(model: ScriptedChatModel, model_name: str = "glm-5.3") -> Pregel:
+def _agent(model: ScriptedChatModel, model_name: str = "glm-5.3") -> CompiledStateGraph:
     agent = Agent.load(GREETER.model_copy(update={"model": model_name}))
     agent = agent.model_copy(
         update={
@@ -43,7 +43,7 @@ def _agent(model: ScriptedChatModel, model_name: str = "glm-5.3") -> Pregel:
     )
 
 
-async def _ask(agent: Pregel, workflow: Workflow) -> dict:
+async def _ask(agent: CompiledStateGraph, workflow: Workflow) -> dict:
     return await agent.ainvoke(
         {"messages": [HumanMessage("Lovelace")]}, workflow.config()
     )
@@ -144,7 +144,7 @@ class _Empty(TypedDict):
     pass
 
 
-async def _ask_with_limit(agent: Pregel, limit: int, state: _Empty) -> dict:
+async def _ask_with_limit(agent: CompiledStateGraph, limit: int, state: _Empty) -> dict:
     await agent.ainvoke(
         {"messages": [HumanMessage("Lovelace")]},
         Workflow(response_format=Greeting).config({"recursion_limit": limit}),
