@@ -1,4 +1,5 @@
-from typing import override
+import json
+from typing import Annotated, Literal, override
 
 import pytest
 from deepagents import HarnessProfileConfig
@@ -145,13 +146,14 @@ async def test_a_workflow_runs_the_agent_on_its_own_model():
 
 class _RecordingOpenAI(ChatOpenAI):
     sent: list[list[dict]] = Field(default_factory=list)
+    answer: dict = Field(
+        default_factory=lambda: {"name": "Greeting", "args": {"text": "Hi"}}
+    )
 
     @override
     async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
         self.sent.append(kwargs["tools"])
-        message = AIMessage(
-            "", tool_calls=[{"name": "Greeting", "args": {"text": "Hi"}, "id": "c1"}]
-        )
+        message = AIMessage("", tool_calls=[{**self.answer, "id": "c1"}])
         return ChatResult(generations=[ChatGeneration(message=message)])
 
 
@@ -164,3 +166,30 @@ async def test_openai_models_get_the_answer_tool_in_strict_mode():
     assert tools["Greeting"]["strict"] is True
     assert not tools["look_up_name"].get("strict")
     assert answer_of(result["messages"], Greeting) == Greeting(text="Hi")
+
+
+class _Wave(BaseModel):
+    kind: Literal["wave"]
+
+
+class _Bow(BaseModel):
+    kind: Literal["bow"]
+
+
+class Gesture(BaseModel):
+    gestures: list[Annotated[_Wave | _Bow, Field(discriminator="kind")]]
+
+
+async def test_openai_models_get_anyof_where_the_answer_schema_has_oneof():
+    model = _RecordingOpenAI(
+        model="gpt-test",
+        api_key="test",
+        answer={"name": "Gesture", "args": {"gestures": [{"kind": "wave"}]}},
+    )
+
+    await _ask(_agent(model), Workflow(answer=Gesture))
+
+    [sent] = [t for t in model.sent[0] if t["function"]["name"] == "Gesture"]
+    assert "oneOf" in json.dumps(Gesture.model_json_schema())
+    assert "oneOf" not in json.dumps(sent)
+    assert "anyOf" in json.dumps(sent)

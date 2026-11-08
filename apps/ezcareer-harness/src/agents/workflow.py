@@ -29,6 +29,18 @@ def _answer_tool(answer: type[BaseModel]) -> StructuredTool:
     )
 
 
+def _any_of(schema: Any) -> Any:
+    """The schema with every oneOf as anyOf, which OpenAI's strict mode accepts"""
+    if isinstance(schema, dict):
+        return {
+            "anyOf" if key == "oneOf" else key: _any_of(value)
+            for key, value in schema.items()
+        }
+    if isinstance(schema, list):
+        return [_any_of(item) for item in schema]
+    return schema
+
+
 class Workflow(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -103,7 +115,7 @@ class WorkflowHook(AgentMiddleware):
 
     def _model_request(self, request: ModelRequest) -> ModelRequest:
         """The model call as the workflow wants it: its tools, its answer tool, its model;
-        OpenAI models get the answer tool in strict mode"""
+        OpenAI models get the answer tool in strict mode, with anyOf for oneOf"""
         workflow = _workflow()
         if workflow is None:
             return request
@@ -114,7 +126,7 @@ class WorkflowHook(AgentMiddleware):
             if getattr(tool, "name", None) not in workflow.hidden_tools
         ]
         added = [
-            convert_to_openai_tool(tool, strict=True)
+            _any_of(convert_to_openai_tool(tool, strict=True))
             if workflow.answer
             and tool.name == workflow.answer.__name__
             and isinstance(model, ChatOpenAI)
