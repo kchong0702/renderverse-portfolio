@@ -215,17 +215,17 @@ async def test_page_fit_spares_the_bullets_the_changeset_inserted(
     assert edits[1].path == "blocks/experience/items/lumen/bullets/latency"
 
 
-async def test_ask_user_pauses_the_edit_until_the_user_answers():
+async def test_clarify_pauses_the_edit_until_the_user_answers():
     graph = _graph(
-        _model(_call("ask_user", question="Which job?"), _answer(GOOD_EDIT)),
+        _model(_call("clarify", question="Which job?"), _answer(GOOD_EDIT)),
         checkpointer=InMemorySaver(),
     )
     run = {"configurable": {"thread_id": "t1"}}
 
     paused = await graph.ainvoke(_input(), run)
-    done = await graph.ainvoke(Command(resume="Lumen Pay"), run)
+    done = await graph.ainvoke(Command(resume={"input": "Lumen Pay"}), run)
 
-    assert [i.value for i in paused["__interrupt__"]] == ["Which job?"]
+    assert [i.value["label"] for i in paused["__interrupt__"]] == ["Which job?"]
     assert done["changeset"].edits == [GOOD_EDIT]
 
 
