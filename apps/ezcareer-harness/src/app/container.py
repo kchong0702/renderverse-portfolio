@@ -116,7 +116,6 @@ class Container(containers.DeclarativeContainer):
             Executable,
             name="edit-document",
             description="Propose a checked changeset for a chat request to change a résumé or cover letter",
-            input_schema=write_document.EditInput,
             graph=providers.Singleton(
                 write_document.build_graph,
                 agent=career_consultant,
