@@ -2,21 +2,12 @@ from a2a.server.tasks import InMemoryTaskStore
 from dependency_injector import containers, providers
 from langgraph.checkpoint.memory import InMemorySaver
 
-from src.agents import load_agents
 from src.app.a2a import Executable
-from src.core.config import get_settings
 from src.features import analyse_job, find_jobs
 from src.shared.factory import Factory
 
 
 class Container(containers.DeclarativeContainer):
-    settings = providers.Singleton(get_settings)
-    """The app's settings"""
-
-    registry = providers.Singleton(load_agents, settings.provided.agents)
-    """Every registered agent's folder and profile by name; build each agent
-    once from it with build_agent and serve it as an Executable of kind agent"""
-
     task_store = providers.Singleton(InMemoryTaskStore)
     """Where the A2A server keeps every task; swap in a database store here"""
 
