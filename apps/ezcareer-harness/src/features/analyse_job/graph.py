@@ -94,8 +94,8 @@ def _output(state: AnalyseJobState) -> dict:
 def build_graph(
     agent: CompiledStateGraph, checkpointer: Checkpointer = None
 ) -> CompiledStateGraph:
-    """The analyse-job workflow on the shared job-finder agent, with the
-    configurations the settings name; checkpointer keeps its runs"""
+    """The analyse-job workflow run on agent, with the configurations the
+    settings name; checkpointer keeps its runs"""
     settings = get_settings()
     configurations = settings.graph_profile("analyse-job").load(
         AnalyseJobConfigurations

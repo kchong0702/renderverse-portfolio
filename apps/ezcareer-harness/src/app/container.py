@@ -37,7 +37,7 @@ class Container(containers.DeclarativeContainer):
         tools=(read_profile_facts,),
         state_schema=JobFinderState,
     )
-    """The one job-finder agent the analyse-job and find-jobs workflows share"""
+    """The job-finder agent, built once"""
 
     analyse_job_graph = providers.Singleton(
         analyse_job.build_graph, agent=job_finder, checkpointer=checkpointer

@@ -66,8 +66,8 @@ def build_graph(
     job_sources: Factory[SearchProtocol],
     checkpointer: Checkpointer = None,
 ) -> CompiledStateGraph:
-    """The find-jobs workflow on the shared job-finder agent, with the
-    configurations and job sources the settings name; checkpointer keeps its runs"""
+    """The find-jobs workflow run on agent, with the configurations and job
+    sources the settings name; checkpointer keeps its runs"""
     settings = get_settings()
     configurations = settings.graph_profile("find-jobs").load(FindJobsConfigurations)
     checks = [CHECKS[name] for name in configurations.checks]
