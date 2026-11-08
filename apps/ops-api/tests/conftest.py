@@ -42,7 +42,7 @@ class FakeProvider:
 
 
 async def _app(oauth_providers: dict | None = None) -> AsyncIterator[FastAPI]:
-    from src.app import models  # noqa: F401  (registers the tables)
+    from src.app import models  # noqa: F401
     from src.app.app import create_app
     from src.app.container import Container
     from src.core.config import reload_settings

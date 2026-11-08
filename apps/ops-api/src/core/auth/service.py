@@ -12,10 +12,8 @@ from src.core.config import AuthSettings
 from src.core.db.base import utcnow
 from src.core.exceptions import Forbidden, InvalidInput, TooManyRequests, Unauthorized
 
-# A session's expiry moves forward at most this often, not on every request
 _RENEW_AFTER = timedelta(hours=1)
 
-# Password sign-ins allowed per email in one window, successful ones included
 _MAX_SIGN_IN_ATTEMPTS = 5
 _SIGN_IN_WINDOW = timedelta(minutes=15)
 
@@ -52,7 +50,6 @@ class AuthService:
         matches, new_hash = verify_password(
             password, user.password_hash if user else None
         )
-        # The same answer for unknown, removed and wrong, so emails cannot be probed
         if user is None or not matches or not self.is_allowed(email):
             raise Unauthorized("Wrong email or password")
         if new_hash:

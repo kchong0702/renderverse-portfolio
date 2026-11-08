@@ -32,17 +32,11 @@ async def _count(app, model) -> int:
         return await session.scalar(select(func.count()).select_from(model))
 
 
-# --- auth disabled ---
-
-
 async def test_me_is_the_dev_email_while_auth_is_off(client):
     response = await client.get(f"{PREFIX}/me")
 
     assert response.status_code == 200
     assert response.json()["email"] == "owner@localhost"
-
-
-# --- sessions ---
 
 
 async def test_me_needs_a_session(auth_client):
@@ -89,9 +83,6 @@ async def test_sign_out_ends_the_session(auth_app, auth_client):
     assert "ops_session" not in auth_client.cookies
     auth_client.cookies.set("ops_session", token, path="/ops-api")
     assert (await auth_client.get(f"{PREFIX}/me")).status_code == 401
-
-
-# --- email and password ---
 
 
 async def test_password_sign_in_sets_a_session_cookie(auth_app, auth_client):
@@ -197,9 +188,6 @@ async def test_set_password_rules(auth_app):
         await _set_password(auth_app, password="short")
 
 
-# --- Google and GitHub ---
-
-
 async def test_sign_in_methods(auth_client):
     response = await auth_client.get(f"{PREFIX}/auth/methods")
 
@@ -248,7 +236,6 @@ async def test_google_and_github_with_one_email_are_one_user(auth_app, auth_clie
     first = (await auth_client.get(f"{PREFIX}/me")).json()
     await auth_client.post(f"{PREFIX}/auth/sign-out")
 
-    # GitHub's primary email is not allowlisted; its second verified one is
     await auth_client.get(f"{PREFIX}/auth/github/login")
     await auth_client.get(f"{PREFIX}/auth/github/callback")
     second = (await auth_client.get(f"{PREFIX}/me")).json()
@@ -302,23 +289,16 @@ async def test_unconfigured_provider_is_not_found(auth_client, oauth_providers):
     assert response.status_code == 404
 
 
-# --- cross-site requests ---
-
-
 @pytest.mark.parametrize(
     ("headers", "status"),
     [
-        # Sec-Fetch-Site decides when the browser sends it
         ({"Sec-Fetch-Site": "same-origin"}, 204),
         ({"Sec-Fetch-Site": "none"}, 204),
         ({"Sec-Fetch-Site": "same-site", "Origin": "https://other.localhost"}, 403),
         ({"Sec-Fetch-Site": "cross-site", "Origin": "https://evil.test"}, 403),
-        # ops-web's own origin is trusted whatever Sec-Fetch-Site says
         ({"Sec-Fetch-Site": "cross-site", "Origin": WEB_URL}, 204),
-        # Browsers without Sec-Fetch-Site: Origin decides
         ({"Origin": WEB_URL}, 204),
         ({"Origin": "https://evil.test"}, 403),
-        # Neither header: not a browser, so no ambient cookie to abuse
         ({}, 204),
     ],
 )
