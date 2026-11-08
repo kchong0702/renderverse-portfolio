@@ -12,8 +12,9 @@ from tenacity import (
 
 from src.core.config import JSearchSettings
 from src.features.analyse_job import PostingLine
+from src.features.find_jobs.adapters.exceptions import SourceUnavailable
 from src.features.find_jobs.adapters.jsearch.query import JSearchQuery
-from src.features.find_jobs.adapters.protocol import SearchResult, SourceUnavailable
+from src.features.find_jobs.adapters.protocol import SearchResult
 from src.features.find_jobs.schemas import JobPosting
 
 

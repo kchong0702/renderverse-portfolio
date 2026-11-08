@@ -5,10 +5,6 @@ from pydantic import BaseModel, ConfigDict
 from src.features.find_jobs.schemas import JobPosting
 
 
-class SourceUnavailable(Exception):
-    pass
-
-
 class SearchResult(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
