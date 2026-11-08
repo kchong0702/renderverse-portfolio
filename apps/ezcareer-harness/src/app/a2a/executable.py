@@ -1,4 +1,4 @@
-from typing import override
+from typing import Literal, override
 
 from a2a.helpers import (
     get_data_parts,
@@ -10,6 +10,7 @@ from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.server.tasks import TaskUpdater
 from a2a.types import Message
+from langchain_core.messages import HumanMessage
 from langgraph.errors import GraphRecursionError
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
@@ -35,8 +36,13 @@ class Executable(BaseModel):
     description: str
     """What the graph does, shown on its agent card"""
 
+    kind: Literal["workflow", "agent"] = "workflow"
+    """A workflow runs one task end to end; an agent is a shared agent the user
+    talks to, taking their text as its message"""
+
     input_schema: type[BaseModel]
-    """The graph's input, read from the message's data part"""
+    """The graph's input, read from the message's data part; for an agent, the
+    state fields it takes alongside the user's text"""
 
     graph: CompiledStateGraph
     """The compiled graph; compile it with a checkpointer to support interrupts"""
@@ -58,11 +64,18 @@ class LanggraphExecutor(AgentExecutor):
             await event_queue.enqueue_event(new_task_from_user_message(context.message))
         await updater.start_work()
         try:
-            graph_input = (
-                Command(resume=answer)
-                if context.current_task
-                else self.executable.input_schema.model_validate(answer)
-            )
+            if context.current_task:
+                graph_input = Command(resume=answer)
+            elif self.executable.kind == "agent":
+                fields = self.executable.input_schema.model_validate(
+                    data[0] if data else {}
+                )
+                graph_input = {
+                    **dict(fields),
+                    "messages": [HumanMessage(context.get_user_input())],
+                }
+            else:
+                graph_input = self.executable.input_schema.model_validate(answer)
         except ValidationError as error:
             await updater.failed(_reason(updater, f"Invalid input: {error}"))
             return
@@ -83,9 +96,13 @@ class LanggraphExecutor(AgentExecutor):
                 )
             )
             return
-        await updater.add_artifact(
-            [new_data_part(to_jsonable_python(result))], name=self.executable.name
-        )
+        if self.executable.kind == "workflow":
+            reply = new_data_part(to_jsonable_python(result))
+        elif structured := result.get("structured_response"):
+            reply = new_data_part(to_jsonable_python(structured))
+        else:
+            reply = new_text_part(result["messages"][-1].text)
+        await updater.add_artifact([reply], name=self.executable.name)
         await updater.complete()
 
     @override

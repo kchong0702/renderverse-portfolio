@@ -5,6 +5,8 @@ from a2a.server.tasks import InMemoryTaskStore
 from dependency_injector import providers
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from langchain.agents import create_agent
+from langchain_core.messages import AIMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
@@ -15,6 +17,7 @@ from src.app.app import create_app
 from src.app.container import Container
 from src.core.config import AppSettings
 from src.core.errors import ExecuteError
+from tests.conftest import ScriptedChatModel
 
 PATH = "/ezcareer/a2a/greet"
 
@@ -169,3 +172,75 @@ def test_the_app_keeps_tasks_in_the_containers_task_store():
     task = _send(TestClient(create_app(container)), {"name": "Ada"})
 
     assert task["id"] in saved
+
+
+class NoFields(BaseModel):
+    pass
+
+
+class Title(BaseModel):
+    title: str
+
+
+def _agent_client(agent) -> TestClient:
+    app = FastAPI()
+    add_executable_routes(
+        app,
+        [
+            Executable(
+                kind="agent",
+                name="greeter",
+                description="Greets whoever writes to it",
+                input_schema=NoFields,
+                graph=agent,
+            )
+        ],
+        InMemoryTaskStore(),
+        AppSettings(),
+    )
+    return TestClient(app)
+
+
+def _say(client: TestClient, text: str) -> dict:
+    response = client.post(
+        "/ezcareer/a2a/greeter",
+        headers={"A2A-Version": "1.0"},
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "SendMessage",
+            "params": {
+                "message": {
+                    "messageId": "m1",
+                    "role": "ROLE_USER",
+                    "parts": [{"text": text}],
+                }
+            },
+        },
+    )
+    return response.json()["result"]["task"]
+
+
+def test_an_agent_takes_the_users_text_and_replies_in_text():
+    model = ScriptedChatModel(replies=[AIMessage("Hello, Ada!")])
+
+    task = _say(_agent_client(create_agent(model)), "Hi, I'm Ada")
+
+    assert task["status"]["state"] == "TASK_STATE_COMPLETED"
+    assert task["artifacts"][0]["parts"][0]["text"] == "Hello, Ada!"
+    assert model.requests[0][-1].text == "Hi, I'm Ada"
+
+
+def test_an_agent_that_answers_with_a_structure_replies_in_data():
+    model = ScriptedChatModel(
+        replies=[
+            AIMessage(
+                "",
+                tool_calls=[{"name": "Title", "args": {"title": "Dr"}, "id": "c1"}],
+            )
+        ]
+    )
+
+    task = _say(_agent_client(create_agent(model, response_format=Title)), "Title?")
+
+    assert task["artifacts"][0]["parts"][0]["data"] == {"title": "Dr"}
