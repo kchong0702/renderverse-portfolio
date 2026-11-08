@@ -71,6 +71,14 @@ def build_graph(
     settings = get_settings()
     configurations = settings.graph_profile("find-jobs").load(FindJobsConfigurations)
     checks = [CHECKS[name] for name in configurations.checks]
+    config = Workflow(
+        response_format=RankedJobs,
+        tools=(
+            search_jobs_tool(
+                [job_sources.create(name) for name in settings.job_sources]
+            ),
+        ),
+    ).config({"recursion_limit": configurations.agent_recursion_limit})
 
     async def run_agent(state: FindJobsState) -> dict:
         preferences = state.profile.preferences.model_dump_json()
@@ -83,14 +91,7 @@ def build_graph(
                 "facts": state.profile.facts,
                 "preferences": state.profile.preferences,
             },
-            Workflow(
-                response_format=RankedJobs,
-                tools=(
-                    search_jobs_tool(
-                        [job_sources.create(name) for name in settings.job_sources]
-                    ),
-                ),
-            ).config({"recursion_limit": configurations.agent_recursion_limit}),
+            config,
         )
         return {
             "messages": result["messages"],
