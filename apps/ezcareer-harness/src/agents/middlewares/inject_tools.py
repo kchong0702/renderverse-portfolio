@@ -1,8 +1,16 @@
 from collections.abc import Awaitable, Callable, Mapping
-from typing import Any, override
+from typing import override
 
-from langchain.agents.middleware import AgentMiddleware, ModelRequest, ToolCallRequest
+from langchain.agents.middleware import (
+    AgentMiddleware,
+    ModelCallResult,
+    ModelRequest,
+    ModelResponse,
+    ToolCallRequest,
+)
+from langchain_core.messages import ToolMessage
 from langchain_core.tools import BaseTool
+from langgraph.types import Command
 
 from src.agents.workflow import current_workflow
 
@@ -13,6 +21,7 @@ class InjectToolsMiddleware(AgentMiddleware):
         profile's tool descriptions, which replace a tool's own"""
         super().__init__()
         self.descriptions = descriptions
+        """The agent profile's tool descriptions, by tool name"""
 
     def _tools(self) -> dict[str, BaseTool]:
         """The calling workflow's tools by name, described as the profile says"""
@@ -40,22 +49,26 @@ class InjectToolsMiddleware(AgentMiddleware):
 
     @override
     def wrap_model_call(
-        self, request: ModelRequest, handler: Callable[[ModelRequest], Any]
-    ) -> Any:
+        self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
+    ) -> ModelCallResult:
         """Runs the model call with the workflow's tools offered"""
         return handler(self._model_request(request))
 
     @override
     async def awrap_model_call(
-        self, request: ModelRequest, handler: Callable[[ModelRequest], Awaitable[Any]]
-    ) -> Any:
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
+    ) -> ModelCallResult:
         """Runs the model call with the workflow's tools offered"""
         return await handler(self._model_request(request))
 
     @override
     def wrap_tool_call(
-        self, request: ToolCallRequest, handler: Callable[[ToolCallRequest], Any]
-    ) -> Any:
+        self,
+        request: ToolCallRequest,
+        handler: Callable[[ToolCallRequest], ToolMessage | Command],
+    ) -> ToolMessage | Command:
         """Runs the tool call, with the workflow's tool when it names one"""
         return handler(self._tool_request(request))
 
@@ -63,7 +76,7 @@ class InjectToolsMiddleware(AgentMiddleware):
     async def awrap_tool_call(
         self,
         request: ToolCallRequest,
-        handler: Callable[[ToolCallRequest], Awaitable[Any]],
-    ) -> Any:
+        handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]],
+    ) -> ToolMessage | Command:
         """Runs the tool call, with the workflow's tool when it names one"""
         return await handler(self._tool_request(request))

@@ -1,7 +1,12 @@
 from collections.abc import Awaitable, Callable
-from typing import Any, override
+from typing import override
 
-from langchain.agents.middleware import AgentMiddleware, ModelRequest
+from langchain.agents.middleware import (
+    AgentMiddleware,
+    ModelCallResult,
+    ModelRequest,
+    ModelResponse,
+)
 
 from src.agents.workflow import current_workflow
 
@@ -16,14 +21,16 @@ def _request(request: ModelRequest) -> ModelRequest:
 class ResponseFormatMiddleware(AgentMiddleware):
     @override
     def wrap_model_call(
-        self, request: ModelRequest, handler: Callable[[ModelRequest], Any]
-    ) -> Any:
-        """Runs the model call for the workflow's answer"""
+        self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
+    ) -> ModelCallResult:
+        """Runs the model call with the workflow's response_format"""
         return handler(_request(request))
 
     @override
     async def awrap_model_call(
-        self, request: ModelRequest, handler: Callable[[ModelRequest], Awaitable[Any]]
-    ) -> Any:
-        """Runs the model call for the workflow's answer"""
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
+    ) -> ModelCallResult:
+        """Runs the model call with the workflow's response_format"""
         return await handler(_request(request))
