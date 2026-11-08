@@ -4,6 +4,7 @@ from pathlib import Path
 import httpx
 import pytest
 import respx
+from circuitbreaker import CircuitBreakerMonitor
 from langchain.tools import ToolRuntime
 from langchain_core.utils.function_calling import convert_to_openai_tool
 
@@ -14,6 +15,22 @@ from src.shared.models import Preferences
 
 URL = "https://jsearch.p.rapidapi.com/search-v2"
 RESPONSE = (Path(__file__).parent / "fixtures" / "jsearch_search.json").read_text()
+
+
+def _page(count: int, cursor: str | None, start: int = 0) -> httpx.Response:
+    template = json.loads(RESPONSE)["data"]["jobs"][0]
+    jobs = [
+        {**template, "job_id": f"job-{n}", "job_title": f"Engineer {n}"}
+        for n in range(start, start + count)
+    ]
+    return httpx.Response(200, json={"data": {"jobs": jobs, "cursor": cursor}})
+
+
+@pytest.fixture(autouse=True)
+def closed_circuit():
+    CircuitBreakerMonitor.get("jsearch").reset()
+    yield
+    CircuitBreakerMonitor.get("jsearch").reset()
 
 
 @pytest.fixture
@@ -99,7 +116,15 @@ async def test_leaves_out_jobs_that_break_the_users_preferences(api_key):
 async def test_sends_the_key_and_search_options(api_key):
     route = respx.get(URL).respond(200, text=RESPONSE)
 
-    await _search(query="platform engineer", country="GB", remote_only=True)
+    await _search(
+        query="platform engineer",
+        country="GB",
+        remote_only=True,
+        date_posted="month",
+        employment_types=["FULLTIME", "CONTRACTOR"],
+        job_requirements=["no_degree"],
+        radius_km=25,
+    )
 
     request = route.calls.last.request
     assert request.headers["X-RapidAPI-Key"] == "test-key"
@@ -108,8 +133,55 @@ async def test_sends_the_key_and_search_options(api_key):
         "query": "platform engineer",
         "country": "gb",
         "work_from_home": "true",
-        "date_posted": "week",
+        "date_posted": "month",
+        "employment_types": "FULLTIME,CONTRACTOR",
+        "job_requirements": "no_degree",
+        "radius": "25",
     }
+
+
+@respx.mock
+async def test_pages_by_cursor_until_it_has_thirty_jobs(api_key):
+    pages = {None: _page(10, "2"), "2": _page(10, "3", 10), "3": _page(10, "4", 20)}
+    route = respx.get(URL).mock(
+        side_effect=lambda request: pages[request.url.params.get("cursor")]
+    )
+
+    message = await _search(query="backend engineer")
+
+    assert route.call_count == 3
+    assert len(message.artifact) == 30
+
+
+@respx.mock
+async def test_fetches_one_page_when_asked_for_ten_jobs(api_key):
+    route = respx.get(URL).mock(return_value=_page(10, "2"))
+
+    message = await _search(query="backend engineer", max_jobs=10)
+
+    assert route.call_count == 1
+    assert len(message.artifact) == 10
+
+
+@respx.mock
+async def test_stops_when_jsearch_has_no_more_pages(api_key):
+    route = respx.get(URL).mock(return_value=_page(4, None))
+
+    message = await _search(query="backend engineer")
+
+    assert route.call_count == 1
+    assert len(message.artifact) == 4
+
+
+@respx.mock
+async def test_tells_the_agent_how_many_requests_are_left(api_key):
+    respx.get(URL).respond(
+        200, text=RESPONSE, headers={"x-ratelimit-requests-remaining": "42"}
+    )
+
+    message = await _search(query="backend engineer")
+
+    assert json.loads(message.content)["jsearch_requests_left_this_month"] == 42
 
 
 @pytest.fixture
@@ -148,6 +220,20 @@ async def test_tells_the_agent_when_jsearch_keeps_failing(api_key, waits):
     assert route.call_count == 3
     assert message.status == "error"
     assert "Job search failed" in message.text
+
+
+@respx.mock
+async def test_stops_calling_jsearch_after_three_failed_searches(api_key, waits):
+    route = respx.get(URL).respond(503)
+    for _ in range(3):
+        await _search(query="backend engineer python")
+    calls = route.call_count
+
+    message = await _search(query="backend engineer python")
+
+    assert route.call_count == calls
+    assert message.status == "error"
+    assert "paused" in message.text
 
 
 async def test_refuses_to_search_without_a_key(isolate_env):
