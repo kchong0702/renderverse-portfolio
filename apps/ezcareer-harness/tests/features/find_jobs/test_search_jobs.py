@@ -59,9 +59,6 @@ class _DownSource:
     query = _OtherQuery
     """Its own arguments"""
 
-    usage = ""
-    """What a search costs"""
-
     async def search(self, query: _OtherQuery) -> SearchResult:
         """Can't search"""
         raise SourceUnavailable("other is down")
@@ -227,7 +224,7 @@ async def test_tells_the_agent_how_many_requests_are_left(search_jobs):
 
     message = await _search(search_jobs, query="backend engineer")
 
-    assert json.loads(message.content)["jsearch_requests_left_this_month"] == 42
+    assert json.loads(message.content)["requests_left"] == 42
 
 
 @respx.mock

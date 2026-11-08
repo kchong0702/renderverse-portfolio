@@ -65,29 +65,6 @@ class _SearchResponse(BaseModel):
     """The requested page"""
 
 
-def _posting(job: _Job) -> JobPosting:
-    """A JSearch job as a posting, its description numbered line by line"""
-    return JobPosting(
-        id=job.job_id,
-        title=job.job_title,
-        company=job.employer_name,
-        location=", ".join(filter(None, [job.job_city, job.job_country])),
-        country=job.job_country.upper()
-        if job.job_country and len(job.job_country) == 2
-        else None,
-        remote=job.job_is_remote,
-        posted_at=job.job_posted_at_datetime_utc,
-        apply_url=job.job_apply_link,
-        lines=[
-            PostingLine(id=number, text=text)
-            for number, text in enumerate(
-                filter(None, map(str.strip, job.job_description.splitlines())),
-                start=1,
-            )
-        ],
-    )
-
-
 def retryable(error: BaseException) -> bool:
     """Whether JSearch rate-limited a page, was down or never answered"""
     if isinstance(error, httpx.HTTPStatusError):
@@ -96,7 +73,9 @@ def retryable(error: BaseException) -> bool:
 
 
 async def _page(
-    client: httpx.AsyncClient, settings: JSearchSettings, params: dict
+    client: httpx.AsyncClient,
+    settings: JSearchSettings,
+    params: dict[str, str | int | bool],
 ) -> httpx.Response:
     """One page of results, tried again with backoff while retryable"""
     async for attempt in AsyncRetrying(
@@ -125,7 +104,7 @@ async def search(
     has enough or runs out, each page through the circuit"""
     if settings.api_key is None:
         raise RuntimeError("EZCAREER_HARNESS_JSEARCH__API_KEY is not set")
-    params: dict = {
+    params: dict[str, str | int | bool] = {
         "query": query.query,
         "date_posted": query.date_posted,
         "work_from_home": query.remote_only,
@@ -147,7 +126,33 @@ async def search(
                     client, settings, params | ({"cursor": cursor} if cursor else {})
                 )
                 page = _SearchResponse.model_validate_json(response.content).data
-                postings += [_posting(job) for job in page.jobs]
+                postings += [
+                    JobPosting(
+                        id=job.job_id,
+                        title=job.job_title,
+                        company=job.employer_name,
+                        location=", ".join(
+                            filter(None, [job.job_city, job.job_country])
+                        ),
+                        country=job.job_country.upper()
+                        if job.job_country and len(job.job_country) == 2
+                        else None,
+                        remote=job.job_is_remote,
+                        posted_at=job.job_posted_at_datetime_utc,
+                        apply_url=job.job_apply_link,
+                        lines=[
+                            PostingLine(id=number, text=text)
+                            for number, text in enumerate(
+                                filter(
+                                    None,
+                                    map(str.strip, job.job_description.splitlines()),
+                                ),
+                                start=1,
+                            )
+                        ],
+                    )
+                    for job in page.jobs
+                ]
                 cursor = page.cursor
                 if not cursor or not page.jobs:
                     break
@@ -167,5 +172,5 @@ async def search(
     left = response.headers.get("x-ratelimit-requests-remaining")
     return SearchResult(
         postings=postings[: query.max_jobs],
-        notes={"jsearch_requests_left_this_month": int(left) if left else None},
+        requests_left=int(left) if left else None,
     )

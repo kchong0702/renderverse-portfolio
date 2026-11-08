@@ -17,8 +17,9 @@ default:
       country preferences are already left out. Each job has its id, title,
       company, location, country, remote flag, posting date, apply link and
       description as numbered lines. Put job titles and skills in `query`, and
-      pass the country and remote preferences as arguments, not as query words. Each result says how many requests each source
-      has left this month, so search sparingly.
+      pass the country and remote preferences as arguments, not as query words.
+      JSearch allows 200 requests a month and every 10 jobs costs one. Each
+      result's `requests_left` says how many are left, so search sparingly.
 glm:
   glm-5.3:
 claude:

@@ -1,12 +1,12 @@
-from typing import Any, Protocol
+from typing import Protocol
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict
 
 from src.features.find_jobs.schemas import JobPosting
 
 
 class SourceUnavailable(Exception):
-    """A job source can't search right now; the message says why and for how long"""
+    pass
 
 
 class SearchResult(BaseModel):
@@ -15,19 +15,14 @@ class SearchResult(BaseModel):
     postings: list[JobPosting]
     """The jobs found, in the source's order"""
 
-    notes: dict[str, JsonValue] = Field(default_factory=dict)
-    """What the agent should know about the source, such as its requests left"""
+    requests_left: int | None = None
+    """Requests the source has left, if it says"""
 
 
-class SearchProtocol(Protocol):
-    query: type[BaseModel]
-    """The source's own search arguments; a field named like another source's
-    must have the same type, since search_jobs shares it"""
+class SearchProtocol[Q: BaseModel](Protocol):
+    query: type[Q]
+    """The source's own search arguments"""
 
-    usage: str
-    """What a search costs, for search_jobs' description"""
-
-    async def search(self, query: Any) -> SearchResult:
-        """Runs one search with a query of the source's own type, as postings any
-        source can return; raises SourceUnavailable when it can't run"""
+    async def search(self, query: Q) -> SearchResult:
+        """Runs one search; raises SourceUnavailable when the source can't search"""
         ...

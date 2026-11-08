@@ -10,12 +10,6 @@ class JSearchAdapter:
     query = JSearchQuery
     """JSearch's own search arguments"""
 
-    usage = (
-        "JSearch allows 200 requests a month and every 10 jobs costs one; each "
-        "result says how many are left."
-    )
-    """What a JSearch search costs"""
-
     def __init__(self) -> None:
         """Reads the JSearch settings and closes its circuit"""
         self._settings = get_settings().jsearch

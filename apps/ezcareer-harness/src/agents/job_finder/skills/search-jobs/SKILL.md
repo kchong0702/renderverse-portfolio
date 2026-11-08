@@ -13,5 +13,5 @@ description: Turn the user's profile and preferences into a few search_jobs quer
    - `date_posted` stays `week` unless the user asks for older jobs.
    - `employment_types`, `job_requirements` and `radius_km` only when the user or their preferences ask for them.
 4. Run the queries. `search_jobs` already removes duplicates and sorts newest first, so don't do either yourself.
-5. Mind the budget. JSearch allows 200 requests a month, every 10 jobs costs one, and each result says `jsearch_requests_left_this_month`. Keep `max_jobs` at 30. Lower it to 10 when fewer than 20 requests are left.
+5. Keep `max_jobs` at 30. Lower it to 10 when `requests_left` is below 20.
 6. Run a second, different query only when the first returned fewer than about ten relevant jobs, and never more than three queries in all. Never invent a job or a job id.
