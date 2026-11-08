@@ -123,7 +123,7 @@ def test_agent_reads_the_pdf_lines_and_profile_facts():
 
 
 def _asked(
-    ask: AIMessage, answer: Answer, configurable: dict[str, str] | None = None
+    ask: AIMessage, answer: object, configurable: dict[str, str] | None = None
 ) -> tuple[CareerConsultantState, CareerConsultantState]:
     agent = _agent(_model(ask, _answer(GOOD_EDIT))).copy(
         update={"checkpointer": InMemorySaver()}
@@ -131,14 +131,14 @@ def _asked(
     thread = EDIT.config({"configurable": {"thread_id": "t1", **(configurable or {})}})
     return (
         agent.invoke(_state(), thread),
-        agent.invoke(Command(resume=answer.model_dump()), thread),
+        agent.invoke(Command(resume=answer), thread),
     )
 
 
 def test_clarify_shows_the_user_a_widget_and_returns_what_they_typed():
     paused, resumed = _asked(
         _call("clarify", question="Which bullet should mention Kubernetes?"),
-        Answer(input="The queue migration one"),
+        Answer(input="The queue migration one").model_dump(),
     )
 
     assert [WidgetSetting.model_validate(i.value) for i in paused["__interrupt__"]] == [
@@ -163,7 +163,8 @@ def test_permission_asks_the_user_to_confirm_and_returns_their_choice(
     accept: bool, reply: str
 ):
     paused, resumed = _asked(
-        _call("permission", summary="Replace the summary"), Answer(accept=accept)
+        _call("permission", summary="Replace the summary"),
+        Answer(accept=accept).model_dump(),
     )
 
     assert [WidgetSetting.model_validate(i.value) for i in paused["__interrupt__"]] == [
@@ -177,13 +178,19 @@ def test_permission_asks_the_user_to_confirm_and_returns_their_choice(
 def test_with_a_parent_clarify_asks_the_parent_the_plain_question():
     paused, resumed = _asked(
         _call("clarify", question="Which job?"),
-        Answer(input="Lumen Pay"),
+        Answer(input="Lumen Pay").model_dump(),
         {"parent": "career-director"},
     )
 
     assert [i.value for i in paused["__interrupt__"]] == [
         {"kind": "question", "text": "Which job?"}
     ]
+    assert _tool_results(resumed)["clarify"] == "Lumen Pay"
+
+
+def test_clarify_takes_a_plain_text_answer_as_what_was_typed():
+    _, resumed = _asked(_call("clarify", question="Which job?"), "Lumen Pay")
+
     assert _tool_results(resumed)["clarify"] == "Lumen Pay"
 
 
