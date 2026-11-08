@@ -67,11 +67,12 @@ class LanggraphExecutor(AgentExecutor):
             if context.current_task:
                 graph_input = Command(resume=answer)
             elif self.executable.kind == "agent":
-                fields = self.executable.input_schema.model_validate(
-                    data[0] if data else {}
-                )
                 graph_input = {
-                    **dict(fields),
+                    **dict(
+                        self.executable.input_schema.model_validate(
+                            data[0] if data else {}
+                        )
+                    ),
                     "messages": [HumanMessage(context.get_user_input())],
                 }
             else:

@@ -108,7 +108,6 @@ def build_graph(
         }
 
     def check(state: FindJobsState) -> CheckRound:
-        postings = _postings(state.messages)
         if state.ranked is None:
             return check_round(
                 [
@@ -119,6 +118,7 @@ def build_graph(
                     )
                 ]
             )
+        postings = _postings(state.messages)
         return check_round(
             [
                 error
