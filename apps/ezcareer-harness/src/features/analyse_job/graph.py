@@ -10,7 +10,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
-from src.agents import Workflow, answer_of, build_agent, load_agents
+from src.agents import Workflow, build_agent, load_agents
 from src.agents.job_finder import JobFinderState
 from src.core.config import get_settings
 from src.core.errors import ExecuteError
@@ -123,7 +123,7 @@ def build_graph(
         )
         return {
             "messages": result["messages"],
-            "requirements": answer_of(result["messages"], JobRequirements),
+            "requirements": result.get("structured_response"),
         }
 
     def check(state: AnalyseJobState) -> CheckRound:

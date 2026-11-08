@@ -9,7 +9,7 @@ from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-from src.agents import Agent, Workflow, answer_of, build_agent
+from src.agents import Agent, Workflow, build_agent
 from tests.agents.test_builder import GREETER, look_up_name
 from tests.conftest import ScriptedChatModel
 
@@ -63,8 +63,8 @@ async def test_one_agent_answers_with_each_workflows_answer(model_name: str):
     greeted = await _ask(agent, Workflow(response_format=Greeting))
     left = await _ask(agent, Workflow(response_format=Farewell))
 
-    assert answer_of(greeted["messages"], Greeting) == Greeting(text="Hello!")
-    assert answer_of(left["messages"], Farewell) == Farewell(text="Bye!")
+    assert greeted["structured_response"] == Greeting(text="Hello!")
+    assert left["structured_response"] == Farewell(text="Bye!")
     assert "Farewell" not in model.offered_tools[0]
 
 
@@ -91,7 +91,7 @@ async def test_an_invalid_answer_goes_back_to_the_model_to_retry():
         if isinstance(m, ToolMessage) and m.status == "error"
     ]
     assert error.name == "Greeting"
-    assert answer_of(result["messages"], Greeting) == Greeting(text="Hi")
+    assert result["structured_response"] == Greeting(text="Hi")
     assert len(model.requests) == 2
 
 
@@ -140,7 +140,7 @@ async def test_a_workflow_runs_the_agent_on_its_own_model():
         _agent(built_with), Workflow(response_format=Greeting, model=workflow_model)
     )
 
-    assert answer_of(result["messages"], Greeting) == Greeting(text="from the workflow")
+    assert result["structured_response"] == Greeting(text="from the workflow")
     assert built_with.requests == []
 
 
@@ -165,7 +165,7 @@ async def test_openai_models_get_the_answer_tool_in_strict_mode():
     tools = {t["function"]["name"]: t["function"] for t in model.sent[0]}
     assert tools["Greeting"]["strict"] is True
     assert not tools["look_up_name"].get("strict")
-    assert answer_of(result["messages"], Greeting) == Greeting(text="Hi")
+    assert result["structured_response"] == Greeting(text="Hi")
 
 
 class _Wave(BaseModel):
@@ -202,3 +202,22 @@ async def test_a_workflow_can_send_its_answer_tool_to_openai_without_strict_mode
 
     [sent] = [t for t in model.sent[0] if t["function"]["name"] == "Greeting"]
     assert not sent["function"].get("strict")
+
+
+@pytest.mark.parametrize("model_name", ["glm-5.3", "gpt-6-luna"])
+async def test_a_workflow_reads_the_same_answer_as_from_a_native_response_format(
+    model_name: str,
+):
+    reply = [_call("Greeting", text="Hello!")]
+    through_hook = ScriptedChatModel(replies=reply, model_name=model_name)
+    native = ScriptedChatModel(replies=reply, model_name=model_name)
+    agent = Agent.load(GREETER.model_copy(update={"model": model_name}))
+    workflow = Workflow(response_format=Greeting)
+
+    hooked = await _ask(build_agent(agent, model=through_hook), workflow)
+    natively = await _ask(
+        build_agent(agent, response_format=Greeting, model=native), workflow
+    )
+
+    assert hooked["structured_response"] == natively["structured_response"]
+    assert natively["structured_response"] == Greeting(text="Hello!")

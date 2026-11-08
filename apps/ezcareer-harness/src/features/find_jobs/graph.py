@@ -8,7 +8,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.agents import Workflow, answer_of, build_agent, load_agents
+from src.agents import Workflow, build_agent, load_agents
 from src.agents.job_finder import JobFinderState
 from src.core.config import get_settings
 from src.features.find_jobs.adapters import SearchProtocol
@@ -103,7 +103,7 @@ def build_graph(
         )
         return {
             "messages": result["messages"],
-            "ranked": answer_of(result["messages"], RankedJobs),
+            "ranked": result.get("structured_response"),
         }
 
     def check(state: FindJobsState) -> CheckRound:

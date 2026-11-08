@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, override
 
 from langchain.agents.middleware import (
@@ -9,7 +9,7 @@ from langchain.agents.middleware import (
     hook_config,
 )
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, AnyMessage, ToolMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool, StructuredTool
 from langchain_openai import ChatOpenAI
@@ -74,22 +74,6 @@ class Workflow(BaseModel):
         }
 
 
-def answer_of[T: BaseModel](
-    messages: Sequence[AnyMessage], answer: type[T]
-) -> T | None:
-    """The agent's last valid answer of that type in a run's messages, if it gave one"""
-    return next(
-        (
-            message.artifact
-            for message in reversed(messages)
-            if isinstance(message, ToolMessage)
-            and message.name == answer.__name__
-            and isinstance(message.artifact, answer)
-        ),
-        None,
-    )
-
-
 def _workflow() -> Workflow | None:
     """The workflow the current run's config names, if any"""
     return get_config().get("configurable", {}).get("workflow")
@@ -128,6 +112,8 @@ class WorkflowHook(AgentMiddleware):
         workflow = _workflow()
         if workflow is None:
             return request
+        if request.response_format is not None:
+            workflow = workflow.model_copy(update={"response_format": None})
         model = workflow.model or request.model
         own = [
             tool
@@ -178,8 +164,9 @@ class WorkflowHook(AgentMiddleware):
     @hook_config(can_jump_to=["end"])
     @override
     def after_model(self, state: AgentState, runtime: Any) -> dict[str, Any] | None:
-        """Ends the run when the model's only tool call is a valid answer, keeping
-        the answer as that call's result; an invalid one goes on to fail as a tool"""
+        """Ends the run when the model's only tool call is a valid answer, putting it
+        in structured_response as a native response_format would; an invalid one
+        goes on to fail as a tool"""
         workflow = _workflow()
         message = state["messages"][-1]
         if not (
@@ -204,6 +191,7 @@ class WorkflowHook(AgentMiddleware):
                     artifact=answer,
                 )
             ],
+            "structured_response": answer,
             "jump_to": "end",
         }
 

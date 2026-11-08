@@ -11,7 +11,7 @@ from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
 from pydantic import BaseModel
 
-from src.agents import Agent, Workflow, answer_of, build_agent, load_agents
+from src.agents import Agent, Workflow, build_agent, load_agents
 from src.core.config import AgentSettings, Settings
 from src.infrastructure.observability import tracing
 from src.infrastructure.observability.instrumentation import instrument
@@ -84,7 +84,7 @@ def test_agent_answers_through_the_workflows_answer_tool():
 
     result = _ask(model)
 
-    assert answer_of(result["messages"], Greeting) == Greeting(text="Hello, Ada!")
+    assert result["structured_response"] == Greeting(text="Hello, Ada!")
 
 
 def test_agent_is_offered_read_tools_and_its_flows_tools_only():
