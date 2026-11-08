@@ -97,7 +97,7 @@ def test_job_finder_is_served_as_an_agent_with_the_containers_checkpointer():
     card = TestClient(create_app(container)).get(
         "/ezcareer/a2a/job-finder/.well-known/agent-card.json"
     )
-    [served] = [e.graph for e in container.executables() if e.kind == "agent"]
+    [served] = [e.graph for e in container.executables() if e.name == "job-finder"]
 
     assert card.json()["name"] == "job-finder"
     assert served.checkpointer is container.checkpointer()

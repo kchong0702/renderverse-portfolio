@@ -262,6 +262,16 @@ class JSearchSettings(BaseModel):
     """How long the open circuit refuses pages"""
 
 
+class ArtifactServiceSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    url: HttpUrl = HttpUrl("http://127.0.0.1:8210/artifact-service")
+    """artifact-service's base URL, route prefix included"""
+
+    timeout_seconds: float = Field(default=120, gt=0)
+    """Longest one render may take"""
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EZCAREER_HARNESS_",
@@ -303,6 +313,11 @@ class Settings(BaseSettings):
 
     job_sources: tuple[str, ...] = ("jsearch",)
     """Names of the enabled job sources"""
+
+    artifact_service: ArtifactServiceSettings = Field(
+        default_factory=ArtifactServiceSettings
+    )
+    """Where documents are printed"""
 
     @classmethod
     @override
@@ -346,6 +361,7 @@ def reload_settings() -> Settings:
 __all__ = [
     "AgentSettings",
     "AppSettings",
+    "ArtifactServiceSettings",
     "GraphProfile",
     "Instrumentation",
     "JSearchSettings",
