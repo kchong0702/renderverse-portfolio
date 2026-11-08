@@ -1,6 +1,6 @@
 from datetime import date
 
-from src.shared.models import ProfileFact
+from src.shared.profile import ProfileFact
 
 
 def _month(year_month: str) -> int:

@@ -24,7 +24,7 @@ CHECKS = {"polite": lambda greeting: [] if "Hello" in greeting.text else ["rude"
 
 
 async def _greet(task: object) -> object:
-    """A flow that greets the task's person with its harness and checks the greeting"""
+    """A workflow that greets the task's person with its harness and checks the greeting"""
     settings = get_settings()
     profile = settings.graph_profile("greet").load(GreetProfile)
     model = ScriptedChatModel(
@@ -70,7 +70,7 @@ def _candidate(folder: Path) -> Path:
 
 @pytest.fixture
 def task(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
-    monkeypatch.setitem(probe.FLOWS, "greet", _greet)
+    monkeypatch.setitem(probe.WORKFLOWS, "greet", _greet)
     monkeypatch.delenv("EZCAREER_HARNESS_CONFIG", raising=False)
     path = tmp_path / "task.json"
     path.write_text(json.dumps({"person": "Lovelace"}))
@@ -87,7 +87,7 @@ def test_a_probe_runs_a_candidate_and_writes_its_output_and_trace(
 
     probe.main(
         [
-            "--flow",
+            "--workflow",
             "greet",
             "--task",
             str(task),
@@ -110,7 +110,7 @@ def test_a_probe_runs_a_candidate_and_writes_its_output_and_trace(
 
 def test_editing_any_harness_file_changes_the_harness_hash(task: Path, tmp_path: Path):
     config = _candidate(tmp_path / "candidate")
-    probe.main(["--flow", "greet", "--task", str(task), "--config", str(config)])
+    probe.main(["--workflow", "greet", "--task", str(task), "--config", str(config)])
     before = probe.harness_hash(get_settings())
 
     for changed in (
@@ -128,7 +128,7 @@ def test_a_failed_run_still_writes_its_trace(task: Path, tmp_path: Path, capsys)
     config = _candidate(tmp_path / "candidate")
     task.write_text(json.dumps({"person": "nobody"}))
 
-    probe.main(["--flow", "greet", "--task", str(task), "--config", str(config)])
+    probe.main(["--workflow", "greet", "--task", str(task), "--config", str(config)])
 
     result = json.loads(capsys.readouterr().out)
     assert result["output"] is None

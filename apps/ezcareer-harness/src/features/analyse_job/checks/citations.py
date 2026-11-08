@@ -1,7 +1,7 @@
 from src.features.analyse_job.enums import Match
 from src.features.analyse_job.schemas import JobRequirements, PostingLine
 from src.shared.checks import CheckError, CheckRule
-from src.shared.models import ProfileFact
+from src.shared.profile import ProfileFact
 
 
 def check_citations(

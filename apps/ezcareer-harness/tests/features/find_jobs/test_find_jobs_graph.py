@@ -5,7 +5,8 @@ import respx
 from langchain_core.messages import AIMessage, HumanMessage
 
 from src.core.config import reload_settings
-from src.features.find_jobs import build_graph
+from src.features.find_jobs import JSearchAdapter, SearchProtocol, build_graph
+from src.shared.factory import Factory
 from tests.conftest import ScriptedChatModel
 
 RESPONSE = (Path(__file__).parent / "fixtures" / "jsearch_search.json").read_text()
@@ -50,7 +51,9 @@ def jsearch(isolate_env, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("EZCAREER_HARNESS_JSEARCH__API_KEY", "test-key")
     reload_settings()
     with respx.mock:
-        respx.get("https://jsearch.p.rapidapi.com/search").respond(200, text=RESPONSE)
+        respx.get("https://jsearch.p.rapidapi.com/search-v2").respond(
+            200, text=RESPONSE
+        )
         yield
     monkeypatch.undo()
     reload_settings()
@@ -67,7 +70,9 @@ async def test_unknown_jobs_go_back_and_the_ranking_comes_out_by_fit(jsearch):
         ]
     )
 
-    result = await build_graph(model=model).ainvoke(INPUT)
+    result = await build_graph(
+        Factory[SearchProtocol]({"jsearch": JSearchAdapter}), model=model
+    ).ainvoke(INPUT)
 
     assert [(job.posting.id, job.fit) for job in result["jobs"]] == [
         ("aB3xK9_newer-copy==", 100),

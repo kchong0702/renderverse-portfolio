@@ -1,6 +1,6 @@
 from collections.abc import Collection
 
-from src.shared.models import CountryCode, Preferences, WorkMode
+from src.shared.profile import CountryCode, Preferences, WorkMode
 
 
 def work_mode_fits(modes: Collection[WorkMode], preferences: Preferences) -> bool:

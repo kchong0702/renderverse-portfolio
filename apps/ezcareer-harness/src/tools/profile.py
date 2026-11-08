@@ -1,13 +1,7 @@
-from deepagents import DeepAgentState
 from langchain.tools import ToolRuntime
 from langchain_core.tools import tool
 
-from src.shared.models import ProfileFact
-
-
-class ProfileState(DeepAgentState):
-    facts: list[ProfileFact]
-    """The user's profile facts, which read_profile_facts lists"""
+from src.agents.state import ProfileState
 
 
 @tool

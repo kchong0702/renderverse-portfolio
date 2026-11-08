@@ -240,11 +240,26 @@ class GraphProfile(BaseModel):
 class JSearchSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
-    url: HttpUrl = HttpUrl("https://jsearch.p.rapidapi.com/search")
+    url: HttpUrl = HttpUrl("https://jsearch.p.rapidapi.com/search-v2")
     """JSearch search endpoint on RapidAPI"""
 
     api_key: SecretStr | None = None
     """RapidAPI key, from EZCAREER_HARNESS_JSEARCH__API_KEY"""
+
+    timeout_seconds: float = Field(default=30, gt=0)
+    """Longest one request may take"""
+
+    retry_attempts: int = Field(default=3, gt=0)
+    """Tries per page when JSearch rate-limits, fails or never answers"""
+
+    retry_max_wait_seconds: float = Field(default=4, ge=0)
+    """Longest wait between two tries"""
+
+    failure_threshold: int = Field(default=3, gt=0)
+    """Failed pages in a row that open the circuit"""
+
+    recovery_seconds: float = Field(default=60, gt=0)
+    """How long the open circuit refuses pages"""
 
 
 class Settings(BaseSettings):
@@ -285,6 +300,9 @@ class Settings(BaseSettings):
 
     jsearch: JSearchSettings = Field(default_factory=JSearchSettings)
     """Job search API settings"""
+
+    job_sources: tuple[str, ...] = ("jsearch",)
+    """Names of the enabled job sources"""
 
     @classmethod
     @override

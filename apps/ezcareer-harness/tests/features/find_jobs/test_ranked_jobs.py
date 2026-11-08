@@ -4,7 +4,7 @@ from src.features.analyse_job import PostingLine
 from src.features.find_jobs.checks import check_ranked_jobs
 from src.features.find_jobs.ranking import matched_jobs
 from src.features.find_jobs.schemas import JobPosting, RankedJobs
-from src.shared.models import Preferences, Profile, ProfileFact
+from src.shared.profile import Preferences, Profile, ProfileFact
 
 
 def _posting(job_id: str, *lines: str, remote: bool = True) -> JobPosting:

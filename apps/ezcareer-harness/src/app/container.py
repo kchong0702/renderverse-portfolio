@@ -4,6 +4,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from src.app.a2a import Executable
 from src.features import analyse_job, find_jobs
+from src.shared.factory import Factory
 
 
 class Container(containers.DeclarativeContainer):
@@ -13,6 +14,11 @@ class Container(containers.DeclarativeContainer):
     checkpointer = providers.Singleton(InMemorySaver)
     """Where graphs keep checkpoints so interrupted runs resume; pass it to
     each executable's graph, and swap in a database saver here"""
+
+    job_sources = providers.Singleton(
+        Factory[find_jobs.SearchProtocol], {"jsearch": find_jobs.JSearchAdapter}
+    )
+    """Job sources by name, each created once"""
 
     executables = providers.List(
         providers.Singleton(
@@ -29,7 +35,11 @@ class Container(containers.DeclarativeContainer):
             name="find-jobs",
             description="Find fresh jobs for the user's profile and preferences, ranked by fit",
             input_schema=find_jobs.FindJobsInput,
-            graph=providers.Singleton(find_jobs.build_graph, checkpointer=checkpointer),
+            graph=providers.Singleton(
+                find_jobs.build_graph,
+                checkpointer=checkpointer,
+                job_sources=job_sources,
+            ),
         ),
     )
     """Graphs served as A2A agents; add a feature's Executable provider here"""

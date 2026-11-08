@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, computed_field
 
 from src.features.analyse_job.enums import FilterKind, Importance, Match
-from src.shared.models import CountryCode, FactRef, Salary, WorkMode
+from src.shared.profile import CountryCode, FactRef, Salary, WorkMode
 
 _WEIGHTS = {Importance.REQUIRED: 2, Importance.NICE_TO_HAVE: 1}
 _CREDITS = {Match.MET: 1.0, Match.PARTLY: 0.5, Match.NOT_MET: 0.0}

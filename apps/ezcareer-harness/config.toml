@@ -1,3 +1,5 @@
+job_sources = ["jsearch"]
+
 [app]
 name = "ezcareer-harness"
 env = "dev"
@@ -26,7 +28,7 @@ hide_outputs = false
 
 [[agents]]
 name = "job-finder"
-path = "src/agents/job-finder/profile.yaml"
+path = "src/agents/job_finder/profile.yaml"
 model = "glm-5.3"
 
 [[graph_profiles]]

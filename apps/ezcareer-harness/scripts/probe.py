@@ -3,6 +3,7 @@ import asyncio
 import json
 import os
 from collections.abc import Awaitable, Callable, Sequence
+from functools import partial
 from hashlib import sha256
 from pathlib import Path
 
@@ -13,18 +14,19 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from pydantic_core import to_jsonable_python
 
+from src.app.container import Container
 from src.core.config import Settings, reload_settings
 from src.features.analyse_job import analyse_posting
 from src.features.find_jobs import find_matching_jobs
 
-Flow = Callable[[object], Awaitable[object]]
-"""Runs one flow on one task through its service, returning its output"""
+RunWorkflow = Callable[[object], Awaitable[object]]
+"""Runs one workflow on one task, returning its output"""
 
-FLOWS: dict[str, Flow] = {
+WORKFLOWS: dict[str, RunWorkflow] = {
     "analyse-job": analyse_posting,
-    "find-jobs": find_matching_jobs,
+    "find-jobs": partial(find_matching_jobs, job_sources=Container().job_sources()),
 }
-"""Every flow a probe can run, by name; each feature adds its own"""
+"""Every workflow a probe can run, by name"""
 
 
 def harness_hash(settings: Settings) -> str:
@@ -61,8 +63,8 @@ def _trace(spans: Sequence[ReadableSpan]) -> dict:
     }
 
 
-async def probe(flow: Flow, task: object) -> dict:
-    """Runs a flow once with the current settings and returns its output, or
+async def probe(workflow: RunWorkflow, task: object) -> dict:
+    """Runs a workflow once with the current settings and returns its output, or
     why it failed, with the harness hash and the trace"""
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
@@ -71,7 +73,7 @@ async def probe(flow: Flow, task: object) -> dict:
     instrumentor = LangChainInstrumentor()
     instrumentor.instrument(tracer_provider=provider)
     try:
-        output, error = to_jsonable_python(await flow(task)), None
+        output, error = to_jsonable_python(await workflow(task)), None
     except Exception as failure:  # noqa: BLE001
         output, error = None, f"{type(failure).__name__}: {failure}"
     finally:
@@ -85,12 +87,12 @@ async def probe(flow: Flow, task: object) -> dict:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    """Runs one flow on one task with a candidate harness and writes the result
+    """Runs one workflow on one task with a candidate harness and writes the result
     as JSON"""
     parser = argparse.ArgumentParser(prog="python -m scripts.probe")
-    parser.add_argument("--flow", required=True, choices=sorted(FLOWS))
+    parser.add_argument("--workflow", required=True, choices=sorted(WORKFLOWS))
     parser.add_argument(
-        "--task", required=True, type=Path, help="the flow's input as JSON"
+        "--task", required=True, type=Path, help="the workflow's input as JSON"
     )
     parser.add_argument(
         "--config",
@@ -104,7 +106,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     if args.config:
         os.environ["EZCAREER_HARNESS_CONFIG"] = str(args.config.resolve())
     reload_settings()
-    result = asyncio.run(probe(FLOWS[args.flow], json.loads(args.task.read_text())))
+    result = asyncio.run(
+        probe(WORKFLOWS[args.workflow], json.loads(args.task.read_text()))
+    )
     text = json.dumps(result, indent=2)
     if args.out:
         args.out.write_text(text)
