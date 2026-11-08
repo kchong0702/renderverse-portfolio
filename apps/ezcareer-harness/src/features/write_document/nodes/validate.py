@@ -7,7 +7,7 @@ from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
 
 
 def validate(state: EditGraphState, checks: list[Literal["changeset"]]) -> CheckRound:
-    """Runs the checks on the agent's changeset; errors go back to the agent"""
+    """Runs the checks on the agent's changeset"""
     changeset = state.get("structured_response")
     if changeset is None:
         return check_round(

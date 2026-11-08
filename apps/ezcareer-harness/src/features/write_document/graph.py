@@ -14,8 +14,7 @@ from src.features.write_document.types import EditInput, EditOutput
 
 
 def _after_validate(state: EditGraphState) -> Literal["agent", "page_fit"]:
-    """Sends a changeset that failed the checks back to the agent and fits one
-    that passed to the page"""
+    """The next node after validate"""
     return "agent" if state["errors"] else "page_fit"
 
 

@@ -14,7 +14,7 @@ class WriteDocumentConfigurations(BaseModel):
     )
 
     checks: list[Literal["changeset"]]
-    """Checks run on each changeset; errors go back to the agent"""
+    """Checks run on each changeset"""
 
     recursion_limit: int = Field(gt=0)
     """Graph steps a run may take across all check rounds"""
