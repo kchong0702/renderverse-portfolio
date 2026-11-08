@@ -9,15 +9,23 @@ from src.clients.artifact_service import ArtifactServiceClient
 from src.clients.llm_providers import llm_provider
 from src.core.config import get_settings
 from src.features.import_document.configurations import ImportResumeConfigurations
+from src.features.import_document.exceptions import ImportFailed
 from src.features.import_document.nodes import extract, render, structure, verify
 from src.features.import_document.schemas import ImportInput, ImportResult
 from src.features.import_document.state import ImportState
 
 
 def _after_verify(state: ImportState) -> Literal["structure", "render"]:
-    """Sends a reply that failed the checks back to structure and prints one that
-    passed"""
-    return "structure" if state["errors"] else "render"
+    """Prints a reply that passed the checks; sends one that failed back to
+    structure while steps remain for structure, verify and render"""
+    if not state["errors"]:
+        return "render"
+    if state["remaining_steps"] < 3:
+        raise ImportFailed(
+            "the résumé didn't pass its checks: "
+            + "; ".join(f"{e.at} ({e.rule}): {e.message}" for e in state["errors"])
+        )
+    return "structure"
 
 
 def build_graph(

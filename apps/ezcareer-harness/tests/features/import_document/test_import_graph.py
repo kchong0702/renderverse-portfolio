@@ -5,7 +5,6 @@ from functools import partial
 import httpx
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
-from langgraph.errors import GraphRecursionError
 from pydantic import JsonValue
 
 from src.features.import_document import build_graph
@@ -136,16 +135,16 @@ async def test_a_photo_without_its_file_gets_another_round():
     assert "files not in assets" in model.requests[1][-1].content
 
 
-async def test_an_import_that_never_passes_stops_at_the_recursion_limit():
+async def test_an_import_that_never_passes_fails_once_no_round_can_be_checked():
     requests: list[httpx.Request] = []
     model = _model(_reply("Wrong"))
 
-    with pytest.raises(GraphRecursionError):
+    with pytest.raises(ImportFailed, match=r"blocks/profile/headline \(verbatim\)"):
         await build_graph(
             _artifact_service(partial(_print, sent=requests)), model=model
         ).ainvoke(UPLOAD)
 
-    assert len(model.requests) == 5
+    assert len(model.requests) == 4
     assert requests == []
 
 
