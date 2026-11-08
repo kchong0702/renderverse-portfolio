@@ -262,6 +262,13 @@ class JSearchSettings(BaseModel):
     """How long the open circuit refuses pages"""
 
 
+class ArtifactServiceSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    templates: Path = _ROOT_PATH.parents[1] / "packages/document-renderer/templates"
+    """Folder of the renderer's <id>.yaml template specs"""
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EZCAREER_HARNESS_",
@@ -303,6 +310,11 @@ class Settings(BaseSettings):
 
     job_sources: tuple[str, ...] = ("jsearch",)
     """Names of the enabled job sources"""
+
+    artifact_service: ArtifactServiceSettings = Field(
+        default_factory=ArtifactServiceSettings
+    )
+    """Where documents are printed"""
 
     @classmethod
     @override
@@ -346,6 +358,7 @@ def reload_settings() -> Settings:
 __all__ = [
     "AgentSettings",
     "AppSettings",
+    "ArtifactServiceSettings",
     "GraphProfile",
     "Instrumentation",
     "JSearchSettings",
