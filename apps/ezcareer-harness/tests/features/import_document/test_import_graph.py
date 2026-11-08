@@ -13,7 +13,7 @@ from src.features.import_document.schemas import ImportInput, ResumeImport
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.import_document.test_extract import _artifact_service
-from tests.features.write_document.test_write_document_graph import _print
+from tests.features.write_document.test_write_document_graph import _fail, _print
 from tests.pdfs import make_pdf
 
 UPLOAD = ImportInput(
@@ -148,9 +148,21 @@ async def test_an_import_that_never_passes_fails_once_no_round_can_be_checked():
     assert requests == []
 
 
-async def test_a_failed_render_fails_the_import():
-    with pytest.raises(ImportFailed, match="couldn't print the draft"):
+async def test_a_draft_artifact_service_rejects_fails_the_import_for_good():
+    with pytest.raises(ImportFailed) as failed:
         await build_graph(
             _artifact_service(_reject),
             model=_model(_reply("Engineer")),
         ).ainvoke(UPLOAD)
+
+    assert str(failed.value) == "the draft couldn't be printed"
+
+
+async def test_an_artifact_service_outage_fails_the_import_until_a_retry():
+    with pytest.raises(ImportFailed) as failed:
+        await build_graph(
+            _artifact_service(_fail),
+            model=_model(_reply("Engineer")),
+        ).ainvoke(UPLOAD)
+
+    assert str(failed.value) == "couldn't print the draft; try again"
