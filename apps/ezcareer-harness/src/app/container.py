@@ -16,7 +16,7 @@ class Container(containers.DeclarativeContainer):
     each executable's graph, and swap in a database saver here"""
 
     job_sources = providers.Singleton(
-        Factory[find_jobs.SearchProtocol], find_jobs.JOB_SOURCES
+        Factory[find_jobs.SearchProtocol], {"jsearch": find_jobs.JSearchAdapter}
     )
     """Creates each job source search_jobs uses, once, by its job_sources name"""
 

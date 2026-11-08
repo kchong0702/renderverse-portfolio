@@ -3,6 +3,7 @@ import asyncio
 import json
 import os
 from collections.abc import Awaitable, Callable, Sequence
+from functools import partial
 from hashlib import sha256
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from pydantic_core import to_jsonable_python
 
+from src.app.container import Container
 from src.core.config import Settings, reload_settings
 from src.features.analyse_job import analyse_posting
 from src.features.find_jobs import find_matching_jobs
@@ -22,7 +24,7 @@ Flow = Callable[[object], Awaitable[object]]
 
 FLOWS: dict[str, Flow] = {
     "analyse-job": analyse_posting,
-    "find-jobs": find_matching_jobs,
+    "find-jobs": partial(find_matching_jobs, job_sources=Container().job_sources()),
 }
 """Every flow a probe can run, by name; each feature adds its own"""
 

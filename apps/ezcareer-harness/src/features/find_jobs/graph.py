@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.agents import build_agent, load_agents
 from src.agents.job_finder import JobFinderState
 from src.core.config import get_settings
-from src.features.find_jobs.adapters import JOB_SOURCES, SearchProtocol
+from src.features.find_jobs.adapters import SearchProtocol
 from src.features.find_jobs.configurations import CHECKS, FindJobsConfigurations
 from src.features.find_jobs.ranking import matched_jobs
 from src.features.find_jobs.schemas import JobPosting, MatchedJob, RankedJobs
@@ -65,14 +65,13 @@ def _output(state: FindJobsState) -> dict:
 
 
 def build_graph(
+    job_sources: Factory[SearchProtocol],
     model: BaseChatModel | None = None,
     checkpointer: Checkpointer = None,
-    job_sources: Factory[SearchProtocol] | None = None,
 ) -> CompiledStateGraph:
     """The find-jobs graph with the agent, configurations and job sources the
     settings name; model replaces the agent's LLM; checkpointer keeps its runs"""
     settings = get_settings()
-    job_sources = job_sources or Factory[SearchProtocol](JOB_SOURCES)
     configurations = settings.graph_profile("find-jobs").load(FindJobsConfigurations)
     checks = [CHECKS[name] for name in configurations.checks]
     agent = build_agent(
