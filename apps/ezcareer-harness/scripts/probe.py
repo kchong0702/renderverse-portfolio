@@ -3,9 +3,12 @@ import asyncio
 import json
 import os
 from collections.abc import Awaitable, Callable, Sequence
+from functools import partial
 from hashlib import sha256
 from pathlib import Path
+from uuid import uuid4
 
+from langgraph.graph.state import CompiledStateGraph
 from openinference.instrumentation.langchain import LangChainInstrumentor
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
@@ -19,17 +22,18 @@ from src.core.config import Settings, reload_settings
 RunWorkflow = Callable[[object], Awaitable[object]]
 """Runs one workflow on one task, returning its output"""
 
+CONTAINER = Container()
+"""Builds each flow's graph the first time a probe runs it"""
+
+
+async def _run_graph(graph: Callable[[], CompiledStateGraph], task: object) -> object:
+    """Runs the graph on the task in a thread of its own"""
+    return await graph().ainvoke(task, {"configurable": {"thread_id": str(uuid4())}})
+
+
 WORKFLOWS: dict[str, RunWorkflow] = {
-    "analyse-job": lambda task: (
-        Container()
-        .analyse_job_graph()
-        .ainvoke(task, {"configurable": {"thread_id": "probe"}})
-    ),
-    "find-jobs": lambda task: (
-        Container()
-        .find_jobs_graph()
-        .ainvoke(task, {"configurable": {"thread_id": "probe"}})
-    ),
+    "analyse-job": partial(_run_graph, CONTAINER.analyse_job_graph),
+    "find-jobs": partial(_run_graph, CONTAINER.find_jobs_graph),
 }
 """Every workflow a probe can run, by name"""
 
