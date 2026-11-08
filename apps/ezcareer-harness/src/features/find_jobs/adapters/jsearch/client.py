@@ -103,7 +103,7 @@ async def search(
     """Up to query.max_jobs JSearch results, following JSearch's cursor until it
     has enough or runs out, each page through the circuit"""
     if settings.api_key is None:
-        raise RuntimeError("EZCAREER_HARNESS_JSEARCH__API_KEY is not set")
+        raise SourceUnavailable("EZCAREER_HARNESS_JSEARCH__API_KEY is not set")
     params: dict[str, str | int | bool] = {
         "query": query.query,
         "date_posted": query.date_posted,

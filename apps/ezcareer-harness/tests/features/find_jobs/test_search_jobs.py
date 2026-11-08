@@ -280,11 +280,12 @@ async def test_a_bad_search_tells_the_agent_why_and_keeps_the_circuit_closed(
     assert "Invalid date posted value." in messages[-1].text
 
 
-async def test_refuses_to_search_without_a_key(isolate_env):
+async def test_tells_the_agent_a_source_has_no_key(isolate_env):
     reload_settings()
 
-    with pytest.raises(RuntimeError, match="JSEARCH__API_KEY"):
-        await _search(search_jobs_tool([JSearchAdapter()]), query="anything")
+    message = await _search(search_jobs_tool([JSearchAdapter()]), query="anything")
+
+    assert "JSEARCH__API_KEY is not set" in message.text
 
 
 def test_the_model_reads_the_description_and_each_argument_once():
