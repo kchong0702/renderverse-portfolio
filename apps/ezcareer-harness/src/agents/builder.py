@@ -10,7 +10,6 @@ from deepagents import (
 )
 from deepagents.backends import CompositeBackend, FilesystemBackend, StateBackend
 from langchain.agents.middleware import AgentMiddleware
-from langchain.agents.structured_output import ToolStrategy
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
 from langgraph.pregel import Pregel
@@ -52,7 +51,7 @@ def build_agent(
             routes={"/artifacts/": StateBackend()},
             artifacts_root="/artifacts",
         ),
-        response_format=ToolStrategy(reduce(or_, answers)) if answers else None,
+        response_format=reduce(or_, answers) if answers else None,
         state_schema=state_schema,
         context_schema=context_schema,
         name=agent.name,

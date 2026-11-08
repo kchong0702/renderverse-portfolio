@@ -65,6 +65,24 @@ async def test_one_agent_answers_with_each_workflows_answer(model_name: str):
     assert "Farewell" not in model.offered_tools[0]
 
 
+async def test_a_model_without_native_output_is_offered_only_the_calls_answer_tool():
+    model = ScriptedChatModel(
+        replies=[_call("Greeting", text="Hello!"), _call("Farewell", text="Bye!")]
+    )
+    agent = _agent(model)
+
+    greeted = await _ask(agent, Workflow(response_format=Greeting))
+    left = await _ask(agent, Workflow(response_format=Farewell))
+
+    assert [tools & {"Greeting", "Farewell"} for tools in model.offered_tools] == [
+        {"Greeting"},
+        {"Farewell"},
+    ]
+    assert model.answer_name is None
+    assert greeted["structured_response"] == Greeting(text="Hello!")
+    assert left["structured_response"] == Farewell(text="Bye!")
+
+
 async def test_a_valid_answer_ends_the_run():
     model = ScriptedChatModel(
         replies=[_call("Greeting", text="Hi"), _call("look_up_name", person="x")]
