@@ -13,9 +13,10 @@ from tenacity import (
 
 from src.core.config import JSearchSettings
 from src.features.analyse_job import PostingLine
-from src.features.find_jobs.adapters.base import SearchResult, SourceUnavailable
+from src.features.find_jobs.adapters.base import SearchResult
 from src.features.find_jobs.adapters.jsearch.query import JSearchQuery
 from src.features.find_jobs.schemas import JobPosting
+from src.shared.adapters import AdapterUnavailable
 
 
 class _Job(BaseModel):
@@ -160,17 +161,17 @@ async def search(settings: JSearchSettings, query: JSearchQuery) -> SearchResult
                 if not cursor or not page.jobs:
                     break
     except CircuitBreakerError as error:
-        raise SourceUnavailable(
+        raise AdapterUnavailable(
             "JSearch is paused after repeated failures; try again in "
             f"{CircuitBreakerMonitor.get('jsearch').open_remaining:.0f}s"
         ) from error
     except httpx.HTTPStatusError as error:
-        raise SourceUnavailable(
+        raise AdapterUnavailable(
             f"JSearch answered {error.response.status_code}: "
             f"{error.response.text[:300]}"
         ) from error
     except httpx.HTTPError as error:
-        raise SourceUnavailable(
+        raise AdapterUnavailable(
             f"JSearch failed, try again later: {type(error).__name__} {error}"
         ) from error
     left = response.headers.get("x-ratelimit-requests-remaining")
