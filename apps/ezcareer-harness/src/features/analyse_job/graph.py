@@ -10,7 +10,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
-from src.agents import build_agent, load_agents
+from src.agents import Workflow, build_agent, load_agents
 from src.agents.job_finder import JobFinderState
 from src.core.config import get_settings
 from src.core.errors import ExecuteError
@@ -22,7 +22,7 @@ from src.features.analyse_job.schemas import (
     JobRequirements,
     PostingLine,
 )
-from src.shared.checks import CheckError, CheckRound, check_round
+from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
 from src.shared.profile import Profile
 from src.tools import read_profile_facts
 
@@ -105,7 +105,7 @@ def build_graph(
     checks = [CHECKS[name] for name in configurations.checks]
     agent = build_agent(
         load_agents(settings.agents)["job-finder"],
-        response_format=JobRequirements,
+        response_formats=(JobRequirements,),
         tools=(read_profile_facts,),
         state_schema=JobFinderState,
         model=model,
@@ -118,14 +118,26 @@ def build_graph(
                 "facts": state.profile.facts,
                 "preferences": state.profile.preferences,
             },
-            {"recursion_limit": configurations.agent_recursion_limit},
+            Workflow(response_format=JobRequirements).config(
+                {"recursion_limit": configurations.agent_recursion_limit}
+            ),
         )
         return {
             "messages": result["messages"],
-            "requirements": result["structured_response"],
+            "requirements": result.get("structured_response"),
         }
 
     def check(state: AnalyseJobState) -> CheckRound:
+        if state.requirements is None:
+            return check_round(
+                [
+                    CheckError(
+                        rule=CheckRule.NO_ANSWER,
+                        at="answer",
+                        message="Reply with a JobRequirements",
+                    )
+                ]
+            )
         return check_round(
             [
                 error

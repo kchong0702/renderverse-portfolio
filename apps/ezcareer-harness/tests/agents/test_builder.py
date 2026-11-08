@@ -11,7 +11,7 @@ from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
 from pydantic import BaseModel
 
-from src.agents import Agent, build_agent, load_agents
+from src.agents import Agent, Workflow, build_agent, load_agents
 from src.core.config import AgentSettings, Settings
 from src.infrastructure.observability import tracing
 from src.infrastructure.observability.instrumentation import instrument
@@ -42,12 +42,15 @@ def _call(name: str, **args) -> AIMessage:
 def _ask(model: ScriptedChatModel, agent: Agent | None = None, **build) -> dict:
     built = build_agent(
         agent or Agent.load(GREETER),
-        response_format=Greeting,
+        response_formats=(Greeting,),
         tools=(look_up_name,),
         model=model,
         **build,
     )
-    return built.invoke({"messages": [HumanMessage("Greet Lovelace")]})
+    return built.invoke(
+        {"messages": [HumanMessage("Greet Lovelace")]},
+        Workflow(response_format=Greeting).config(),
+    )
 
 
 def test_the_registry_loads_every_agent_the_settings_list():
@@ -77,25 +80,12 @@ def test_config_toml_lists_agents_as_tables(tmp_path: Path, monkeypatch):
     assert agent.path.parts[-4:] == ("src", "agents", "greeter", "profile.yaml")
 
 
-def test_agent_answers_with_the_response_format():
+def test_agent_replies_in_the_workflows_response_format():
     model = ScriptedChatModel(replies=[_call("Greeting", text="Hello, Ada!")])
 
     result = _ask(model)
 
     assert result["structured_response"] == Greeting(text="Hello, Ada!")
-
-
-def test_an_openai_model_answers_with_native_structured_output():
-    model = ScriptedChatModel(
-        replies=[_call("Greeting", text="Hello, Ada!")], model_name="gpt-6-luna"
-    )
-    gpt = Agent.load(GREETER.model_copy(update={"model": "gpt-6-luna"}))
-
-    result = _ask(model, gpt)
-
-    assert result["structured_response"] == Greeting(text="Hello, Ada!")
-    assert model.answer_name == "Greeting"
-    assert "Greeting" not in model.offered_tools[0]
 
 
 def test_agent_is_offered_read_tools_and_its_flows_tools_only():
@@ -181,14 +171,15 @@ def test_flow_tools_read_the_agent_state():
     )
     agent = build_agent(
         Agent.load(GREETER),
-        response_format=Greeting,
+        response_formats=(Greeting,),
         tools=(look_up_in_state,),
         state_schema=_NamesState,
         model=model,
     )
 
     result = agent.invoke(
-        {"messages": [HumanMessage("Greet Lovelace")], "names": {"Lovelace": "Ada"}}
+        {"messages": [HumanMessage("Greet Lovelace")], "names": {"Lovelace": "Ada"}},
+        Workflow(response_format=Greeting).config(),
     )
 
     [found] = [m for m in result["messages"] if m.name == "look_up_in_state"]
@@ -215,7 +206,7 @@ def test_flow_tools_read_the_run_context():
     )
     agent = build_agent(
         Agent.load(GREETER),
-        response_format=Greeting,
+        response_formats=(Greeting,),
         tools=(look_up_in_context,),
         context_schema=_Names,
         model=model,
@@ -223,6 +214,7 @@ def test_flow_tools_read_the_run_context():
 
     result = agent.invoke(
         {"messages": [HumanMessage("Greet Lovelace")]},
+        Workflow(response_format=Greeting).config(),
         context=_Names(names={"Lovelace": "Ada"}),
     )
 
@@ -234,17 +226,56 @@ def test_the_run_recursion_limit_stops_an_agent_that_never_answers():
     model = ScriptedChatModel(replies=[_call("look_up_name", person="Lovelace")])
     agent = build_agent(
         Agent.load(GREETER),
-        response_format=Greeting,
+        response_formats=(Greeting,),
         tools=(look_up_name,),
         model=model,
     )
 
     with pytest.raises(GraphRecursionError):
         agent.invoke(
-            {"messages": [HumanMessage("Greet Lovelace")]}, {"recursion_limit": 6}
+            {"messages": [HumanMessage("Greet Lovelace")]},
+            Workflow(response_format=Greeting).config({"recursion_limit": 6}),
         )
 
     assert len(model.requests) < 6
+
+
+@tool
+def read_long_report() -> str:
+    """Returns a report too long to keep in the conversation"""
+    return "line\n" * 100_000
+
+
+def test_a_run_leaves_the_agents_folder_unchanged(tmp_path: Path):
+    shutil.copytree(FIXTURES / "greeter", tmp_path, dirs_exist_ok=True)
+    before = sorted(tmp_path.rglob("*"))
+    model = ScriptedChatModel(
+        replies=[
+            _call("read_long_report"),
+            _call(
+                "read_file",
+                file_path="/artifacts/large_tool_results/call-read_long_report",
+            ),
+            _call("Greeting", text="Hello, Ada!"),
+        ]
+    )
+    agent = build_agent(
+        Agent.load(GREETER.model_copy(update={"path": tmp_path / "profile.yaml"})),
+        response_formats=(Greeting,),
+        tools=(read_long_report,),
+        model=model,
+    )
+
+    result = agent.invoke(
+        {"messages": [HumanMessage("Greet Lovelace")]},
+        Workflow(response_format=Greeting).config(),
+    )
+
+    read = [m for m in result["messages"] if isinstance(m, ToolMessage)][1]
+    assert read.status != "error"
+    assert "line" in read.text
+    assert result["structured_response"] == Greeting(text="Hello, Ada!")
+    assert sorted(tmp_path.rglob("*")) == before
 
 
 def test_agent_hash_is_the_hash_of_its_folder(tmp_path: Path):

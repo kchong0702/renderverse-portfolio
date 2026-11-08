@@ -8,7 +8,7 @@ from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
 from scripts import probe
-from src.agents import build_agent, load_agents
+from src.agents import Workflow, build_agent, load_agents
 from src.core.config import get_settings, reload_settings
 from src.infrastructure import get_tracer
 from tests.agents.test_builder import FIXTURES, Greeting, _call, look_up_name
@@ -35,13 +35,15 @@ async def _greet(task: object) -> object:
     )
     agent = build_agent(
         load_agents(settings.agents)["greeter"],
-        response_format=Greeting,
+        response_formats=(Greeting,),
         tools=(look_up_name,),
         model=model,
     )
     result = await agent.ainvoke(
         {"messages": [HumanMessage(f"Greet {task['person']}")]},
-        {"recursion_limit": profile.recursion_limit},
+        Workflow(response_format=Greeting).config(
+            {"recursion_limit": profile.recursion_limit}
+        ),
     )
     greeting = result["structured_response"]
     with get_tracer(__name__).start_as_current_span("checks") as span:

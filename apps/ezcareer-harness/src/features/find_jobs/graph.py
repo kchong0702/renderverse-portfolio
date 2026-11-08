@@ -8,7 +8,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.agents import build_agent, load_agents
+from src.agents import Workflow, build_agent, load_agents
 from src.agents.job_finder import JobFinderState
 from src.core.config import get_settings
 from src.features.find_jobs.adapters import SearchProtocol
@@ -16,7 +16,7 @@ from src.features.find_jobs.configurations import CHECKS, FindJobsConfigurations
 from src.features.find_jobs.ranking import matched_jobs
 from src.features.find_jobs.schemas import JobPosting, MatchedJob, RankedJobs
 from src.features.find_jobs.tools import search_jobs_tool
-from src.shared.checks import CheckError, CheckRound, check_round
+from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
 from src.shared.factory import Factory
 from src.shared.profile import Profile
 from src.tools import read_profile_facts
@@ -76,7 +76,7 @@ def build_graph(
     checks = [CHECKS[name] for name in configurations.checks]
     agent = build_agent(
         load_agents(settings.agents)["job-finder"],
-        response_format=RankedJobs,
+        response_formats=(RankedJobs,),
         tools=(
             read_profile_facts,
             search_jobs_tool(
@@ -98,14 +98,26 @@ def build_graph(
                 "facts": state.profile.facts,
                 "preferences": state.profile.preferences,
             },
-            {"recursion_limit": configurations.agent_recursion_limit},
+            Workflow(response_format=RankedJobs).config(
+                {"recursion_limit": configurations.agent_recursion_limit}
+            ),
         )
         return {
             "messages": result["messages"],
-            "ranked": result["structured_response"],
+            "ranked": result.get("structured_response"),
         }
 
     def check(state: FindJobsState) -> CheckRound:
+        if state.ranked is None:
+            return check_round(
+                [
+                    CheckError(
+                        rule=CheckRule.NO_ANSWER,
+                        at="answer",
+                        message="Reply with a RankedJobs",
+                    )
+                ]
+            )
         postings = _postings(state.messages)
         return check_round(
             [
