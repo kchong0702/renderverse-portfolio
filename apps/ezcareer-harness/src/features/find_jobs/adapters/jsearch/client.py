@@ -2,7 +2,7 @@ from asyncio import sleep
 from datetime import datetime
 
 import httpx
-from circuitbreaker import circuit
+from circuitbreaker import CircuitBreakerError, CircuitBreakerMonitor, circuit
 from pydantic import BaseModel, ConfigDict
 from tenacity import (
     AsyncRetrying,
@@ -13,7 +13,9 @@ from tenacity import (
 
 from src.core.config import JSearchSettings
 from src.features.analyse_job import PostingLine
-from src.features.find_jobs.schemas import JobPosting, JobQuery
+from src.features.find_jobs.adapters.base import SearchResult, SourceUnavailable
+from src.features.find_jobs.adapters.jsearch.query import JSearchQuery
+from src.features.find_jobs.schemas import JobPosting
 
 
 class _Job(BaseModel):
@@ -47,16 +49,6 @@ class _Job(BaseModel):
     """Plain text description"""
 
 
-class SearchResult(BaseModel):
-    model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
-
-    postings: list[JobPosting]
-    """The jobs found, in JSearch's order"""
-
-    requests_left: int | None
-    """JSearch requests left this month, from RapidAPI's quota header"""
-
-
 class _Page(BaseModel):
     model_config = ConfigDict(extra="ignore", use_attribute_docstrings=True)
 
@@ -72,82 +64,6 @@ class _SearchResponse(BaseModel):
 
     data: _Page
     """The requested page"""
-
-
-def _retryable(error: BaseException) -> bool:
-    """Whether a failed page is worth asking for again: JSearch rate-limited it,
-    was down or never answered"""
-    if isinstance(error, httpx.HTTPStatusError):
-        return error.response.status_code in {429, 500, 502, 503}
-    return isinstance(error, httpx.TransportError)
-
-
-@circuit(
-    failure_threshold=3,
-    recovery_timeout=60,
-    expected_exception=httpx.HTTPError,
-    name="jsearch",
-)
-async def _page(
-    client: httpx.AsyncClient, settings: JSearchSettings, params: dict
-) -> httpx.Response:
-    """One page of results, retried twice with backoff; after three failed pages
-    in a row the circuit opens and calls fail at once for a minute"""
-    async for attempt in AsyncRetrying(
-        retry=retry_if_exception(_retryable),
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(min=1, max=4),
-        sleep=lambda seconds: sleep(seconds),
-        reraise=True,
-    ):
-        with attempt:
-            response = await client.get(
-                str(settings.url),
-                params=params,
-                headers={
-                    "X-RapidAPI-Key": settings.api_key.get_secret_value(),
-                    "X-RapidAPI-Host": settings.url.host or "",
-                },
-            )
-            response.raise_for_status()
-    return response
-
-
-async def search(settings: JSearchSettings, query: JobQuery) -> SearchResult:
-    """Up to query.max_jobs JSearch results, ten a page, following JSearch's cursor
-    until it has enough or runs out"""
-    if settings.api_key is None:
-        raise RuntimeError("EZCAREER_HARNESS_JSEARCH__API_KEY is not set")
-    params: dict = {
-        "query": query.query,
-        "date_posted": query.date_posted,
-        "work_from_home": query.remote_only,
-    }
-    if query.country:
-        params["country"] = query.country.lower()
-    if query.employment_types:
-        params["employment_types"] = ",".join(query.employment_types)
-    if query.job_requirements:
-        params["job_requirements"] = ",".join(query.job_requirements)
-    if query.radius_km:
-        params["radius"] = query.radius_km
-    postings: list[JobPosting] = []
-    cursor = None
-    async with httpx.AsyncClient(timeout=30) as client:
-        while len(postings) < query.max_jobs:
-            response = await _page(
-                client, settings, params | ({"cursor": cursor} if cursor else {})
-            )
-            page = _SearchResponse.model_validate_json(response.content).data
-            postings += [_posting(job) for job in page.jobs]
-            cursor = page.cursor
-            if not cursor or not page.jobs:
-                break
-    left = response.headers.get("x-ratelimit-requests-remaining")
-    return SearchResult(
-        postings=postings[: query.max_jobs],
-        requests_left=int(left) if left else None,
-    )
 
 
 def _posting(job: _Job) -> JobPosting:
@@ -170,4 +86,95 @@ def _posting(job: _Job) -> JobPosting:
                 start=1,
             )
         ],
+    )
+
+
+def _retryable(error: BaseException) -> bool:
+    """Whether a failed page is worth asking for again: JSearch rate-limited it,
+    was down or never answered"""
+    if isinstance(error, httpx.HTTPStatusError):
+        return error.response.status_code in {429, 500, 502, 503}
+    return isinstance(error, httpx.TransportError)
+
+
+@circuit(
+    failure_threshold=3,
+    recovery_timeout=60,
+    expected_exception=lambda _, error: _retryable(error),
+    name="jsearch",
+)
+async def _page(
+    client: httpx.AsyncClient, settings: JSearchSettings, params: dict
+) -> httpx.Response:
+    """One page of results, retried twice with backoff; after three pages fail that
+    way in a row the circuit opens and calls fail at once for a minute"""
+    async for attempt in AsyncRetrying(
+        retry=retry_if_exception(_retryable),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(min=1, max=4),
+        sleep=lambda seconds: sleep(seconds),
+        reraise=True,
+    ):
+        with attempt:
+            response = await client.get(
+                str(settings.url),
+                params=params,
+                headers={
+                    "X-RapidAPI-Key": settings.api_key.get_secret_value(),
+                    "X-RapidAPI-Host": settings.url.host or "",
+                },
+            )
+            response.raise_for_status()
+    return response
+
+
+async def search(settings: JSearchSettings, query: JSearchQuery) -> SearchResult:
+    """Up to query.max_jobs JSearch results, ten a page, following JSearch's cursor
+    until it has enough or runs out"""
+    if settings.api_key is None:
+        raise RuntimeError("EZCAREER_HARNESS_JSEARCH__API_KEY is not set")
+    params: dict = {
+        "query": query.query,
+        "date_posted": query.date_posted,
+        "work_from_home": query.remote_only,
+    }
+    if query.country:
+        params["country"] = query.country.lower()
+    if query.employment_types:
+        params["employment_types"] = ",".join(query.employment_types)
+    if query.job_requirements:
+        params["job_requirements"] = ",".join(query.job_requirements)
+    if query.radius_km:
+        params["radius"] = query.radius_km
+    postings: list[JobPosting] = []
+    cursor = None
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            while len(postings) < query.max_jobs:
+                response = await _page(
+                    client, settings, params | ({"cursor": cursor} if cursor else {})
+                )
+                page = _SearchResponse.model_validate_json(response.content).data
+                postings += [_posting(job) for job in page.jobs]
+                cursor = page.cursor
+                if not cursor or not page.jobs:
+                    break
+    except CircuitBreakerError as error:
+        raise SourceUnavailable(
+            "JSearch is paused after repeated failures; try again in "
+            f"{CircuitBreakerMonitor.get('jsearch').open_remaining:.0f}s"
+        ) from error
+    except httpx.HTTPStatusError as error:
+        raise SourceUnavailable(
+            f"JSearch answered {error.response.status_code}: "
+            f"{error.response.text[:300]}"
+        ) from error
+    except httpx.HTTPError as error:
+        raise SourceUnavailable(
+            f"JSearch failed, try again later: {type(error).__name__} {error}"
+        ) from error
+    left = response.headers.get("x-ratelimit-requests-remaining")
+    return SearchResult(
+        postings=postings[: query.max_jobs],
+        notes={"jsearch_requests_left_this_month": int(left) if left else None},
     )

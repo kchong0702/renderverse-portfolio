@@ -1,3 +1,5 @@
+job_sources = ["jsearch"]
+
 [app]
 name = "ezcareer-harness"
 env = "dev"

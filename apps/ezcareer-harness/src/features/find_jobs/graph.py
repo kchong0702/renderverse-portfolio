@@ -13,7 +13,7 @@ from src.core.config import get_settings
 from src.features.find_jobs.configurations import CHECKS, FindJobsConfigurations
 from src.features.find_jobs.ranking import matched_jobs
 from src.features.find_jobs.schemas import JobPosting, MatchedJob, RankedJobs
-from src.features.find_jobs.tools import JobSearchState, search_jobs
+from src.features.find_jobs.tools import JobSearchState, search_jobs_tool
 from src.shared.checks import CheckError, CheckRound, check_round
 from src.shared.models import Profile
 from src.shared.tools import read_profile_facts
@@ -72,7 +72,7 @@ def build_graph(
     agent = build_agent(
         load_agents(settings.agents)["job-finder"],
         response_format=RankedJobs,
-        tools=(read_profile_facts, search_jobs),
+        tools=(read_profile_facts, search_jobs_tool(settings.job_sources)),
         state_schema=JobSearchState,
         model=model,
     )

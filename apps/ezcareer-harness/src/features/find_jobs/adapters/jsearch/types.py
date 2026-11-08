@@ -1,10 +1,10 @@
 from typing import Literal
 
 DatePosted = Literal["all", "today", "3days", "week", "month"]
-"""How recent a searched job must be"""
+"""How recent a job must be, as JSearch's date_posted takes it"""
 
 EmploymentType = Literal["FULLTIME", "CONTRACTOR", "PARTTIME", "INTERN"]
-"""A kind of employment JSearch can filter by"""
+"""Every kind of employment JSearch's employment_types takes"""
 
 JobRequirement = Literal[
     "under_3_years_experience",
@@ -12,4 +12,4 @@ JobRequirement = Literal[
     "no_experience",
     "no_degree",
 ]
-"""An experience or education requirement JSearch can filter by"""
+"""Every requirement JSearch's job_requirements takes"""

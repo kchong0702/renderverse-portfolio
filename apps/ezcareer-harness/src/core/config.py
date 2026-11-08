@@ -286,6 +286,10 @@ class Settings(BaseSettings):
     jsearch: JSearchSettings = Field(default_factory=JSearchSettings)
     """Job search API settings"""
 
+    job_sources: tuple[str, ...] = ("jsearch",)
+    """Job sources search_jobs searches, by adapter name, from config.toml's
+    job_sources"""
+
     @classmethod
     @override
     def settings_customise_sources(

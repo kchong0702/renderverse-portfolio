@@ -1,19 +1,24 @@
 import json
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-import httpx
-from circuitbreaker import CircuitBreakerError, CircuitBreakerMonitor
 from langchain.tools import ToolRuntime
-from langchain_core.tools import ToolException, tool
-from pydantic import ConfigDict, TypeAdapter
+from langchain_core.tools import BaseTool, StructuredTool, ToolException
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, create_model
+from pydantic.fields import FieldInfo
 
-from src.core.config import get_settings
+from src.features.find_jobs.adapters import ADAPTERS, JobAdapter, SourceUnavailable
 from src.features.find_jobs.filters import broken_filters
-from src.features.find_jobs.schemas import JobPosting, JobQuery
-from src.features.find_jobs.sources import search
+from src.features.find_jobs.schemas import JobPosting
 from src.shared.models import Preferences
 from src.shared.tools import ProfileState
+
+DESCRIPTION = (
+    "Search job postings, newest first, with the same job from several sites "
+    "listed once and jobs that break the user's preferences left out."
+)
+"""What search_jobs does, before each source says what a search costs"""
 
 
 class JobSearchState(ProfileState):
@@ -21,54 +26,88 @@ class JobSearchState(ProfileState):
     """What the user wants from a job, which search_jobs filters by"""
 
 
-class SearchJobsArgs(JobQuery):
-    """Search job postings, newest first, with the same job from several sites
-    listed once and jobs that break the user's preferences left out. Every 10 jobs
-    costs one JSearch request from a budget of 200 a month; the result says how
-    many are left."""
-
-    model_config = ConfigDict(
-        extra="forbid", arbitrary_types_allowed=True, use_attribute_docstrings=True
+def _arguments(adapters: Sequence[JobAdapter]) -> type[BaseModel]:
+    """search_jobs' arguments: every source's own arguments, with fields named alike
+    merged into one, so sources share what they have in common"""
+    fields: dict[str, FieldInfo] = {}
+    for adapter in adapters:
+        for name, field in adapter.query.model_fields.items():
+            if name in fields and fields[name].annotation != field.annotation:
+                raise ValueError(f"Job sources disagree on the type of {name!r}")
+            fields.setdefault(name, field)
+    return create_model(
+        "SearchJobsArgs",
+        __config__=ConfigDict(extra="forbid", arbitrary_types_allowed=True),
+        runtime=(
+            ToolRuntime[None, JobSearchState],
+            Field(
+                description="The agent's state, injected by the agent and never set by the model"
+            ),
+        ),
+        **{name: (field.annotation, field) for name, field in fields.items()},
     )
 
-    runtime: ToolRuntime[None, JobSearchState]
-    """The agent's state, injected by the agent and never set by the model"""
 
-
-@tool(args_schema=SearchJobsArgs, response_format="content_and_artifact")
-async def search_jobs(
-    runtime: ToolRuntime[None, JobSearchState], **query: Any
-) -> tuple[str, list[JobPosting]]:
-    """Search job postings, newest first, with the same job from several sites
-    listed once and jobs that break the user's preferences left out. Every 10 jobs
-    costs one JSearch request from a budget of 200 a month; the result says how
-    many are left."""
-    try:
-        result = await search(get_settings().jsearch, JobQuery(**query))
-    except CircuitBreakerError as error:
-        raise ToolException(
-            f"Job search is paused after repeated failures; try again in "
-            f"{CircuitBreakerMonitor.get('jsearch').open_remaining:.0f}s"
-        ) from error
-    except httpx.HTTPError as error:
-        raise ToolException(
-            f"Job search failed, try again later: {type(error).__name__} {error}"
-        ) from error
+def _for_user(postings: list[JobPosting], preferences: Preferences) -> list[JobPosting]:
+    """Postings newest first, each job once however many sites list it, without
+    jobs that break the user's preferences"""
     unique: dict[tuple[str, str, str], JobPosting] = {}
     for posting in sorted(
-        result.postings,
+        postings,
         key=lambda p: p.posted_at or datetime.min.replace(tzinfo=UTC),
         reverse=True,
     ):
         key = (posting.title.casefold(), posting.company.casefold(), posting.location)
         unique.setdefault(key, posting)
-    preferences = runtime.state["preferences"]
-    jobs = [job for job in unique.values() if not broken_filters(job, preferences)]
-    content = {
-        "jobs": TypeAdapter(list[JobPosting]).dump_python(jobs, mode="json"),
-        "jsearch_requests_left_this_month": result.requests_left,
-    }
-    return json.dumps(content), jobs
+    return [job for job in unique.values() if not broken_filters(job, preferences)]
 
 
-search_jobs.handle_tool_error = True
+def search_jobs_tool(sources: Sequence[str]) -> BaseTool:
+    """search_jobs over the job sources named, each given only its own arguments"""
+    unknown = set(sources) - ADAPTERS.keys()
+    if unknown:
+        raise ValueError(
+            f"Unknown job sources {sorted(unknown)}; known: {sorted(ADAPTERS)}"
+        )
+    adapters = [ADAPTERS[name] for name in sources]
+
+    async def search_jobs(
+        runtime: ToolRuntime[None, JobSearchState], **given: Any
+    ) -> tuple[str, list[JobPosting]]:
+        """Searches every source and returns the user's jobs with each source's notes"""
+        postings: list[JobPosting] = []
+        notes: dict[str, Any] = {}
+        unavailable: list[str] = []
+        for adapter in adapters:
+            query = adapter.query.model_validate(
+                {
+                    name: value
+                    for name, value in given.items()
+                    if name in adapter.query.model_fields
+                }
+            )
+            try:
+                result = await adapter.search(query)
+            except SourceUnavailable as error:
+                unavailable.append(str(error))
+                continue
+            postings += result.postings
+            notes |= result.notes
+        if unavailable and not postings:
+            raise ToolException("; ".join(unavailable))
+        jobs = _for_user(postings, runtime.state["preferences"])
+        content = {
+            "jobs": TypeAdapter(list[JobPosting]).dump_python(jobs, mode="json"),
+            **notes,
+            **({"unavailable": unavailable} if unavailable else {}),
+        }
+        return json.dumps(content), jobs
+
+    return StructuredTool.from_function(
+        coroutine=search_jobs,
+        name="search_jobs",
+        description=" ".join([DESCRIPTION, *(adapter.usage for adapter in adapters)]),
+        args_schema=_arguments(adapters),
+        response_format="content_and_artifact",
+        handle_tool_error=True,
+    )

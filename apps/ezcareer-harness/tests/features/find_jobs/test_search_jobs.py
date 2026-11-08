@@ -7,13 +7,18 @@ import respx
 from circuitbreaker import CircuitBreakerMonitor
 from langchain.tools import ToolRuntime
 from langchain_core.utils.function_calling import convert_to_openai_tool
+from pydantic import BaseModel
 
 from src.core.config import reload_settings
-from src.features.find_jobs.sources import jsearch
-from src.features.find_jobs.tools import search_jobs
-from src.shared.models import Preferences
+from src.features.find_jobs.adapters import JobAdapter, SearchResult, SourceUnavailable
+from src.features.find_jobs.adapters import registry as adapters
+from src.features.find_jobs.adapters.jsearch import client as jsearch
+from src.features.find_jobs.schemas import JobPosting
+from src.features.find_jobs.tools import search_jobs_tool
+from src.shared.models import CountryCode, Preferences
 
 URL = "https://jsearch.p.rapidapi.com/search-v2"
+search_jobs = search_jobs_tool(["jsearch"])
 RESPONSE = (Path(__file__).parent / "fixtures" / "jsearch_search.json").read_text()
 
 
@@ -219,7 +224,7 @@ async def test_tells_the_agent_when_jsearch_keeps_failing(api_key, waits):
 
     assert route.call_count == 3
     assert message.status == "error"
-    assert "Job search failed" in message.text
+    assert "JSearch answered 503" in message.text
 
 
 @respx.mock
@@ -234,6 +239,18 @@ async def test_stops_calling_jsearch_after_three_failed_searches(api_key, waits)
     assert route.call_count == calls
     assert message.status == "error"
     assert "paused" in message.text
+
+
+@respx.mock
+async def test_a_bad_search_tells_the_agent_why_and_keeps_the_circuit_closed(api_key):
+    reason = {"error": {"message": "Invalid date posted value.", "code": 400}}
+    route = respx.get(URL).respond(400, json=reason)
+
+    messages = [await _search(query="backend engineer") for _ in range(4)]
+
+    assert route.call_count == 4
+    assert "Invalid date posted value." in messages[-1].text
+    assert CircuitBreakerMonitor.get("jsearch").closed
 
 
 async def test_refuses_to_search_without_a_key(isolate_env):
@@ -256,3 +273,128 @@ def test_the_model_reads_the_description_and_each_argument_once():
     assert [definition.count(json.dumps(text)[1:-1]) for text in texts] == [1] * len(
         texts
     )
+
+
+class _QueryA(BaseModel):
+    query: str
+    """Job title and key skills"""
+
+    country: CountryCode | None = None
+    """Country to search in"""
+
+
+class _QueryB(BaseModel):
+    query: str
+    """Job title and key skills"""
+
+    min_salary: int | None = None
+    """Lowest yearly salary"""
+
+
+def _adapter(name: str, query: type[BaseModel], seen: list, postings=None, down=False):
+    async def search(given: BaseModel) -> SearchResult:
+        seen.append(given)
+        if down:
+            raise SourceUnavailable(f"{name} is down")
+        return SearchResult(postings=postings or [], notes={f"{name}_left": 1})
+
+    return JobAdapter(name=name, query=query, usage=f"{name} costs one", search=search)
+
+
+def _posting(id: str) -> JobPosting:
+    return JobPosting(
+        id=id,
+        title=id,
+        company="Acme",
+        location="London, GB",
+        country="GB",
+        remote=False,
+        posted_at=None,
+        apply_url="https://a",
+        lines=[],
+    )
+
+
+async def test_sources_share_fields_named_alike_and_get_only_their_own(monkeypatch):
+    seen_a: list = []
+    seen_b: list = []
+    monkeypatch.setitem(adapters.ADAPTERS, "a", _adapter("a", _QueryA, seen_a))
+    monkeypatch.setitem(adapters.ADAPTERS, "b", _adapter("b", _QueryB, seen_b))
+    tool = search_jobs_tool(["a", "b"])
+    runtime = ToolRuntime(
+        state={"preferences": Preferences()},
+        context=None,
+        config={},
+        stream_writer=lambda _: None,
+        tool_call_id="1",
+        store=None,
+    )
+
+    await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "id": "1",
+            "name": "search_jobs",
+            "args": {
+                "query": "dev",
+                "country": "GB",
+                "min_salary": 9,
+                "runtime": runtime,
+            },
+        }
+    )
+
+    assert sorted(tool.tool_call_schema.model_json_schema()["properties"]) == [
+        "country",
+        "min_salary",
+        "query",
+    ]
+    assert seen_a == [_QueryA(query="dev", country="GB")]
+    assert seen_b == [_QueryB(query="dev", min_salary=9)]
+    assert tool.description.endswith("a costs one b costs one")
+
+
+def test_sources_that_disagree_on_a_field_are_refused(monkeypatch):
+    class _Clash(BaseModel):
+        query: int
+
+    monkeypatch.setitem(adapters.ADAPTERS, "a", _adapter("a", _QueryA, []))
+    monkeypatch.setitem(adapters.ADAPTERS, "clash", _adapter("clash", _Clash, []))
+
+    with pytest.raises(ValueError, match="'query'"):
+        search_jobs_tool(["a", "clash"])
+
+
+def test_an_unknown_job_source_is_refused():
+    with pytest.raises(ValueError, match="linkedin"):
+        search_jobs_tool(["linkedin"])
+
+
+async def test_one_unavailable_source_leaves_the_others_jobs(monkeypatch):
+    monkeypatch.setitem(
+        adapters.ADAPTERS, "a", _adapter("a", _QueryA, [], [_posting("job-1")])
+    )
+    monkeypatch.setitem(adapters.ADAPTERS, "b", _adapter("b", _QueryB, [], down=True))
+    tool = search_jobs_tool(["a", "b"])
+    runtime = ToolRuntime(
+        state={"preferences": Preferences()},
+        context=None,
+        config={},
+        stream_writer=lambda _: None,
+        tool_call_id="1",
+        store=None,
+    )
+
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "id": "1",
+            "name": "search_jobs",
+            "args": {"query": "dev", "runtime": runtime},
+        }
+    )
+
+    content = json.loads(message.content)
+    assert [job.id for job in message.artifact] == ["job-1"]
+    assert content["unavailable"] == ["b is down"]
+    assert content["a_left"] == 1
