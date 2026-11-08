@@ -35,7 +35,7 @@ async def _greet(task: object) -> object:
     )
     agent = build_agent(
         load_agents(settings.agents)["greeter"],
-        response_format=Greeting,
+        answers=(Greeting,),
         tools=(look_up_name,),
         model=model,
     )

@@ -1,4 +1,6 @@
+import operator
 from collections.abc import Sequence
+from functools import reduce
 
 from deepagents import (
     DeepAgentState,
@@ -14,33 +16,38 @@ from langgraph.pregel import Pregel
 from pydantic import BaseModel
 
 from src.agents.registry import Agent
+from src.agents.workflow import WorkflowHook
 from src.clients.llm_providers import llm_provider
 
 
 def build_agent(
     agent: Agent,
     *,
-    response_format: type[BaseModel],
+    answers: Sequence[type[BaseModel]],
     tools: Sequence[BaseTool] = (),
     middleware: Sequence[AgentMiddleware] = (),
     state_schema: type[DeepAgentState] = DeepAgentState,
     context_schema: type | None = None,
     model: BaseChatModel | None = None,
 ) -> Pregel:
-    """Builds a registered agent as a deep agent with its skills read-only, under
-    its model's harness profile; model, when given, replaces the agent's own"""
+    """Builds a registered agent once as a deep agent with its skills read-only,
+    under its model's harness profile, answering with any of answers; a Workflow
+    in the run config picks one answer per call. model replaces the agent's own"""
     register_harness_profile(f"{agent.provider}:{agent.model}", agent.profile)
     built = create_deep_agent(
         model=model or llm_provider(agent.family, agent.model),
         tools=tools,
         system_prompt=agent.system_prompt.read_text(),
-        middleware=middleware,
+        middleware=[
+            *middleware,
+            WorkflowHook(agent.profile.tool_description_overrides),
+        ],
         skills=["/"],
         permissions=[
             FilesystemPermission(operations=["write"], paths=["/**"], mode="deny")
         ],
         backend=FilesystemBackend(root_dir=agent.skills, virtual_mode=True),
-        response_format=response_format,
+        response_format=reduce(operator.or_, answers),
         state_schema=state_schema,
         context_schema=context_schema,
         name=agent.name,
