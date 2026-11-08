@@ -48,7 +48,7 @@ def _ask(model: ScriptedChatModel, agent: Agent | None = None, **build) -> dict:
     )
     return built.invoke(
         {"messages": [HumanMessage("Greet Lovelace")]},
-        Workflow(answer=Greeting).config(),
+        Workflow(response_format=Greeting).config(),
     )
 
 
@@ -177,7 +177,7 @@ def test_flow_tools_read_the_agent_state():
 
     result = agent.invoke(
         {"messages": [HumanMessage("Greet Lovelace")], "names": {"Lovelace": "Ada"}},
-        Workflow(answer=Greeting).config(),
+        Workflow(response_format=Greeting).config(),
     )
 
     [found] = [m for m in result["messages"] if m.name == "look_up_in_state"]
@@ -211,7 +211,7 @@ def test_flow_tools_read_the_run_context():
 
     result = agent.invoke(
         {"messages": [HumanMessage("Greet Lovelace")]},
-        Workflow(answer=Greeting).config(),
+        Workflow(response_format=Greeting).config(),
         context=_Names(names={"Lovelace": "Ada"}),
     )
 
@@ -230,7 +230,7 @@ def test_the_run_recursion_limit_stops_an_agent_that_never_answers():
     with pytest.raises(GraphRecursionError):
         agent.invoke(
             {"messages": [HumanMessage("Greet Lovelace")]},
-            Workflow(answer=Greeting).config({"recursion_limit": 6}),
+            Workflow(response_format=Greeting).config({"recursion_limit": 6}),
         )
 
     assert len(model.requests) < 6

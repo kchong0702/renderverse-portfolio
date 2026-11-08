@@ -49,7 +49,7 @@ class Workflow(BaseModel):
         use_attribute_docstrings=True,
     )
 
-    answer: type[BaseModel] | None = None
+    response_format: type[BaseModel] | None = None
     """What the workflow wants back; the agent gets an answer tool with this as its arguments"""
 
     tools: tuple[BaseTool, ...] = ()
@@ -106,7 +106,11 @@ class WorkflowHook(AgentMiddleware):
         """The workflow's tools and answer tool by name, described as the profile says"""
         tools = [
             *workflow.tools,
-            *([_answer_tool(workflow.answer)] if workflow.answer else []),
+            *(
+                [_answer_tool(workflow.response_format)]
+                if workflow.response_format
+                else []
+            ),
         ]
         return {
             tool.name: tool.model_copy(
@@ -136,13 +140,15 @@ class WorkflowHook(AgentMiddleware):
                 "function": {
                     "name": tool.name,
                     "description": tool.description,
-                    "parameters": _any_of(to_strict_json_schema(workflow.answer)),
+                    "parameters": _any_of(
+                        to_strict_json_schema(workflow.response_format)
+                    ),
                     "strict": True,
                 },
             }
-            if workflow.answer
+            if workflow.response_format
             and workflow.strict
-            and tool.name == workflow.answer.__name__
+            and tool.name == workflow.response_format.__name__
             and isinstance(model, ChatOpenAI)
             else tool
             for tool in self._tools(workflow).values()
@@ -176,13 +182,17 @@ class WorkflowHook(AgentMiddleware):
         the answer as that call's result; an invalid one goes on to fail as a tool"""
         workflow = _workflow()
         message = state["messages"][-1]
-        if not (workflow and workflow.answer and isinstance(message, AIMessage)):
+        if not (
+            workflow and workflow.response_format and isinstance(message, AIMessage)
+        ):
             return None
-        if [call["name"] for call in message.tool_calls] != [workflow.answer.__name__]:
+        if [call["name"] for call in message.tool_calls] != [
+            workflow.response_format.__name__
+        ]:
             return None
         [call] = message.tool_calls
         try:
-            answer = workflow.answer.model_validate(call["args"])
+            answer = workflow.response_format.model_validate(call["args"])
         except ValidationError:
             return None
         return {

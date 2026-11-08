@@ -60,8 +60,8 @@ async def test_one_agent_answers_with_each_workflows_answer(model_name: str):
     )
     agent = _agent(model, model_name)
 
-    greeted = await _ask(agent, Workflow(answer=Greeting))
-    left = await _ask(agent, Workflow(answer=Farewell))
+    greeted = await _ask(agent, Workflow(response_format=Greeting))
+    left = await _ask(agent, Workflow(response_format=Farewell))
 
     assert answer_of(greeted["messages"], Greeting) == Greeting(text="Hello!")
     assert answer_of(left["messages"], Farewell) == Farewell(text="Bye!")
@@ -73,7 +73,7 @@ async def test_a_valid_answer_ends_the_run():
         replies=[_call("Greeting", text="Hi"), _call("look_up_name", person="x")]
     )
 
-    await _ask(_agent(model), Workflow(answer=Greeting))
+    await _ask(_agent(model), Workflow(response_format=Greeting))
 
     assert len(model.requests) == 1
 
@@ -83,7 +83,7 @@ async def test_an_invalid_answer_goes_back_to_the_model_to_retry():
         replies=[_call("Greeting", greeting="Hi"), _call("Greeting", text="Hi")]
     )
 
-    result = await _ask(_agent(model), Workflow(answer=Greeting))
+    result = await _ask(_agent(model), Workflow(response_format=Greeting))
 
     [error] = [
         m
@@ -114,7 +114,7 @@ async def test_a_workflows_tools_are_offered_described_and_run():
     result = await _ask(
         _agent(model),
         Workflow(
-            answer=Greeting,
+            response_format=Greeting,
             tools=(look_up_title,),
             hidden_tools=frozenset({"look_up_name"}),
         ),
@@ -137,7 +137,7 @@ async def test_a_workflow_runs_the_agent_on_its_own_model():
     )
 
     result = await _ask(
-        _agent(built_with), Workflow(answer=Greeting, model=workflow_model)
+        _agent(built_with), Workflow(response_format=Greeting, model=workflow_model)
     )
 
     assert answer_of(result["messages"], Greeting) == Greeting(text="from the workflow")
@@ -160,7 +160,7 @@ class _RecordingOpenAI(ChatOpenAI):
 async def test_openai_models_get_the_answer_tool_in_strict_mode():
     model = _RecordingOpenAI(model="gpt-test", api_key="test")
 
-    result = await _ask(_agent(model), Workflow(answer=Greeting))
+    result = await _ask(_agent(model), Workflow(response_format=Greeting))
 
     tools = {t["function"]["name"]: t["function"] for t in model.sent[0]}
     assert tools["Greeting"]["strict"] is True
@@ -187,7 +187,7 @@ async def test_openai_models_get_anyof_where_the_answer_schema_has_oneof():
         answer={"name": "Gesture", "args": {"gestures": [{"kind": "wave"}]}},
     )
 
-    await _ask(_agent(model), Workflow(answer=Gesture))
+    await _ask(_agent(model), Workflow(response_format=Gesture))
 
     [sent] = [t for t in model.sent[0] if t["function"]["name"] == "Gesture"]
     assert "oneOf" in json.dumps(Gesture.model_json_schema())
@@ -198,7 +198,7 @@ async def test_openai_models_get_anyof_where_the_answer_schema_has_oneof():
 async def test_a_workflow_can_send_its_answer_tool_to_openai_without_strict_mode():
     model = _RecordingOpenAI(model="gpt-test", api_key="test")
 
-    await _ask(_agent(model), Workflow(answer=Greeting, strict=False))
+    await _ask(_agent(model), Workflow(response_format=Greeting, strict=False))
 
     [sent] = [t for t in model.sent[0] if t["function"]["name"] == "Greeting"]
     assert not sent["function"].get("strict")

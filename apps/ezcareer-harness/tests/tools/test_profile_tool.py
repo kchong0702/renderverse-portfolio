@@ -43,7 +43,7 @@ def test_agent_reads_the_facts_passed_with_the_run():
                 ProfileFact(id="pg", text="Tuned PostgreSQL queries"),
             ],
         },
-        Workflow(answer=Done).config(),
+        Workflow(response_format=Done).config(),
     )
 
     [listing] = [

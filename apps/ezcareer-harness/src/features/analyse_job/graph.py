@@ -117,7 +117,7 @@ def build_graph(
                 "facts": state.profile.facts,
                 "preferences": state.profile.preferences,
             },
-            Workflow(answer=JobRequirements).config(
+            Workflow(response_format=JobRequirements).config(
                 {"recursion_limit": configurations.agent_recursion_limit}
             ),
         )

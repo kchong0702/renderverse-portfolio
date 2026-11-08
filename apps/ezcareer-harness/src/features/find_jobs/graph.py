@@ -97,7 +97,7 @@ def build_graph(
                 "facts": state.profile.facts,
                 "preferences": state.profile.preferences,
             },
-            Workflow(answer=RankedJobs).config(
+            Workflow(response_format=RankedJobs).config(
                 {"recursion_limit": configurations.agent_recursion_limit}
             ),
         )

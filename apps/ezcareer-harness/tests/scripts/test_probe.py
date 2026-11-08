@@ -40,7 +40,9 @@ async def _greet(task: object) -> object:
     )
     result = await agent.ainvoke(
         {"messages": [HumanMessage(f"Greet {task['person']}")]},
-        Workflow(answer=Greeting).config({"recursion_limit": profile.recursion_limit}),
+        Workflow(response_format=Greeting).config(
+            {"recursion_limit": profile.recursion_limit}
+        ),
     )
     greeting = answer_of(result["messages"], Greeting)
     with get_tracer(__name__).start_as_current_span("checks") as span:
