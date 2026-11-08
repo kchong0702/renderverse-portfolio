@@ -10,6 +10,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
 from pydantic import BaseModel
 
@@ -183,7 +184,7 @@ class Title(BaseModel):
     title: str
 
 
-def _agent_client(agent) -> TestClient:
+def _agent_client(agent: CompiledStateGraph) -> TestClient:
     app = FastAPI()
     add_executable_routes(
         app,

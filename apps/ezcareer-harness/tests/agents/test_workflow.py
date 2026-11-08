@@ -29,7 +29,7 @@ def look_up_title(person: str) -> str:
     return "Countess"
 
 
-def _agent(model, model_name: str = "glm-5.3"):
+def _agent(model: ScriptedChatModel, model_name: str = "glm-5.3") -> Pregel:
     agent = Agent.load(GREETER.model_copy(update={"model": model_name}))
     agent = agent.model_copy(
         update={
@@ -43,11 +43,7 @@ def _agent(model, model_name: str = "glm-5.3"):
     )
 
 
-class _Empty(TypedDict):
-    pass
-
-
-async def _ask(agent, workflow: Workflow) -> dict:
+async def _ask(agent: Pregel, workflow: Workflow) -> dict:
     return await agent.ainvoke(
         {"messages": [HumanMessage("Lovelace")]}, workflow.config()
     )
@@ -119,6 +115,7 @@ async def test_a_workflows_tools_are_offered_described_and_run():
             _call("Greeting", text="Hi"),
         ]
     )
+
     result = await _ask(
         _agent(model),
         Workflow(response_format=Greeting, tools=(look_up_title,)),
@@ -141,6 +138,10 @@ async def test_an_agent_called_without_a_workflow_replies_in_text():
     assert result["messages"][-1].text == "Hello, Ada!"
     assert result["structured_response"] is None
     assert not {"Greeting", "Farewell"} & model.offered_tools[0]
+
+
+class _Empty(TypedDict):
+    pass
 
 
 async def _ask_with_limit(agent: Pregel, limit: int, state: _Empty) -> dict:
