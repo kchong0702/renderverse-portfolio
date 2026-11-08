@@ -6,7 +6,6 @@ MIN_PASSWORD_LENGTH = 12
 
 _hasher = PasswordHash.recommended()
 
-# Verified when the email has no password, so both cases take as long
 _DUMMY_HASH = _hasher.hash("not-a-real-password")
 
 

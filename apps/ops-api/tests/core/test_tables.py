@@ -1,8 +1,7 @@
-from src.app import models  # noqa: F401  (registers the tables)
+from src.app import models  # noqa: F401
 from src.core.db.base import Base
 from src.core.db.mixins import AuditMixin
 
-# users itself, and sign-in attempts, which count emails that may have no user
 _NOT_OWNED = {"users", "auth_sign_in_attempts"}
 
 
