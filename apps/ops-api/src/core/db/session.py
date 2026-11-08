@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from typing import Annotated
 
-from fastapi import Request
+from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -46,7 +47,10 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
 __all__ = [
+    "SessionDep",
     "create_engine",
     "create_session_factory",
     "get_session",
