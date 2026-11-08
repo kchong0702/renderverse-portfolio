@@ -2,6 +2,7 @@ from fpdf import FPDF
 
 
 def make_pdf(*pages: list[tuple[float, float, str]]) -> bytes:
+    """A PDF with one page per list, each text written at its x and y in mm"""
     pdf = FPDF()
     for page in pages:
         pdf.add_page()
