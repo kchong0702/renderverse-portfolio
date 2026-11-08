@@ -73,8 +73,6 @@ async def test_rejects_unknown_ai_provider(client):
 
 
 async def test_rows_record_who_created_and_changed_them(app, client):
-    # Written before any request, so as "system"; the in-process client shares this
-    # task's context, so a request's actor would otherwise carry over
     async with app.state.session_factory() as session:
         user = User(email=get_settings().auth.dev_email)
         session.add(user)
