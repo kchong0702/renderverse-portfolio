@@ -2,16 +2,14 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 import httpx
-from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AnyMessage, HumanMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field
 
-from src.agents import Workflow, build_agent, load_agents
-from src.agents.job_finder import JobFinderState
+from src.agents import Workflow
 from src.core.config import get_settings
 from src.core.errors import ExecuteError
 from src.features.analyse_job.configurations import CHECKS, AnalyseJobConfigurations
@@ -22,15 +20,15 @@ from src.features.analyse_job.schemas import (
     JobRequirements,
     PostingLine,
 )
+from src.features.analyse_job.types import Url
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
-from src.shared.profile import Profile
-from src.tools import read_profile_facts
+from src.shared.profile import Preferences, Profile, ProfileFact
 
 
 class AnalyseJobInput(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
-    url: HttpUrl
+    url: Url
     """The posting the user pasted"""
 
     profile: Profile
@@ -50,10 +48,16 @@ class AnalyseJobState(AnalyseJobInput, AnalyseJobOutput):
     lines: list[PostingLine] = Field(default_factory=list)
     """The posting's numbered lines"""
 
+    facts: list[ProfileFact] = Field(default_factory=list)
+    """The user's profile facts, for the agent"""
+
+    preferences: Preferences = Field(default_factory=Preferences)
+    """What the user wants from a job, for the agent"""
+
     messages: Annotated[list[AnyMessage], add_messages] = Field(default_factory=list)
     """The agent's conversation across check rounds"""
 
-    requirements: JobRequirements | None = None
+    structured_response: JobRequirements | None = None
     """The agent's latest answer"""
 
     errors: list[CheckError] = Field(default_factory=list)
@@ -61,9 +65,10 @@ class AnalyseJobState(AnalyseJobInput, AnalyseJobOutput):
 
 
 async def _fetch(state: AnalyseJobState) -> dict:
-    """Fetch the posting and hand its lines to the agent as untrusted text"""
+    """Fetch the posting and hand the agent its lines as untrusted text, with the
+    user's profile"""
     try:
-        lines = await fetch_posting(str(state.url))
+        lines = await fetch_posting(state.url)
     except httpx.HTTPError as error:
         raise ExecuteError(f"Couldn't fetch the posting: {error}") from error
     if not lines:
@@ -71,6 +76,8 @@ async def _fetch(state: AnalyseJobState) -> dict:
     posting = "\n".join(f"[{line.id}] {line.text}" for line in lines)
     return {
         "lines": lines,
+        "facts": state.profile.facts,
+        "preferences": state.profile.preferences,
         "messages": [
             HumanMessage(
                 f"Analyse this job posting.\n\n<posting untrusted>\n{posting}\n</posting>"
@@ -83,52 +90,31 @@ def _output(state: AnalyseJobState) -> dict:
     """Add the posting, the hard filters and the computed fit for ops"""
     return {
         "analysis": JobAnalysis(
-            **state.requirements.model_dump(),
+            **state.structured_response.model_dump(),
             url=state.url,
             lines=state.lines,
             filters=hard_filters(
-                state.requirements.terms, state.profile, datetime.now(UTC).date()
+                state.structured_response.terms,
+                state.profile,
+                datetime.now(UTC).date(),
             ),
         )
     }
 
 
 def build_graph(
-    model: BaseChatModel | None = None, checkpointer: Checkpointer = None
+    agent: CompiledStateGraph, checkpointer: Checkpointer = None
 ) -> CompiledStateGraph:
-    """The analyse-job graph with the agent and configurations the settings name;
-    model replaces the agent's LLM; checkpointer keeps its runs"""
+    """The analyse-job workflow run on agent, with the configurations the
+    settings name; checkpointer keeps its runs"""
     settings = get_settings()
     configurations = settings.graph_profile("analyse-job").load(
         AnalyseJobConfigurations
     )
     checks = [CHECKS[name] for name in configurations.checks]
-    agent = build_agent(
-        load_agents(settings.agents)["job-finder"],
-        response_formats=(JobRequirements,),
-        tools=(read_profile_facts,),
-        state_schema=JobFinderState,
-        model=model,
-    )
-
-    async def run_agent(state: AnalyseJobState) -> dict:
-        result = await agent.ainvoke(
-            {
-                "messages": state.messages,
-                "facts": state.profile.facts,
-                "preferences": state.profile.preferences,
-            },
-            Workflow(response_format=JobRequirements).config(
-                {"recursion_limit": configurations.agent_recursion_limit}
-            ),
-        )
-        return {
-            "messages": result["messages"],
-            "requirements": result.get("structured_response"),
-        }
 
     def check(state: AnalyseJobState) -> CheckRound:
-        if state.requirements is None:
+        if state.structured_response is None:
             return check_round(
                 [
                     CheckError(
@@ -142,7 +128,9 @@ def build_graph(
             [
                 error
                 for check in checks
-                for error in check(state.requirements, state.lines, state.profile.facts)
+                for error in check(
+                    state.structured_response, state.lines, state.profile.facts
+                )
             ]
         )
 
@@ -150,7 +138,9 @@ def build_graph(
         AnalyseJobState, input_schema=AnalyseJobInput, output_schema=AnalyseJobOutput
     )
     graph.add_node("fetch", _fetch)
-    graph.add_node("agent", run_agent)
+    graph.add_node(
+        "agent", agent.with_config(Workflow(response_format=JobRequirements).config())
+    )
     graph.add_node("check", check)
     graph.add_node("output", _output)
     graph.add_edge(START, "fetch")

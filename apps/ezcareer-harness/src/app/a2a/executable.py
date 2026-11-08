@@ -40,10 +40,6 @@ class Executable(BaseModel):
     """A workflow runs one task end to end; an agent is a shared agent the user
     talks to, taking their text as its message"""
 
-    input_schema: type[BaseModel]
-    """The graph's input, read from the message's data part; for an agent, the
-    state fields it takes alongside the user's text"""
-
     graph: CompiledStateGraph
     """The graph it runs; with a checkpointer it can pause for input and resume"""
 
@@ -67,16 +63,20 @@ class LanggraphExecutor(AgentExecutor):
             if context.current_task:
                 graph_input = Command(resume=answer)
             elif self.executable.kind == "agent":
-                graph_input = {
-                    **dict(
-                        self.executable.input_schema.model_validate(
-                            data[0] if data else {}
-                        )
-                    ),
-                    "messages": [HumanMessage(context.get_user_input())],
-                }
+                graph_input = (
+                    self.executable.graph.get_input_schema()
+                    .model_validate(
+                        {
+                            **(data[0] if data else {}),
+                            "messages": [HumanMessage(context.get_user_input())],
+                        }
+                    )
+                    .root
+                )
             else:
-                graph_input = self.executable.input_schema.model_validate(answer)
+                graph_input = self.executable.graph.get_input_schema().model_validate(
+                    answer
+                )
         except ValidationError as error:
             await updater.failed(_reason(updater, f"Invalid input: {error}"))
             return

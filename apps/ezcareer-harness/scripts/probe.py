@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from functools import partial
 from hashlib import sha256
 from pathlib import Path
+from uuid import uuid4
 
 from openinference.instrumentation.langchain import LangChainInstrumentor
 from opentelemetry import trace
@@ -16,15 +17,23 @@ from pydantic_core import to_jsonable_python
 
 from src.app.container import Container
 from src.core.config import Settings, reload_settings
-from src.features.analyse_job import analyse_posting
-from src.features.find_jobs import find_matching_jobs
 
 RunWorkflow = Callable[[object], Awaitable[object]]
 """Runs one workflow on one task, returning its output"""
 
+CONTAINER = Container()
+"""Builds each workflow's graph the first time a probe runs it"""
+
+
+async def _run_graph(name: str, task: object) -> object:
+    """Runs the container's graph served as name on the task in a thread of its own"""
+    [graph] = [e.graph for e in CONTAINER.executables() if e.name == name]
+    return await graph.ainvoke(task, {"configurable": {"thread_id": str(uuid4())}})
+
+
 WORKFLOWS: dict[str, RunWorkflow] = {
-    "analyse-job": analyse_posting,
-    "find-jobs": partial(find_matching_jobs, job_sources=Container().job_sources()),
+    "analyse-job": partial(_run_graph, "analyse-job"),
+    "find-jobs": partial(_run_graph, "find-jobs"),
 }
 """Every workflow a probe can run, by name"""
 

@@ -1,12 +1,12 @@
-from functools import partial
-from typing import TypedDict
+from typing import Annotated, TypedDict
 
 import pytest
 from deepagents import HarnessProfileConfig
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
 from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
@@ -140,26 +140,48 @@ async def test_an_agent_called_without_a_workflow_replies_in_text():
     assert not {"Greeting", "Farewell"} & model.offered_tools[0]
 
 
-class _Empty(TypedDict):
-    pass
+class _Greeted(TypedDict, total=False):
+    messages: Annotated[list[AnyMessage], add_messages]
+    structured_response: Greeting
 
 
-async def _ask_with_limit(agent: CompiledStateGraph, limit: int, state: _Empty) -> dict:
-    await agent.ainvoke(
-        {"messages": [HumanMessage("Lovelace")]},
-        Workflow(response_format=Greeting).config({"recursion_limit": limit}),
+def _graph(agent: CompiledStateGraph) -> CompiledStateGraph:
+    graph = StateGraph(_Greeted)
+    graph.add_node(
+        "agent",
+        agent.with_config(
+            Workflow(response_format=Greeting, tools=(look_up_title,)).config()
+        ),
     )
-    return {}
-
-
-async def test_a_workflow_call_inside_a_graph_keeps_its_own_recursion_limit():
-    model = ScriptedChatModel(replies=[_call("look_up_name", person="Lovelace")])
-    graph = StateGraph(_Empty)
-    graph.add_node("agent", partial(_ask_with_limit, _agent(model), 6))
     graph.add_edge(START, "agent")
     graph.add_edge("agent", END)
+    return graph.compile()
+
+
+async def test_an_agent_added_as_a_graph_node_answers_in_the_nodes_workflow():
+    model = ScriptedChatModel(
+        replies=[
+            _call("look_up_title", person="Lovelace"),
+            _call("Greeting", text="Hi"),
+        ]
+    )
+
+    result = await _graph(_agent(model)).ainvoke(
+        {"messages": [HumanMessage("Lovelace")]}
+    )
+
+    assert result["structured_response"] == Greeting(text="Hi")
+    assert "look_up_title" in model.offered_tools[0]
+
+
+async def test_an_agent_added_as_a_graph_node_runs_under_the_graphs_recursion_limit():
+    model = ScriptedChatModel(replies=[_call("look_up_name", person="Lovelace")])
 
     with pytest.raises(GraphRecursionError):
-        await graph.compile().with_config(recursion_limit=50).ainvoke({})
+        await (
+            _graph(_agent(model))
+            .with_config(recursion_limit=6)
+            .ainvoke({"messages": [HumanMessage("Lovelace")]})
+        )
 
     assert len(model.requests) < 6
