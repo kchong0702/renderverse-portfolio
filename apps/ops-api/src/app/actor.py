@@ -9,6 +9,7 @@ _actor: ContextVar[str] = ContextVar("actor", default=SYSTEM_ACTOR)
 
 
 def user_actor(user_id: UUID) -> str:
+    """The actor string for a signed-in user"""
     return f"user:{user_id}"
 
 
@@ -18,6 +19,7 @@ def set_actor(actor: str) -> None:
 
 
 def current_actor() -> str:
+    """Who the current request or task writes as"""
     return _actor.get()
 
 
