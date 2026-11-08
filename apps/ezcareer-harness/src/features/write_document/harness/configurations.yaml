@@ -1,4 +1,3 @@
 checks: [changeset]
-recursion_limit: 12
-agent_recursion_limit: 40
+recursion_limit: 40
 page_fit_trims: 5

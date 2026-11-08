@@ -1,15 +1,18 @@
 from functools import partial
 from typing import Literal
 
+from document_schema import Changeset
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
 
+from src.agents import AgentOverride
 from src.clients.artifact_service import ArtifactServiceClient
 from src.core.config import get_settings
 from src.features.write_document.configurations import WriteDocumentConfigurations
-from src.features.write_document.nodes import brief, page_fit, run_agent, validate
+from src.features.write_document.nodes import brief, page_fit, validate
 from src.features.write_document.state import EditGraphState
+from src.features.write_document.tools import validate_changeset
 from src.features.write_document.types import EditInput, EditOutput
 
 
@@ -32,10 +35,10 @@ def build_graph(
     graph.add_node("brief", brief)
     graph.add_node(
         "agent",
-        partial(
-            run_agent,
-            agent=agent,
-            recursion_limit=configurations.agent_recursion_limit,
+        agent.with_config(
+            AgentOverride(
+                response_format=Changeset, tools=(validate_changeset,)
+            ).config()
         ),
     )
     graph.add_node("validate", partial(validate, checks=configurations.checks))

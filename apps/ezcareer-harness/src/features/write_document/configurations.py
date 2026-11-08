@@ -17,10 +17,7 @@ class WriteDocumentConfigurations(BaseModel):
     """Checks run on each changeset"""
 
     recursion_limit: int = Field(gt=0)
-    """Graph steps a run may take across all check rounds"""
-
-    agent_recursion_limit: int = Field(gt=0)
-    """Steps one agent turn may take"""
+    """Most steps the run, and each agent turn within it, may take"""
 
     page_fit_trims: int = Field(ge=0)
     """Bullets page-fit may delete to keep the page count"""
