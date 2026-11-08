@@ -12,7 +12,6 @@ from sqlalchemy import text
 
 PLUGIN_NAME = "ops_api.rls"
 
-# Roles only exist on Supabase
 API_ROLES = ("anon", "authenticated")
 
 _IGNORE_PLUGIN_OP = "  # pyright: ignore[reportAttributeAccessIssue]"
