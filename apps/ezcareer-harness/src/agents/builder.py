@@ -12,8 +12,8 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
 from langgraph.pregel import Pregel
 
+from src.agents.middlewares import WorkflowHook
 from src.agents.registry import Agent
-from src.agents.workflow import WorkflowHook
 from src.clients.llm_providers import llm_provider
 
 
