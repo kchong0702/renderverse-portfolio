@@ -39,19 +39,6 @@ class Container(containers.DeclarativeContainer):
     )
     """The job-finder agent, built once"""
 
-    analyse_job_graph = providers.Singleton(
-        analyse_job.build_graph, agent=job_finder, checkpointer=checkpointer
-    )
-    """The analyse-job workflow"""
-
-    find_jobs_graph = providers.Singleton(
-        find_jobs.build_graph,
-        agent=job_finder,
-        job_sources=job_sources,
-        checkpointer=checkpointer,
-    )
-    """The find-jobs workflow"""
-
     executables = providers.List(
         providers.Singleton(
             Executable,
@@ -66,13 +53,20 @@ class Container(containers.DeclarativeContainer):
             Executable,
             name="analyse-job",
             description="Show how well a job posting fits the user's profile, with every point cited",
-            graph=analyse_job_graph,
+            graph=providers.Singleton(
+                analyse_job.build_graph, agent=job_finder, checkpointer=checkpointer
+            ),
         ),
         providers.Singleton(
             Executable,
             name="find-jobs",
             description="Find fresh jobs for the user's profile and preferences, ranked by fit",
-            graph=find_jobs_graph,
+            graph=providers.Singleton(
+                find_jobs.build_graph,
+                agent=job_finder,
+                job_sources=job_sources,
+                checkpointer=checkpointer,
+            ),
         ),
     )
     """Agents and workflows served over A2A; add a feature's Executable provider here"""

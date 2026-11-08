@@ -8,7 +8,6 @@ from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
 
-from langgraph.graph.state import CompiledStateGraph
 from openinference.instrumentation.langchain import LangChainInstrumentor
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
@@ -26,14 +25,15 @@ CONTAINER = Container()
 """Builds each workflow's graph the first time a probe runs it"""
 
 
-async def _run_graph(graph: Callable[[], CompiledStateGraph], task: object) -> object:
-    """Runs the graph on the task in a thread of its own"""
-    return await graph().ainvoke(task, {"configurable": {"thread_id": str(uuid4())}})
+async def _run_graph(name: str, task: object) -> object:
+    """Runs the container's graph served as name on the task in a thread of its own"""
+    [graph] = [e.graph for e in CONTAINER.executables() if e.name == name]
+    return await graph.ainvoke(task, {"configurable": {"thread_id": str(uuid4())}})
 
 
 WORKFLOWS: dict[str, RunWorkflow] = {
-    "analyse-job": partial(_run_graph, CONTAINER.analyse_job_graph),
-    "find-jobs": partial(_run_graph, CONTAINER.find_jobs_graph),
+    "analyse-job": partial(_run_graph, "analyse-job"),
+    "find-jobs": partial(_run_graph, "find-jobs"),
 }
 """Every workflow a probe can run, by name"""
 

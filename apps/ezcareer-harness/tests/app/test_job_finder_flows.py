@@ -115,11 +115,12 @@ async def test_both_workflows_run_on_the_containers_one_job_finder():
     )
     container = Container()
     container.job_finder(model=model)
+    graphs = {e.name: e.graph for e in container.executables()}
 
-    analysed = await container.analyse_job_graph().ainvoke(
+    analysed = await graphs["analyse-job"].ainvoke(
         analyse_job.INPUT, {"configurable": {"thread_id": "analyse"}}
     )
-    found = await container.find_jobs_graph().ainvoke(
+    found = await graphs["find-jobs"].ainvoke(
         {"profile": {"facts": []}}, {"configurable": {"thread_id": "find"}}
     )
 
