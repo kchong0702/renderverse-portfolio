@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.agents import build_agent, load_agents
 from src.agents.job_finder import JobFinderState
+from src.agents.tools import read_profile_facts
 from src.core.config import get_settings
 from src.features.find_jobs.adapters import JOB_SOURCES, SearchProtocol
 from src.features.find_jobs.configurations import CHECKS, FindJobsConfigurations
@@ -19,7 +20,6 @@ from src.features.find_jobs.tools import search_jobs_tool
 from src.shared.checks import CheckError, CheckRound, check_round
 from src.shared.factory import Factory
 from src.shared.models import Profile
-from src.shared.tools import read_profile_facts
 
 
 class FindJobsInput(BaseModel):
