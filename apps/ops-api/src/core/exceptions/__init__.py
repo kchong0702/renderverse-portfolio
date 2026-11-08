@@ -3,7 +3,7 @@ from src.core.exceptions.service import (
     Forbidden,
     InvalidInput,
     NotFound,
-    ServiceError,
+    ServiceException,
     TooManyRequests,
     Unauthorized,
 )
@@ -13,7 +13,7 @@ __all__ = [
     "Forbidden",
     "InvalidInput",
     "NotFound",
-    "ServiceError",
+    "ServiceException",
     "TooManyRequests",
     "Unauthorized",
 ]
