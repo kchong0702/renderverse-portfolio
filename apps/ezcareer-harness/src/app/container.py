@@ -15,7 +15,7 @@ from src.agents.job_finder import JobFinderState
 from src.app.a2a import Executable
 from src.clients.artifact_service import ArtifactServiceClient
 from src.core.config import get_settings
-from src.features import analyse_job, find_jobs
+from src.features import analyse_job, find_jobs, write_document
 from src.shared.factory import Factory
 from src.tools import read_profile_facts
 
@@ -74,6 +74,14 @@ class Container(containers.DeclarativeContainer):
     )
     """The career-consultant agent, built once"""
 
+    write_document_graph = providers.Singleton(
+        write_document.build_graph,
+        agent=career_consultant,
+        artifact_service=artifact_service_client,
+        checkpointer=checkpointer,
+    )
+    """The write-document workflow"""
+
     executables = providers.List(
         providers.Singleton(
             Executable,
@@ -111,6 +119,13 @@ class Container(containers.DeclarativeContainer):
             graph=career_consultant.provided.copy.call(
                 update=providers.Dict(checkpointer=checkpointer)
             ),
+        ),
+        providers.Singleton(
+            Executable,
+            name="edit-document",
+            description="Propose a checked changeset for a chat request to change a résumé or cover letter",
+            input_schema=write_document.EditInput,
+            graph=write_document_graph,
         ),
     )
     """Agents and workflows served over A2A; add a feature's Executable provider here"""

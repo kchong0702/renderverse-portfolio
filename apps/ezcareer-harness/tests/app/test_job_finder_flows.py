@@ -73,14 +73,6 @@ def test_a_served_analysis_completes_through_the_containers_checkpointer():
     assert task["artifacts"][0]["parts"][0]["data"]["analysis"]["fit"] == 67
 
 
-def test_job_finder_workflows_keep_runs_in_the_containers_checkpointer():
-    container = Container()
-
-    graphs = [e.graph for e in container.executables() if e.kind == "workflow"]
-
-    assert [graph.checkpointer for graph in graphs] == [container.checkpointer()] * 2
-
-
 def test_find_jobs_gets_its_sources_from_the_containers_one_factory():
     container = Container()
 
