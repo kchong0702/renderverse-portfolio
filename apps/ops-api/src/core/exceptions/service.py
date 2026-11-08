@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-class ServiceError(Exception):
+class ServiceException(Exception):
     status_code = 400
     """HTTP status the handler answers with"""
 
@@ -11,32 +11,32 @@ class ServiceError(Exception):
         self.message = message
 
 
-class Unauthorized(ServiceError):
+class Unauthorized(ServiceException):
     status_code = 401
     """No valid session, or wrong credentials"""
 
 
-class Forbidden(ServiceError):
+class Forbidden(ServiceException):
     status_code = 403
     """Known caller, not allowed"""
 
 
-class TooManyRequests(ServiceError):
+class TooManyRequests(ServiceException):
     status_code = 429
     """Too many attempts in the current window"""
 
 
-class NotFound(ServiceError):
+class NotFound(ServiceException):
     status_code = 404
     """The requested thing does not exist"""
 
 
-class Conflict(ServiceError):
+class Conflict(ServiceException):
     status_code = 409
     """The request clashes with what is already stored"""
 
 
-class InvalidInput(ServiceError):
+class InvalidInput(ServiceException):
     status_code = 422
     """Well-formed input that breaks a rule the schema cannot express"""
 
@@ -46,7 +46,7 @@ __all__ = [
     "Forbidden",
     "InvalidInput",
     "NotFound",
-    "ServiceError",
+    "ServiceException",
     "TooManyRequests",
     "Unauthorized",
 ]
