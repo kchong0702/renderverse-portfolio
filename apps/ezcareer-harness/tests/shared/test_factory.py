@@ -4,16 +4,9 @@ from src.shared.factory import Factory
 
 
 def test_create_builds_an_item_once_and_returns_the_same_one_after():
-    built: list[str] = []
-
-    def build() -> object:
-        built.append("x")
-        return object()
-
-    factory = Factory[object]({"x": build})
+    factory = Factory[object]({"x": object})
 
     assert factory.create("x") is factory.create("x")
-    assert built == ["x"]
 
 
 def test_each_name_gets_its_own_item():

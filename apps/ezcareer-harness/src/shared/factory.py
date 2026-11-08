@@ -5,7 +5,10 @@ class Factory[T]:
     def __init__(self, builders: Mapping[str, Callable[[], T]]) -> None:
         """Builds the items it knows by name, each once"""
         self._builders = builders
+        """Builds each item, by name"""
+
         self._created: dict[str, T] = {}
+        """Every item built so far, by name"""
 
     def create(self, name: str) -> T:
         """The item called name: built the first time it's asked for, the same one after"""
