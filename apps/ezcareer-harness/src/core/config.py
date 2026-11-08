@@ -271,6 +271,9 @@ class ArtifactServiceSettings(BaseModel):
     timeout_seconds: float = Field(default=120, gt=0)
     """Longest one render may take"""
 
+    retries: int = Field(default=3, ge=0)
+    """Times a request retries a connection that fails to open"""
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(

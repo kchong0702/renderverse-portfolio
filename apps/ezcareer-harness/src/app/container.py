@@ -42,8 +42,12 @@ class Container(containers.DeclarativeContainer):
         httpx.AsyncClient,
         base_url=settings.provided.artifact_service.url.encoded_string.call(),
         timeout=settings.provided.artifact_service.timeout_seconds,
+        transport=providers.Singleton(
+            httpx.AsyncHTTPTransport,
+            retries=settings.provided.artifact_service.retries,
+        ),
     )
-    """HTTP client on artifact-service's URL and render timeout"""
+    """HTTP client on artifact-service's URL, render timeout and connection retries"""
 
     artifact_service_client = providers.Singleton(
         ArtifactServiceClient, client=artifact_service_http_client
