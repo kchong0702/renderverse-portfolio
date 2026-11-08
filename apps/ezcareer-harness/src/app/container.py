@@ -74,14 +74,6 @@ class Container(containers.DeclarativeContainer):
     )
     """The career-consultant agent, built once"""
 
-    write_document_graph = providers.Singleton(
-        write_document.build_graph,
-        agent=career_consultant,
-        artifact_service=artifact_service_client,
-        checkpointer=checkpointer,
-    )
-    """The write-document workflow"""
-
     executables = providers.List(
         providers.Singleton(
             Executable,
@@ -125,7 +117,12 @@ class Container(containers.DeclarativeContainer):
             name="edit-document",
             description="Propose a checked changeset for a chat request to change a résumé or cover letter",
             input_schema=write_document.EditInput,
-            graph=write_document_graph,
+            graph=providers.Singleton(
+                write_document.build_graph,
+                agent=career_consultant,
+                artifact_service=artifact_service_client,
+                checkpointer=checkpointer,
+            ),
         ),
     )
     """Agents and workflows served over A2A; add a feature's Executable provider here"""
