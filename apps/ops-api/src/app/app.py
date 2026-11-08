@@ -2,12 +2,12 @@ import secrets
 from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from src.app.container import Container
+from src.app.handlers.exception import service_exception
 from src.app.routers import api_router
 from src.core.auth.csrf import CSRFMiddleware
 from src.core.config import Settings, get_settings
@@ -18,14 +18,6 @@ from src.core.logging import configure_logging
 def _origin(url: str) -> str:
     parts = urlsplit(url)
     return f"{parts.scheme}://{parts.netloc}"
-
-
-async def _service_exception(_: Request, error: Exception) -> JSONResponse:
-    """Answer a ServiceException with its status code and message"""
-    assert isinstance(error, ServiceException)
-    return JSONResponse(
-        status_code=error.status_code, content={"detail": error.message}
-    )
 
 
 def _add_middleware(app: FastAPI, settings: Settings) -> None:
@@ -74,14 +66,13 @@ def create_app(container: Container | None = None) -> FastAPI:
         openapi_url=f"{settings.app.route_prefix}/openapi.json",
         docs_url=f"{settings.app.route_prefix}/docs",
         lifespan=lifespan,
+        exception_handlers={ServiceException: service_exception},
     )
     app.state.container = container
     app.state.session_factory = container.session_factory()
     app.state.oauth_providers = container.oauth_providers()
 
     _add_middleware(app, settings)
-
-    app.add_exception_handler(ServiceException, _service_exception)
 
     app.include_router(router=api_router, prefix=settings.app.route_prefix)
 
