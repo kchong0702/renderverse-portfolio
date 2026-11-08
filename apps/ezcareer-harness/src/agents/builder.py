@@ -31,7 +31,7 @@ def build_agent(
     model: BaseChatModel | None = None,
 ) -> Pregel:
     """Builds a registered agent as a deep agent with its skills read-only, under
-    its model's harness profile; a call may ask for one of response_formats"""
+    its model's harness profile, able to reply in any of response_formats"""
     register_harness_profile(f"{agent.provider}:{agent.model}", agent.profile)
     built = create_deep_agent(
         model=model or llm_provider(agent.family, agent.model),
