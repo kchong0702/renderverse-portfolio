@@ -240,7 +240,7 @@ class GraphProfile(BaseModel):
 class JSearchSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
-    url: HttpUrl = HttpUrl("https://jsearch.p.rapidapi.com/search")
+    url: HttpUrl = HttpUrl("https://jsearch.p.rapidapi.com/search-v2")
     """JSearch search endpoint on RapidAPI"""
 
     api_key: SecretStr | None = None

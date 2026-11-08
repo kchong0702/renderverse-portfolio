@@ -1,3 +1,4 @@
+from asyncio import sleep
 from datetime import datetime
 
 import httpx
@@ -41,11 +42,18 @@ class _Job(BaseModel):
     """Plain text description"""
 
 
+class _Page(BaseModel):
+    model_config = ConfigDict(extra="ignore", use_attribute_docstrings=True)
+
+    jobs: list[_Job]
+    """Jobs on the requested page"""
+
+
 class _SearchResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", use_attribute_docstrings=True)
 
-    data: list[_Job]
-    """Jobs on the requested page"""
+    data: _Page
+    """The requested page"""
 
 
 async def search(
@@ -55,21 +63,26 @@ async def search(
     remote_only: bool,
     date_posted: DatePosted,
 ) -> list[JobPosting]:
-    """One page of JSearch results for the query"""
+    """One page of JSearch results for the query, retrying twice when JSearch is
+    rate-limited or down"""
     if settings.api_key is None:
         raise RuntimeError("EZCAREER_HARNESS_JSEARCH__API_KEY is not set")
     params = {"query": query, "date_posted": date_posted, "work_from_home": remote_only}
     if country:
         params["country"] = country.lower()
     async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.get(
-            str(settings.url),
-            params=params,
-            headers={
-                "X-RapidAPI-Key": settings.api_key.get_secret_value(),
-                "X-RapidAPI-Host": settings.url.host or "",
-            },
-        )
+        for wait in (1, 2, None):
+            response = await client.get(
+                str(settings.url),
+                params=params,
+                headers={
+                    "X-RapidAPI-Key": settings.api_key.get_secret_value(),
+                    "X-RapidAPI-Host": settings.url.host or "",
+                },
+            )
+            if wait is None or response.status_code not in {429, 500, 502, 503}:
+                break
+            await sleep(wait)
     response.raise_for_status()
     return [
         JobPosting(
@@ -91,5 +104,5 @@ async def search(
                 )
             ],
         )
-        for job in _SearchResponse.model_validate_json(response.content).data
+        for job in _SearchResponse.model_validate_json(response.content).data.jobs
     ]

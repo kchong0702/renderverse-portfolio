@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
 
+import httpx
 from langchain.tools import ToolRuntime
-from langchain_core.tools import tool
+from langchain_core.tools import ToolException, tool
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 from src.core.config import get_settings
@@ -54,9 +55,14 @@ async def search_jobs(
 ) -> tuple[str, list[JobPosting]]:
     """Search job postings, newest first, with the same job from several sites
     listed once and jobs that break the user's preferences left out."""
-    postings = await search(
-        get_settings().jsearch, query, country, remote_only, date_posted
-    )
+    try:
+        postings = await search(
+            get_settings().jsearch, query, country, remote_only, date_posted
+        )
+    except httpx.HTTPError as error:
+        raise ToolException(
+            f"Job search failed, try again later: {type(error).__name__} {error}"
+        ) from error
     unique: dict[tuple[str, str, str], JobPosting] = {}
     for posting in sorted(
         postings,
@@ -68,3 +74,6 @@ async def search_jobs(
     preferences = runtime.state["preferences"]
     jobs = [job for job in unique.values() if not broken_filters(job, preferences)]
     return TypeAdapter(list[JobPosting]).dump_json(jobs).decode(), jobs
+
+
+search_jobs.handle_tool_error = True

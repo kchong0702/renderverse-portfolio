@@ -50,7 +50,9 @@ def jsearch(isolate_env, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("EZCAREER_HARNESS_JSEARCH__API_KEY", "test-key")
     reload_settings()
     with respx.mock:
-        respx.get("https://jsearch.p.rapidapi.com/search").respond(200, text=RESPONSE)
+        respx.get("https://jsearch.p.rapidapi.com/search-v2").respond(
+            200, text=RESPONSE
+        )
         yield
     monkeypatch.undo()
     reload_settings()

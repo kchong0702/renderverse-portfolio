@@ -1,16 +1,18 @@
 import json
 from pathlib import Path
 
+import httpx
 import pytest
 import respx
 from langchain.tools import ToolRuntime
 from langchain_core.utils.function_calling import convert_to_openai_tool
 
 from src.core.config import reload_settings
+from src.features.find_jobs.sources import jsearch
 from src.features.find_jobs.tools import search_jobs
 from src.shared.models import Preferences
 
-URL = "https://jsearch.p.rapidapi.com/search"
+URL = "https://jsearch.p.rapidapi.com/search-v2"
 RESPONSE = (Path(__file__).parent / "fixtures" / "jsearch_search.json").read_text()
 
 
@@ -108,6 +110,44 @@ async def test_sends_the_key_and_search_options(api_key):
         "work_from_home": "true",
         "date_posted": "week",
     }
+
+
+@pytest.fixture
+def waits(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    waited: list[float] = []
+
+    async def record(seconds: float) -> None:
+        waited.append(seconds)
+
+    monkeypatch.setattr(jsearch, "sleep", record)
+    return waited
+
+
+@respx.mock
+async def test_waits_and_retries_a_rate_limited_search(api_key, waits):
+    route = respx.get(URL).mock(
+        side_effect=[
+            httpx.Response(429, json={"message": "Too many requests"}),
+            httpx.Response(200, text=RESPONSE),
+        ]
+    )
+
+    message = await _search(query="backend engineer python")
+
+    assert route.call_count == 2
+    assert len(waits) == 1
+    assert len(message.artifact) == 3
+
+
+@respx.mock
+async def test_tells_the_agent_when_jsearch_keeps_failing(api_key, waits):
+    route = respx.get(URL).respond(503)
+
+    message = await _search(query="backend engineer python")
+
+    assert route.call_count == 3
+    assert message.status == "error"
+    assert "Job search failed" in message.text
 
 
 async def test_refuses_to_search_without_a_key(isolate_env):
