@@ -14,7 +14,7 @@ from src.core.auth.dependencies import (
     CurrentUserDep,
     OAuthProvidersDep,
 )
-from src.core.auth.errors import OAuthFailed
+from src.core.auth.exceptions import OAuthFailed
 from src.core.auth.oauth_providers import AuthlibAdapter, Provider
 from src.core.config import AuthSettings, get_settings
 from src.core.exceptions import Forbidden, NotFound

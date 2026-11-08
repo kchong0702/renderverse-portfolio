@@ -34,7 +34,7 @@ class FakeProvider:
         return RedirectResponse("https://provider.test/authorize")
 
     async def fetch_identity(self, request: Request):
-        from src.core.auth.errors import OAuthFailed
+        from src.core.auth.exceptions import OAuthFailed
 
         if self.fails:
             raise OAuthFailed("access_denied")
