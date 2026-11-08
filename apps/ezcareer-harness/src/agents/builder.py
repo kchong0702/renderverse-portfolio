@@ -14,7 +14,7 @@ from langgraph.pregel import Pregel
 from pydantic import BaseModel
 
 from src.agents.registry import Agent
-from src.shared.clients.chat_models import chat_model
+from src.clients.llm_providers import llm_provider
 
 
 def build_agent(
@@ -31,7 +31,7 @@ def build_agent(
     its model's harness profile; model, when given, replaces the agent's own"""
     register_harness_profile(f"{agent.provider}:{agent.model}", agent.profile)
     built = create_deep_agent(
-        model=model or chat_model(agent.family, agent.model),
+        model=model or llm_provider(agent.family, agent.model),
         tools=tools,
         system_prompt=agent.system_prompt.read_text(),
         middleware=middleware,

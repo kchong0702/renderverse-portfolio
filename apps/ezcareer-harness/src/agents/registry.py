@@ -7,8 +7,8 @@ import yaml
 from deepagents import HarnessProfileConfig
 from pydantic import BaseModel, ConfigDict
 
+from src.clients.llm_providers import PROVIDERS
 from src.core.config import AgentSettings
-from src.shared.clients.chat_models import PROVIDERS
 
 
 class Agent(BaseModel):

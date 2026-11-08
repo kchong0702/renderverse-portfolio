@@ -5,7 +5,7 @@ SRC = Path(__file__).resolve().parents[1] / "src"
 
 # Features never import each other; find_jobs runs analyse_job through its barrel
 BARRELS = {"find_jobs": {"src.features.analyse_job"}}
-LAYERS_WITHOUT_FEATURES = ("agents", "shared")
+LAYERS_WITHOUT_FEATURES = ("agents", "clients", "shared")
 
 
 def _module_name(path: Path, root: Path) -> str:
