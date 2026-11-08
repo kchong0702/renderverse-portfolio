@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.db.actor import current_actor
+from src.app.actor import current_actor
 from src.core.db.base import utcnow
 
 
