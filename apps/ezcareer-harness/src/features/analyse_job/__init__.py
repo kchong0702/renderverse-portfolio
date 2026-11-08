@@ -8,7 +8,6 @@ from src.features.analyse_job.schemas import (
     Requirement,
     fit_score,
 )
-from src.features.analyse_job.service import analyse_posting
 
 __all__ = [
     "AnalyseJobInput",
@@ -16,7 +15,6 @@ __all__ = [
     "JobRequirements",
     "PostingLine",
     "Requirement",
-    "analyse_posting",
     "build_graph",
     "check_citations",
     "countries_fit",

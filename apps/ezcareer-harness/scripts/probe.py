@@ -3,7 +3,6 @@ import asyncio
 import json
 import os
 from collections.abc import Awaitable, Callable, Sequence
-from functools import partial
 from hashlib import sha256
 from pathlib import Path
 
@@ -16,15 +15,21 @@ from pydantic_core import to_jsonable_python
 
 from src.app.container import Container
 from src.core.config import Settings, reload_settings
-from src.features.analyse_job import analyse_posting
-from src.features.find_jobs import find_matching_jobs
 
 RunWorkflow = Callable[[object], Awaitable[object]]
 """Runs one workflow on one task, returning its output"""
 
 WORKFLOWS: dict[str, RunWorkflow] = {
-    "analyse-job": analyse_posting,
-    "find-jobs": partial(find_matching_jobs, job_sources=Container().job_sources()),
+    "analyse-job": lambda task: (
+        Container()
+        .analyse_job_graph()
+        .ainvoke(task, {"configurable": {"thread_id": "probe"}})
+    ),
+    "find-jobs": lambda task: (
+        Container()
+        .find_jobs_graph()
+        .ainvoke(task, {"configurable": {"thread_id": "probe"}})
+    ),
 }
 """Every workflow a probe can run, by name"""
 

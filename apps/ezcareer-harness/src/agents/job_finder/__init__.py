@@ -1,3 +1,3 @@
-from src.agents.job_finder.state import JobFinderState
+from src.agents.job_finder.state import JobFinderInput, JobFinderState
 
-__all__ = ["JobFinderState"]
+__all__ = ["JobFinderInput", "JobFinderState"]

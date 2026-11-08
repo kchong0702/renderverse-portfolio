@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.errors import GraphRecursionError
 
 from src.agents import load_agents
+from src.app.container import Container
 from src.core.config import get_settings, reload_settings
 from src.core.errors import ExecuteError
 from src.features.analyse_job import build_graph
@@ -85,7 +86,7 @@ async def test_check_errors_go_back_and_the_fixed_answer_is_scored(posting):
         _answer("Five years of Python"), _answer("5+ years of Python in production")
     )
 
-    result = await build_graph(model=model).ainvoke(INPUT)
+    result = await build_graph(Container().job_finder(model=model)).ainvoke(INPUT)
 
     analysis = result["analysis"]
     assert analysis.fit == 67
@@ -103,7 +104,7 @@ async def test_check_errors_go_back_and_the_fixed_answer_is_scored(posting):
 async def test_posting_reaches_the_agent_as_untrusted_numbered_lines(posting):
     model = _scripted(_answer("5+ years of Python in production"))
 
-    await build_graph(model=model).ainvoke(INPUT)
+    await build_graph(Container().job_finder(model=model)).ainvoke(INPUT)
 
     prompt = model.requests[0][1].text
     assert "<posting untrusted>" in prompt
@@ -116,14 +117,14 @@ async def test_an_agent_that_never_cites_correctly_hits_the_recursion_limit(
     model = _scripted(_answer("Five years of Python"))
 
     with pytest.raises(GraphRecursionError):
-        await build_graph(model=model).ainvoke(INPUT)
+        await build_graph(Container().job_finder(model=model)).ainvoke(INPUT)
 
 
 async def test_a_missing_posting_fails_the_flow():
     with respx.mock:
         respx.get(URL).respond(404)
         with pytest.raises(ExecuteError, match="Couldn't fetch the posting"):
-            await build_graph(model=_scripted()).ainvoke(INPUT)
+            await build_graph(Container().job_finder(model=_scripted())).ainvoke(INPUT)
 
 
 async def test_trace_records_the_agent_hash_check_rounds_and_tool_calls(
@@ -140,7 +141,7 @@ async def test_trace_records_the_agent_hash_check_rounds_and_tool_calls(
         _answer("Five years of Python"), _answer("5+ years of Python in production")
     )
 
-    await build_graph(model=model).ainvoke(INPUT)
+    await build_graph(Container().job_finder(model=model)).ainvoke(INPUT)
     tracing.shutdown_tracing()
 
     [exporter] = span_exporters
@@ -181,7 +182,7 @@ async def test_candidate_configurations_without_the_check_take_the_first_answer(
         _answer("Five years of Python"), _answer("5+ years of Python in production")
     )
 
-    result = await build_graph(model=model).ainvoke(INPUT)
+    result = await build_graph(Container().job_finder(model=model)).ainvoke(INPUT)
     monkeypatch.undo()
     reload_settings()
 
@@ -195,7 +196,7 @@ async def test_an_agent_that_ends_without_an_answer_is_asked_for_one(posting):
         _answer("5+ years of Python in production"),
     )
 
-    result = await build_graph(model=model).ainvoke(INPUT)
+    result = await build_graph(Container().job_finder(model=model)).ainvoke(INPUT)
 
     assert result["analysis"].fit == 67
     feedback = [m.text for m in model.requests[-1] if isinstance(m, HumanMessage)]

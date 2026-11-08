@@ -50,10 +50,10 @@ def test_a_posting_that_cannot_be_fetched_fails_the_task_with_the_reason():
     )
 
 
-def test_job_finder_graphs_keep_runs_in_the_containers_checkpointer():
+def test_job_finder_workflows_keep_runs_in_the_containers_checkpointer():
     container = Container()
 
-    graphs = [executable.graph for executable in container.executables()]
+    graphs = [e.graph for e in container.executables() if e.kind == "workflow"]
 
     assert [graph.checkpointer for graph in graphs] == [container.checkpointer()] * 2
 
@@ -65,3 +65,26 @@ def test_find_jobs_gets_its_sources_from_the_containers_one_factory():
 
     assert container.job_sources() is factory
     assert factory.create("jsearch") is factory.create("jsearch")
+
+
+def test_job_finder_is_served_as_an_agent_beside_its_workflows():
+    client = TestClient(create_app())
+
+    card = client.get("/ezcareer/a2a/job-finder/.well-known/agent-card.json")
+
+    assert card.json()["name"] == "job-finder"
+    assert [e.kind for e in Container().executables()] == [
+        "agent",
+        "workflow",
+        "workflow",
+    ]
+
+
+def test_both_workflows_run_on_the_containers_one_job_finder():
+    container = Container()
+
+    analyse, find = container.analyse_job_graph(), container.find_jobs_graph()
+
+    assert container.job_finder() is container.job_finder()
+    assert analyse is container.analyse_job_graph()
+    assert find is container.find_jobs_graph()

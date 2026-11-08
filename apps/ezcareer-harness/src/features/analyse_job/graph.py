@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 import httpx
-from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AnyMessage, HumanMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
@@ -10,8 +9,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
-from src.agents import Workflow, build_agent, load_agents
-from src.agents.job_finder import JobFinderState
+from src.agents import Workflow
 from src.core.config import get_settings
 from src.core.errors import ExecuteError
 from src.features.analyse_job.configurations import CHECKS, AnalyseJobConfigurations
@@ -24,7 +22,6 @@ from src.features.analyse_job.schemas import (
 )
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
 from src.shared.profile import Profile
-from src.tools import read_profile_facts
 
 
 class AnalyseJobInput(BaseModel):
@@ -94,22 +91,15 @@ def _output(state: AnalyseJobState) -> dict:
 
 
 def build_graph(
-    model: BaseChatModel | None = None, checkpointer: Checkpointer = None
+    agent: CompiledStateGraph, checkpointer: Checkpointer = None
 ) -> CompiledStateGraph:
-    """The analyse-job graph with the agent and configurations the settings name;
-    model replaces the agent's LLM; checkpointer keeps its runs"""
+    """The analyse-job workflow on the shared job-finder agent, with the
+    configurations the settings name; checkpointer keeps its runs"""
     settings = get_settings()
     configurations = settings.graph_profile("analyse-job").load(
         AnalyseJobConfigurations
     )
     checks = [CHECKS[name] for name in configurations.checks]
-    agent = build_agent(
-        load_agents(settings.agents)["job-finder"],
-        response_formats=(JobRequirements,),
-        tools=(read_profile_facts,),
-        state_schema=JobFinderState,
-        model=model,
-    )
 
     async def run_agent(state: AnalyseJobState) -> dict:
         result = await agent.ainvoke(
