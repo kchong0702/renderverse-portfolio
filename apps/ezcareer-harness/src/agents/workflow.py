@@ -12,9 +12,9 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, AnyMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool, StructuredTool
-from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_openai import ChatOpenAI
 from langgraph.config import get_config
+from openai.lib._pydantic import to_strict_json_schema
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 
@@ -60,6 +60,10 @@ class Workflow(BaseModel):
 
     model: BaseChatModel | None = None
     """A model this workflow runs the agent on instead of its own"""
+
+    strict: bool = True
+    """Whether OpenAI models get the answer tool in strict mode; off for an
+    answer schema strict mode refuses"""
 
     def config(self, config: RunnableConfig | None = None) -> RunnableConfig:
         """The run config that applies this workflow to a call of a shared agent"""
@@ -115,7 +119,8 @@ class WorkflowHook(AgentMiddleware):
 
     def _model_request(self, request: ModelRequest) -> ModelRequest:
         """The model call as the workflow wants it: its tools, its answer tool, its model;
-        OpenAI models get the answer tool in strict mode, with anyOf for oneOf"""
+        OpenAI models get the answer tool in strict mode, its schema made strict
+        by OpenAI's own helper and with anyOf for oneOf"""
         workflow = _workflow()
         if workflow is None:
             return request
@@ -126,8 +131,17 @@ class WorkflowHook(AgentMiddleware):
             if getattr(tool, "name", None) not in workflow.hidden_tools
         ]
         added = [
-            _any_of(convert_to_openai_tool(tool, strict=True))
+            {
+                "type": "function",
+                "function": {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": _any_of(to_strict_json_schema(workflow.answer)),
+                    "strict": True,
+                },
+            }
             if workflow.answer
+            and workflow.strict
             and tool.name == workflow.answer.__name__
             and isinstance(model, ChatOpenAI)
             else tool

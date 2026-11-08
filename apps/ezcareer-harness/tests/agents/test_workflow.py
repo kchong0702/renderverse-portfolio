@@ -193,3 +193,12 @@ async def test_openai_models_get_anyof_where_the_answer_schema_has_oneof():
     assert "oneOf" in json.dumps(Gesture.model_json_schema())
     assert "oneOf" not in json.dumps(sent)
     assert "anyOf" in json.dumps(sent)
+
+
+async def test_a_workflow_can_send_its_answer_tool_to_openai_without_strict_mode():
+    model = _RecordingOpenAI(model="gpt-test", api_key="test")
+
+    await _ask(_agent(model), Workflow(answer=Greeting, strict=False))
+
+    [sent] = [t for t in model.sent[0] if t["function"]["name"] == "Greeting"]
+    assert not sent["function"].get("strict")
