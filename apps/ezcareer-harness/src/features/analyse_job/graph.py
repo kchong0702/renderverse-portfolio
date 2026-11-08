@@ -105,6 +105,7 @@ def build_graph(
     checks = [CHECKS[name] for name in configurations.checks]
     agent = build_agent(
         load_agents(settings.agents)["job-finder"],
+        answers=(JobRequirements,),
         tools=(read_profile_facts,),
         state_schema=JobFinderState,
         model=model,

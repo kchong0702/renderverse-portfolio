@@ -1,4 +1,4 @@
-from src.agents.middlewares.answer_tool import AnswerToolMiddleware
 from src.agents.middlewares.inject_tools import InjectToolsMiddleware
+from src.agents.middlewares.response_format import ResponseFormatMiddleware
 
-__all__ = ["AnswerToolMiddleware", "InjectToolsMiddleware"]
+__all__ = ["InjectToolsMiddleware", "ResponseFormatMiddleware"]

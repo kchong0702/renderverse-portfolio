@@ -13,14 +13,10 @@ class Workflow(BaseModel):
     )
 
     response_format: type[BaseModel] | None = None
-    """What the workflow wants back; the agent gets an answer tool with this as its arguments"""
+    """What the workflow wants back; one of the answers the agent was built with"""
 
     tools: tuple[BaseTool, ...] = ()
     """Tools only this workflow gives the agent"""
-
-    strict: bool = True
-    """Whether OpenAI models get the answer tool in strict mode; off for an
-    answer schema strict mode refuses"""
 
     def config(self, config: RunnableConfig | None = None) -> RunnableConfig:
         """The run config that applies this workflow to a call of a shared agent"""

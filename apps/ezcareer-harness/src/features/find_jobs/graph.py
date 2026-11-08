@@ -76,6 +76,7 @@ def build_graph(
     checks = [CHECKS[name] for name in configurations.checks]
     agent = build_agent(
         load_agents(settings.agents)["job-finder"],
+        answers=(RankedJobs,),
         tools=(
             read_profile_facts,
             search_jobs_tool(

@@ -1,4 +1,6 @@
 from collections.abc import Sequence
+from functools import reduce
+from operator import or_
 
 from deepagents import (
     DeepAgentState,
@@ -8,12 +10,13 @@ from deepagents import (
 )
 from deepagents.backends import CompositeBackend, FilesystemBackend, StateBackend
 from langchain.agents.middleware import AgentMiddleware
+from langchain.agents.structured_output import ToolStrategy
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
 from langgraph.pregel import Pregel
 from pydantic import BaseModel
 
-from src.agents.middlewares import AnswerToolMiddleware, InjectToolsMiddleware
+from src.agents.middlewares import InjectToolsMiddleware, ResponseFormatMiddleware
 from src.agents.registry import Agent
 from src.clients.llm_providers import llm_provider
 
@@ -21,17 +24,15 @@ from src.clients.llm_providers import llm_provider
 def build_agent(
     agent: Agent,
     *,
-    response_format: type[BaseModel] | None = None,
+    answers: Sequence[type[BaseModel]] = (),
     tools: Sequence[BaseTool] = (),
     middleware: Sequence[AgentMiddleware] = (),
     state_schema: type[DeepAgentState] = DeepAgentState,
     context_schema: type | None = None,
     model: BaseChatModel | None = None,
 ) -> Pregel:
-    """Builds a registered agent once as a deep agent with its skills read-only,
-    under its model's harness profile; a Workflow in the run config gives a call
-    its answer tool unless response_format sets one for every call. model
-    replaces the agent's own"""
+    """Builds a registered agent once as a deep agent with its skills read-only, under
+    its model's harness profile; answers are every response_format its workflows ask for"""
     register_harness_profile(f"{agent.provider}:{agent.model}", agent.profile)
     built = create_deep_agent(
         model=model or llm_provider(agent.family, agent.model),
@@ -40,7 +41,7 @@ def build_agent(
         middleware=[
             *middleware,
             InjectToolsMiddleware(agent.profile.tool_description_overrides),
-            AnswerToolMiddleware(),
+            ResponseFormatMiddleware(),
         ],
         skills=["/"],
         permissions=[
@@ -51,7 +52,7 @@ def build_agent(
             routes={"/artifacts/": StateBackend()},
             artifacts_root="/artifacts",
         ),
-        response_format=response_format,
+        response_format=ToolStrategy(reduce(or_, answers)) if answers else None,
         state_schema=state_schema,
         context_schema=context_schema,
         name=agent.name,

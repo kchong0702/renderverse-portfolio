@@ -42,6 +42,7 @@ def _call(name: str, **args) -> AIMessage:
 def _ask(model: ScriptedChatModel, agent: Agent | None = None, **build) -> dict:
     built = build_agent(
         agent or Agent.load(GREETER),
+        answers=(Greeting,),
         tools=(look_up_name,),
         model=model,
         **build,
@@ -170,6 +171,7 @@ def test_flow_tools_read_the_agent_state():
     )
     agent = build_agent(
         Agent.load(GREETER),
+        answers=(Greeting,),
         tools=(look_up_in_state,),
         state_schema=_NamesState,
         model=model,
@@ -204,6 +206,7 @@ def test_flow_tools_read_the_run_context():
     )
     agent = build_agent(
         Agent.load(GREETER),
+        answers=(Greeting,),
         tools=(look_up_in_context,),
         context_schema=_Names,
         model=model,
@@ -223,6 +226,7 @@ def test_the_run_recursion_limit_stops_an_agent_that_never_answers():
     model = ScriptedChatModel(replies=[_call("look_up_name", person="Lovelace")])
     agent = build_agent(
         Agent.load(GREETER),
+        answers=(Greeting,),
         tools=(look_up_name,),
         model=model,
     )
@@ -257,6 +261,7 @@ def test_a_run_leaves_the_agents_folder_unchanged(tmp_path: Path):
     )
     agent = build_agent(
         Agent.load(GREETER.model_copy(update={"path": tmp_path / "profile.yaml"})),
+        answers=(Greeting,),
         tools=(read_long_report,),
         model=model,
     )

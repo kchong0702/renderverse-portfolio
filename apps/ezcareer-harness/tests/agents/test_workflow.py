@@ -1,13 +1,8 @@
-import json
-from typing import Annotated, Literal, override
-
 import pytest
 from deepagents import HarnessProfileConfig
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
-from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from src.agents import Agent, Workflow, build_agent
 from tests.agents.test_builder import GREETER, look_up_name
@@ -43,7 +38,9 @@ def _agent(model, model_name: str = "glm-5.3"):
             )
         }
     )
-    return build_agent(agent, tools=(look_up_name,), model=model)
+    return build_agent(
+        agent, answers=(Greeting, Farewell), tools=(look_up_name,), model=model
+    )
 
 
 async def _ask(agent, workflow: Workflow) -> dict:
@@ -85,12 +82,10 @@ async def test_an_invalid_answer_goes_back_to_the_model_to_retry():
 
     result = await _ask(_agent(model), Workflow(response_format=Greeting))
 
-    [error] = [
-        m
-        for m in result["messages"]
-        if isinstance(m, ToolMessage) and m.status == "error"
-    ]
-    assert error.name == "Greeting"
+    feedback = model.requests[1][-1]
+    assert isinstance(feedback, ToolMessage)
+    assert feedback.name == "Greeting"
+    assert "text" in feedback.text
     assert result["structured_response"] == Greeting(text="Hi")
     assert len(model.requests) == 2
 
@@ -125,80 +120,11 @@ async def test_a_workflows_tools_are_offered_described_and_run():
     assert seen[0]["look_up_title"] == "Finds the title to use"
 
 
-class _RecordingOpenAI(ChatOpenAI):
-    sent: list[list[dict]] = Field(default_factory=list)
-    answer: dict = Field(
-        default_factory=lambda: {"name": "Greeting", "args": {"text": "Hi"}}
-    )
+async def test_an_agent_called_without_a_workflow_replies_in_text():
+    model = ScriptedChatModel(replies=[AIMessage("Hello, Ada!")])
 
-    @override
-    async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
-        self.sent.append(kwargs["tools"])
-        message = AIMessage("", tool_calls=[{**self.answer, "id": "c1"}])
-        return ChatResult(generations=[ChatGeneration(message=message)])
+    result = await _agent(model).ainvoke({"messages": [HumanMessage("Lovelace")]})
 
-
-async def test_openai_models_get_the_answer_tool_in_strict_mode():
-    model = _RecordingOpenAI(model="gpt-test", api_key="test")
-
-    result = await _ask(_agent(model), Workflow(response_format=Greeting))
-
-    tools = {t["function"]["name"]: t["function"] for t in model.sent[0]}
-    assert tools["Greeting"]["strict"] is True
-    assert not tools["look_up_name"].get("strict")
-    assert result["structured_response"] == Greeting(text="Hi")
-
-
-class _Wave(BaseModel):
-    kind: Literal["wave"]
-
-
-class _Bow(BaseModel):
-    kind: Literal["bow"]
-
-
-class Gesture(BaseModel):
-    gestures: list[Annotated[_Wave | _Bow, Field(discriminator="kind")]]
-
-
-async def test_openai_models_get_anyof_where_the_answer_schema_has_oneof():
-    model = _RecordingOpenAI(
-        model="gpt-test",
-        api_key="test",
-        answer={"name": "Gesture", "args": {"gestures": [{"kind": "wave"}]}},
-    )
-
-    await _ask(_agent(model), Workflow(response_format=Gesture))
-
-    [sent] = [t for t in model.sent[0] if t["function"]["name"] == "Gesture"]
-    assert "oneOf" in json.dumps(Gesture.model_json_schema())
-    assert "oneOf" not in json.dumps(sent)
-    assert "anyOf" in json.dumps(sent)
-
-
-async def test_a_workflow_can_send_its_answer_tool_to_openai_without_strict_mode():
-    model = _RecordingOpenAI(model="gpt-test", api_key="test")
-
-    await _ask(_agent(model), Workflow(response_format=Greeting, strict=False))
-
-    [sent] = [t for t in model.sent[0] if t["function"]["name"] == "Greeting"]
-    assert not sent["function"].get("strict")
-
-
-@pytest.mark.parametrize("model_name", ["glm-5.3", "gpt-6-luna"])
-async def test_a_workflow_reads_the_same_answer_as_from_a_native_response_format(
-    model_name: str,
-):
-    reply = [_call("Greeting", text="Hello!")]
-    through_tool = ScriptedChatModel(replies=reply, model_name=model_name)
-    native = ScriptedChatModel(replies=reply, model_name=model_name)
-    agent = Agent.load(GREETER.model_copy(update={"model": model_name}))
-    workflow = Workflow(response_format=Greeting)
-
-    by_tool = await _ask(build_agent(agent, model=through_tool), workflow)
-    natively = await _ask(
-        build_agent(agent, response_format=Greeting, model=native), workflow
-    )
-
-    assert by_tool["structured_response"] == natively["structured_response"]
-    assert natively["structured_response"] == Greeting(text="Hello!")
+    assert result["messages"][-1].text == "Hello, Ada!"
+    assert result["structured_response"] is None
+    assert not {"Greeting", "Farewell"} & model.offered_tools[0]
