@@ -53,7 +53,6 @@ def _executable() -> Executable:
     return Executable(
         name="greet",
         description="Greets a person",
-        input_schema=GreetInput,
         graph=_graph(),
     )
 
@@ -176,10 +175,6 @@ def test_the_app_keeps_tasks_in_the_containers_task_store():
     assert task["id"] in saved
 
 
-class NoFields(BaseModel):
-    pass
-
-
 class Title(BaseModel):
     title: str
 
@@ -193,7 +188,6 @@ def _agent_client(agent: CompiledStateGraph) -> TestClient:
                 kind="agent",
                 name="greeter",
                 description="Greets whoever writes to it",
-                input_schema=NoFields,
                 graph=agent,
             )
         ],
