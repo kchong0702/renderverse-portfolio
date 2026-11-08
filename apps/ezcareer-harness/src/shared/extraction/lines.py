@@ -13,11 +13,6 @@ def extract_lines(pdf: bytes) -> list[Line]:
     try:
         with pdfplumber.open(io.BytesIO(pdf), laparams={"all_texts": True}) as document:
             for page in document.pages:
-                texts = [
-                    obj
-                    for obj in page.objects.get("textlinehorizontal", [])
-                    if obj["text"].strip()
-                ]
                 lines += [
                     Line(
                         id=f"p{page.page_number}.s{number}",
@@ -28,7 +23,14 @@ def extract_lines(pdf: bytes) -> list[Line]:
                         x1=obj["x1"],
                         bottom=obj["bottom"],
                     )
-                    for number, obj in enumerate(texts, start=1)
+                    for number, obj in enumerate(
+                        (
+                            found
+                            for found in page.objects.get("textlinehorizontal", [])
+                            if found["text"].strip()
+                        ),
+                        start=1,
+                    )
                 ]
     except PdfminerException as error:
         raise UnreadableFile("the file is not a readable PDF") from error
