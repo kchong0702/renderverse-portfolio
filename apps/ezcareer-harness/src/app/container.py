@@ -7,7 +7,6 @@ from langgraph.checkpoint.memory import InMemorySaver
 from src.agents import build_agent, load_agents
 from src.agents.career_consultant import CareerConsultantState
 from src.agents.career_consultant.tools import (
-    ask_user,
     list_design_options_tool,
     read_pdf_lines,
 )
@@ -17,7 +16,7 @@ from src.clients.artifact_service import ArtifactServiceClient
 from src.core.config import get_settings
 from src.features import analyse_job, find_jobs, write_document
 from src.shared.factory import Factory
-from src.tools import read_profile_facts
+from src.tools import clarify, permission, read_profile_facts
 
 
 class Container(containers.DeclarativeContainer):
@@ -68,7 +67,8 @@ class Container(containers.DeclarativeContainer):
             read_pdf_lines,
             read_profile_facts,
             providers.Callable(list_design_options_tool, artifact_service_client),
-            ask_user,
+            clarify,
+            permission,
         ),
         state_schema=CareerConsultantState,
     )

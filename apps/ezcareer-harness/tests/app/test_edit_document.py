@@ -60,14 +60,18 @@ def test_an_edit_request_returns_the_checked_changeset():
     assert changeset["edits"] == [GOOD_EDIT.model_dump(mode="json")]
 
 
-def test_an_unclear_request_asks_the_user_then_finishes():
-    client = _client(_call("ask_user", question="Which job?"), _answer(GOOD_EDIT))
+def test_an_unclear_request_shows_the_user_a_widget_then_finishes():
+    client = _client(_call("clarify", question="Which job?"), _answer(GOOD_EDIT))
 
     asked = _send(client, _input().model_dump(mode="json"))
-    done = _send(client, "Lumen Pay", task=asked)
+    done = _send(client, {"input": "Lumen Pay"}, task=asked)
 
     assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
-    assert asked["status"]["message"]["parts"][0]["data"] == "Which job?"
+    assert asked["status"]["message"]["parts"][0]["data"] == {
+        "label": "Which job?",
+        "input_placeholder": "Type your answer here...",
+        "submit_btn": "Send",
+    }
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
 
 
