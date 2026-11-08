@@ -10,6 +10,7 @@ from document_schema import (
     Delete,
     Education,
     Experience,
+    InsertBlock,
     InsertItem,
     Move,
     Projects,
@@ -26,13 +27,15 @@ from src.features.write_document.state import EditGraphState
 def _trim(document: AnyDocument, edits: list[AnyEdit]) -> Delete | None:
     """A delete of one bullet from the entry with the most, the later on a tie, sparing
     each entry's last bullet and every bullet the edits wrote; None when none can go"""
-    touched = [
-        edit.path for edit in edits if isinstance(edit, UpdateField | Move | Delete)
-    ] + [
-        f"{edit.parent}/{edit.item.get('id')}"
-        for edit in edits
-        if isinstance(edit, InsertItem)
-    ]
+    touched = (
+        [edit.path for edit in edits if isinstance(edit, UpdateField | Move | Delete)]
+        + [
+            f"{edit.parent}/{edit.item.get('id')}"
+            for edit in edits
+            if isinstance(edit, InsertItem)
+        ]
+        + [f"blocks/{edit.block.id}" for edit in edits if isinstance(edit, InsertBlock)]
+    )
     bullet_counts: dict[str, int] = {}
     for block in reversed(document.content.blocks):
         if block.hidden or not isinstance(
@@ -53,7 +56,10 @@ def _trim(document: AnyDocument, edits: list[AnyEdit]) -> Delete | None:
                     f"blocks/{block.id}/items/{entry.id}/bullets/{bullet.id}"
                     for bullet in entry.bullets
                 )
-                if not any(t == path or t.startswith(f"{path}/") for t in touched)
+                if not any(
+                    t == path or t.startswith(f"{path}/") or path.startswith(f"{t}/")
+                    for t in touched
+                )
             ]
             if len(entry.bullets) > 1 and free:
                 bullet_counts[free[-1]] = len(entry.bullets)

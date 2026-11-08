@@ -7,6 +7,7 @@ from document_schema import (
     AnyDocument,
     AnyEdit,
     Experience,
+    InsertBlock,
     InsertItem,
     RichValue,
 )
@@ -46,6 +47,28 @@ NEW_BULLET = InsertItem(
         ).model_dump(mode="json"),
     },
 )
+
+PLATFORM_JOB = {
+    "id": "platform",
+    "role": {"text": "Senior Engineer", "src": ["p1.s6"]},
+    "company": {"text": "Lumen Pay", "src": ["fact:k8s"]},
+    "bullets": [
+        {
+            "id": "k8s",
+            "text": {
+                "html": "Ran production workloads on Kubernetes.",
+                "src": ["fact:k8s"],
+            },
+        },
+        {
+            "id": "mentoring",
+            "text": {
+                "html": "Mentored 4 junior engineers.",
+                "src": ["fact:mentoring"],
+            },
+        },
+    ],
+}
 
 
 def _print(request: httpx.Request, sent: list[httpx.Request]) -> httpx.Response:
@@ -163,6 +186,32 @@ async def test_page_fit_deletes_untouched_bullets_until_the_page_count_holds():
 
     edits: list[AnyEdit] = result["changeset"].edits
     assert [edit.kind for edit in edits] == ["insert_item", "delete"]
+    assert edits[1].path == "blocks/experience/items/lumen/bullets/latency"
+
+
+@pytest.mark.parametrize(
+    "insert",
+    [
+        InsertItem(
+            kind="insert_item",
+            parent="blocks/experience/items",
+            after="bayu",
+            item=PLATFORM_JOB,
+        ),
+        InsertBlock(
+            kind="insert_block",
+            after="experience",
+            block=Experience(kind="experience", id="platform", items=[PLATFORM_JOB]),
+        ),
+    ],
+)
+async def test_page_fit_spares_the_bullets_the_changeset_inserted(
+    insert: InsertItem | InsertBlock,
+):
+    result, _ = await _edit(_answer(insert))
+
+    edits: list[AnyEdit] = result["changeset"].edits
+    assert [edit.kind for edit in edits] == [insert.kind, "delete"]
     assert edits[1].path == "blocks/experience/items/lumen/bullets/latency"
 
 
