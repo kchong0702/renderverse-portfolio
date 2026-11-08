@@ -11,7 +11,7 @@ from langgraph.types import Checkpointer
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from src.agents import build_agent, load_agents
-from src.agents.state import ProfileState
+from src.agents.job_finder import JobFinderState
 from src.core.config import get_settings
 from src.core.errors import ExecuteError
 from src.features.analyse_job.configurations import CHECKS, AnalyseJobConfigurations
@@ -107,13 +107,17 @@ def build_graph(
         load_agents(settings.agents)["job-finder"],
         response_format=JobRequirements,
         tools=(read_profile_facts,),
-        state_schema=ProfileState,
+        state_schema=JobFinderState,
         model=model,
     )
 
     async def run_agent(state: AnalyseJobState) -> dict:
         result = await agent.ainvoke(
-            {"messages": state.messages, "facts": state.profile.facts},
+            {
+                "messages": state.messages,
+                "facts": state.profile.facts,
+                "preferences": state.profile.preferences,
+            },
             {"recursion_limit": configurations.agent_recursion_limit},
         )
         return {
