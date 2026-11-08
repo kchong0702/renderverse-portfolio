@@ -201,3 +201,19 @@ async def test_an_agent_that_ends_without_an_answer_is_asked_for_one(posting):
     assert result["analysis"].fit == 67
     feedback = [m.text for m in model.requests[-1] if isinstance(m, HumanMessage)]
     assert "no_answer" in feedback[-1]
+
+
+async def test_the_graph_gets_the_same_analysis_from_native_output_and_an_answer_tool(
+    posting,
+):
+    answer = _answer("5+ years of Python in production")
+    by_tool = _scripted(answer)
+    native = _scripted(answer).model_copy(update={"model_name": "gpt-6-luna"})
+
+    from_tool = await build_graph(Container().job_finder(model=by_tool)).ainvoke(INPUT)
+    from_native = await build_graph(Container().job_finder(model=native)).ainvoke(INPUT)
+
+    assert "JobRequirements" in by_tool.offered_tools[-1]
+    assert "JobRequirements" not in native.offered_tools[-1]
+    assert from_tool["analysis"] == from_native["analysis"]
+    assert from_native["analysis"].fit == 67
