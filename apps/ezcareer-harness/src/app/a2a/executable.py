@@ -45,7 +45,7 @@ class Executable(BaseModel):
     state fields it takes alongside the user's text"""
 
     graph: CompiledStateGraph
-    """The compiled graph; compile it with a checkpointer to support interrupts"""
+    """The graph it runs; with a checkpointer it can pause for input and resume"""
 
 
 class LanggraphExecutor(AgentExecutor):

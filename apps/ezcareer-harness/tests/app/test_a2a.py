@@ -64,7 +64,6 @@ def client() -> TestClient:
         app,
         [_executable()],
         InMemoryTaskStore(),
-        InMemorySaver(),
         AppSettings(public_url="https://box.example.ts.net"),
     )
     return TestClient(app)
@@ -198,7 +197,6 @@ def _agent_client(agent) -> TestClient:
             )
         ],
         InMemoryTaskStore(),
-        InMemorySaver(),
         AppSettings(),
     )
     return TestClient(app)
@@ -268,7 +266,9 @@ def test_a_served_agent_asks_the_user_and_resumes_on_the_same_task():
             AIMessage("Hello, Dr Ada!"),
         ]
     )
-    client = _agent_client(create_agent(model, tools=[ask_user]))
+    client = _agent_client(
+        create_agent(model, tools=[ask_user], checkpointer=InMemorySaver())
+    )
 
     asked = _say(client, "Greet me")
 
