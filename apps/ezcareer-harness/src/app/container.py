@@ -13,9 +13,9 @@ class Container(containers.DeclarativeContainer):
     settings = providers.Singleton(get_settings)
     """The app's settings"""
 
-    agents = providers.Singleton(load_agents, settings.provided.agents)
-    """Every registered agent by name; build each one once as a Singleton here
-    with build_agent, and hand it to the workflows that use it"""
+    registry = providers.Singleton(load_agents, settings.provided.agents)
+    """Every registered agent's folder and profile by name; build each agent
+    once from it with build_agent and serve it as an Executable of kind agent"""
 
     task_store = providers.Singleton(InMemoryTaskStore)
     """Where the A2A server keeps every task; swap in a database store here"""
