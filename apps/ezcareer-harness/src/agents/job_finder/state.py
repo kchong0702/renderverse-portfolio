@@ -1,5 +1,5 @@
 from src.agents.state import ProfileState
-from src.shared.models import Preferences
+from src.shared.profile import Preferences
 
 
 class JobFinderState(ProfileState):

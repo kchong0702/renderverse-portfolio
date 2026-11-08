@@ -7,7 +7,7 @@ from src.features.analyse_job.filters.preferences import (
     work_mode_fits,
 )
 from src.features.analyse_job.schemas import HardFilter, PostingTerms
-from src.shared.models import Profile
+from src.shared.profile import Profile
 
 
 def hard_filters(

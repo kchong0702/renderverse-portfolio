@@ -5,7 +5,7 @@ from src.features.find_jobs.adapters.jsearch.types import (
     EmploymentType,
     JobRequirement,
 )
-from src.shared.models import CountryCode
+from src.shared.profile import CountryCode
 
 
 class JSearchQuery(BaseModel):

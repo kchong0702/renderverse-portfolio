@@ -2,7 +2,7 @@ from datetime import date
 
 from src.features.analyse_job.filters import experience_years, hard_filters
 from src.features.analyse_job.schemas import PostingTerms
-from src.shared.models import Preferences, Profile, ProfileFact
+from src.shared.profile import Preferences, Profile, ProfileFact
 
 TODAY = date(2026, 11, 7)
 FACTS = [

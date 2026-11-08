@@ -18,7 +18,7 @@ from src.features.find_jobs.schemas import JobPosting, MatchedJob, RankedJobs
 from src.features.find_jobs.tools import search_jobs_tool
 from src.shared.checks import CheckError, CheckRound, check_round
 from src.shared.factory import Factory
-from src.shared.models import Profile
+from src.shared.profile import Profile
 from src.tools import read_profile_facts
 
 

@@ -6,7 +6,7 @@ from src.features.analyse_job.schemas import (
     PostingLine,
     Requirement,
 )
-from src.shared.models import ProfileFact
+from src.shared.profile import ProfileFact
 
 LINES = [
     PostingLine(id=1, text="5+ years of Python in production"),

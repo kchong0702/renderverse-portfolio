@@ -16,7 +16,7 @@ from src.features.find_jobs.adapters import (
 )
 from src.features.find_jobs.filters import broken_filters
 from src.features.find_jobs.schemas import JobPosting
-from src.shared.models import Preferences
+from src.shared.profile import Preferences
 
 DESCRIPTION = (
     "Search job postings, newest first, with the same job from several sites "

@@ -1,6 +1,6 @@
 from deepagents import DeepAgentState
 
-from src.shared.models import ProfileFact
+from src.shared.profile import ProfileFact
 
 
 class ProfileState(DeepAgentState):

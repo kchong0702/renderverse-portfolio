@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from src.features.analyse_job import PostingLine, Requirement, fit_score
-from src.shared.models import CountryCode
+from src.shared.profile import CountryCode
 
 
 class JobPosting(BaseModel):

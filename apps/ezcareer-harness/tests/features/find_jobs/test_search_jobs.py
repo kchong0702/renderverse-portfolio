@@ -14,7 +14,7 @@ from src.features.find_jobs.adapters import SearchResult, SourceUnavailable
 from src.features.find_jobs.adapters.jsearch import JSearchAdapter
 from src.features.find_jobs.adapters.jsearch import client as jsearch
 from src.features.find_jobs.tools import search_jobs_tool
-from src.shared.models import Preferences
+from src.shared.profile import Preferences
 
 URL = "https://jsearch.p.rapidapi.com/search-v2"
 search_jobs = search_jobs_tool([JSearchAdapter()])

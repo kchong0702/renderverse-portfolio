@@ -23,7 +23,7 @@ from src.features.analyse_job.schemas import (
     PostingLine,
 )
 from src.shared.checks import CheckError, CheckRound, check_round
-from src.shared.models import Profile
+from src.shared.profile import Profile
 from src.tools import read_profile_facts
 
 
