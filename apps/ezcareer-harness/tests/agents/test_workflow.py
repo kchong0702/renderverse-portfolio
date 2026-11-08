@@ -1,7 +1,13 @@
+from functools import partial
+from typing import TypedDict
+
 import pytest
 from deepagents import HarnessProfileConfig
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
+from langgraph.errors import GraphRecursionError
+from langgraph.graph import END, START, StateGraph
+from langgraph.pregel import Pregel
 from pydantic import BaseModel
 
 from src.agents import Agent, Workflow, build_agent
@@ -41,6 +47,10 @@ def _agent(model, model_name: str = "glm-5.3"):
     return build_agent(
         agent, response_formats=(Greeting, Farewell), tools=(look_up_name,), model=model
     )
+
+
+class _Empty(TypedDict):
+    pass
 
 
 async def _ask(agent, workflow: Workflow) -> dict:
@@ -146,3 +156,24 @@ async def test_an_agent_called_without_a_workflow_replies_in_text():
     assert result["messages"][-1].text == "Hello, Ada!"
     assert result["structured_response"] is None
     assert not {"Greeting", "Farewell"} & model.offered_tools[0]
+
+
+async def _ask_with_limit(agent: Pregel, limit: int, state: _Empty) -> dict:
+    await agent.ainvoke(
+        {"messages": [HumanMessage("Lovelace")]},
+        Workflow(response_format=Greeting).config({"recursion_limit": limit}),
+    )
+    return {}
+
+
+async def test_a_workflow_call_inside_a_graph_keeps_its_own_recursion_limit():
+    model = ScriptedChatModel(replies=[_call("look_up_name", person="Lovelace")])
+    graph = StateGraph(_Empty)
+    graph.add_node("agent", partial(_ask_with_limit, _agent(model), 6))
+    graph.add_edge(START, "agent")
+    graph.add_edge("agent", END)
+
+    with pytest.raises(GraphRecursionError):
+        await graph.compile().with_config(recursion_limit=50).ainvoke({})
+
+    assert len(model.requests) < 6

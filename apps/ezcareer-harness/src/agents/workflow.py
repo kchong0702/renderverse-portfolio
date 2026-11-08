@@ -1,7 +1,13 @@
 from langchain_core.runnables import RunnableConfig
+from langchain_core.runnables.config import merge_configs
 from langchain_core.tools import BaseTool
 from langgraph.config import get_config
 from pydantic import BaseModel, ConfigDict
+
+
+def current_workflow() -> "Workflow | None":
+    """The workflow the current run's config names, if any"""
+    return get_config().get("configurable", {}).get("workflow")
 
 
 class Workflow(BaseModel):
@@ -20,13 +26,4 @@ class Workflow(BaseModel):
 
     def config(self, config: RunnableConfig | None = None) -> RunnableConfig:
         """The run config that applies this workflow to a call of a shared agent"""
-        config = config or {}
-        return {
-            **config,
-            "configurable": {**config.get("configurable", {}), "workflow": self},
-        }
-
-
-def current_workflow() -> Workflow | None:
-    """The workflow the current run's config names, if any"""
-    return get_config().get("configurable", {}).get("workflow")
+        return merge_configs({"configurable": {"workflow": self}}, config)
