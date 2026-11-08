@@ -11,7 +11,7 @@ from langgraph.pregel import Pregel
 from pydantic import BaseModel
 
 from src.agents import Agent, Workflow, build_agent
-from tests.agents.test_builder import GREETER, look_up_name
+from tests.agents.test_builder import GREETER, _call, look_up_name
 from tests.conftest import ScriptedChatModel
 
 
@@ -27,12 +27,6 @@ class Farewell(BaseModel):
 def look_up_title(person: str) -> str:
     """Looks up a person's title"""
     return "Countess"
-
-
-def _call(name: str, **args) -> AIMessage:
-    return AIMessage(
-        content="", tool_calls=[{"name": name, "args": args, "id": f"call-{name}"}]
-    )
 
 
 def _agent(model, model_name: str = "glm-5.3"):
@@ -125,15 +119,6 @@ async def test_a_workflows_tools_are_offered_described_and_run():
             _call("Greeting", text="Hi"),
         ]
     )
-    seen: list[dict[str, str]] = []
-    bind = model.bind_tools
-
-    def record(tools, **kwargs):
-        seen.append({t.name: t.description for t in tools if hasattr(t, "name")})
-        return bind(tools, **kwargs)
-
-    object.__setattr__(model, "bind_tools", record)
-
     result = await _ask(
         _agent(model),
         Workflow(response_format=Greeting, tools=(look_up_title,)),
@@ -145,7 +130,7 @@ async def test_a_workflows_tools_are_offered_described_and_run():
         if isinstance(m, ToolMessage) and m.name == "look_up_title"
     ]
     assert title.text == "Countess"
-    assert seen[0]["look_up_title"] == "Finds the title to use"
+    assert model.tool_descriptions["look_up_title"] == "Finds the title to use"
 
 
 async def test_an_agent_called_without_a_workflow_replies_in_text():
