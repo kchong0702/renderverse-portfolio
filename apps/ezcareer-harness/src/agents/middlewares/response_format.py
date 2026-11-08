@@ -12,8 +12,7 @@ from src.agents.workflow import current_workflow
 
 
 def _request(request: ModelRequest) -> ModelRequest:
-    """The model call with the calling workflow's response_format, or none; LangChain
-    picks native output or an answer tool for the model"""
+    """The model call with the calling workflow's response_format, or none"""
     workflow = current_workflow()
     return request.override(response_format=workflow and workflow.response_format)
 
