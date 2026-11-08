@@ -1,8 +1,7 @@
-from asyncio import sleep
 from datetime import datetime
 
 import httpx
-from circuitbreaker import CircuitBreakerError, CircuitBreakerMonitor, circuit
+from circuitbreaker import CircuitBreaker, CircuitBreakerError
 from pydantic import BaseModel, ConfigDict
 from tenacity import (
     AsyncRetrying,
@@ -89,30 +88,21 @@ def _posting(job: _Job) -> JobPosting:
     )
 
 
-def _retryable(error: BaseException) -> bool:
-    """Whether a failed page is worth asking for again: JSearch rate-limited it,
-    was down or never answered"""
+def retryable(error: BaseException) -> bool:
+    """Whether JSearch rate-limited a page, was down or never answered"""
     if isinstance(error, httpx.HTTPStatusError):
         return error.response.status_code in {429, 500, 502, 503}
     return isinstance(error, httpx.TransportError)
 
 
-@circuit(
-    failure_threshold=3,
-    recovery_timeout=60,
-    expected_exception=lambda _, error: _retryable(error),
-    name="jsearch",
-)
 async def _page(
     client: httpx.AsyncClient, settings: JSearchSettings, params: dict
 ) -> httpx.Response:
-    """One page of results, retried twice with backoff; after three pages fail that
-    way in a row the circuit opens and calls fail at once for a minute"""
+    """One page of results, tried again with backoff while retryable"""
     async for attempt in AsyncRetrying(
-        retry=retry_if_exception(_retryable),
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(min=1, max=4),
-        sleep=lambda seconds: sleep(seconds),
+        retry=retry_if_exception(retryable),
+        stop=stop_after_attempt(settings.retry_attempts),
+        wait=wait_exponential(max=settings.retry_max_wait_seconds),
         reraise=True,
     ):
         with attempt:
@@ -128,9 +118,11 @@ async def _page(
     return response
 
 
-async def search(settings: JSearchSettings, query: JSearchQuery) -> SearchResult:
-    """Up to query.max_jobs JSearch results, ten a page, following JSearch's cursor
-    until it has enough or runs out"""
+async def search(
+    settings: JSearchSettings, circuit: CircuitBreaker, query: JSearchQuery
+) -> SearchResult:
+    """Up to query.max_jobs JSearch results, following JSearch's cursor until it
+    has enough or runs out, each page through the circuit"""
     if settings.api_key is None:
         raise RuntimeError("EZCAREER_HARNESS_JSEARCH__API_KEY is not set")
     params: dict = {
@@ -149,9 +141,9 @@ async def search(settings: JSearchSettings, query: JSearchQuery) -> SearchResult
     postings: list[JobPosting] = []
     cursor = None
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=settings.timeout_seconds) as client:
             while len(postings) < query.max_jobs:
-                response = await _page(
+                response = await circuit.decorate(_page)(
                     client, settings, params | ({"cursor": cursor} if cursor else {})
                 )
                 page = _SearchResponse.model_validate_json(response.content).data
@@ -162,12 +154,11 @@ async def search(settings: JSearchSettings, query: JSearchQuery) -> SearchResult
     except CircuitBreakerError as error:
         raise SourceUnavailable(
             "JSearch is paused after repeated failures; try again in "
-            f"{CircuitBreakerMonitor.get('jsearch').open_remaining:.0f}s"
+            f"{circuit.open_remaining}s"
         ) from error
     except httpx.HTTPStatusError as error:
         raise SourceUnavailable(
-            f"JSearch answered {error.response.status_code}: "
-            f"{error.response.text[:300]}"
+            f"JSearch answered {error.response.status_code}: {error.response.text}"
         ) from error
     except httpx.HTTPError as error:
         raise SourceUnavailable(
