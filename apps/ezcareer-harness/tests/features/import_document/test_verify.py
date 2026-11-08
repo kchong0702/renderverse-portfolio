@@ -168,12 +168,40 @@ def test_a_value_that_drops_words_of_its_lines_fails_coverage(
     configurations: ImportResumeConfigurations,
 ):
     [error] = check(
-        reply(bullet={"html": "Led a team", "src": ["p1.s3", "p1.s4"]}),
+        reply(bullet={"html": "Led a", "src": ["p1.s3", "p1.s4"]}),
         configurations,
     )
 
     assert error.rule == CheckRule.COVERAGE
-    assert error.message.endswith("p1.s3 '• Led a team of five' (unused: offive)")
+    assert error.message.endswith("p1.s3 '• Led a team of five' (unused: team five)")
+
+
+def test_a_value_may_drop_short_joining_words_between_cited_ones(
+    configurations: ImportResumeConfigurations,
+):
+    lines = make_lines("Ada Lovelace", "Fellow of the Royal Society")
+    draft: dict[str, JsonValue] = {
+        "blocks": [
+            {
+                "kind": "profile",
+                "id": "profile",
+                "name": value("Ada Lovelace", "p1.s1"),
+            },
+            {
+                "kind": "experience",
+                "id": "experience",
+                "items": [
+                    {
+                        "id": "royal_society",
+                        "role": value("Fellow", "p1.s2"),
+                        "company": value("Royal Society", "p1.s2"),
+                    }
+                ],
+            },
+        ]
+    }
+
+    assert check(draft, configurations, lines) == []
 
 
 def test_skipping_a_line_with_content_fails_coverage(

@@ -14,7 +14,10 @@ def check_coverage(
     """Each line is cited with all its words but short joining ones, or skipped
     for being short or repeated"""
     order = {line.id: index for index, line in enumerate(lines)}
-    texts = [letters_and_digits(line.text) for line in lines]
+    texts = [
+        "".join(letters_and_digits(word) for word in line.text.split())
+        for line in lines
+    ]
     used = [[False] * len(text) for text in texts]
     for _, value in cited_values(reply.blocks, "blocks"):
         indexes = sorted({order[source] for source in value.src if source in order})
@@ -62,17 +65,20 @@ def check_coverage(
     for index, line in enumerate(lines):
         if line.id in reply.skipped:
             continue
-        left = "".join(
-            " " if done else ch for ch, done in zip(texts[index], used[index])
-        )
         if line.id not in cited:
             dropped.append(f"{line.id} {line.text!r} (not cited)")
-        elif missing := [
-            run
-            for run in left.split()
-            if len(run) > configurations.max_joining_word_length
-        ]:
-            dropped.append(f"{line.id} {line.text!r} (unused: {', '.join(missing)})")
+            continue
+        missing: list[str] = []
+        offset = 0
+        for word in line.text.split():
+            size = len(letters_and_digits(word))
+            if size > configurations.max_joining_word_length and not any(
+                used[index][offset : offset + size]
+            ):
+                missing.append(word)
+            offset += size
+        if missing:
+            dropped.append(f"{line.id} {line.text!r} (unused: {' '.join(missing)})")
     if dropped:
         errors.append(
             CheckError(
