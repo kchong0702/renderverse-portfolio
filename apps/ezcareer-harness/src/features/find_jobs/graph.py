@@ -16,7 +16,7 @@ from src.features.find_jobs.schemas import JobPosting, MatchedJob, RankedJobs
 from src.features.find_jobs.tools import search_jobs_tool
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
 from src.shared.factory import Factory
-from src.shared.profile import Profile
+from src.shared.profile import Preferences, Profile, ProfileFact
 
 
 class FindJobsInput(BaseModel):
@@ -36,10 +36,16 @@ class FindJobsOutput(BaseModel):
 class FindJobsState(FindJobsInput, FindJobsOutput):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
+    facts: list[ProfileFact] = Field(default_factory=list)
+    """The user's profile facts, for the agent"""
+
+    preferences: Preferences = Field(default_factory=Preferences)
+    """What the user wants from a job, for the agent"""
+
     messages: Annotated[list[AnyMessage], add_messages] = Field(default_factory=list)
     """The agent's conversation across check rounds"""
 
-    ranked: RankedJobs | None = None
+    structured_response: RankedJobs | None = None
     """The agent's latest answer"""
 
     errors: list[CheckError] = Field(default_factory=list)
@@ -56,9 +62,23 @@ def _postings(messages: list[AnyMessage]) -> list[JobPosting]:
     ]
 
 
+def _brief(state: FindJobsState) -> dict:
+    """Ask the agent for jobs, handing it the user's profile"""
+    preferences = state.profile.preferences
+    return {
+        "facts": state.profile.facts,
+        "preferences": preferences,
+        "messages": [
+            HumanMessage(
+                f"Find jobs for me. My preferences: {preferences.model_dump_json()}"
+            )
+        ],
+    }
+
+
 def _output(state: FindJobsState) -> dict:
     """Join the ranked jobs with their postings, highest fit first"""
-    return {"jobs": matched_jobs(state.ranked, _postings(state.messages))}
+    return {"jobs": matched_jobs(state.structured_response, _postings(state.messages))}
 
 
 def build_graph(
@@ -71,35 +91,9 @@ def build_graph(
     settings = get_settings()
     configurations = settings.graph_profile("find-jobs").load(FindJobsConfigurations)
     checks = [CHECKS[name] for name in configurations.checks]
-    config = Workflow(
-        response_format=RankedJobs,
-        tools=(
-            search_jobs_tool(
-                [job_sources.create(name) for name in settings.job_sources]
-            ),
-        ),
-    ).config({"recursion_limit": configurations.agent_recursion_limit})
-
-    async def run_agent(state: FindJobsState) -> dict:
-        preferences = state.profile.preferences.model_dump_json()
-        messages = state.messages or [
-            HumanMessage(f"Find jobs for me. My preferences: {preferences}")
-        ]
-        result = await agent.ainvoke(
-            {
-                "messages": messages,
-                "facts": state.profile.facts,
-                "preferences": state.profile.preferences,
-            },
-            config,
-        )
-        return {
-            "messages": result["messages"],
-            "ranked": result.get("structured_response"),
-        }
 
     def check(state: FindJobsState) -> CheckRound:
-        if state.ranked is None:
+        if state.structured_response is None:
             return check_round(
                 [
                     CheckError(
@@ -114,17 +108,31 @@ def build_graph(
             [
                 error
                 for check in checks
-                for error in check(state.ranked, postings, state.profile)
+                for error in check(state.structured_response, postings, state.profile)
             ]
         )
 
     graph = StateGraph(
         FindJobsState, input_schema=FindJobsInput, output_schema=FindJobsOutput
     )
-    graph.add_node("agent", run_agent)
+    graph.add_node("brief", _brief)
+    graph.add_node(
+        "agent",
+        agent.with_config(
+            Workflow(
+                response_format=RankedJobs,
+                tools=(
+                    search_jobs_tool(
+                        [job_sources.create(name) for name in settings.job_sources]
+                    ),
+                ),
+            ).config()
+        ),
+    )
     graph.add_node("check", check)
     graph.add_node("output", _output)
-    graph.add_edge(START, "agent")
+    graph.add_edge(START, "brief")
+    graph.add_edge("brief", "agent")
     graph.add_edge("agent", "check")
     graph.add_conditional_edges(
         "check", lambda state: "agent" if state.errors else "output"

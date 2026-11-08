@@ -1,3 +1,2 @@
 checks: [citations]
-recursion_limit: 10
-agent_recursion_limit: 20
+recursion_limit: 20

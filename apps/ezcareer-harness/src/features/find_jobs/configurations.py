@@ -17,7 +17,4 @@ class FindJobsConfigurations(BaseModel):
     """Checks run on each answer; errors go back to the agent"""
 
     recursion_limit: int = Field(gt=0)
-    """Graph steps a run may take across all check rounds"""
-
-    agent_recursion_limit: int = Field(gt=0)
-    """Steps one agent turn may take"""
+    """Most steps the run, and each agent turn within it, may take"""
