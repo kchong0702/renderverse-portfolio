@@ -236,6 +236,43 @@ def test_the_run_recursion_limit_stops_an_agent_that_never_answers():
     assert len(model.requests) < 6
 
 
+@tool
+def read_long_report() -> str:
+    """Returns a report too long to keep in the conversation"""
+    return "line\n" * 100_000
+
+
+def test_a_run_leaves_the_agents_folder_unchanged(tmp_path: Path):
+    shutil.copytree(FIXTURES / "greeter", tmp_path, dirs_exist_ok=True)
+    before = sorted(tmp_path.rglob("*"))
+    model = ScriptedChatModel(
+        replies=[
+            _call("read_long_report"),
+            _call(
+                "read_file",
+                file_path="/artifacts/large_tool_results/call-read_long_report",
+            ),
+            _call("Greeting", text="Hello, Ada!"),
+        ]
+    )
+    agent = build_agent(
+        Agent.load(GREETER.model_copy(update={"path": tmp_path / "profile.yaml"})),
+        tools=(read_long_report,),
+        model=model,
+    )
+
+    result = agent.invoke(
+        {"messages": [HumanMessage("Greet Lovelace")]},
+        Workflow(response_format=Greeting).config(),
+    )
+
+    read = [m for m in result["messages"] if isinstance(m, ToolMessage)][1]
+    assert read.status != "error"
+    assert "line" in read.text
+    assert result["structured_response"] == Greeting(text="Hello, Ada!")
+    assert sorted(tmp_path.rglob("*")) == before
+
+
 def test_agent_hash_is_the_hash_of_its_folder(tmp_path: Path):
     shutil.copytree(FIXTURES / "greeter", tmp_path, dirs_exist_ok=True)
     copy = GREETER.model_copy(update={"path": tmp_path / "profile.yaml"})

@@ -6,7 +6,7 @@ from deepagents import (
     create_deep_agent,
     register_harness_profile,
 )
-from deepagents.backends import FilesystemBackend
+from deepagents.backends import CompositeBackend, FilesystemBackend, StateBackend
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
@@ -45,7 +45,11 @@ def build_agent(
         permissions=[
             FilesystemPermission(operations=["write"], paths=["/**"], mode="deny")
         ],
-        backend=FilesystemBackend(root_dir=agent.skills, virtual_mode=True),
+        backend=CompositeBackend(
+            default=FilesystemBackend(root_dir=agent.skills, virtual_mode=True),
+            routes={"/artifacts/": StateBackend()},
+            artifacts_root="/artifacts",
+        ),
         response_format=response_format,
         state_schema=state_schema,
         context_schema=context_schema,
