@@ -23,15 +23,15 @@ from src.clients.llm_providers import llm_provider
 def build_agent(
     agent: Agent,
     *,
-    answers: Sequence[type[BaseModel]] = (),
+    response_formats: Sequence[type[BaseModel]] = (),
     tools: Sequence[BaseTool] = (),
     middleware: Sequence[AgentMiddleware] = (),
     state_schema: type[DeepAgentState] = DeepAgentState,
     context_schema: type | None = None,
     model: BaseChatModel | None = None,
 ) -> Pregel:
-    """Builds a registered agent once as a deep agent with its skills read-only, under
-    its model's harness profile; answers are every response_format its workflows ask for"""
+    """Builds a registered agent as a deep agent with its skills read-only, under
+    its model's harness profile; a call may ask for one of response_formats"""
     register_harness_profile(f"{agent.provider}:{agent.model}", agent.profile)
     built = create_deep_agent(
         model=model or llm_provider(agent.family, agent.model),
@@ -51,7 +51,7 @@ def build_agent(
             routes={"/artifacts/": StateBackend()},
             artifacts_root="/artifacts",
         ),
-        response_format=reduce(or_, answers) if answers else None,
+        response_format=reduce(or_, response_formats) if response_formats else None,
         state_schema=state_schema,
         context_schema=context_schema,
         name=agent.name,

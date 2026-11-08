@@ -13,7 +13,7 @@ class Workflow(BaseModel):
     )
 
     response_format: type[BaseModel] | None = None
-    """What the workflow wants back; one of the answers the agent was built with"""
+    """The structured reply this call wants; one of the agent's response_formats"""
 
     tools: tuple[BaseTool, ...] = ()
     """Tools only this workflow gives the agent"""

@@ -105,7 +105,7 @@ def build_graph(
     checks = [CHECKS[name] for name in configurations.checks]
     agent = build_agent(
         load_agents(settings.agents)["job-finder"],
-        answers=(JobRequirements,),
+        response_formats=(JobRequirements,),
         tools=(read_profile_facts,),
         state_schema=JobFinderState,
         model=model,
@@ -134,7 +134,7 @@ def build_graph(
                     CheckError(
                         rule=CheckRule.NO_ANSWER,
                         at="answer",
-                        message="Answer by calling the JobRequirements tool",
+                        message="Reply with a JobRequirements",
                     )
                 ]
             )

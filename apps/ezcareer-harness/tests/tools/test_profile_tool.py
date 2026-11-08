@@ -25,7 +25,7 @@ def test_agent_reads_the_facts_passed_with_the_run():
     )
     agent = build_agent(
         Agent.load(GREETER),
-        answers=(Done,),
+        response_formats=(Done,),
         tools=(read_profile_facts,),
         state_schema=ProfileState,
         model=model,

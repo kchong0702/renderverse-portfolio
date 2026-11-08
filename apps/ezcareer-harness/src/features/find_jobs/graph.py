@@ -76,7 +76,7 @@ def build_graph(
     checks = [CHECKS[name] for name in configurations.checks]
     agent = build_agent(
         load_agents(settings.agents)["job-finder"],
-        answers=(RankedJobs,),
+        response_formats=(RankedJobs,),
         tools=(
             read_profile_facts,
             search_jobs_tool(
@@ -115,7 +115,7 @@ def build_graph(
                     CheckError(
                         rule=CheckRule.NO_ANSWER,
                         at="answer",
-                        message="Answer by calling the RankedJobs tool",
+                        message="Reply with a RankedJobs",
                     )
                 ]
             )

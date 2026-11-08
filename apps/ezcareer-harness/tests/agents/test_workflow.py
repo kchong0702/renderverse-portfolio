@@ -39,7 +39,7 @@ def _agent(model, model_name: str = "glm-5.3"):
         }
     )
     return build_agent(
-        agent, answers=(Greeting, Farewell), tools=(look_up_name,), model=model
+        agent, response_formats=(Greeting, Farewell), tools=(look_up_name,), model=model
     )
 
 
@@ -50,7 +50,7 @@ async def _ask(agent, workflow: Workflow) -> dict:
 
 
 @pytest.mark.parametrize("model_name", ["glm-5.3", "gpt-6-luna"])
-async def test_one_agent_answers_with_each_workflows_answer(model_name: str):
+async def test_one_agent_replies_in_each_workflows_response_format(model_name: str):
     model = ScriptedChatModel(
         replies=[_call("Greeting", text="Hello!"), _call("Farewell", text="Bye!")],
         model_name=model_name,
