@@ -13,7 +13,7 @@ from langchain_core.tools import BaseTool
 from langgraph.pregel import Pregel
 from pydantic import BaseModel
 
-from src.agents.middlewares import WorkflowHook
+from src.agents.middlewares import AnswerToolMiddleware, InjectToolsMiddleware
 from src.agents.registry import Agent
 from src.clients.llm_providers import llm_provider
 
@@ -39,7 +39,8 @@ def build_agent(
         system_prompt=agent.system_prompt.read_text(),
         middleware=[
             *middleware,
-            WorkflowHook(agent.profile.tool_description_overrides),
+            InjectToolsMiddleware(agent.profile.tool_description_overrides),
+            AnswerToolMiddleware(),
         ],
         skills=["/"],
         permissions=[

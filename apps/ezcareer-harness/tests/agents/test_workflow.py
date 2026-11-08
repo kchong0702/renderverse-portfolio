@@ -113,11 +113,7 @@ async def test_a_workflows_tools_are_offered_described_and_run():
 
     result = await _ask(
         _agent(model),
-        Workflow(
-            response_format=Greeting,
-            tools=(look_up_title,),
-            hidden_tools=frozenset({"look_up_name"}),
-        ),
+        Workflow(response_format=Greeting, tools=(look_up_title,)),
     )
 
     [title] = [
@@ -127,21 +123,6 @@ async def test_a_workflows_tools_are_offered_described_and_run():
     ]
     assert title.text == "Countess"
     assert seen[0]["look_up_title"] == "Finds the title to use"
-    assert "look_up_name" not in seen[0]
-
-
-async def test_a_workflow_runs_the_agent_on_its_own_model():
-    built_with = ScriptedChatModel(replies=[_call("Greeting", text="from the agent")])
-    workflow_model = ScriptedChatModel(
-        replies=[_call("Greeting", text="from the workflow")]
-    )
-
-    result = await _ask(
-        _agent(built_with), Workflow(response_format=Greeting, model=workflow_model)
-    )
-
-    assert result["structured_response"] == Greeting(text="from the workflow")
-    assert built_with.requests == []
 
 
 class _RecordingOpenAI(ChatOpenAI):
@@ -209,15 +190,15 @@ async def test_a_workflow_reads_the_same_answer_as_from_a_native_response_format
     model_name: str,
 ):
     reply = [_call("Greeting", text="Hello!")]
-    through_hook = ScriptedChatModel(replies=reply, model_name=model_name)
+    through_tool = ScriptedChatModel(replies=reply, model_name=model_name)
     native = ScriptedChatModel(replies=reply, model_name=model_name)
     agent = Agent.load(GREETER.model_copy(update={"model": model_name}))
     workflow = Workflow(response_format=Greeting)
 
-    hooked = await _ask(build_agent(agent, model=through_hook), workflow)
+    by_tool = await _ask(build_agent(agent, model=through_tool), workflow)
     natively = await _ask(
         build_agent(agent, response_format=Greeting, model=native), workflow
     )
 
-    assert hooked["structured_response"] == natively["structured_response"]
+    assert by_tool["structured_response"] == natively["structured_response"]
     assert natively["structured_response"] == Greeting(text="Hello!")

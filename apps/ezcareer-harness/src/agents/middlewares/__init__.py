@@ -1,3 +1,4 @@
-from src.agents.middlewares.workflow_hook import Workflow, WorkflowHook
+from src.agents.middlewares.answer_tool import AnswerToolMiddleware
+from src.agents.middlewares.inject_tools import InjectToolsMiddleware
 
-__all__ = ["Workflow", "WorkflowHook"]
+__all__ = ["AnswerToolMiddleware", "InjectToolsMiddleware"]
