@@ -6,10 +6,10 @@ import { DashboardPage } from "@/features/dashboard";
 import { DocumentsPage, ImportPage } from "@/features/documents";
 import { InboxPage } from "@/features/inbox";
 import { JobsPage } from "@/features/jobs";
+import { PortfolioPage } from "@/features/portfolio";
 import { SettingsPage } from "@/features/settings";
 import { useApplyTheme } from "@/shared/theme/useApplyTheme";
 import AppShell from "./shell/AppShell";
-import ComingSoon from "./shell/ComingSoon";
 import NotFound from "./shell/NotFound";
 
 const router = createBrowserRouter(
@@ -27,7 +27,7 @@ const router = createBrowserRouter(
         { path: "/applications", element: <ApplicationsPage /> },
         { path: "/documents", element: <DocumentsPage /> },
         { path: "/documents/import", element: <ImportPage /> },
-        { path: "/portfolio", element: <ComingSoon page="portfolio" /> },
+        { path: "/portfolio", element: <PortfolioPage /> },
         { path: "/inbox", element: <InboxPage /> },
         { path: "/calendar", element: <CalendarPage /> },
         { path: "/settings", element: <SettingsPage /> },

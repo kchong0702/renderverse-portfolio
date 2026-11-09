@@ -11,7 +11,6 @@
     "space": "Career space",
     "mainNav": "Main",
     "account": "Account",
-    "comingSoon": "This screen is coming in a later step of the rebuild.",
     "notFound": {
       "title": "Page not found",
       "body": "There is nothing at this address.",
@@ -1049,6 +1048,135 @@
         "Should I raise the minimum score?",
         "What happens when I disconnect Google?"
       ]
+    }
+  },
+  "portfolio": {
+    "title": "Portfolio",
+    "subtitle": "The facts your agents use",
+    "loadFailed": "The profile could not be loaded: {{reason}}",
+    "addProject": "Add project",
+    "save": {
+      "saving": "Saving…",
+      "saved": "All changes saved",
+      "failed": "Not saved: {{reason}}"
+    },
+    "tabs": {
+      "label": "Portfolio sections",
+      "profile": "Profile",
+      "skills": "Skills",
+      "projects": "Projects"
+    },
+    "filters": {
+      "label": "Show",
+      "active": "Active {{count}}",
+      "archived": "Archived {{count}}"
+    },
+    "period": {
+      "range": "{{from}} to {{to}}",
+      "now": "now"
+    },
+    "kinds": {
+      "role": {
+        "heading": "Experience",
+        "description": "Jobs you have held. Their dates count towards your years of experience.",
+        "column": "Role",
+        "add": "+ Add role",
+        "empty": "No roles yet.",
+        "title": "Job title",
+        "organisation": "Employer",
+        "summary": "Summary"
+      },
+      "education": {
+        "heading": "Education",
+        "description": "Degrees, diplomas and courses.",
+        "column": "Education",
+        "add": "+ Add education",
+        "empty": "No education yet.",
+        "title": "Degree or course",
+        "organisation": "School",
+        "summary": "Summary"
+      },
+      "project": {
+        "heading": "Projects",
+        "description": "Active projects are facts the agents can use when they write your résumés and letters. Archived ones are kept but left out.",
+        "column": "Project",
+        "add": "+ Add project",
+        "empty": "No projects here.",
+        "title": "Project name",
+        "organisation": "Built for",
+        "summary": "Tagline"
+      }
+    },
+    "table": {
+      "agentContext": "Agent context",
+      "archived": "Archived",
+      "deleteColumn": "Delete",
+      "edit": "Edit {{name}}",
+      "delete": "Delete {{name}}",
+      "useInAgent": "Use {{name}} in agent context",
+      "confirmDelete": "Delete {{name}}? This cannot be undone."
+    },
+    "form": {
+      "location": "Location",
+      "start": "Start",
+      "end": "End",
+      "ongoing": "Ongoing",
+      "monthPlaceholder": "YYYY-MM",
+      "highlights": "Highlights, one per line",
+      "highlightsPlaceholder": "e.g. Led the migration of 30 services to Kubernetes.",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "failed": "Not saved: {{reason}}"
+    },
+    "about": {
+      "title": "About you",
+      "name": "Full name",
+      "headline": "Headline",
+      "headlinePlaceholder": "e.g. Senior Software Engineer",
+      "location": "Location",
+      "email": "Email",
+      "phone": "Phone",
+      "links": "Links, one per line",
+      "summary": "Summary"
+    },
+    "preferences": {
+      "title": "Job preferences",
+      "note": "The job agent uses these to skip postings that don't fit.",
+      "workModes": "Work modes you accept",
+      "modes": {
+        "onsite": "On site",
+        "hybrid": "Hybrid",
+        "remote": "Remote"
+      },
+      "anyMode": "Leave all unticked to accept any.",
+      "countries": "Countries you want to work in",
+      "authorisedCountries": "Countries you can work in without a visa",
+      "addCountry": "Add a country…",
+      "anyCountry": "Any country",
+      "noCountry": "None added",
+      "removeCountry": "Remove {{name}}",
+      "minSalary": "Lowest pay you accept, before tax",
+      "amount": "Amount",
+      "currency": "Currency",
+      "currencyPlaceholder": "e.g. MYR",
+      "period": "Per",
+      "periods": {
+        "hour": "Hour",
+        "month": "Month",
+        "year": "Year"
+      },
+      "salaryIncomplete": "Add a whole amount and a three-letter currency code to save."
+    },
+    "skills": {
+      "heading": "Skills",
+      "description": "Active skills are facts the agents can use. Group them the way your résumé does.",
+      "name": "Skill",
+      "namePlaceholder": "e.g. Python",
+      "group": "Group",
+      "groupPlaceholder": "e.g. Platform",
+      "add": "Add skill",
+      "empty": "No skills yet."
     }
   }
 }
