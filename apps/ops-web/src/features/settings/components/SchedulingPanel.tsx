@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { SelectField } from "@/shared/components/ui/fields";
-import Panel from "@/shared/components/layout/Panel";
-import type { AiProvider, Scheduling, SettingsPatch } from "../../api/settings";
-import { MEETING_GAPS, WORK_HOURS, hhmm, withCurrent } from "../../lib/options";
+import { SelectField } from "@/shared/components/fields";
+import Panel from "@/shared/components/Panel";
+import type { AiProvider, Scheduling, SettingsPatch } from "../api/settings";
+import { MEETING_GAPS, WORK_HOURS, hhmm, withCurrent } from "../lib/options";
 
 const PROVIDERS: AiProvider[] = ["claude", "openai", "glm"];
 

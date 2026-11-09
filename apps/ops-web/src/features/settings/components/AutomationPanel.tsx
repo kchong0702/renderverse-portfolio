@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { CheckboxRow } from "@/shared/components/ui/fields";
-import Panel from "@/shared/components/layout/Panel";
-import type { Automation, SettingsPatch } from "../../api/settings";
+import { CheckboxRow } from "@/shared/components/fields";
+import Panel from "@/shared/components/Panel";
+import type { Automation, SettingsPatch } from "../api/settings";
 
 const RULES = [
   "tailor_strong_matches",

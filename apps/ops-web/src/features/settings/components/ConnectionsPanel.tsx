@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/cn";
-import Panel from "@/shared/components/layout/Panel";
-import type { Connection } from "../../api/settings";
+import Panel from "@/shared/components/Panel";
+import type { Connection } from "../api/settings";
 
 export default function ConnectionsPanel({
   connections,
