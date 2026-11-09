@@ -3,12 +3,8 @@ from __future__ import annotations
 from uuid import UUID
 
 from src.core.exceptions import NotFound
-from src.features.profile.models import (
-    EntryKind,
-    Profile,
-    ProfileEntry,
-    ProfileSkill,
-)
+from src.features.profile.enums import EntryKind
+from src.features.profile.models import Profile, ProfileEntry, ProfileSkill
 from src.features.profile.repository import ProfileRepository
 from src.features.profile.schemas import (
     AgentProfile,
