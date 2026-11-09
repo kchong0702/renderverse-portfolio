@@ -4,6 +4,7 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import {
+  answerEdit,
   cancelImport,
   createDocument,
   deleteDocument,
@@ -13,10 +14,13 @@ import {
   fetchImports,
   fetchRender,
   fetchTemplates,
+  readImport,
+  requestEdit,
   setMaster,
   startImport,
   type DocumentKind,
   type DocumentRecord,
+  type EditRun,
 } from "../api/documents";
 
 export const documentsQueryOptions = queryOptions({
@@ -48,6 +52,21 @@ function storeDocument(client: QueryClient, document: DocumentRecord) {
     queryKey: documentsQueryOptions.queryKey,
     exact: true,
   });
+}
+
+function storeProposal(client: QueryClient, id: string, run: EditRun) {
+  if (run.status !== "completed") return;
+  return Promise.all([
+    client.invalidateQueries({ queryKey: changesetsQueryOptions(id).queryKey }),
+    client.invalidateQueries({
+      queryKey: documentQueryOptions(id).queryKey,
+      exact: true,
+    }),
+    client.invalidateQueries({
+      queryKey: documentsQueryOptions.queryKey,
+      exact: true,
+    }),
+  ]);
 }
 
 export const createDocumentMutationOptions = mutationOptions({
@@ -98,4 +117,31 @@ export const cancelImportMutationOptions = mutationOptions({
   mutationFn: cancelImport,
   onSettled: (_cancelled, _error, _id, _result, { client }) =>
     client.invalidateQueries({ queryKey: importsQueryOptions.queryKey }),
+});
+
+export const readImportMutationOptions = mutationOptions({
+  mutationKey: ["documents", "imports", "read"],
+  mutationFn: readImport,
+  onSettled: (_import, _error, _id, _result, { client }) =>
+    Promise.all([
+      client.invalidateQueries({ queryKey: importsQueryOptions.queryKey }),
+      client.invalidateQueries({
+        queryKey: documentsQueryOptions.queryKey,
+        exact: true,
+      }),
+    ]),
+});
+
+export const requestEditMutationOptions = mutationOptions({
+  mutationKey: ["documents", "edit-request"],
+  mutationFn: requestEdit,
+  onSuccess: (run, { id }, _result, { client }) =>
+    storeProposal(client, id, run),
+});
+
+export const answerEditMutationOptions = mutationOptions({
+  mutationKey: ["documents", "edit-request"],
+  mutationFn: answerEdit,
+  onSuccess: (run, { id }, _result, { client }) =>
+    storeProposal(client, id, run),
 });
