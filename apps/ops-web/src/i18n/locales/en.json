@@ -36,6 +36,101 @@
       "inbox": "Inbox",
       "calendar": "Calendar",
       "settings": "Settings"
+    },
+    "badges": {
+      "newJobs": "{{count}} new"
+    }
+  },
+  "jobs": {
+    "title": "Jobs",
+    "subtitle": "Scored against your profile",
+    "agentSchedule": "Agent schedule",
+    "loadFailed": "Jobs could not be loaded: {{reason}}",
+    "tabs": {
+      "label": "Job lists",
+      "picked": "Agent picks · {{count}}",
+      "saved": "Saved · {{count}}"
+    },
+    "empty": {
+      "picked": "No agent picks yet. The daily job agent adds postings here.",
+      "saved": "Nothing saved yet. Save an agent pick to keep it here."
+    },
+    "postings": "Postings",
+    "posted": "Posted {{when}}",
+    "notScored": "Not scored",
+    "salaryNotStated": "Salary not stated",
+    "via": "via {{source}}",
+    "bands": {
+      "excellent": "Excellent fit",
+      "good": "Good fit",
+      "possible": "Possible fit",
+      "poor": "Poor fit"
+    },
+    "track": "Track application",
+    "save": "Save",
+    "saved": "Saved",
+    "dismiss": "Dismiss",
+    "openPosting": "Open posting",
+    "updateFailed": "Not saved: {{reason}}",
+    "requirements": "Requirements",
+    "matchCount": {
+      "met": "{{count}} covered",
+      "partly": "{{count}} partial",
+      "not_met": "{{count}} gap"
+    },
+    "match": {
+      "met": "Covered",
+      "partly": "Partial",
+      "not_met": "Gap"
+    },
+    "niceToHave": "Nice to have",
+    "notAnalysed": "Not analysed yet. The fit and requirements appear once the job is analysed."
+  },
+  "applications": {
+    "title": "Applications",
+    "subtitle": "{{active}} active · {{due}} due",
+    "track": "Track application",
+    "loadFailed": "Applications could not be loaded: {{reason}}",
+    "empty": "No applications yet. Track one to see it on the board.",
+    "edit": "Edit {{name}}",
+    "confirmDelete": "Stop tracking {{name}}?",
+    "applied": "Applied {{when}}",
+    "views": {
+      "label": "View",
+      "board": "Board",
+      "table": "Table"
+    },
+    "stages": {
+      "draft": "Draft",
+      "applied": "Applied",
+      "replied": "Replied",
+      "interview": "Interview",
+      "offer": "Offer",
+      "closed": "Closed"
+    },
+    "table": {
+      "application": "Application",
+      "stage": "Stage",
+      "next": "Next step",
+      "fit": "Fit"
+    },
+    "form": {
+      "newTitle": "Track application",
+      "editTitle": "Edit {{name}}",
+      "job": "Job",
+      "noJob": "Not from a saved job",
+      "company": "Company",
+      "role": "Role",
+      "stage": "Stage",
+      "appliedOn": "Applied on",
+      "nextStep": "Next step",
+      "nextStepPlaceholder": "e.g. Technical interview",
+      "nextStepAt": "When",
+      "failed": "Not saved: {{reason}}",
+      "saving": "Saving…",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete"
     }
   },
   "settings": {
