@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from base64 import b64encode
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from document_schema import (
@@ -10,10 +11,13 @@ from document_schema import (
     Changeset,
     ChangesetStatus,
     DocumentKind,
+    ResumeDocument,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PlainSerializer
 
 from src.features.documents.enums import ImportStatus
+from src.features.documents.models import SourceLine
+from src.features.profile import ProfileFact
 
 
 class DocumentCreate(BaseModel):
@@ -123,6 +127,45 @@ class ImportRead(BaseModel):
     """When the file was uploaded"""
 
 
+class EditRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+    """The change the user asks for, such as Tailor it for the Northwind posting"""
+
+
+class EditDocumentInput(BaseModel):
+    document: AnyDocument
+    """The draft as it is now"""
+
+    lines: list[SourceLine]
+    """The imported file's lines; empty for a document not imported"""
+
+    facts: list[ProfileFact]
+    """The user's profile facts the edits may cite"""
+
+
+class EditDocumentOutput(BaseModel):
+    changeset: Changeset
+    """The checked edits edit-document proposes"""
+
+
+class ImportResumeInput(BaseModel):
+    file: Annotated[
+        bytes,
+        PlainSerializer(
+            lambda file: b64encode(file).decode(), return_type=str, when_used="json"
+        ),
+    ]
+    """The uploaded PDF or Word file, standard base64 in JSON"""
+
+
+class ImportResumeOutput(BaseModel):
+    document: ResumeDocument
+    """The draft import-resume made; its pdf and report are not kept"""
+
+    lines: list[SourceLine]
+    """The file's lines, which the draft's values cite"""
+
+
 __all__ = [
     "ChangesetDecision",
     "ChangesetRead",
@@ -131,7 +174,12 @@ __all__ = [
     "DocumentRead",
     "DocumentSummary",
     "DocumentUpdate",
+    "EditDocumentInput",
+    "EditDocumentOutput",
+    "EditRequest",
     "ImportRead",
+    "ImportResumeInput",
+    "ImportResumeOutput",
     "VersionCreate",
     "VersionRead",
 ]

@@ -5,6 +5,7 @@ from document_schema import Changeset, DocumentKind, TemplateSpec
 from fastapi import APIRouter, Depends, Request, UploadFile, status
 
 from src.clients.artifact import Render
+from src.clients.ezcareer import Answer, Run
 from src.core.auth import CurrentUserDep
 from src.core.config import get_settings
 from src.db.session import SessionDep
@@ -16,19 +17,33 @@ from src.features.documents.schemas import (
     DocumentRead,
     DocumentSummary,
     DocumentUpdate,
+    EditRequest,
     ImportRead,
     VersionCreate,
     VersionRead,
 )
 from src.features.documents.service import DocumentService
+from src.features.profile import ProfileServiceDep
+from src.features.settings import SettingsServiceDep
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-def get_document_service(session: SessionDep, request: Request) -> DocumentService:
-    """The documents service on the request's database session"""
+def get_document_service(
+    session: SessionDep,
+    profile: ProfileServiceDep,
+    settings: SettingsServiceDep,
+    request: Request,
+) -> DocumentService:
+    """The documents service on the request's database session, and the profile
+    and settings services"""
     return DocumentService(
-        session, request.app.state.artifact, get_settings().documents
+        session,
+        request.app.state.artifact,
+        get_settings().documents,
+        profile,
+        settings,
+        request.app.state.ezcareer,
     )
 
 
@@ -72,11 +87,20 @@ async def list_imports(
 async def start_import(
     file: UploadFile, user: CurrentUserDep, service: DocumentServiceDep
 ) -> ImportRead:
-    """Store a PDF or Word résumé as a pending import; reading it into a draft
-    waits for ezcareer-harness's import-resume"""
+    """Store a PDF or Word résumé as a pending import; POST its read to turn it
+    into a draft"""
     return await service.start_import(
         user.id, file.filename or "resume", file.content_type or "", await file.read()
     )
+
+
+@router.post("/imports/{import_id}/read")
+async def read_import(
+    import_id: UUID, user: CurrentUserDep, service: DocumentServiceDep
+) -> ImportRead:
+    """Run import-resume on the file: the import comes back done with its draft,
+    or failed with the reason"""
+    return await service.read_import(user.id, import_id)
 
 
 @router.delete("/imports/{import_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -213,3 +237,29 @@ async def decide_changeset(
 ) -> ChangesetRead:
     """Accept every edit of the changeset into the draft, or reject it"""
     return await service.decide(user.id, document_id, changeset_id, decision)
+
+
+@router.post("/{document_id}/edit-requests/{request_id}")
+async def request_edit(
+    document_id: UUID,
+    request_id: UUID,
+    request: EditRequest,
+    user: CurrentUserDep,
+    service: DocumentServiceDep,
+) -> Run[ChangesetRead]:
+    """Ask edit-document for a change: its changeset is stored for review, or it
+    asks back with a widget, or fails"""
+    return await service.request_edit(user.id, document_id, request_id, request)
+
+
+@router.post("/{document_id}/edit-requests/{request_id}/tasks/{task_id}/answer")
+async def answer_edit(
+    document_id: UUID,
+    request_id: UUID,
+    task_id: str,
+    answer: Answer,
+    user: CurrentUserDep,
+    service: DocumentServiceDep,
+) -> Run[ChangesetRead]:
+    """Answer the widget a paused edit request asked; the run goes on"""
+    return await service.answer_edit(user.id, document_id, request_id, task_id, answer)
