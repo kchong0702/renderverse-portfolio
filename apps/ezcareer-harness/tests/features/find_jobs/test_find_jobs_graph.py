@@ -73,7 +73,7 @@ async def test_unknown_jobs_go_back_and_the_ranking_comes_out_by_fit(jsearch):
     container = Container()
 
     result = await build_graph(
-        container.job_finder(model=model), container.job_sources()
+        container.job_finder.agent(model=model), container.clients.job_sources()
     ).ainvoke(INPUT)
 
     assert [(job.posting.id, job.fit) for job in result["jobs"]] == [

@@ -19,10 +19,13 @@ from tests.features.write_document.test_write_document_graph import _input, _pri
 
 def _client(*replies: AIMessage) -> TestClient:
     container = Container()
-    container.artifact_service_http_client(
-        transport=httpx.MockTransport(partial(_print, sent=[]))
+    container.clients.artifact_service(
+        client=httpx.AsyncClient(
+            transport=httpx.MockTransport(partial(_print, sent=[])),
+            base_url="http://artifact-service",
+        )
     )
-    container.career_consultant(model=_model(*replies))
+    container.career_consultant.agent(model=_model(*replies))
     return TestClient(create_app(container))
 
 
