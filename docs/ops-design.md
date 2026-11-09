@@ -104,12 +104,11 @@ src/
 │   ├── queries/             queryOptions and mutationOptions, with their query keys
 │   ├── hooks/               hooks that call useQuery and useMutation with those options
 │   ├── pages/               <Name>Page.tsx, one per route
-│   ├── components/ui/       small presentational parts
-│   ├── components/layout/   panels, docks and frames that arrange other components
+│   ├── components/          the feature's components, flat
 │   ├── lib/                 plain helpers and constants
 │   ├── state/               zustand, only when the feature needs it
 │   └── index.ts             public API
-├── shared/         api/, components/ui/, components/layout/, theme/, lib/
+├── shared/         api/, components/, theme/, lib/
 └── i18n/
 ```
 

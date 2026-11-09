@@ -1,1 +1,1 @@
-export { default as AssistantDock } from "./components/layout/AssistantDock";
+export { default as AssistantDock } from "./components/AssistantDock";
