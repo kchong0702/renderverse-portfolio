@@ -1,3 +1,4 @@
+import json
 import os
 from collections.abc import AsyncIterator
 
@@ -51,13 +52,22 @@ class FakeHarness:
             ]
         }
         self.down = False
+        self.outcomes: list[dict] = []
+        self.received: list[httpx2.Request] = []
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
-        """Serve the catalog at GET /ezcareer/models, or refuse to connect when down"""
+        """Serve the catalog at GET /ezcareer/models and answer each A2A POST with
+        the next of outcomes, or refuse to connect when down"""
         if self.down:
             raise httpx2.ConnectError("connection refused", request=request)
         if request.method == "GET" and request.url.path == "/ezcareer/models":
             return httpx2.Response(200, json=self.catalog)
+        if request.method == "POST" and request.url.path.startswith("/ezcareer/a2a/"):
+            self.received.append(request)
+            rpc_id = json.loads(request.content)["id"]
+            return httpx2.Response(
+                200, json={"jsonrpc": "2.0", "id": rpc_id, **self.outcomes.pop(0)}
+            )
         return httpx2.Response(404)
 
 
