@@ -280,6 +280,14 @@ class ImportResumeOutput(BaseModel):
     """The look the file's layout suggests; the draft is in its template"""
 
 
+class TailoredDocument(BaseModel):
+    document_id: UUID
+    """The job's copy of the master, made the first time it is tailored"""
+
+    tailoring: bool
+    """Whether a chat turn now tailors it; False while a changeset waits for review"""
+
+
 __all__ = [
     "ChangesetArtifact",
     "ChangesetDecision",
@@ -303,6 +311,7 @@ __all__ = [
     "ImportResumeInput",
     "ImportResumeOutput",
     "LineRead",
+    "TailoredDocument",
     "VersionCreate",
     "VersionRead",
 ]

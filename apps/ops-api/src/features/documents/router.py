@@ -251,7 +251,7 @@ async def chat(
 ) -> EventSourceResponse:
     """Ask edit-document about the document and stream the turn, with any changeset it
     stored for review, until it replies, asks back, fails or is stopped"""
-    return EventSourceResponse(await service.chat(user.id, document_id, message))
+    return EventSourceResponse(await service.chat(user.id, document_id, message.text))
 
 
 @router.post("/{document_id}/chat/tasks/{task_id}/answer")

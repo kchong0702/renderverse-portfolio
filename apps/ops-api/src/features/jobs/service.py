@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from uuid import UUID, uuid4
 
+from document_schema import DocumentKind
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.ezcareer import Completed, EzcareerClient, Failed, InputRequired
-from src.core.exceptions import InvalidInput, NotFound, ServiceUnavailable
+from src.core.exceptions import Conflict, InvalidInput, NotFound, ServiceUnavailable
 from src.db.base import utcnow
-from src.features.jobs.enums import JobStatus
+from src.features.documents import DocumentService
+from src.features.jobs.enums import JobStatus, Match
 from src.features.jobs.models import Job, JobRun
 from src.features.jobs.repository import JobRepository
 from src.features.jobs.schemas import (
@@ -22,9 +24,33 @@ from src.features.jobs.schemas import (
     JobRunRead,
     JobSearch,
     JobUpdate,
+    TailorRead,
 )
 from src.features.profile import ProfileService
 from src.features.settings import SettingsService
+
+
+def _tailor_request(job: JobRead, document: str) -> str:
+    """The request asking edit-document to tailor a document to the job, with the
+    posting's requirements and the analysis's gaps"""
+    at = f" at {job.company}" if job.company else ""
+    lines = [f"Tailor this {document} to the {job.title} role{at}."]
+    if job.url:
+        lines.append(f"The posting: {job.url}")
+    if job.analysis:
+        lines += ["", "The posting's requirements:"]
+        lines += [
+            f"- {r.text} ({r.importance.replace('_', ' ')})"
+            for r in job.analysis.requirements
+        ]
+        gaps = [r for r in job.analysis.requirements if r.match is not Match.MET]
+        if gaps:
+            lines += ["", "Gaps to close where the profile supports it:"]
+            lines += [
+                f"- {r.text} ({r.match.replace('_', ' ')}). {r.reason}".strip()
+                for r in gaps
+            ]
+    return "\n".join(lines)
 
 
 class JobService:
@@ -33,14 +59,16 @@ class JobService:
         session: AsyncSession,
         profile: ProfileService,
         settings: SettingsService,
+        documents: DocumentService,
         ezcareer: EzcareerClient,
     ):
         """Hold the session to commit on and a repository on it, the profile the agents
-        read, the settings naming the user's model, and the harness"""
+        read, the user's model settings, the documents tailored to jobs, and the harness"""
         self._session = session
         self._repository = JobRepository(session)
         self._profile = profile
         self._settings = settings
+        self._documents = documents
         self._ezcareer = ezcareer
 
     async def jobs(self, user_id: UUID) -> JobList:
@@ -192,6 +220,32 @@ class JobService:
                 raise ServiceUnavailable("analyse-job asked for input ops cannot give")
             case Failed():
                 return run
+
+    async def tailor(self, user_id: UUID, job_id: UUID) -> TailorRead:
+        """Copy the master résumé, and the master cover letter when there is one, for
+        the job, then start each copy's chat turn tailoring it; Conflict without one"""
+        job = await self.job(user_id, job_id)
+        name = job.company or job.title
+        resume = await self._documents.copy_for_job(
+            user_id, job_id, DocumentKind.RESUME, f"Résumé for {name}"[:200]
+        )
+        if resume is None:
+            raise Conflict(
+                "No master résumé to tailor. Mark a résumé as master in Documents first."
+            )
+        letter = await self._documents.copy_for_job(
+            user_id, job_id, DocumentKind.COVER_LETTER, f"Cover letter for {name}"[:200]
+        )
+        return TailorRead(
+            resume=await self._documents.tailor(
+                user_id, resume, _tailor_request(job, "résumé")
+            ),
+            cover_letter=await self._documents.tailor(
+                user_id, letter, _tailor_request(job, "cover letter")
+            )
+            if letter
+            else None,
+        )
 
 
 __all__ = ["JobService"]
