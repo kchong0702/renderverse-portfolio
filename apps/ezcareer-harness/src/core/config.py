@@ -25,9 +25,10 @@ from pydantic_settings import (
 
 _APP_NAME = "ezcareer-harness"
 
-_ROOT_PATH = Path(__file__).resolve().parents[2]
-_DEFAULT_TOML = _ROOT_PATH / "config.toml"
-_DEFAULT_ENV_FILE = _ROOT_PATH / ".env"
+APP_FOLDER = Path(__file__).resolve().parents[2]
+"""The ezcareer-harness folder, which relative paths in config.toml start from"""
+_DEFAULT_TOML = APP_FOLDER / "config.toml"
+_DEFAULT_ENV_FILE = APP_FOLDER / ".env"
 
 load_dotenv(_DEFAULT_ENV_FILE, override=False)
 
@@ -209,7 +210,7 @@ class AgentSettings(BaseModel):
     @classmethod
     def _from_app_folder(cls, path: Path) -> Path:
         """Reads a relative path from the app folder"""
-        return path if path.is_absolute() else _ROOT_PATH / path
+        return path if path.is_absolute() else APP_FOLDER / path
 
 
 class GraphProfile(BaseModel):
@@ -232,7 +233,7 @@ class GraphProfile(BaseModel):
     @classmethod
     def _from_app_folder(cls, path: Path) -> Path:
         """Reads a relative path from the app folder"""
-        return path if path.is_absolute() else _ROOT_PATH / path
+        return path if path.is_absolute() else APP_FOLDER / path
 
     def load[T: BaseModel](self, model: type[T]) -> T:
         """Reads the profile into the graph's own model of it"""
@@ -299,7 +300,7 @@ class Settings(BaseSettings):
     agents: tuple[AgentSettings, ...] = ()
     """Every agent the app builds, read from config.toml's [[agents]] tables"""
 
-    harness_profiles: Path = _ROOT_PATH / "src/agents/harness_profiles.yaml"
+    harness_profiles: Path = APP_FOLDER / "harness_profiles.yaml"
     """Each model's deepagents harness profile, by provider or provider:model,
     shared by every agent on that model; relative to the app folder"""
 
@@ -307,7 +308,7 @@ class Settings(BaseSettings):
     @classmethod
     def _harness_profiles_from_app_folder(cls, path: Path) -> Path:
         """Reads a relative path from the app folder"""
-        return path if path.is_absolute() else _ROOT_PATH / path
+        return path if path.is_absolute() else APP_FOLDER / path
 
     graph_profiles: tuple[GraphProfile, ...] = ()
     """Every graph's profile, read from config.toml's [[graph_profiles]] tables"""
@@ -374,6 +375,7 @@ def reload_settings() -> Settings:
 
 
 __all__ = [
+    "APP_FOLDER",
     "AgentSettings",
     "AppSettings",
     "ArtifactServiceSettings",

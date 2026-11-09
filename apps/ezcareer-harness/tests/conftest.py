@@ -20,7 +20,8 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.util._once import Once
 from pydantic import Field
 
-from src.core.config import Settings
+from src.agents import register_harness_profiles
+from src.core.config import Settings, get_settings
 from src.infrastructure.observability import instrumentation, metrics, tracing
 
 
@@ -111,6 +112,7 @@ class ScriptedChatModel(BaseChatModel):
 def pytest_configure(config: pytest.Config) -> None:
     os.environ["EZCAREER_HARNESS_OBSERVABILITY__TRACING_ENABLED"] = "false"
     os.environ["EZCAREER_HARNESS_OBSERVABILITY__METRICS_ENABLED"] = "false"
+    register_harness_profiles(get_settings().harness_profiles)
 
 
 @pytest.fixture

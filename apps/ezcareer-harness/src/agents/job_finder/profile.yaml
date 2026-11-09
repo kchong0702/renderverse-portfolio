@@ -1,6 +1,5 @@
-system_prompt: system.md
-skills: skills
-excluded_tools: [write_file, edit_file, delete, execute, task]
+system_prompt: src/agents/job_finder/system.md
+skills: src/agents/job_finder/skills
 tool_description_overrides:
   read_profile_facts: >-
     Lists the user's profile facts, one per line as `fact:<id>`, followed by

@@ -4,10 +4,11 @@ from pathlib import Path
 from typing import Self
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from deepagents import HarnessProfileConfig, register_harness_profile
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.clients.llm_providers import PROVIDERS
-from src.core.config import AgentSettings
+from src.core.config import APP_FOLDER, AgentSettings
 
 
 class AgentProfile(BaseModel):
@@ -15,17 +16,20 @@ class AgentProfile(BaseModel):
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    system_prompt: Path = Path("system.md")
-    """The agent's system prompt, relative to its folder"""
+    system_prompt: Path | None = None
+    """The agent's system prompt, from the app folder; None reads system.md beside profile.yaml"""
 
-    skills: Path = Path("skills")
-    """The agent's skills folder, one SKILL.md folder per skill, relative to its folder"""
-
-    excluded_tools: frozenset[str] = frozenset()
-    """Tools the agent is never offered, such as deepagents' write_file"""
+    skills: Path | None = None
+    """The agent's skills folder, from the app folder; None reads skills/ beside profile.yaml"""
 
     tool_description_overrides: dict[str, str] = Field(default_factory=dict)
     """Descriptions that replace a tool's own, by tool name"""
+
+    @field_validator("system_prompt", "skills")
+    @classmethod
+    def _from_app_folder(cls, path: Path | None) -> Path | None:
+        """Reads a relative path from the app folder"""
+        return path if path is None or path.is_absolute() else APP_FOLDER / path
 
 
 class Agent(BaseModel):
@@ -54,12 +58,12 @@ class Agent(BaseModel):
     @property
     def system_prompt(self) -> Path:
         """The agent's system prompt file"""
-        return self.folder / self.profile.system_prompt
+        return self.profile.system_prompt or self.folder / "system.md"
 
     @property
     def skills(self) -> Path:
         """The agent's skills folder"""
-        return self.folder / self.profile.skills
+        return self.profile.skills or self.folder / "skills"
 
     @property
     def provider(self) -> str:
@@ -96,3 +100,10 @@ class Agent(BaseModel):
 def load_agents(agents: tuple[AgentSettings, ...]) -> dict[str, Agent]:
     """Every agent the settings list, by name, read once per list"""
     return {settings.name: Agent.load(settings) for settings in agents}
+
+
+def register_harness_profiles(path: Path) -> None:
+    """Registers each model's harness profile in path, by provider or
+    provider:model; the app does it once at startup, before building any agent"""
+    for key, profile in yaml.safe_load(path.read_text()).items():
+        register_harness_profile(key, HarnessProfileConfig.from_dict(profile))
