@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, status
 
 from src.core.auth import CurrentUserDep
 from src.db.session import SessionDep
-from src.features.profile.repository import ProfileRepository
 from src.features.profile.schemas import (
     AgentProfile,
     EntryCreate,
@@ -23,7 +22,7 @@ router = APIRouter(prefix="/profile", tags=["profile"])
 
 def get_profile_service(session: SessionDep) -> ProfileService:
     """The profile service on the request's database session"""
-    return ProfileService(ProfileRepository(session))
+    return ProfileService(session)
 
 
 ProfileServiceDep = Annotated[ProfileService, Depends(get_profile_service)]
