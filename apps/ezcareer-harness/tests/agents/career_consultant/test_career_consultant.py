@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import httpx
 import pytest
 from document_schema import AnyDocument, AnyEdit, Changeset, RichValue, UpdateField
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -12,7 +13,11 @@ from pydantic import TypeAdapter
 
 from src.agents import AgentOverride, build_agent, load_agents
 from src.agents.career_consultant import CareerConsultantState
-from src.agents.career_consultant.tools import list_design_options, read_pdf_lines
+from src.agents.career_consultant.tools import (
+    create_design_options_tool,
+    read_pdf_lines,
+)
+from src.clients.artifact_service import ArtifactServiceClient
 from src.core.config import get_settings
 from src.shared.extraction.types import Line
 from src.shared.profile import ProfileFact
@@ -23,10 +28,38 @@ from tests.conftest import ScriptedChatModel
 
 FIXTURES = Path(__file__).parents[2] / "features/write_document/fixtures"
 AGENT = load_agents(get_settings().agents)["career-consultant"]
+LETTER_TEMPLATE = {
+    "id": "plain-letter",
+    "name": "Plain letter",
+    "description": "One column for letters",
+    "kinds": ["cover_letter"],
+    "body_font": "inter",
+    "heading_font": "inter",
+    "accent": "#1F4E79",
+    "regions": {"main": {"area": {"column": 1, "span": 12}}},
+    "layout": {"default": "main"},
+}
+
+
+def _templates(request: httpx.Request) -> httpx.Response:
+    """Answers artifact-service's template list with LETTER_TEMPLATE for letters"""
+    return httpx.Response(
+        200,
+        json=[LETTER_TEMPLATE] if request.url.params["kind"] == "cover_letter" else [],
+    )
+
+
 TOOLS: tuple[BaseTool, ...] = (
     read_pdf_lines,
     read_profile_facts,
-    list_design_options,
+    create_design_options_tool(
+        ArtifactServiceClient(
+            httpx.AsyncClient(
+                transport=httpx.MockTransport(_templates),
+                base_url="http://artifact-service",
+            )
+        )
+    ),
     clarify,
     permission,
 )
@@ -194,17 +227,15 @@ def test_clarify_takes_a_plain_text_answer_as_what_was_typed():
     assert _tool_results(resumed)["clarify"] == "Lumen Pay"
 
 
-def test_design_options_list_the_renderers_templates_for_the_document_kind():
+async def test_design_options_are_artifact_services_templates_for_the_document_kind():
     state = _state() | {"document": TypeAdapter(AnyDocument).validate_python(LETTER)}
 
-    result = _agent(_model(_call("list_design_options"), _answer(GOOD_EDIT))).invoke(
-        state, EDIT.config()
-    )
+    result = await _agent(
+        _model(_call("list_design_options"), _answer(GOOD_EDIT))
+    ).ainvoke(state, EDIT.config())
 
     templates = json.loads(_tool_results(result)["list_design_options"])
-    ids = {template["id"] for template in templates}
-    assert "classic" in ids and "classic-two-column" not in ids
-    assert all("cover_letter" in template["kinds"] for template in templates)
+    assert [template["id"] for template in templates] == ["plain-letter"]
 
 
 def test_agent_offers_its_tools_and_loads_both_skills():
