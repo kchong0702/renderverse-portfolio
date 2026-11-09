@@ -41,12 +41,18 @@ class InvalidInput(ServiceException):
     """Well-formed input that breaks a rule the schema cannot express"""
 
 
+class ServiceUnavailable(ServiceException):
+    status_code = 503
+    """A service the request needs is unreachable or not configured"""
+
+
 __all__ = [
     "Conflict",
     "Forbidden",
     "InvalidInput",
     "NotFound",
     "ServiceException",
+    "ServiceUnavailable",
     "TooManyRequests",
     "Unauthorized",
 ]

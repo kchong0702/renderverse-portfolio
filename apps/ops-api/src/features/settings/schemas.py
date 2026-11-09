@@ -5,8 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-AiProvider = Literal["claude", "openai", "glm"]
-"""The model the assistant and agents use"""
+from src.integrations.ezcareer import ModelFamily
 
 ConnectionId = Literal["google", "jsearch", "portfolio_site"]
 """An outside service Ops connects to"""
@@ -59,6 +58,14 @@ class Connection(BaseModel):
     """Whether it is connected"""
 
 
+class ModelChoice(BaseModel):
+    family: ModelFamily
+    """The model's provider"""
+
+    model: str = Field(min_length=1, max_length=100)
+    """A model ezcareer-harness offers for that provider"""
+
+
 class SettingsRead(BaseModel):
     job_agent: JobAgent
     """The daily job search"""
@@ -69,8 +76,8 @@ class SettingsRead(BaseModel):
     scheduling: Scheduling
     """Work hours and gaps for booking meetings"""
 
-    ai_provider: AiProvider
-    """The model the assistant and agents use"""
+    ai_model: ModelChoice | None
+    """The model the assistant and agents use; None leaves it to ezcareer-harness"""
 
     connections: list[Connection]
     """Every outside service and whether it is connected"""
@@ -124,15 +131,15 @@ class SettingsUpdate(BaseModel):
     scheduling: SchedulingUpdate | None = None
     """Changes to work hours and meeting gaps"""
 
-    ai_provider: AiProvider | None = None
-    """New model; None leaves it unchanged"""
+    ai_model: ModelChoice | None = None
+    """New model, checked against ezcareer-harness; None leaves it unchanged"""
 
 
 __all__ = [
-    "AiProvider",
     "Automation",
     "Connection",
     "JobAgent",
+    "ModelChoice",
     "Scheduling",
     "SettingsRead",
     "SettingsUpdate",

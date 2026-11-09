@@ -17,6 +17,7 @@ OWNER = "owner@example.com"
 def pytest_configure(config: pytest.Config) -> None:
     """Pin the settings tests rely on before any app module reads them"""
     os.environ["OPS_API_AUTH__ENABLED"] = "false"
+    os.environ["OPS_API_EZCAREER__URL"] = "http://harness.test/ezcareer"
 
 
 class FakeProvider:
@@ -41,15 +42,37 @@ class FakeProvider:
         return self.identity
 
 
-async def _app(oauth_providers: dict | None = None) -> AsyncIterator[FastAPI]:
+class FakeHarness:
+    def __init__(self):
+        self.catalog = {
+            "families": [
+                {"family": "claude", "models": ["claude-sonnet-4-5"]},
+                {"family": "openai", "models": ["gpt-5", "gpt-5-mini"]},
+            ]
+        }
+        self.down = False
+
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        """Serve the catalog at GET /ezcareer/models, or refuse to connect when down"""
+        if self.down:
+            raise httpx2.ConnectError("connection refused", request=request)
+        if request.method == "GET" and request.url.path == "/ezcareer/models":
+            return httpx2.Response(200, json=self.catalog)
+        return httpx2.Response(404)
+
+
+async def _app(
+    harness: FakeHarness, oauth_providers: dict | None = None
+) -> AsyncIterator[FastAPI]:
     from src.app.app import create_app
     from src.app.container import Container
     from src.core.config import reload_settings
     from src.db import models  # noqa: F401
     from src.db.base import Base
     from src.db.session import create_session_factory
+    from src.integrations.ezcareer import EzcareerClient
 
-    reload_settings()
+    settings = reload_settings()
     engine = create_async_engine(
         "sqlite+aiosqlite://",
         poolclass=StaticPool,
@@ -62,6 +85,11 @@ async def _app(oauth_providers: dict | None = None) -> AsyncIterator[FastAPI]:
     container.engine.override(providers.Object(engine))
     container.session_factory.override(providers.Object(create_session_factory(engine)))
     container.oauth_providers.override(providers.Object(oauth_providers or {}))
+    container.ezcareer.override(
+        providers.Object(
+            EzcareerClient(settings.ezcareer, httpx2.MockTransport(harness))
+        )
+    )
 
     yield create_app(container)
     await engine.dispose()
@@ -74,9 +102,14 @@ def _client(app: FastAPI) -> httpx2.AsyncClient:
 
 
 @pytest.fixture
-async def app() -> AsyncIterator[FastAPI]:
+def harness() -> FakeHarness:
+    return FakeHarness()
+
+
+@pytest.fixture
+async def app(harness: FakeHarness) -> AsyncIterator[FastAPI]:
     """Auth disabled: every request is auth.dev_email"""
-    async for app in _app():
+    async for app in _app(harness):
         yield app
 
 
@@ -96,13 +129,15 @@ def oauth_providers() -> dict[str, FakeProvider]:
 
 @pytest.fixture
 async def auth_app(
-    monkeypatch: pytest.MonkeyPatch, oauth_providers: dict[str, FakeProvider]
+    monkeypatch: pytest.MonkeyPatch,
+    oauth_providers: dict[str, FakeProvider],
+    harness: FakeHarness,
 ) -> AsyncIterator[FastAPI]:
     """Auth enabled, OWNER allowlisted, fake Google and GitHub"""
     monkeypatch.setenv("OPS_API_AUTH__ENABLED", "true")
     monkeypatch.setenv("OPS_API_AUTH__ALLOWED_EMAILS", OWNER)
     monkeypatch.setenv("OPS_API_AUTH__SECRET_KEY", "k" * 32)
-    async for app in _app(oauth_providers):
+    async for app in _app(harness, oauth_providers):
         yield app
 
 
