@@ -6,7 +6,9 @@ from src.integrations.ezcareer.schemas import (
     FamilyModels,
     InputRequired,
     ModelCatalog,
+    ModelChoice,
     Run,
+    RunMetadata,
     Widget,
 )
 from src.integrations.ezcareer.types import ModelFamily
@@ -19,7 +21,9 @@ __all__ = [
     "FamilyModels",
     "InputRequired",
     "ModelCatalog",
+    "ModelChoice",
     "ModelFamily",
     "Run",
+    "RunMetadata",
     "Widget",
 ]

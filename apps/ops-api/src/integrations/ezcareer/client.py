@@ -23,6 +23,7 @@ from src.integrations.ezcareer.schemas import (
     InputRequired,
     ModelCatalog,
     Run,
+    RunMetadata,
     Widget,
 )
 
@@ -53,11 +54,17 @@ class EzcareerClient:
             ) from error
 
     async def _send_message[R](
-        self, executable: str, reply: type[R], message: Message
+        self,
+        executable: str,
+        reply: type[R],
+        message: Message,
+        metadata: RunMetadata | None,
     ) -> Run[R]:
-        """POST an A2A SendMessage and read how the task ended"""
+        """POST an A2A SendMessage, with metadata on the request, and read how the
+        task ended"""
         request = SendMessageRequest(
-            id=uuid4().hex, params=SendMessageParams(message=message)
+            id=uuid4().hex,
+            params=SendMessageParams(message=message, metadata=metadata),
         )
         try:
             response = await self._http.post(
@@ -108,10 +115,11 @@ class EzcareerClient:
         *,
         context_id: str,
         data: BaseModel,
+        metadata: RunMetadata | None,
         text: str = "",
     ) -> Run[R]:
-        """Run a harness executable on the user's text and its input data;
-        context_id scopes the task to one user, so a resume must match it"""
+        """Run a harness executable on the user's text and its input data, on the
+        model metadata names; context_id scopes the task to one user"""
         return await self._send_message(
             executable,
             reply,
@@ -122,6 +130,7 @@ class EzcareerClient:
                 if text
                 else [DataPart(data=data)],
             ),
+            metadata,
         )
 
     async def resume[R](
@@ -132,8 +141,10 @@ class EzcareerClient:
         context_id: str,
         task_id: str,
         answer: Answer,
+        metadata: RunMetadata | None,
     ) -> Run[R]:
-        """Send the user's answer to a paused task, which runs on from there"""
+        """Send the user's answer to a paused task, which runs on from there on the
+        model metadata names"""
         return await self._send_message(
             executable,
             reply,
@@ -143,6 +154,7 @@ class EzcareerClient:
                 task_id=task_id,
                 parts=[DataPart(data=answer)],
             ),
+            metadata,
         )
 
     async def aclose(self) -> None:

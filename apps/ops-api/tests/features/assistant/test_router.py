@@ -68,6 +68,24 @@ async def test_a_message_reaches_career_director_with_the_profile(client, harnes
         {"text": "Find me remote jobs"},
         {"data": agent_profile},
     ]
+    assert "metadata" not in sent["params"]
+
+
+async def test_each_run_carries_the_users_model_on_the_request(client, harness):
+    model = {"family": "claude", "model": "claude-sonnet-4-5"}
+    await client.patch(f"{PREFIX}/settings", json={"ai_model": model})
+    harness.outcomes = [
+        _task("INPUT_REQUIRED", status_parts=[{"data": WIDGET}]),
+        _task("COMPLETED", artifact_parts=[{"text": "Saved it."}]),
+    ]
+
+    await client.post(f"{CHAT}/messages", json={"text": "Save it"})
+    await client.post(f"{CHAT}/tasks/task-1/answer", json={"accept": True})
+
+    first, resume = (sent["params"] for sent in _sent(harness))
+    assert first["metadata"] == {"model": model}
+    assert resume["metadata"] == first["metadata"]
+    assert "metadata" not in first["message"]
 
 
 async def test_each_chat_runs_in_a_context_of_its_own(client, harness):

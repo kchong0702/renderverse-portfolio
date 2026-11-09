@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.integrations.ezcareer.types import ModelFamily
 
@@ -18,6 +18,19 @@ class FamilyModels(BaseModel):
 class ModelCatalog(BaseModel):
     families: list[FamilyModels]
     """Every provider ezcareer-harness offers, with its models"""
+
+
+class ModelChoice(BaseModel):
+    family: ModelFamily
+    """The model's provider"""
+
+    model: str = Field(min_length=1, max_length=100)
+    """A model ezcareer-harness offers for that provider"""
+
+
+class RunMetadata(BaseModel):
+    model: ModelChoice
+    """The model the user picked"""
 
 
 class Widget(BaseModel):
@@ -83,6 +96,8 @@ __all__ = [
     "FamilyModels",
     "InputRequired",
     "ModelCatalog",
+    "ModelChoice",
     "Run",
+    "RunMetadata",
     "Widget",
 ]
