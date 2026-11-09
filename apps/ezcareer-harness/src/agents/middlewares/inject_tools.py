@@ -17,30 +17,35 @@ from src.agents.agent_override import current_override
 
 class InjectToolsMiddleware(AgentMiddleware):
     def __init__(self, descriptions: Mapping[str, str]) -> None:
-        """Gives the agent the override's tools; descriptions are the agent
-        profile's tool descriptions, which replace a tool's own"""
+        """Gives the agent the override's tools and describes every tool it is
+        offered with descriptions, the agent profile's, over a tool's own"""
         super().__init__()
         self.descriptions = descriptions
         """The agent profile's tool descriptions, by tool name"""
+
+    def _described[T: BaseTool | dict](self, tool: T) -> T:
+        """tool with the profile's description, when the profile has one for it"""
+        if isinstance(tool, BaseTool) and tool.name in self.descriptions:
+            return tool.model_copy(update={"description": self.descriptions[tool.name]})
+        return tool
 
     def _tools(self) -> dict[str, BaseTool]:
         """The override's tools by name, described as the profile says"""
         agent_override = current_override()
         return {
-            tool.name: tool.model_copy(
-                update={"description": self.descriptions[tool.name]}
-            )
-            if tool.name in self.descriptions
-            else tool
+            tool.name: self._described(tool)
             for tool in (agent_override.tools if agent_override else ())
         }
 
     def _model_request(self, request: ModelRequest) -> ModelRequest:
-        """The model call with the override's tools added"""
-        tools = self._tools()
-        if not tools:
-            return request
-        return request.override(tools=[*request.tools, *tools.values()])
+        """The model call with the override's tools added and every tool described
+        as the profile says"""
+        return request.override(
+            tools=[
+                *(self._described(tool) for tool in request.tools),
+                *self._tools().values(),
+            ]
+        )
 
     def _tool_request(self, request: ToolCallRequest) -> ToolCallRequest:
         """The tool call, run with the override's tool when it names one"""
@@ -51,7 +56,7 @@ class InjectToolsMiddleware(AgentMiddleware):
     def wrap_model_call(
         self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
     ) -> ModelCallResult:
-        """Runs the model call with the override's tools offered"""
+        """Runs the model call with the override's tools offered, described as the profile says"""
         return handler(self._model_request(request))
 
     @override
@@ -60,7 +65,7 @@ class InjectToolsMiddleware(AgentMiddleware):
         request: ModelRequest,
         handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
     ) -> ModelCallResult:
-        """Runs the model call with the override's tools offered"""
+        """Runs the model call with the override's tools offered, described as the profile says"""
         return await handler(self._model_request(request))
 
     @override

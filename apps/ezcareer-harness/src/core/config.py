@@ -199,9 +199,11 @@ class AgentSettings(BaseModel):
     """The agent's profile.yaml, relative to the app folder; its folder holds
     system.md and skills/"""
 
+    family: str
+    """Model family the model belongs to, such as glm, which picks its provider"""
+
     model: str
-    """Exact model the agent runs on, such as glm-5.3; profile.yaml must hold
-    its harness profile"""
+    """Exact model the agent runs on, such as glm-5.3"""
 
     @field_validator("path")
     @classmethod
@@ -296,6 +298,16 @@ class Settings(BaseSettings):
 
     agents: tuple[AgentSettings, ...] = ()
     """Every agent the app builds, read from config.toml's [[agents]] tables"""
+
+    harness_profiles: Path = _ROOT_PATH / "harness_profiles.yaml"
+    """Each model's deepagents harness profile, by provider or provider:model,
+    shared by every agent on that model; relative to the app folder"""
+
+    @field_validator("harness_profiles")
+    @classmethod
+    def _harness_profiles_from_app_folder(cls, path: Path) -> Path:
+        """Reads a relative path from the app folder"""
+        return path if path.is_absolute() else _ROOT_PATH / path
 
     graph_profiles: tuple[GraphProfile, ...] = ()
     """Every graph's profile, read from config.toml's [[graph_profiles]] tables"""

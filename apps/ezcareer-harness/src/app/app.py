@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.agents import register_harness_profiles
 from src.app.a2a import add_executable_routes
 from src.app.container import Container
 from src.core.config import get_settings
@@ -40,6 +41,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     configure_tracing(_settings)
     configure_metrics(_settings)
     instrument(_settings)
+    register_harness_profiles(_settings.harness_profiles)
 
     app = FastAPI(
         title=_settings.app.name.upper(),

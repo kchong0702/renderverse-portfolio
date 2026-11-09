@@ -15,8 +15,9 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from pydantic_core import to_jsonable_python
 
+from src.agents import register_harness_profiles
 from src.app.container import Container
-from src.core.config import Settings, reload_settings
+from src.core.config import Settings, get_settings, reload_settings
 
 RunWorkflow = Callable[[object], Awaitable[object]]
 """Runs one workflow on one task, returning its output"""
@@ -45,14 +46,15 @@ WORKFLOWS: dict[str, RunWorkflow] = {
 
 def harness_hash(settings: Settings) -> str:
     """Sha256 of the harness the settings name: every file of every agent folder
-    and every graph's harness folder, with its path"""
-    paths = [agent.path.parent for agent in settings.agents]
-    paths += [profile.folder for profile in settings.graph_profiles]
+    and every graph's harness folder, and the harness profiles file, with its path"""
+    roots = [agent.path.parent for agent in settings.agents]
+    roots += [profile.folder for profile in settings.graph_profiles]
+    files = [
+        path for root in roots for path in sorted(root.rglob("*")) if path.is_file()
+    ]
     digest = sha256()
-    for root in paths:
-        for path in sorted(root.rglob("*")):
-            if path.is_file():
-                digest.update(str(path).encode() + b"\0" + path.read_bytes() + b"\0")
+    for path in [*files, settings.harness_profiles]:
+        digest.update(str(path).encode() + b"\0" + path.read_bytes() + b"\0")
     return digest.hexdigest()
 
 
@@ -80,6 +82,7 @@ def _trace(spans: Sequence[ReadableSpan]) -> dict:
 async def probe(workflow: RunWorkflow, task: object) -> dict:
     """Runs a workflow once with the current settings and returns its output, or
     why it failed, with the harness hash and the trace"""
+    register_harness_profiles(get_settings().harness_profiles)
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))

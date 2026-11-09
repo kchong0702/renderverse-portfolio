@@ -1,0 +1,6 @@
+openai:
+  general_purpose_subagent:
+    enabled: false
+anthropic:
+  general_purpose_subagent:
+    enabled: false

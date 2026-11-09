@@ -4,11 +4,32 @@ from pathlib import Path
 from typing import Self
 
 import yaml
-from deepagents import HarnessProfileConfig
-from pydantic import BaseModel, ConfigDict
+from deepagents import HarnessProfileConfig, register_harness_profile
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.clients.llm_providers import PROVIDERS
-from src.core.config import AgentSettings
+from src.core.config import _ROOT_PATH, AgentSettings
+
+
+class AgentProfile(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, use_attribute_docstrings=True
+    )
+
+    system_prompt: Path | None = None
+    """The agent's system prompt, from the app folder; None reads system.md beside profile.yaml"""
+
+    skills: Path | None = None
+    """The agent's skills folder, from the app folder; None reads skills/ beside profile.yaml"""
+
+    tool_description_overrides: dict[str, str] = Field(default_factory=dict)
+    """Descriptions that replace a tool's own, by tool name"""
+
+    @field_validator("system_prompt", "skills")
+    @classmethod
+    def _from_app_folder(cls, path: Path | None) -> Path | None:
+        """Reads a relative path from the app folder"""
+        return path if path is None or path.is_absolute() else _ROOT_PATH / path
 
 
 class Agent(BaseModel):
@@ -26,23 +47,23 @@ class Agent(BaseModel):
     """Holds profile.yaml, system.md and the agent's own skills/"""
 
     family: str
-    """Model family the model belongs to in profile.yaml, such as glm"""
+    """Model family the model belongs to, such as glm"""
 
     model: str
     """Exact model the agent runs on, such as glm-5.3"""
 
-    profile: HarnessProfileConfig
-    """The deepagents harness profile profile.yaml gives that model"""
+    profile: AgentProfile
+    """The agent's own settings, from its profile.yaml"""
 
     @property
     def system_prompt(self) -> Path:
-        """The agent's system.md"""
-        return self.folder / "system.md"
+        """The agent's system prompt file"""
+        return self.profile.system_prompt or self.folder / "system.md"
 
     @property
     def skills(self) -> Path:
-        """The agent's skills folder, holding one SKILL.md folder per skill"""
-        return self.folder / "skills"
+        """The agent's skills folder"""
+        return self.profile.skills or self.folder / "skills"
 
     @property
     def provider(self) -> str:
@@ -61,31 +82,17 @@ class Agent(BaseModel):
 
     @classmethod
     def load(cls, settings: AgentSettings) -> Self:
-        """Reads an agent's profile.yaml, whose profiles are grouped by family and
-        then exact model, and gives the model it runs on the default profile with
-        that model's own settings over it"""
-        families: dict[str, dict[str, dict | None]] = yaml.safe_load(
-            settings.path.read_text()
-        )
-        default = families.pop("default", None) or {}
-        found = [
-            (family, {**default, **(models[settings.model] or {})})
-            for family, models in families.items()
-            if settings.model in models
-        ]
-        if len(found) != 1:
-            raise ValueError(
-                f"{settings.path} needs exactly one profile for {settings.model}"
-            )
-        [(family, profile)] = found
-        if family not in PROVIDERS:
-            raise ValueError(f"{settings.path}: unknown model family {family}")
+        """Reads an agent's profile.yaml for the model and family its settings name"""
+        if settings.family not in PROVIDERS:
+            raise ValueError(f"{settings.name}: unknown model family {settings.family}")
         return cls(
             name=settings.name,
             folder=settings.path.parent,
-            family=family,
+            family=settings.family,
             model=settings.model,
-            profile=HarnessProfileConfig.from_dict(profile),
+            profile=AgentProfile.model_validate(
+                yaml.safe_load(settings.path.read_text())
+            ),
         )
 
 
@@ -93,3 +100,10 @@ class Agent(BaseModel):
 def load_agents(agents: tuple[AgentSettings, ...]) -> dict[str, Agent]:
     """Every agent the settings list, by name, read once per list"""
     return {settings.name: Agent.load(settings) for settings in agents}
+
+
+def register_harness_profiles(path: Path) -> None:
+    """Registers each model's harness profile in path, by provider or
+    provider:model; the app does it once at startup, before building any agent"""
+    for key, profile in yaml.safe_load(path.read_text()).items():
+        register_harness_profile(key, HarnessProfileConfig.from_dict(profile))

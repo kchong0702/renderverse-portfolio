@@ -1,7 +1,6 @@
 from typing import Annotated, TypedDict
 
 import pytest
-from deepagents import HarnessProfileConfig
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
@@ -33,8 +32,12 @@ def _agent(model: ScriptedChatModel, model_name: str = "glm-5.3") -> CompiledSta
     agent = Agent.load(GREETER.model_copy(update={"model": model_name}))
     agent = agent.model_copy(
         update={
-            "profile": HarnessProfileConfig(
-                tool_description_overrides={"look_up_title": "Finds the title to use"}
+            "profile": agent.profile.model_copy(
+                update={
+                    "tool_description_overrides": {
+                        "look_up_title": "Finds the title to use"
+                    }
+                }
             )
         }
     )
