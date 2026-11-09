@@ -22,7 +22,7 @@ class WidgetSetting(BaseModel):
     """Text of the cancel button; shown only when set"""
 
 
-class ParentQuestion(BaseModel):
+class ParentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
     kind: Literal["question", "permission"]
