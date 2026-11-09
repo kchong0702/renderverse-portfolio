@@ -1,5 +1,10 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { jobsQueryOptions, updateJobMutationOptions } from "../queries/jobs";
+import {
+  analyseJobMutationOptions,
+  findJobsMutationOptions,
+  jobsQueryOptions,
+  updateJobMutationOptions,
+} from "../queries/jobs";
 
 export function useJobs() {
   return useQuery(jobsQueryOptions);
@@ -7,4 +12,12 @@ export function useJobs() {
 
 export function useUpdateJob() {
   return useMutation(updateJobMutationOptions);
+}
+
+export function useFindJobs() {
+  return useMutation(findJobsMutationOptions);
+}
+
+export function useAnalyseJob() {
+  return useMutation(analyseJobMutationOptions);
 }

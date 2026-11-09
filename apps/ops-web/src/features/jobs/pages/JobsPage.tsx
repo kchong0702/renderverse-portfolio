@@ -1,3 +1,4 @@
+import { Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { buttonClass } from "@/shared/components/button";
@@ -7,7 +8,7 @@ import Segmented from "@/shared/components/Segmented";
 import StateMessage from "@/shared/components/StateMessage";
 import JobDetail from "../components/JobDetail";
 import JobList from "../components/JobList";
-import { useJobs } from "../hooks/useJobs";
+import { useFindJobs, useJobs } from "../hooks/useJobs";
 
 const TABS = ["picked", "saved"] as const;
 type JobsTab = (typeof TABS)[number];
@@ -16,6 +17,7 @@ export default function JobsPage() {
   const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
   const jobs = useJobs();
+  const find = useFindJobs();
   const tab: JobsTab =
     TABS.find((name) => name === params.get("tab")) ?? "picked";
   const shown = jobs.data?.jobs.filter((job) => job.status === tab) ?? [];
@@ -28,12 +30,42 @@ export default function JobsPage() {
         title={t("jobs.title")}
         subtitle={t("jobs.subtitle")}
         actions={
-          <Link to="/settings" className={buttonClass()}>
-            {t("jobs.agentSchedule")}
-          </Link>
+          <>
+            <Link to="/settings" className={buttonClass()}>
+              {t("jobs.agentSchedule")}
+            </Link>
+            <button
+              type="button"
+              disabled={find.isPending}
+              onClick={() => find.mutate()}
+              className={buttonClass("primary")}
+            >
+              <Sparkles size={16} className="text-amber-soft" />
+              {find.isPending ? t("jobs.runningAgent") : t("jobs.runAgent")}
+            </button>
+          </>
         }
       />
       <PageBody>
+        {find.isPending ? (
+          <p role="status" className="text-ink-3 m-0 text-sm">
+            {t("jobs.runningNote")}
+          </p>
+        ) : find.isError ? (
+          <p role="alert" className="text-crit m-0 text-sm">
+            {t("jobs.runFailed", { reason: find.error.message })}
+          </p>
+        ) : find.data?.status === "failed" ? (
+          <p role="alert" className="text-crit m-0 text-sm">
+            {t("jobs.runFailed", { reason: find.data.reason })}
+          </p>
+        ) : (
+          find.data && (
+            <p role="status" className="text-ink-3 m-0 text-sm">
+              {t("jobs.found", { count: find.data.reply.length })}
+            </p>
+          )
+        )}
         {jobs.isPending ? (
           <StateMessage>{t("common.loading")}</StateMessage>
         ) : jobs.isError ? (
