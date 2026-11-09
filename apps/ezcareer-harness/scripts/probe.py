@@ -26,14 +26,19 @@ CONTAINER = Container()
 
 
 async def _run_graph(name: str, task: object) -> object:
-    """Runs the container's graph served as name on the task in a thread of its own"""
+    """Runs the container's graph served as name on the task, read as the graph's
+    input, in a thread of its own"""
     [graph] = [e.graph for e in CONTAINER.executables() if e.name == name]
-    return await graph.ainvoke(task, {"configurable": {"thread_id": str(uuid4())}})
+    return await graph.ainvoke(
+        graph.get_input_schema().model_validate(task),
+        {"configurable": {"thread_id": str(uuid4())}},
+    )
 
 
 WORKFLOWS: dict[str, RunWorkflow] = {
     "analyse-job": partial(_run_graph, "analyse-job"),
     "find-jobs": partial(_run_graph, "find-jobs"),
+    "edit-document": partial(_run_graph, "edit-document"),
 }
 """Every workflow a probe can run, by name"""
 
