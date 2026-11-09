@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from src.agents import Agent
-from src.core.config import APP_FOLDER, AgentSettings
+from src.core.config import _ROOT_PATH, AgentSettings
 
 PROFILE = Path(__file__).parent / "fixtures" / "greeter" / "profile.yaml"
 
@@ -31,8 +31,8 @@ def test_an_agent_reads_the_prompt_and_skills_its_profile_names_from_the_app_fol
 
     agent = _load(profile)
 
-    assert agent.system_prompt == APP_FOLDER / "src/agents/job_finder/system.md"
-    assert agent.skills == APP_FOLDER / "src/agents/job_finder/skills"
+    assert agent.system_prompt == _ROOT_PATH / "src/agents/job_finder/system.md"
+    assert agent.skills == _ROOT_PATH / "src/agents/job_finder/skills"
 
 
 def test_a_profile_that_names_neither_reads_them_beside_it():

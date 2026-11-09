@@ -8,7 +8,7 @@ from deepagents import HarnessProfileConfig, register_harness_profile
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.clients.llm_providers import PROVIDERS
-from src.core.config import APP_FOLDER, AgentSettings
+from src.core.config import _ROOT_PATH, AgentSettings
 
 
 class AgentProfile(BaseModel):
@@ -29,7 +29,7 @@ class AgentProfile(BaseModel):
     @classmethod
     def _from_app_folder(cls, path: Path | None) -> Path | None:
         """Reads a relative path from the app folder"""
-        return path if path is None or path.is_absolute() else APP_FOLDER / path
+        return path if path is None or path.is_absolute() else _ROOT_PATH / path
 
 
 class Agent(BaseModel):
