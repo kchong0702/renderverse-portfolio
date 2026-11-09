@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 from scripts import probe
+from src.app.container import Container
 from src.core.config import reload_settings
 from src.features.import_document import build_graph
 from tests.features.import_document.test_extract import _artifact_service, _convert
@@ -40,8 +41,10 @@ async def test_a_probe_runs_the_containers_import_graph_and_records_each_check_r
     probe.CONTAINER.reset_singletons()
     probe.CONTAINER.import_document.import_resume_executable(
         graph=build_graph(
+            Container().import_document.agent(
+                model=_model(_reply("Wrong"), _reply("Engineer"))
+            ),
             _artifact_service(partial(_print, sent=[])),
-            model=_model(_reply("Wrong"), _reply("Engineer")),
         )
     )
 

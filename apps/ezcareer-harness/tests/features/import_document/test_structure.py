@@ -6,6 +6,7 @@ import pytest
 from langchain_core.messages import HumanMessage
 from pydantic import JsonValue
 
+from src.app.container import Container
 from src.features.import_document import build_graph
 from src.features.import_document.exceptions import ImportFailed
 from src.features.import_document.schemas import ImportInput
@@ -39,7 +40,8 @@ async def test_the_llm_reads_the_lines_and_its_reply_becomes_the_draft():
     model = _model()
 
     result = await build_graph(
-        _artifact_service(partial(_print, sent=[])), model=model
+        Container().import_document.agent(model=model),
+        _artifact_service(partial(_print, sent=[])),
     ).ainvoke(ImportInput(file=b64encode(PDF)))
 
     system, human = model.requests[0]
@@ -60,7 +62,10 @@ async def test_the_llm_reads_the_lines_and_its_reply_becomes_the_draft():
 async def test_the_users_note_follows_the_lines():
     model = _model()
 
-    await build_graph(_artifact_service(partial(_print, sent=[])), model=model).ainvoke(
+    await build_graph(
+        Container().import_document.agent(model=model),
+        _artifact_service(partial(_print, sent=[])),
+    ).ainvoke(
         ImportInput(
             file=b64encode(PDF), messages=[HumanMessage("Keep my headline short")]
         )
@@ -74,7 +79,8 @@ async def test_a_file_without_text_never_reaches_the_llm():
 
     with pytest.raises(ImportFailed, match="upload a PDF or a Word"):
         await build_graph(
-            _artifact_service(partial(_print, sent=[])), model=model
+            Container().import_document.agent(model=model),
+            _artifact_service(partial(_print, sent=[])),
         ).ainvoke(ImportInput(file=b64encode(b"plain text")))
 
     assert model.requests == []

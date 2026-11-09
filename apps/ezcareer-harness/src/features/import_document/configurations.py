@@ -2,19 +2,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.core.config import Family
-
 
 class ImportResumeConfigurations(BaseModel):
     model_config = ConfigDict(
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
-
-    family: Family
-    """Model family, which picks the provider"""
-
-    model: str
-    """Exact model that reads the résumé, such as gpt-6-luna"""
 
     checks: list[Literal["verbatim", "coverage", "order"]]
     """Checks run on each reply; errors go back to the LLM"""

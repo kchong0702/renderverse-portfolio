@@ -50,7 +50,7 @@ def build_agent(
             ResponseFormatMiddleware(),
             dynamic_model_call,
         ],
-        skills=["/"],
+        skills=["/"] if agent.skills.is_dir() else None,
         permissions=[
             FilesystemPermission(operations=["write"], paths=["/**"], mode="deny")
         ],

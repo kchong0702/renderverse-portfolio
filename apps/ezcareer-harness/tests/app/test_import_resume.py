@@ -22,8 +22,8 @@ def _client(model: ScriptedChatModel) -> TestClient:
     container = Container()
     container.import_document.import_resume_executable(
         graph=build_graph(
+            container.import_document.agent(model=model),
             _artifact_service(partial(_print, sent=[])),
-            model=model,
             checkpointer=container.checkpointer(),
         )
     )

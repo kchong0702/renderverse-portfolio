@@ -50,6 +50,12 @@ path = "src/agents/career_director/profile.yaml"
 family = "openai"
 model = "gpt-6-luna"
 
+[[agents]]
+name = "resume-importer"
+path = "src/agents/resume_importer/profile.yaml"
+family = "openai"
+model = "gpt-6-luna"
+
 [[graph_profiles]]
 name = "analyse-job"
 path = "src/features/analyse_job/harness/configurations.yaml"
