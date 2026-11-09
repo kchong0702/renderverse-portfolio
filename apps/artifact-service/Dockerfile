@@ -50,6 +50,10 @@ COPY packages/document-renderer/templates /app/packages/document-renderer/templa
 
 RUN playwright install --with-deps chromium
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libreoffice-writer-nogui \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN useradd --create-home --uid 10001 artifact
 
 USER artifact

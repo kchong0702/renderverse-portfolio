@@ -1,4 +1,4 @@
-from base64 import b64encode
+from base64 import b64decode, b64encode
 from collections.abc import Mapping
 
 import httpx
@@ -23,7 +23,8 @@ class Rendered(BaseModel):
 
 class ArtifactServiceClient:
     def __init__(self, client: httpx.AsyncClient) -> None:
-        """Lists templates and prints documents through artifact-service"""
+        """Lists templates, prints documents and converts files to PDF through
+        artifact-service"""
         self._client = client
         """Client whose base_url ends in artifact-service's route prefix"""
 
@@ -49,3 +50,11 @@ class ArtifactServiceClient:
         )
         response.raise_for_status()
         return Rendered.model_validate_json(response.content)
+
+    async def convert(self, file: bytes) -> bytes:
+        """The file as a PDF: a PDF as it is, a Word file converted"""
+        response = await self._client.post(
+            "/v1/convert", json={"file": b64encode(file).decode()}
+        )
+        response.raise_for_status()
+        return b64decode(response.json()["pdf"])

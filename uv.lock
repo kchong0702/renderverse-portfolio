@@ -96,6 +96,7 @@ source = { virtual = "apps/artifact-service" }
 dependencies = [
     { name = "document-schema" },
     { name = "fastapi" },
+    { name = "filetype" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
     { name = "playwright" },
@@ -119,6 +120,7 @@ dev = [
 requires-dist = [
     { name = "document-schema", editable = "packages/document-schema" },
     { name = "fastapi", specifier = ">=0.142.2" },
+    { name = "filetype", specifier = ">=1.2.0" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.45.0" },
     { name = "opentelemetry-sdk", specifier = ">=1.45.0" },
     { name = "playwright", specifier = ">=1.64.1" },
