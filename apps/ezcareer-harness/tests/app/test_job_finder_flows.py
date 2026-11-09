@@ -57,7 +57,7 @@ def test_a_posting_that_cannot_be_fetched_fails_the_task_with_the_reason():
 def test_a_served_analysis_completes_through_the_containers_checkpointer():
     respx.get(analyse_job.URL).respond(200, html=analyse_job.POSTING)
     container = Container()
-    container.job_finder(
+    container.job_finder.agent(
         model=ScriptedChatModel(
             replies=[analyse_job._answer("5+ years of Python in production")]
         )
@@ -73,35 +73,27 @@ def test_a_served_analysis_completes_through_the_containers_checkpointer():
     assert task["artifacts"][0]["parts"][0]["data"]["analysis"]["fit"] == 67
 
 
-def test_job_finder_workflows_keep_runs_in_the_containers_checkpointer():
-    container = Container()
-
-    graphs = [e.graph for e in container.executables() if e.kind == "workflow"]
-
-    assert [graph.checkpointer for graph in graphs] == [container.checkpointer()] * 2
-
-
 def test_find_jobs_gets_its_sources_from_the_containers_one_factory():
     container = Container()
 
-    factory = container.job_sources()
+    factory = container.clients.job_sources()
 
-    assert container.job_sources() is factory
+    assert container.clients.job_sources() is factory
     assert factory.create("jsearch") is factory.create("jsearch")
 
 
 def test_job_finder_is_served_as_an_agent_with_the_containers_checkpointer():
     container = Container()
-    container.job_finder(model=ScriptedChatModel(replies=[]))
+    container.job_finder.agent(model=ScriptedChatModel(replies=[]))
 
     card = TestClient(create_app(container)).get(
         "/ezcareer/a2a/job-finder/.well-known/agent-card.json"
     )
-    [served] = [e.graph for e in container.executables() if e.kind == "agent"]
+    [served] = [e.graph for e in container.executables() if e.name == "job-finder"]
 
     assert card.json()["name"] == "job-finder"
     assert served.checkpointer is container.checkpointer()
-    assert container.job_finder().checkpointer is None
+    assert container.job_finder.agent().checkpointer is None
 
 
 @respx.mock
@@ -114,7 +106,7 @@ async def test_both_workflows_run_on_the_containers_one_job_finder():
         ]
     )
     container = Container()
-    container.job_finder(model=model)
+    container.job_finder.agent(model=model)
     graphs = {e.name: e.graph for e in container.executables()}
 
     analysed = await graphs["analyse-job"].ainvoke(
