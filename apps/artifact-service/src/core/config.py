@@ -150,6 +150,19 @@ class RendererSettings(BaseModel):
     """Longest one render may take"""
 
 
+class LibreOfficeSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    command: str = "soffice"
+    """LibreOffice command that converts Word files to PDF"""
+
+    max_concurrent_conversions: int = Field(default=2, gt=0)
+    """Conversions that may run at once, the rest wait their turn"""
+
+    timeout_s: float = Field(default=60, gt=0)
+    """Longest one conversion may take"""
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="ARTIFACT_SERVICE_",
@@ -171,6 +184,9 @@ class Settings(BaseSettings):
 
     renderer: RendererSettings = Field(default_factory=RendererSettings)
     """Headless Chromium and the document renderer it loads"""
+
+    libreoffice: LibreOfficeSettings = Field(default_factory=LibreOfficeSettings)
+    """LibreOffice, which converts Word files to PDF"""
 
     @classmethod
     @override
@@ -205,6 +221,7 @@ def reload_settings() -> Settings:
 
 __all__ = [
     "AppSettings",
+    "LibreOfficeSettings",
     "ObservabilitySettings",
     "RendererSettings",
     "Settings",
