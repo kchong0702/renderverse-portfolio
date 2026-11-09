@@ -1,0 +1,19 @@
+services:
+  ezcareer-harness:
+    image: ezcareer-harness:${TAG:-dev}
+    profiles: ["apps"]
+    build:
+      context: ../..
+      dockerfile: apps/ezcareer-harness/Dockerfile
+      target: ezcareer-harness
+    restart: always
+    depends_on:
+      - artifact-service
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      EZCAREER_HARNESS_ARTIFACT_SERVICE__URL: http://artifact-service:8000/artifact-service
+      EZCAREER_HARNESS_OBSERVABILITY__OTLP_ENDPOINT: http://otel-collector:4318
+    ports:
+      - "127.0.0.1:${EZCAREER_HARNESS_HOST_PORT:-8200}:8000"

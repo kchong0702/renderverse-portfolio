@@ -1,0 +1,12 @@
+*
+!pyproject.toml
+!uv.lock
+!apps/ezcareer-harness
+!packages/document-schema
+apps/ezcareer-harness/.env
+apps/ezcareer-harness/tests
+apps/ezcareer-harness/scripts
+packages/document-schema/tests
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache

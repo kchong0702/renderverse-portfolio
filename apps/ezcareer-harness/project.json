@@ -51,6 +51,12 @@
         "command": "uv run pytest",
         "cwd": "apps/ezcareer-harness"
       }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose build ezcareer-harness"
+      }
     }
   }
 }
