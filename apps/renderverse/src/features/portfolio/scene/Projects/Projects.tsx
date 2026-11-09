@@ -1,7 +1,7 @@
 import { Html } from "@react-three/drei";
 import styles from "./Projects.module.css";
 import { useControls } from "leva";
-import Indicator from "@/shared/components/ui/Indicator";
+import Indicator from "@/shared/components/Indicator";
 import { BsProjectorFill } from "react-icons/bs";
 import { useTranslation } from "react-i18next";
 import Navbar from "./Navbar";
@@ -15,7 +15,7 @@ interface ProjectsProps {
   handlePLInteraction: SceneInteraction;
   handleModalInteraction: ModalInteraction;
 }
-// import CooldownLoader from "@/shared/components/ui/CooldownLoader";
+// import CooldownLoader from "@/shared/components/CooldownLoader";
 
 function Projects({
   handlePLInteraction,

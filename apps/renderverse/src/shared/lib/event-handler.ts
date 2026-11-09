@@ -1,4 +1,4 @@
-import styles from "@/shared/components/ui/Indicator.module.css";
+import styles from "@/shared/components/Indicator.module.css";
 
 export const handleHoverIndicator = (
   type: "enter" | "leave",

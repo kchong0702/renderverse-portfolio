@@ -1,7 +1,7 @@
-import Modal from "@/shared/components/ui/Modal";
+import Modal from "@/shared/components/Modal";
 import { useModalStore } from "@/shared/state/modalStore";
 import { useSceneStore } from "@/experience/state/sceneStore";
-import ProjectContent from "@/features/portfolio/components/ui/ProjectContent";
+import ProjectContent from "@/features/portfolio/components/ProjectContent";
 import type { ProjectItem } from "@/features/portfolio/types";
 
 export default function ProjectModal() {
