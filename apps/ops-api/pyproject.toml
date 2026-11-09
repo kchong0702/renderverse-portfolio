@@ -25,12 +25,26 @@ dependencies = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-ra --strict-markers --strict-config"
+addopts = "-ra --strict-markers --strict-config --import-mode=importlib"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 markers = [
     "postgres: needs a Postgres database (OPS_API_TEST_DATABASE_URL)",
 ]
+
+[tool.ruff.lint]
+extend-select = ["TID251"]
+
+[tool.ruff.lint.per-file-ignores]
+"!src/**/service.py" = ["TID251"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"sqlalchemy.delete".msg = "Build queries in the feature's repository; a service only commits"
+"sqlalchemy.func".msg = "Build queries in the feature's repository; a service only commits"
+"sqlalchemy.insert".msg = "Build queries in the feature's repository; a service only commits"
+"sqlalchemy.select".msg = "Build queries in the feature's repository; a service only commits"
+"sqlalchemy.text".msg = "Build queries in the feature's repository; a service only commits"
+"sqlalchemy.update".msg = "Build queries in the feature's repository; a service only commits"
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]

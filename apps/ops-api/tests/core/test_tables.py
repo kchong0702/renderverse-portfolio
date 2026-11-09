@@ -1,6 +1,6 @@
-from src.app import models  # noqa: F401
-from src.core.db.base import Base
-from src.core.db.mixins import AuditMixin
+from src.db import models  # noqa: F401
+from src.db.base import Base
+from src.db.mixins import AuditMixin
 
 _NOT_OWNED = {"users", "auth_sign_in_attempts"}
 

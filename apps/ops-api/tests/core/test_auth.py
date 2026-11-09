@@ -4,10 +4,9 @@ import pytest
 from sqlalchemy import func, select, update
 
 from src.core.auth.models import AuthIdentity, AuthSession, SignInAttempts
-from src.core.auth.repository import AuthRepository
 from src.core.auth.service import AuthService
 from src.core.config import get_settings, reload_settings
-from src.core.db.base import utcnow
+from src.db.base import utcnow
 from tests.conftest import OWNER, PREFIX
 
 PASSWORD = "correct horse battery"
@@ -16,7 +15,7 @@ WEB_URL = "http://localhost:5174"
 
 async def _set_password(app, email: str = OWNER, password: str = PASSWORD) -> None:
     async with app.state.session_factory() as session:
-        service = AuthService(AuthRepository(session), get_settings().auth)
+        service = AuthService(session, get_settings().auth)
         await service.set_password(email, password)
         await session.commit()
 

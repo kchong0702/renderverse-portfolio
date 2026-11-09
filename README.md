@@ -11,7 +11,7 @@ Nx monorepo for the Renderverse 3D portfolio, Ezbot, its chatbot, and Ops, the p
 | [ops-web](apps/ops-web/)             | React / Vite / Tailwind       | Ops UI: job search, documents, portfolio |
 | [ops-api](apps/ops-api/)             | Python / FastAPI / SQLAlchemy | Ops system of record                     |
 
-Shared libraries go in `packages/`. Ops is described in [docs/ops-design.md](docs/ops-design.md) (architecture) and [docs/ops-product.md](docs/ops-product.md) (product brief).
+Shared libraries go in `packages/`.
 
 ## Prerequisites
 

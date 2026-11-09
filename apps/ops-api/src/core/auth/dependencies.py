@@ -7,18 +7,17 @@ from fastapi import Cookie, Depends, Request
 from src.app.actor import set_actor, user_actor
 from src.core.auth.models import User
 from src.core.auth.oauth_providers import AuthlibAdapter, Provider
-from src.core.auth.repository import AuthRepository
 from src.core.auth.service import AuthService
 from src.core.config import get_settings
-from src.core.db.session import SessionDep
 from src.core.exceptions import Unauthorized
+from src.db.session import SessionDep
 
 SESSION_COOKIE = "ops_session"
 
 
 def get_auth_service(session: SessionDep) -> AuthService:
     """The auth service on the request's database session"""
-    return AuthService(AuthRepository(session), get_settings().auth)
+    return AuthService(session, get_settings().auth)
 
 
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]

@@ -4,13 +4,15 @@ import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.core.auth.models import AuthIdentity, AuthSession, User
 from src.core.auth.oauth_providers import OAuthIdentity, Provider
 from src.core.auth.passwords import MIN_PASSWORD_LENGTH, hash_password, verify_password
 from src.core.auth.repository import AuthRepository
 from src.core.config import AuthSettings
-from src.core.db.base import utcnow
 from src.core.exceptions import Forbidden, InvalidInput, TooManyRequests, Unauthorized
+from src.db.base import utcnow
 
 _RENEW_AFTER = timedelta(hours=1)
 
@@ -32,8 +34,10 @@ def _aware(moment: datetime) -> datetime:
 
 
 class AuthService:
-    def __init__(self, repository: AuthRepository, settings: AuthSettings):
-        self._repository = repository
+    def __init__(self, session: AsyncSession, settings: AuthSettings):
+        """Hold the session to commit on, a repository on it, and the auth settings"""
+        self._session = session
+        self._repository = AuthRepository(session)
         self.settings = settings
 
     def is_allowed(self, email: str) -> bool:
@@ -139,7 +143,7 @@ class AuthService:
         attempts = await self._repository.count_sign_in_attempt(
             email, now, now + _SIGN_IN_WINDOW
         )
-        await self._repository.commit()
+        await self._session.commit()
         if attempts > _MAX_SIGN_IN_ATTEMPTS:
             raise TooManyRequests("Too many attempts. Try again in 15 minutes.")
 
