@@ -8,7 +8,6 @@ export interface Me {
 }
 
 export interface SignInMethods {
-  /** False while ops-api runs with auth disabled */
   required: boolean;
   password: boolean;
   google: boolean;
@@ -33,6 +32,5 @@ export const signInWithPassword = (body: PasswordSignIn) =>
 
 export const signOut = () => http.post<void>(`${base}/auth/sign-out`);
 
-/** A full-page navigation: ops-api redirects to the provider and back */
 export const oauthLoginUrl = (provider: OAuthProvider, next: string) =>
   `${base}/auth/${provider}/login?${new URLSearchParams({ next })}`;

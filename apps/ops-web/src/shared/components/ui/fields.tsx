@@ -63,7 +63,6 @@ interface CheckboxRowProps extends InputHTMLAttributes<HTMLInputElement> {
   note?: string;
 }
 
-/** A checkbox with a bold label and a quieter note under it */
 export function CheckboxRow({ label, note, ...input }: CheckboxRowProps) {
   return (
     <label className="flex items-start gap-3">

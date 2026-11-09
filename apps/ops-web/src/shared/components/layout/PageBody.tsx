@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-/** The padded, centred column under a page header */
 export default function PageBody({ children }: { children: ReactNode }) {
   return (
     <div className="px-10 pt-9 pb-16">

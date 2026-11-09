@@ -27,12 +27,10 @@ export interface NavItem {
 }
 
 export interface NavGroup {
-  /** i18n key under nav.groups; the first group has no heading */
   heading?: "jobSearch" | "you" | "stayOnTrack";
   items: NavItem[];
 }
 
-// Sidebar order from the design. Badges arrive with each feature's count hook.
 export const navGroups: NavGroup[] = [
   { items: [{ key: "dashboard", path: "/", icon: LayoutDashboard }] },
   {

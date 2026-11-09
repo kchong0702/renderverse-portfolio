@@ -7,7 +7,6 @@ export const resources = {
   en: { translation: translationEN },
 };
 
-// English only for now; add a locale file and a language detector like renderverse's when needed
 i18n.use(initReactI18next).init({
   resources,
   lng: "en",
