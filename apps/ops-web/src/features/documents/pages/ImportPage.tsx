@@ -15,7 +15,12 @@ import {
   useTemplates,
 } from "../hooks/useDocuments";
 
-const STATUS_TONE = { pending: "warn", done: "ok", failed: "crit" } as const;
+const STATUS_TONE = {
+  pending: "warn",
+  running: "warn",
+  done: "ok",
+  failed: "crit",
+} as const;
 
 export default function ImportPage() {
   const { t } = useTranslation();

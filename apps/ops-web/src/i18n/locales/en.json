@@ -443,6 +443,7 @@
       "pending": "Your file is stored. Reading it into an editable draft arrives with the import-resume workflow, which is not connected yet, so imports wait here until then.",
       "status": {
         "pending": "Waiting to be read",
+        "running": "Reading…",
         "done": "Draft ready",
         "failed": "Could not read"
       },

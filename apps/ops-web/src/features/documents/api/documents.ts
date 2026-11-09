@@ -12,7 +12,7 @@ export type Size = "small" | "medium" | "large";
 export type PageSize = "a4" | "letter";
 export type Alignment = "left" | "justify";
 export type ChangesetStatus = "pending" | "accepted" | "rejected";
-export type ImportStatus = "pending" | "done" | "failed";
+export type ImportStatus = "pending" | "running" | "done" | "failed";
 
 export type Json =
   string | number | boolean | null | Json[] | { [key: string]: Json };
