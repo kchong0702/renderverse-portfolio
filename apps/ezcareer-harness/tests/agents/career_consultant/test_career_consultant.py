@@ -14,7 +14,7 @@ from pydantic import TypeAdapter
 from src.agents import AgentOverride, build_agent, load_agents
 from src.agents.career_consultant import CareerConsultantState
 from src.agents.career_consultant.tools import (
-    create_design_options_tool,
+    list_design_options_tool,
     read_pdf_lines,
 )
 from src.clients.artifact_service import ArtifactServiceClient
@@ -52,7 +52,7 @@ def _templates(request: httpx.Request) -> httpx.Response:
 TOOLS: tuple[BaseTool, ...] = (
     read_pdf_lines,
     read_profile_facts,
-    create_design_options_tool(
+    list_design_options_tool(
         ArtifactServiceClient(
             httpx.AsyncClient(
                 transport=httpx.MockTransport(_templates),
