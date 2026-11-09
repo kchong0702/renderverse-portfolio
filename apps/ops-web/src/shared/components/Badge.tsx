@@ -11,7 +11,6 @@ const tones: Record<BadgeTone, string> = {
   crit: "bg-crit-bg text-crit",
 };
 
-/** A short status or count in a rounded pill */
 export default function Badge({
   tone = "neutral",
   children,

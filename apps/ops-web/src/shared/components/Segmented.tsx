@@ -14,7 +14,6 @@ interface SegmentedProps<T extends string> {
   onChange: (value: T) => void;
 }
 
-/** Pick exactly one of a few options, such as a period or a page size */
 export default function Segmented<T extends string>({
   label,
   value,
