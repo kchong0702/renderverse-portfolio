@@ -16,6 +16,8 @@ export type Font =
 export type Size = "small" | "medium" | "large";
 export type PageSize = "a4" | "letter";
 export type PhotoShape = "circle" | "rounded" | "square";
+export type Region =
+  "top" | "top-left" | "top-center" | "top-right" | "main" | "side";
 export type MediaType = "image/png" | "image/jpeg" | "image/webp";
 export type ContactKind =
   "email" | "phone" | "location" | "linkedin" | "github" | "website" | "other";
@@ -43,11 +45,12 @@ export interface Design {
   page_size?: PageSize;
   photo_shape?: PhotoShape;
   photo_size?: Size;
-  layouts?: {
-    [k: string]: {
-      [k: string]: string[];
-    };
-  };
+  layouts?: Placement[];
+}
+export interface Placement {
+  template: string;
+  region: Region;
+  blocks: string[];
 }
 export interface Asset {
   media_type: MediaType;

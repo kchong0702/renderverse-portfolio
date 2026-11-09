@@ -10,7 +10,14 @@ from document_schema.contents import (
     Recipient,
     ResumeContent,
 )
-from document_schema.design import Design, PageSize, PhotoShape, Size, TemplateId
+from document_schema.design import (
+    Design,
+    PageSize,
+    PhotoShape,
+    Placement,
+    Size,
+    TemplateId,
+)
 from document_schema.document import (
     AnyDocument,
     Asset,
@@ -142,6 +149,7 @@ __all__ = [
     "Photo",
     "PhotoShape",
     "PhotoSpot",
+    "Placement",
     "Profile",
     "Project",
     "Projects",

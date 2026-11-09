@@ -1,11 +1,25 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field
 
-from document_schema.blocks.contacts import ContactKind
-from document_schema.contents.letter import AnyLetterBlock
+from document_schema.blocks.contacts import Contact, ContactKind
+from document_schema.contents.letter import AnyLetterBlock, Paragraph
 from document_schema.contents.resume import AnyBlock
 from document_schema.design import Design
+from document_schema.sections import (
+    Award,
+    Bullet,
+    Certification,
+    CustomEntry,
+    Degree,
+    Job,
+    LanguageSkill,
+    Link,
+    Project,
+    Publication,
+    Skill,
+    Tag,
+)
 from document_schema.types import BlockId, DataFieldPath, Id
 from document_schema.values import Date, RichValue, Value
 
@@ -57,8 +71,23 @@ class InsertItem(BaseModel):
     after: Id | None = None
     """None puts it first"""
 
-    item: dict[str, JsonValue]
-    """Checked against what the parent holds when applied"""
+    item: (
+        Contact
+        | Job
+        | Degree
+        | Project
+        | Skill
+        | LanguageSkill
+        | Certification
+        | Award
+        | Publication
+        | CustomEntry
+        | Bullet
+        | Link
+        | Tag
+        | Paragraph
+    )
+    """Shaped like the parent's items; checked against them when applied"""
 
 
 class Move(BaseModel):

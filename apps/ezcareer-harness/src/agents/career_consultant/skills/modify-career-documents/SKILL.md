@@ -10,9 +10,9 @@ description: How to write a Changeset of edits to a résumé or cover letter, wi
 3. Write each edit. A path is the ids from the content root, joined with `/`, such as `blocks/experience/items/lumen/bullets/queue/text`.
    - `update_field` replaces one field. Its value has the field's type. `null` clears an optional field.
    - `insert_block` adds a block after the block named by `after`, or first when `after` is `null`.
-   - `insert_item` adds a list item, such as a bullet or a skill, after the item named by `after`.
+   - `insert_item` adds an item to the list that `parent` names, after the item named by `after`, or first when `after` is `null`. The item has the fields of that list's other items, such as `{id, text}` for a bullet or `{id, label, items}` for a skill row.
    - `move` moves a block or an item within its list.
-   - `delete` removes a block or an item. A block that a layout places can only go after the layout drops it.
+   - `delete` removes a block or an item. A block that the design's `layouts` places can only go after an `update_design` takes it out of every placement there.
    - `update_visibility` hides or shows a block without deleting it.
    - `update_design` sets the whole design. Copy the current design and change only what the user asked.
 4. Cite sources in every value's `src`. Rewording a line cites that line. A claim the PDF doesn't make cites the fact that supports it. Keep every number and name exactly as the cited line or fact has it.

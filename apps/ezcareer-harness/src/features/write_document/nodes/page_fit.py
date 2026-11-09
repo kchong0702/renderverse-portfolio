@@ -33,7 +33,7 @@ async def page_fit(
     touched = (
         [edit.path for edit in edits if isinstance(edit, UpdateField | Move | Delete)]
         + [
-            f"{edit.parent}/{edit.item.get('id')}"
+            f"{edit.parent}/{edit.item.id}"
             for edit in edits
             if isinstance(edit, InsertItem)
         ]

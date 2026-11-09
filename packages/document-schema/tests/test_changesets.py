@@ -67,7 +67,11 @@ def test_a_changeset_has_at_least_one_edit() -> None:
 
 def test_every_edit_kind_reads_by_its_op() -> None:
     edits = [
-        {"kind": "insert_item", "parent": "blocks/exp/items", "item": {"id": "x"}},
+        {
+            "kind": "insert_item",
+            "parent": "blocks/exp/items/acme/bullets",
+            "item": {"id": "x", "text": rich("Shipped it.")},
+        },
         {"kind": "move", "path": "blocks/exp/items/acme", "after": None},
         {"kind": "delete", "path": "blocks/sk"},
         {"kind": "update_visibility", "block": "sk", "hidden": True},

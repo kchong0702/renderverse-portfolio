@@ -7,7 +7,7 @@ from document_schema import Design
 def test_the_default_design_is_classic_on_a4() -> None:
     design = Design()
 
-    assert (design.template, design.page_size, design.layouts) == ("classic", "a4", {})
+    assert (design.template, design.page_size, design.layouts) == ("classic", "a4", [])
 
 
 @pytest.mark.parametrize(
@@ -34,15 +34,48 @@ def test_values_outside_the_safe_range_are_rejected(fields: dict) -> None:
 
 
 def test_a_block_listed_twice_in_a_region_is_rejected() -> None:
-    with pytest.raises(ValidationError, match="twice in one region"):
-        Design(layouts={"classic": {"main": ["exp", "exp"]}})
+    with pytest.raises(ValidationError, match="placed twice"):
+        Design(
+            layouts=[
+                {"template": "classic", "region": "main", "blocks": ["exp", "exp"]}
+            ]
+        )
 
 
 def test_a_block_in_two_regions_is_rejected() -> None:
-    with pytest.raises(ValidationError, match="two regions"):
-        Design(layouts={"sidebar-band": {"main": ["exp"], "side": ["exp"]}})
+    with pytest.raises(ValidationError, match="placed twice"):
+        Design(
+            layouts=[
+                {"template": "sidebar-band", "region": "main", "blocks": ["exp"]},
+                {"template": "sidebar-band", "region": "side", "blocks": ["exp"]},
+            ]
+        )
+
+
+def test_a_region_listed_twice_for_a_template_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="one region twice"):
+        Design(
+            layouts=[
+                {"template": "classic", "region": "main", "blocks": ["exp"]},
+                {"template": "classic", "region": "main", "blocks": ["sk"]},
+            ]
+        )
+
+
+def test_each_template_keeps_its_own_placements() -> None:
+    design = Design(
+        layouts=[
+            {"template": "classic", "region": "main", "blocks": ["exp"]},
+            {"template": "sidebar-band", "region": "side", "blocks": ["exp"]},
+        ]
+    )
+
+    assert [placement.template for placement in design.layouts] == [
+        "classic",
+        "sidebar-band",
+    ]
 
 
 def test_an_unknown_region_is_rejected() -> None:
     with pytest.raises(ValidationError):
-        Design(layouts={"classic": {"footer": ["exp"]}})
+        Design(layouts=[{"template": "classic", "region": "footer", "blocks": ["exp"]}])

@@ -45,13 +45,13 @@ export function place(
   const placed = new Map<Region, AnyBlock[]>(
     Object.keys(regions).map((region) => [region as Region, []]),
   );
-  for (const [region, ids] of Object.entries(
-    document.design?.layouts?.[template.id] ?? {},
+  for (const { region, blocks } of (document.design?.layouts ?? []).filter(
+    (placement) => placement.template === template.id,
   )) {
-    for (const id of placed.has(region as Region) ? ids : []) {
+    for (const id of placed.has(region) ? blocks : []) {
       const block = unplaced.get(id);
       if (block) {
-        placed.get(region as Region)!.push(block);
+        placed.get(region)!.push(block);
         unplaced.delete(id);
       }
     }
