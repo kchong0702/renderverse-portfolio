@@ -229,6 +229,232 @@
       "delete": "Delete"
     }
   },
+  "documents": {
+    "pageTitle": "Documents",
+    "subtitle": "Résumés, CVs and cover letters, with the edits agents propose",
+    "import": "Import résumé",
+    "listFailed": "Documents could not load: {{reason}}",
+    "loadFailed": "This document could not load: {{reason}}",
+    "createFailed": "The document was not created: {{reason}}",
+    "kinds": {
+      "label": "Document type",
+      "resume": "Résumés",
+      "cover_letter": "Cover letters",
+      "cv": "CVs"
+    },
+    "list": "Documents",
+    "new": "New",
+    "empty": {
+      "resume": "No résumés yet. Import the one you have, or start a new one.",
+      "cover_letter": "No cover letters yet. Start a new one.",
+      "cv": "No CVs yet. Start a new one."
+    },
+    "untitled": {
+      "resume": "New résumé",
+      "cover_letter": "New cover letter",
+      "cv": "New CV"
+    },
+    "starter": {
+      "name": "Your name",
+      "greeting": "Dear hiring manager,",
+      "closing": "Yours sincerely,"
+    },
+    "title": "Title",
+    "master": "Master",
+    "setMaster": "Set as master",
+    "delete": "Delete {{title}}",
+    "confirmDelete": "Delete {{title}} with all its versions? This cannot be undone.",
+    "save": {
+      "saving": "Saving…",
+      "failed": "Not saved: {{reason}}"
+    },
+    "pendingEdits_one": "{{count}} edit to review",
+    "pendingEdits_other": "{{count}} edits to review",
+    "updated": "Edited {{date}}",
+    "tools": "Document tools",
+    "panels": {
+      "content": "Content",
+      "design": "Design",
+      "changes": "Changes",
+      "changesCount": "Changes ({{count}})",
+      "versions": "Versions"
+    },
+    "preview": {
+      "title": "PDF preview of {{title}}",
+      "printing": "Printing the preview…",
+      "failed": "Preview not printed: {{reason}}",
+      "unavailable": "The preview comes from artifact-service, which did not answer. Your edits are still saved.",
+      "pages_one": "{{count}} page",
+      "pages_other": "{{count}} pages",
+      "warnings_one": "{{count}} layout warning",
+      "warnings_other": "{{count}} layout warnings",
+      "export": "Export PDF"
+    },
+    "content": {
+      "hint": "Edit any line; it saves when you leave the field. The eye hides a section from the page without deleting it.",
+      "show": "Show {{block}} on the page",
+      "hide": "Hide {{block}} from the page"
+    },
+    "fields": {
+      "address": "Address line",
+      "authors": "Authors",
+      "awarder": "Awarded by",
+      "bullets": "Bullet",
+      "closing": "Closing",
+      "company": "Company",
+      "date": "Date",
+      "dates": "Dates",
+      "degree": "Degree",
+      "description": "Description",
+      "doi": "DOI",
+      "fluency": "Fluency",
+      "grade": "Grade",
+      "greeting": "Greeting",
+      "heading": "Heading",
+      "headline": "Headline",
+      "issuer": "Issued by",
+      "items": "Item",
+      "label": "Label",
+      "language": "Language",
+      "links": "Link",
+      "location": "Location",
+      "name": "Name",
+      "organization": "Organisation",
+      "paragraphs": "Paragraph",
+      "role": "Role",
+      "school": "School",
+      "subject": "Subject",
+      "subtitle": "Subtitle",
+      "tags": "Tag",
+      "text": "Text",
+      "title": "Title",
+      "url": "Address",
+      "value": "Contact",
+      "venue": "Venue"
+    },
+    "blocks": {
+      "profile": "Name and headline",
+      "photo": "Photo",
+      "contacts": "Contact details",
+      "summary": "Summary",
+      "experience": "Experience",
+      "education": "Education",
+      "projects": "Projects",
+      "skills": "Skills",
+      "languages": "Languages",
+      "certifications": "Certifications",
+      "awards": "Awards",
+      "publications": "Publications",
+      "custom": "Section",
+      "recipient": "Recipient",
+      "letter": "Letter"
+    },
+    "design": {
+      "template": "Template",
+      "templateHint": "Your words stay the same whichever you pick.",
+      "templatesFailed": "Templates come from artifact-service, which did not answer: {{reason}}",
+      "accent": "Accent colour",
+      "accentColour": "Accent {{hex}}",
+      "templateAccent": "The template's colour",
+      "text": "Text",
+      "font": "Font",
+      "templateFont": "Template font, {{font}}",
+      "templateFontPlain": "The template's font",
+      "textSize": "Text size",
+      "sizes": {
+        "small": "Small",
+        "medium": "Medium",
+        "large": "Large"
+      },
+      "alignment": "Alignment",
+      "alignments": {
+        "left": "Left",
+        "justify": "Justified"
+      },
+      "lineSpacing": "Line spacing",
+      "layout": "Layout",
+      "pageSize": "Page size",
+      "pageSizes": {
+        "a4": "A4",
+        "letter": "Letter"
+      },
+      "margins": "Margins",
+      "mm": "{{value}} mm",
+      "sectionSpacing": "Space between sections",
+      "pt": "{{value}} pt"
+    },
+    "fonts": {
+      "inter": "Inter",
+      "lato": "Lato",
+      "source-sans-3": "Source Sans 3",
+      "source-serif-4": "Source Serif 4",
+      "merriweather": "Merriweather",
+      "eb-garamond": "EB Garamond"
+    },
+    "changes": {
+      "empty": "No edits to review. When the assistant tailors this document, each edit it proposes waits here for you. That arrives with the edit-document workflow, which is not connected yet.",
+      "loadFailed": "Changes could not load: {{reason}}",
+      "failed": "Not answered: {{reason}}",
+      "from": "From {{agent}} · {{date}}",
+      "accept": "Accept",
+      "reject": "Reject",
+      "status": {
+        "pending": "To review",
+        "accepted": "Accepted",
+        "rejected": "Rejected"
+      },
+      "update": "{{field}}: {{text}}",
+      "insertBlock": "Add a {{kind}} section",
+      "insertItem": "Add an item to {{parent}}",
+      "move": "Move {{item}}: {{text}}",
+      "delete": "Remove {{item}}: {{text}}",
+      "hide": "Hide {{block}} from the page",
+      "show": "Show {{block}} on the page",
+      "design": "Change the design"
+    },
+    "versions": {
+      "label": "Name this version",
+      "labelPlaceholder": "Such as Sent to Lumen Pay",
+      "keep": "Keep version",
+      "hint": "Ops also keeps a version when a document is created and after you accept an agent's edits. Restoring replaces the current draft, so keep it first if you want it back.",
+      "failed": "Not done: {{reason}}",
+      "loadFailed": "Versions could not load: {{reason}}",
+      "name": "Version {{number}} · {{label}}",
+      "unlabelled": "No name",
+      "restore": "Restore"
+    },
+    "importPage": {
+      "title": "Import résumé",
+      "steps": {
+        "label": "Import steps",
+        "read": "Read the file",
+        "check": "Check the facts",
+        "look": "Choose a look"
+      },
+      "upload": {
+        "title": "Upload your résumé",
+        "hint": "A PDF or Word (.docx) file, up to 10 MB. Every fact will link back to the line it came from.",
+        "choose": "Choose a file",
+        "uploading": "Uploading…",
+        "failed": "Not uploaded: {{reason}}"
+      },
+      "loadFailed": "Imports could not load: {{reason}}",
+      "files": "Uploaded files",
+      "pending": "Your file is stored. Reading it into an editable draft arrives with the import-resume workflow, which is not connected yet, so imports wait here until then.",
+      "status": {
+        "pending": "Waiting to be read",
+        "done": "Draft ready",
+        "failed": "Could not read"
+      },
+      "uploaded": "{{size}} KB · uploaded {{date}}",
+      "open": "Open the draft",
+      "cancel": "Cancel import",
+      "look": {
+        "title": "Choose a look",
+        "hint": "Once the draft is ready you pick one of these, and you can switch any time from the document's Design tab."
+      }
+    }
+  },
   "settings": {
     "title": "Settings",
     "subtitle": "Connections and automation",

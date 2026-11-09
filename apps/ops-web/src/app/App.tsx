@@ -2,6 +2,7 @@ import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import { ApplicationsPage } from "@/features/applications";
 import { RequireAuth, SignInPage } from "@/features/auth";
 import { DashboardPage } from "@/features/dashboard";
+import { DocumentsPage, ImportPage } from "@/features/documents";
 import { JobsPage } from "@/features/jobs";
 import { SettingsPage } from "@/features/settings";
 import { useApplyTheme } from "@/shared/theme/useApplyTheme";
@@ -22,7 +23,8 @@ const router = createBrowserRouter(
         { path: "/", element: <DashboardPage /> },
         { path: "/jobs", element: <JobsPage /> },
         { path: "/applications", element: <ApplicationsPage /> },
-        { path: "/documents", element: <ComingSoon page="documents" /> },
+        { path: "/documents", element: <DocumentsPage /> },
+        { path: "/documents/import", element: <ImportPage /> },
         { path: "/portfolio", element: <ComingSoon page="portfolio" /> },
         { path: "/inbox", element: <ComingSoon page="inbox" /> },
         { path: "/calendar", element: <ComingSoon page="calendar" /> },
