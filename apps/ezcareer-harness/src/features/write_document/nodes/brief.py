@@ -4,7 +4,9 @@ from src.features.write_document.state import EditGraphState
 
 
 def brief(state: EditGraphState) -> EditGraphState:
-    """Shows the agent the document and how it printed, then the user's request"""
+    """Shows the agent the document and how it printed, then the user's request,
+    in place of the request's own message"""
+    request = state["messages"][-1]
     report = state.get("report")
     return {
         "messages": [
@@ -13,7 +15,8 @@ def brief(state: EditGraphState) -> EditGraphState:
                 f"<document>\n{state['document'].model_dump_json()}\n</document>\n"
                 f"<report>\n{report.model_dump_json() if report else 'not printed yet'}"
                 "\n</report>\n\n"
-                f"The user asks: {state['request']}"
+                f"The user asks: {request.text}",
+                id=request.id,
             )
         ]
     }

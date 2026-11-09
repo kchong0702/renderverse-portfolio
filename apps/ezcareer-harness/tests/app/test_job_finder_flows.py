@@ -10,7 +10,7 @@ from tests.features.analyse_job import test_analyse_job_graph as analyse_job
 URL = "https://jobs.example.com/gone"
 
 
-def _send(client: TestClient, path: str, data: dict) -> dict:
+def _send(client: TestClient, path: str, parts: list[dict]) -> dict:
     response = client.post(
         path,
         headers={"A2A-Version": "1.0"},
@@ -22,7 +22,7 @@ def _send(client: TestClient, path: str, data: dict) -> dict:
                 "message": {
                     "messageId": "m1",
                     "role": "ROLE_USER",
-                    "parts": [{"data": data}],
+                    "parts": parts,
                 }
             },
         },
@@ -44,7 +44,7 @@ def test_a_posting_that_cannot_be_fetched_fails_the_task_with_the_reason():
     client = TestClient(create_app())
 
     task = _send(
-        client, "/ezcareer/a2a/analyse-job", {"url": URL, "profile": {"facts": []}}
+        client, "/ezcareer/a2a/analyse-job", [{"data": {"url": URL, "facts": []}}]
     )
 
     assert task["status"]["state"] == "TASK_STATE_FAILED"
@@ -56,21 +56,22 @@ def test_a_posting_that_cannot_be_fetched_fails_the_task_with_the_reason():
 @respx.mock
 def test_a_served_analysis_completes_through_the_containers_checkpointer():
     respx.get(analyse_job.URL).respond(200, html=analyse_job.POSTING)
-    container = Container()
-    container.job_finder.agent(
-        model=ScriptedChatModel(
-            replies=[analyse_job._answer("5+ years of Python in production")]
-        )
+    model = ScriptedChatModel(
+        replies=[analyse_job._answer("5+ years of Python in production")]
     )
+    container = Container()
+    container.job_finder.agent(model=model)
 
     task = _send(
         TestClient(create_app(container)),
         "/ezcareer/a2a/analyse-job",
-        analyse_job.INPUT,
+        [{"text": "Focus on visa"}, {"data": analyse_job.INPUT}],
     )
 
     assert task["status"]["state"] == "TASK_STATE_COMPLETED"
     assert task["artifacts"][0]["parts"][0]["data"]["analysis"]["fit"] == 67
+    assert model.requests[0][1].text == "Focus on visa"
+    assert "<posting untrusted>" in model.requests[0][2].text
 
 
 def test_find_jobs_gets_its_sources_from_the_containers_one_factory():
@@ -113,7 +114,7 @@ async def test_both_workflows_run_on_the_containers_one_job_finder():
         analyse_job.INPUT, {"configurable": {"thread_id": "analyse"}}
     )
     found = await graphs["find-jobs"].ainvoke(
-        {"profile": {"facts": []}}, {"configurable": {"thread_id": "find"}}
+        {"facts": []}, {"configurable": {"thread_id": "find"}}
     )
 
     assert analysed["analysis"].fit == 67

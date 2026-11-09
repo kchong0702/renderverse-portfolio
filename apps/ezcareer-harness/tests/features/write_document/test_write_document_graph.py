@@ -123,7 +123,7 @@ def _graph(
 def _input(**update: object) -> EditInput:
     state = _state()
     return EditInput(
-        request="Mention my Kubernetes work",
+        messages=[HumanMessage("Mention my Kubernetes work")],
         document=state["document"],
         lines=state["lines"],
         facts=state["facts"],
@@ -146,8 +146,9 @@ async def test_a_passing_changeset_goes_out_with_a_fresh_id():
     assert list(result) == ["changeset"]
     assert result["changeset"].edits == [GOOD_EDIT]
     assert result["changeset"].id != "cs1"
-    assert "<document>" in model.requests[0][1].text
-    assert "Mention my Kubernetes work" in model.requests[0][1].text
+    [_, briefed] = model.requests[0]
+    assert "<document>" in briefed.text
+    assert briefed.text.endswith("The user asks: Mention my Kubernetes work")
 
 
 async def test_errors_go_back_to_the_agent_until_it_fixes_them():

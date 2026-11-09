@@ -60,7 +60,6 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
                 runnable=providers.Singleton(
                     workflow_runnable,
                     career_consultant.edit_document_executable.provided.graph,
-                    "request",
                 ),
             ),
         ),

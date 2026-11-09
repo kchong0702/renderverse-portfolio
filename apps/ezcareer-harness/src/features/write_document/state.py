@@ -5,9 +5,6 @@ from src.shared.checks import CheckError
 
 
 class EditGraphState(CareerConsultantState, total=False):
-    request: str
-    """What the user asked for in chat"""
-
     assets: dict[FileHash, bytes]
     """The bytes of every file the document uses"""
 

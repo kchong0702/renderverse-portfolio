@@ -68,7 +68,12 @@ def test_career_director_analyses_the_posting_at_a_url_through_analyse_job():
         TestClient(create_app(container)),
         [
             {"text": f"How well do I fit {analyse_job.URL}?"},
-            {"data": analyse_job.INPUT["profile"]},
+            {
+                "data": {
+                    "facts": analyse_job.INPUT["facts"],
+                    "preferences": analyse_job.INPUT["preferences"],
+                }
+            },
         ],
     )
 

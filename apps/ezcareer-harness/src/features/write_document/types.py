@@ -1,6 +1,7 @@
 from typing import TypedDict
 
 from document_schema import AnyDocument, Changeset, FileHash, Report
+from langchain_core.messages import AnyMessage
 from pydantic import Base64Bytes, BaseModel, ConfigDict, Field
 
 from src.shared.extraction.types import Line
@@ -10,8 +11,8 @@ from src.shared.profile import ProfileFact
 class EditInput(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
-    request: str
-    """What the user asked for in chat"""
+    messages: list[AnyMessage] = Field(min_length=1)
+    """The user's chat, ending with their request"""
 
     document: AnyDocument
     """The résumé or letter as it is now"""

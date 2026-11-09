@@ -9,20 +9,15 @@ from pydantic_core import to_json
 
 from src.agents.career_director.state import CareerDirectorState
 from src.core.errors import ExecuteError
-from src.shared.profile import Profile
 
 
 async def _run_workflow(
     graph: CompiledStateGraph, field: str | None, state: CareerDirectorState
 ) -> DeepAgentState:
     """Runs graph on the input career-director's state fills, with the task's
-    description as field, and reports its output or why it failed"""
+    description as its message and as field, and reports its output or why it failed"""
     schema = graph.get_input_schema()
-    given = {
-        **state,
-        "profile": Profile(facts=state["facts"], preferences=state["preferences"]),
-        **({field: state["messages"][-1].text} if field else {}),
-    }
+    given = {**state, **({field: state["messages"][-1].text} if field else {})}
     try:
         output = await graph.ainvoke(
             schema.model_validate(

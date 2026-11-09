@@ -51,7 +51,6 @@ def _edit_document(model: ScriptedChatModel) -> CompiledSubAgent:
                     )
                 ),
             ),
-            "request",
         ),
     )
 
