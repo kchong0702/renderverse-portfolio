@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useLocation } from "react-router-dom";
 import { ApiError } from "@/shared/api/http";
-import { useMe } from "../hooks/useAuth";
+import { useMe } from "../../hooks/useAuth";
 
 function FullPageStatus({ children }: { children: ReactNode }) {
   return (

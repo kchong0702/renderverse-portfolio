@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
 import { SignOutButton, useMe } from "@/features/auth";
 import { cn } from "@/shared/lib/cn";
-import { SparkIcon } from "@/shared/ui/icons";
+import { SparkIcon } from "@/shared/components/ui/icons";
 import { navGroups } from "./nav";
 import ThemeToggle from "./ThemeToggle";
 
