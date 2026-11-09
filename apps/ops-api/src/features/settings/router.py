@@ -1,18 +1,19 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from src.core.auth import CurrentUserDep
 from src.db.session import SessionDep
 from src.features.settings.schemas import SettingsRead, SettingsUpdate
 from src.features.settings.service import SettingsService
+from src.integrations.ezcareer import ModelCatalog
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 
-def get_settings_service(session: SessionDep) -> SettingsService:
+def get_settings_service(session: SessionDep, request: Request) -> SettingsService:
     """The settings service on the request's database session"""
-    return SettingsService(session)
+    return SettingsService(session, request.app.state.ezcareer)
 
 
 SettingsServiceDep = Annotated[SettingsService, Depends(get_settings_service)]
@@ -35,3 +36,12 @@ async def update_settings(
 ) -> SettingsRead:
     """Change some of the signed-in user's settings"""
     return await service.update(user.id, patch)
+
+
+@router.get("/models")
+async def read_models(
+    _: CurrentUserDep,
+    service: SettingsServiceDep,
+) -> ModelCatalog:
+    """The models the user can pick, from ezcareer-harness"""
+    return await service.models()

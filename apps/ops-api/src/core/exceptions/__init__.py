@@ -4,6 +4,7 @@ from src.core.exceptions.service import (
     InvalidInput,
     NotFound,
     ServiceException,
+    ServiceUnavailable,
     TooManyRequests,
     Unauthorized,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "InvalidInput",
     "NotFound",
     "ServiceException",
+    "ServiceUnavailable",
     "TooManyRequests",
     "Unauthorized",
 ]

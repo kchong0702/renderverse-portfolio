@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base
 from src.db.mixins import AuditMixin
+from src.integrations.ezcareer import ModelFamily
 
 
 class UserSettings(AuditMixin, Base):
@@ -32,7 +33,11 @@ class UserSettings(AuditMixin, Base):
     work_day_end: Mapped[time] = mapped_column(Time(), default=time(18, 0))
     meeting_gap_minutes: Mapped[int] = mapped_column(default=30)
 
-    ai_provider: Mapped[str] = mapped_column(String(20), default="claude")
+    ai_family: Mapped[ModelFamily | None] = mapped_column(String(20))
+    """Provider of the chosen model; None until the user picks one"""
+
+    ai_model: Mapped[str | None] = mapped_column(String(100))
+    """The chosen model, one ezcareer-harness offers; set together with ai_family"""
 
 
 __all__ = ["UserSettings"]

@@ -31,6 +31,10 @@ scope = "read:user user:email"
 pool_size = 5
 echo = false
 
+[ezcareer]
+url = "http://127.0.0.1:8200/ezcareer"
+timeout_seconds = 10
+
 [observability]
 service_name = "ops-api"
 log_level = "INFO"

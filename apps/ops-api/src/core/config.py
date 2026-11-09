@@ -181,6 +181,16 @@ class DatabaseSettings(BaseModel):
     """Log every SQL statement"""
 
 
+class EzcareerSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    url: str = "http://127.0.0.1:8200/ezcareer"
+    """ezcareer-harness base URL, including its route prefix"""
+
+    timeout_seconds: float = Field(default=10, gt=0)
+    """How long a request to ezcareer-harness may take"""
+
+
 class ObservabilitySettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
@@ -215,6 +225,9 @@ class Settings(BaseSettings):
 
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     """Database connection settings"""
+
+    ezcareer: EzcareerSettings = Field(default_factory=EzcareerSettings)
+    """Where ops-api reaches ezcareer-harness"""
 
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     """Logging settings"""
@@ -254,6 +267,7 @@ __all__ = [
     "AppSettings",
     "AuthSettings",
     "DatabaseSettings",
+    "EzcareerSettings",
     "ObservabilitySettings",
     "Settings",
     "get_settings",
