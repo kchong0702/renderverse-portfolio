@@ -100,12 +100,16 @@ A feature that outgrows single files turns a file into a package of the same nam
 src/
 ├── app/            router (App.tsx), providers, shell/ (sidebar, page frame)
 ├── features/<f>/
-│   ├── api/        fetchers and types matching ops-api's schemas
-│   ├── hooks/      TanStack Query hooks
-│   ├── ui/         <Name>Page.tsx and its components
-│   ├── state/      zustand, only when the feature needs it
-│   └── index.ts    public API
-├── shared/         api/, ui/, theme/, lib/
+│   ├── api/                 fetchers and types matching ops-api's schemas
+│   ├── queries/             queryOptions and mutationOptions, with their query keys
+│   ├── hooks/               hooks that call useQuery and useMutation with those options
+│   ├── pages/               <Name>Page.tsx, one per route
+│   ├── components/ui/       small presentational parts
+│   ├── components/layout/   panels, docks and frames that arrange other components
+│   ├── lib/                 plain helpers and constants
+│   ├── state/               zustand, only when the feature needs it
+│   └── index.ts             public API
+├── shared/         api/, components/ui/, components/layout/, theme/, lib/
 └── i18n/
 ```
 
