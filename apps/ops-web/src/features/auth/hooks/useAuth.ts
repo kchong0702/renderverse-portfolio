@@ -1,41 +1,23 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { sessionQueryKey } from "@/shared/api/queryClient";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
-  fetchMe,
-  fetchSignInMethods,
-  signInWithPassword,
-  signOut,
-} from "../api/auth";
+  meQueryOptions,
+  signInMethodsQueryOptions,
+  signInMutationOptions,
+  signOutMutationOptions,
+} from "../queries/auth";
 
 export function useMe() {
-  return useQuery({
-    queryKey: sessionQueryKey,
-    queryFn: ({ signal }) => fetchMe(signal),
-    staleTime: Infinity,
-  });
+  return useQuery(meQueryOptions);
 }
 
 export function useSignInMethods() {
-  return useQuery({
-    queryKey: ["auth", "methods"],
-    queryFn: ({ signal }) => fetchSignInMethods(signal),
-    staleTime: Infinity,
-  });
+  return useQuery(signInMethodsQueryOptions);
 }
 
 export function useSignIn() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: signInWithPassword,
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: sessionQueryKey }),
-  });
+  return useMutation(signInMutationOptions);
 }
 
 export function useSignOut() {
-  return useMutation({
-    mutationFn: signOut,
-    // A full reload drops every cached query along with the session
-    onSuccess: () => window.location.assign("/sign-in"),
-  });
+  return useMutation(signOutMutationOptions);
 }
