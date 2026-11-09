@@ -50,8 +50,7 @@ class Container(containers.DeclarativeContainer):
         job_finder=job_finder,
         career_consultant=career_consultant,
     )
-    """career-director, which runs the other agents as its subagents and the
-    workflows as its tools"""
+    """career-director, which runs the workflows as its tools"""
 
     executables = providers.List(
         job_finder.agent_executable,

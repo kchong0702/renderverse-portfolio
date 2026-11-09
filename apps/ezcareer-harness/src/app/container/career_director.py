@@ -1,4 +1,3 @@
-from deepagents import CompiledSubAgent
 from dependency_injector import containers, providers
 
 from src.agents import build_agent
@@ -19,12 +18,10 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
     """Where the served graph keeps checkpoints"""
 
     job_finder = providers.DependenciesContainer()
-    """job-finder's container, whose agent becomes a subagent and whose workflows
-    become tools"""
+    """job-finder's container, whose workflows become tools"""
 
     career_consultant = providers.DependenciesContainer()
-    """career-consultant's container, whose agent becomes a subagent and whose
-    workflow becomes a tool"""
+    """career-consultant's container, whose workflow becomes a tool"""
 
     agent = providers.Singleton(
         build_agent,
@@ -41,24 +38,9 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
                 career_consultant.edit_document_executable.provided.graph,
             ),
         ),
-        subagents=providers.List(
-            providers.Singleton(
-                CompiledSubAgent,
-                name="job-finder",
-                description="Answers questions about how jobs fit the user's profile",
-                runnable=job_finder.agent,
-            ),
-            providers.Singleton(
-                CompiledSubAgent,
-                name="career-consultant",
-                description="Advises on the open résumé or cover letter without changing it",
-                runnable=career_consultant.agent,
-            ),
-        ),
         state_schema=CareerDirectorState,
     )
-    """The career-director agent, built once, running the other agents as its
-    subagents and the workflows as its tools"""
+    """The career-director agent, built once, running the workflows as its tools"""
 
     agent_executable = providers.Singleton(
         Executable,
