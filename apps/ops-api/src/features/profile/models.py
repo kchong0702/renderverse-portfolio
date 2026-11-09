@@ -3,10 +3,10 @@ from __future__ import annotations
 from enum import StrEnum
 from uuid import UUID
 
-from sqlalchemy import Enum, ForeignKey, String, Text
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.db.base import Base, JsonType
+from src.db.base import Base, EnumString, JsonType
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 
 
@@ -41,16 +41,6 @@ class SalaryPeriod(StrEnum):
 
     YEAR = "year"
     """Paid per year"""
-
-
-def _string_enum(enum: type[StrEnum]) -> Enum:
-    """Store a StrEnum by its values in a plain string column"""
-    return Enum(
-        enum,
-        native_enum=False,
-        length=20,
-        values_callable=lambda e: [m.value for m in e],
-    )
 
 
 class Profile(AuditMixin, Base):
@@ -98,7 +88,7 @@ class Profile(AuditMixin, Base):
     """ISO 4217 code of min_salary_amount"""
 
     min_salary_period: Mapped[SalaryPeriod | None] = mapped_column(
-        _string_enum(SalaryPeriod), default=None
+        EnumString(SalaryPeriod), default=None
     )
     """What min_salary_amount is paid for"""
 
@@ -106,7 +96,7 @@ class Profile(AuditMixin, Base):
 class ProfileEntry(IdMixin, UserScopedMixin, AuditMixin, Base):
     __tablename__ = "profile_entries"
 
-    kind: Mapped[EntryKind] = mapped_column(_string_enum(EntryKind))
+    kind: Mapped[EntryKind] = mapped_column(EnumString(EntryKind))
     """Role, education or project"""
 
     title: Mapped[str] = mapped_column(String(200))

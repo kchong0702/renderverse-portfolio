@@ -22,18 +22,7 @@ def upgrade() -> None:
     """Upgrade schema."""
     op.create_table(
         "profile_entries",
-        sa.Column(
-            "kind",
-            sa.Enum(
-                "role",
-                "education",
-                "project",
-                name="entrykind",
-                native_enum=False,
-                length=20,
-            ),
-            nullable=False,
-        ),
+        sa.Column("kind", sa.String(), nullable=False),
         sa.Column("title", sa.String(length=200), nullable=False),
         sa.Column("organisation", sa.String(length=200), nullable=False),
         sa.Column("location", sa.String(length=200), nullable=False),
@@ -126,18 +115,7 @@ def upgrade() -> None:
         ),
         sa.Column("min_salary_amount", sa.Integer(), nullable=True),
         sa.Column("min_salary_currency", sa.String(length=3), nullable=True),
-        sa.Column(
-            "min_salary_period",
-            sa.Enum(
-                "hour",
-                "month",
-                "year",
-                name="salaryperiod",
-                native_enum=False,
-                length=20,
-            ),
-            nullable=True,
-        ),
+        sa.Column("min_salary_period", sa.String(), nullable=True),
         sa.Column("created_by", sa.String(length=100), nullable=False),
         sa.Column("updated_by", sa.String(length=100), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
