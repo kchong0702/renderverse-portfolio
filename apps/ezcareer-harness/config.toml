@@ -56,3 +56,7 @@ path = "src/features/find_jobs/harness/configurations.yaml"
 [[graph_profiles]]
 name = "write-document"
 path = "src/features/write_document/harness/configurations.yaml"
+
+[[graph_profiles]]
+name = "import-resume"
+path = "src/features/import_document/harness/configurations.yaml"
