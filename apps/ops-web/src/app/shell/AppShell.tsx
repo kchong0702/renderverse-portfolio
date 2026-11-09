@@ -14,7 +14,14 @@ export default function AppShell() {
       <main className="flex min-w-0 flex-[999_1_560px] flex-col">
         <Outlet />
       </main>
-      <AssistantDock topic={item && t(`nav.items.${item.key}`)} />
+      <AssistantDock
+        topic={item && t(`nav.items.${item.key}`)}
+        suggestions={
+          item
+            ? t(`assistant.suggestions.${item.key}`, { returnObjects: true })
+            : []
+        }
+      />
     </div>
   );
 }
