@@ -8,7 +8,7 @@ from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
 from scripts import probe
-from src.agents import Workflow, build_agent, load_agents
+from src.agents import AgentOverride, build_agent, load_agents
 from src.core.config import get_settings, reload_settings
 from src.infrastructure import get_tracer
 from tests.agents.test_builder import FIXTURES, Greeting, _call, look_up_name
@@ -41,7 +41,7 @@ async def _greet(task: object) -> object:
     )
     result = await agent.ainvoke(
         {"messages": [HumanMessage(f"Greet {task['person']}")]},
-        Workflow(response_format=Greeting).config(
+        AgentOverride(response_format=Greeting).config(
             {"recursion_limit": profile.recursion_limit}
         ),
     )

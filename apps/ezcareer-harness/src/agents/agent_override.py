@@ -5,12 +5,12 @@ from langgraph.config import get_config
 from pydantic import BaseModel, ConfigDict
 
 
-def current_workflow() -> "Workflow | None":
-    """The workflow the current run's config names, if any"""
-    return get_config().get("configurable", {}).get("workflow")
+def current_override() -> "AgentOverride | None":
+    """The agent override the current run's config carries, if any"""
+    return get_config().get("configurable", {}).get("agent_override")
 
 
-class Workflow(BaseModel):
+class AgentOverride(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         frozen=True,
@@ -22,8 +22,8 @@ class Workflow(BaseModel):
     """The structured reply this call wants; one of the agent's response_formats"""
 
     tools: tuple[BaseTool, ...] = ()
-    """Tools only this workflow gives the agent"""
+    """Tools only this call gives the agent"""
 
     def config(self, config: RunnableConfig | None = None) -> RunnableConfig:
-        """The run config that applies this workflow to a call of a shared agent"""
-        return merge_configs({"configurable": {"workflow": self}}, config)
+        """The run config that applies this override to a call of a shared agent"""
+        return merge_configs({"configurable": {"agent_override": self}}, config)

@@ -11,7 +11,7 @@ from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
 from pydantic import BaseModel
 
-from src.agents import Agent, Workflow, build_agent, load_agents
+from src.agents import Agent, AgentOverride, build_agent, load_agents
 from src.core.config import AgentSettings, Settings
 from src.infrastructure.observability import tracing
 from src.infrastructure.observability.instrumentation import instrument
@@ -49,7 +49,7 @@ def _ask(model: ScriptedChatModel, agent: Agent | None = None, **build) -> dict:
     )
     return built.invoke(
         {"messages": [HumanMessage("Greet Lovelace")]},
-        Workflow(response_format=Greeting).config(),
+        AgentOverride(response_format=Greeting).config(),
     )
 
 
@@ -80,7 +80,7 @@ def test_config_toml_lists_agents_as_tables(tmp_path: Path, monkeypatch):
     assert agent.path.parts[-4:] == ("src", "agents", "greeter", "profile.yaml")
 
 
-def test_agent_replies_in_the_workflows_response_format():
+def test_agent_replies_in_the_overrides_response_format():
     model = ScriptedChatModel(replies=[_call("Greeting", text="Hello, Ada!")])
 
     result = _ask(model)
@@ -179,7 +179,7 @@ def test_flow_tools_read_the_agent_state():
 
     result = agent.invoke(
         {"messages": [HumanMessage("Greet Lovelace")], "names": {"Lovelace": "Ada"}},
-        Workflow(response_format=Greeting).config(),
+        AgentOverride(response_format=Greeting).config(),
     )
 
     [found] = [m for m in result["messages"] if m.name == "look_up_in_state"]
@@ -214,7 +214,7 @@ def test_flow_tools_read_the_run_context():
 
     result = agent.invoke(
         {"messages": [HumanMessage("Greet Lovelace")]},
-        Workflow(response_format=Greeting).config(),
+        AgentOverride(response_format=Greeting).config(),
         context=_Names(names={"Lovelace": "Ada"}),
     )
 
@@ -234,7 +234,7 @@ def test_the_run_recursion_limit_stops_an_agent_that_never_answers():
     with pytest.raises(GraphRecursionError):
         agent.invoke(
             {"messages": [HumanMessage("Greet Lovelace")]},
-            Workflow(response_format=Greeting).config({"recursion_limit": 6}),
+            AgentOverride(response_format=Greeting).config({"recursion_limit": 6}),
         )
 
     assert len(model.requests) < 6
@@ -268,7 +268,7 @@ def test_a_run_leaves_the_agents_folder_unchanged(tmp_path: Path):
 
     result = agent.invoke(
         {"messages": [HumanMessage("Greet Lovelace")]},
-        Workflow(response_format=Greeting).config(),
+        AgentOverride(response_format=Greeting).config(),
     )
 
     read = [m for m in result["messages"] if isinstance(m, ToolMessage)][1]
