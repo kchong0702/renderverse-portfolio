@@ -1,7 +1,8 @@
 from uuid import uuid4
 
 from src.core.auth.models import User
-from src.features.profile.models import EntryKind, ProfileEntry
+from src.features.profile.enums import EntryKind
+from src.features.profile.models import ProfileEntry
 from tests.conftest import PREFIX
 
 PROFILE = f"{PREFIX}/profile"

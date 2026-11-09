@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import ForeignKey, String, Text
@@ -8,39 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base, EnumString, JsonType
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
-
-
-class EntryKind(StrEnum):
-    ROLE = "role"
-    """A job; its dates count towards years of experience"""
-
-    EDUCATION = "education"
-    """A degree, diploma or course"""
-
-    PROJECT = "project"
-    """Something the user built or led"""
-
-
-class WorkMode(StrEnum):
-    ONSITE = "onsite"
-    """Works at the office"""
-
-    HYBRID = "hybrid"
-    """Splits time between office and home"""
-
-    REMOTE = "remote"
-    """Works from anywhere the employer allows"""
-
-
-class SalaryPeriod(StrEnum):
-    HOUR = "hour"
-    """Paid per hour"""
-
-    MONTH = "month"
-    """Paid per month"""
-
-    YEAR = "year"
-    """Paid per year"""
+from src.features.profile.enums import EntryKind, SalaryPeriod
 
 
 class Profile(AuditMixin, Base):
@@ -137,11 +104,4 @@ class ProfileSkill(IdMixin, UserScopedMixin, AuditMixin, Base):
     """Kept but left out of what the agents see"""
 
 
-__all__ = [
-    "EntryKind",
-    "Profile",
-    "ProfileEntry",
-    "ProfileSkill",
-    "SalaryPeriod",
-    "WorkMode",
-]
+__all__ = ["Profile", "ProfileEntry", "ProfileSkill"]
