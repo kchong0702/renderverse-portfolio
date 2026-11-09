@@ -1,5 +1,5 @@
 import { useIsMutating } from "@tanstack/react-query";
-import { Sparkle } from "lucide-react";
+import { SquarePen, Sparkle } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { buttonClass } from "@/shared/components/button";
@@ -21,6 +21,7 @@ function ChatWidget({
 }) {
   const { t } = useTranslation();
   const answer = useAnswerTask();
+  const chatId = useAssistantStore((state) => state.chatId);
   const [input, setInput] = useState("");
   const labelId = useId();
   const asksInput = widget.input_placeholder !== null;
@@ -30,6 +31,7 @@ function ChatWidget({
       onSubmit={(event) => {
         event.preventDefault();
         answer.mutate({
+          chatId,
           taskId,
           answer: { input: input.trim() || undefined, accept: true },
           shown: input.trim() || widget.submit_btn || t("assistant.send"),
@@ -75,6 +77,7 @@ function ChatWidget({
               disabled={answer.isPending}
               onClick={() =>
                 answer.mutate({
+                  chatId,
                   taskId,
                   answer: { accept: false },
                   shown: widget.cancel_btn ?? "",
@@ -107,6 +110,8 @@ export default function AssistantDock({
   const open = useAssistantStore((state) => state.open);
   const setOpen = useAssistantStore((state) => state.setOpen);
   const entries = useAssistantStore((state) => state.entries);
+  const chatId = useAssistantStore((state) => state.chatId);
+  const newChat = useAssistantStore((state) => state.newChat);
   const send = useSendMessage();
   const busy = useIsMutating({ mutationKey: ["assistant"] }) > 0;
   const [draft, setDraft] = useState("");
@@ -127,7 +132,7 @@ export default function AssistantDock({
 
   const ask = (text: string) => {
     if (!text.trim() || busy) return;
-    send.mutate({ text: text.trim() });
+    send.mutate({ chatId, text: text.trim() });
     setDraft("");
   };
 
@@ -148,6 +153,18 @@ export default function AssistantDock({
                 <Sparkle size={16} />
               </span>
               {t("assistant.title")}
+              {entries.length > 0 && (
+                <button
+                  type="button"
+                  onClick={newChat}
+                  disabled={busy}
+                  aria-label={t("assistant.newChat")}
+                  title={t("assistant.newChat")}
+                  className="text-ink-3 hover:text-ink ml-auto flex cursor-pointer rounded-md border-0 bg-transparent p-1 disabled:opacity-60"
+                >
+                  <SquarePen size={16} />
+                </button>
+              )}
             </span>
             <span className="text-ink-3 text-[13px]">
               {topic

@@ -139,6 +139,7 @@
     "message": "Message the assistant",
     "placeholder": "Ask anything",
     "send": "Send",
+    "newChat": "New chat",
     "conversation": "Conversation with the assistant",
     "thinking": "Thinking…",
     "failed": "That did not work: {{reason}}",
