@@ -65,6 +65,7 @@ def _candidate(folder: Path) -> Path:
     config = folder / "config.toml"
     config.write_text(
         f'harness_profiles = "{folder}/harness_profiles.yaml"\n\n'
+        '[models]\nglm = ["glm-5.3"]\n\n'
         f'[[agents]]\nname = "greeter"\npath = "{folder}/greeter/profile.yaml"\n'
         'family = "glm"\nmodel = "glm-5.3"\n\n'
         f'[[graph_profiles]]\nname = "greet"\npath = "{folder}/greet/profile.yaml"\n'

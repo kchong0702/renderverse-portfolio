@@ -27,6 +27,11 @@ instrumentations = ["langchain"]
 hide_inputs = false
 hide_outputs = false
 
+[models]
+glm = ["glm-5.3"]
+claude = ["claude-opus-5-5", "claude-sonnet-5-5"]
+openai = ["gpt-6-luna"]
+
 [[agents]]
 name = "job-finder"
 path = "src/agents/job_finder/profile.yaml"

@@ -71,6 +71,7 @@ def test_the_registry_reads_each_list_of_agents_once():
 def test_config_toml_lists_agents_as_tables(tmp_path: Path, monkeypatch):
     toml = tmp_path / "config.toml"
     toml.write_text(
+        '[models]\nglm = ["glm-5.3"]\n\n'
         '[[agents]]\nname = "greeter"\npath = "src/agents/greeter/profile.yaml"\n'
         'family = "glm"\nmodel = "glm-5.3"\n'
     )

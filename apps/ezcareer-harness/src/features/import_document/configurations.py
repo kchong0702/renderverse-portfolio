@@ -2,13 +2,15 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.core.config import Family
+
 
 class ImportResumeConfigurations(BaseModel):
     model_config = ConfigDict(
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    family: Literal["claude", "glm", "openai"]
+    family: Family
     """Model family, which picks the provider"""
 
     model: str

@@ -55,3 +55,19 @@ def test_otlp_headers_are_secret(monkeypatch):
         settings.observability.otlp_headers.get_secret_value()
         == "Authorization=Basic abc"
     )
+
+
+def test_an_agent_on_a_model_the_catalog_does_not_offer_is_refused():
+    with pytest.raises(ValidationError, match="glm-9, which \\[models\\] does not"):
+        Settings(
+            _env_file=None,
+            models={"glm": ["glm-5.3"]},
+            agents=[
+                {
+                    "name": "job-finder",
+                    "path": "src/agents/job_finder/profile.yaml",
+                    "family": "glm",
+                    "model": "glm-9",
+                }
+            ],
+        )
