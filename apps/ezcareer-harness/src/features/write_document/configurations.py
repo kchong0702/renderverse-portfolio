@@ -2,11 +2,6 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.features.write_document.checks import check_changeset
-
-CHECKS = {"changeset": check_changeset}
-"""Every check the write-document configurations.yaml may turn on, by name"""
-
 
 class WriteDocumentConfigurations(BaseModel):
     model_config = ConfigDict(
