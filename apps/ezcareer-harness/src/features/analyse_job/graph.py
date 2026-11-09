@@ -20,9 +20,9 @@ from src.features.analyse_job.schemas import (
     JobRequirements,
     PostingLine,
 )
-from src.features.analyse_job.types import Url
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
 from src.shared.profile import Preferences, Profile, ProfileFact
+from src.shared.url import Url
 
 
 class AnalyseJobInput(BaseModel):

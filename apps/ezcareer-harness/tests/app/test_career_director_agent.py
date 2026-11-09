@@ -1,3 +1,4 @@
+import json
 from functools import partial
 
 import httpx
@@ -10,7 +11,7 @@ from pydantic_core import to_jsonable_python
 from src.app.app import create_app
 from src.app.container import Container
 from tests.agents.career_consultant import test_career_consultant as career_consultant
-from tests.agents.career_director.test_career_director import REQUEST, _model, _task
+from tests.agents.career_director.test_career_director import REQUEST, _model
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.analyse_job import test_analyse_job_graph as analyse_job
@@ -38,9 +39,26 @@ def _send(
     return response.json()["result"]["task"]
 
 
-def test_career_director_is_served_as_an_agent_with_the_containers_checkpointer():
+def _container(
+    finder: ScriptedChatModel,
+    consultant: ScriptedChatModel,
+    director: ScriptedChatModel,
+) -> Container:
     container = Container()
-    container.career_director.agent(model=_model())
+    container.clients.artifact_service(
+        client=httpx.AsyncClient(
+            transport=httpx.MockTransport(partial(_print, sent=[])),
+            base_url="http://artifact-service",
+        )
+    )
+    container.job_finder.agent(model=finder)
+    container.career_consultant.agent(model=consultant)
+    container.career_director.agent(model=director)
+    return container
+
+
+def test_career_director_is_served_as_an_agent_with_the_containers_checkpointer():
+    container = _container(_model(), _model(), _model())
 
     card = TestClient(create_app(container)).get(
         "/ezcareer/a2a/career-director/.well-known/agent-card.json"
@@ -55,14 +73,16 @@ def test_career_director_is_served_as_an_agent_with_the_containers_checkpointer(
 @respx.mock
 def test_career_director_analyses_the_posting_at_a_url_through_analyse_job():
     respx.get(analyse_job.URL).respond(200, html=analyse_job.POSTING)
-    director = _model(_task("analyse-job", analyse_job.URL), AIMessage("It fits 67%."))
-    container = Container()
-    container.job_finder.agent(
-        model=ScriptedChatModel(
-            replies=[analyse_job._answer("5+ years of Python in production")]
-        )
+    director = _model(
+        _call("analyse_job", url=analyse_job.URL), AIMessage("It fits 67%.")
     )
-    container.career_director.agent(model=director)
+    container = _container(
+        ScriptedChatModel(
+            replies=[analyse_job._answer("5+ years of Python in production")]
+        ),
+        _model(),
+        director,
+    )
 
     task = _send(
         TestClient(create_app(container)),
@@ -83,24 +103,34 @@ def test_career_director_analyses_the_posting_at_a_url_through_analyse_job():
     assert '"fit":67' in report.text
 
 
-def test_a_subagents_question_reaches_the_user_and_their_answer_finishes_the_turn():
-    container = Container()
-    container.clients.artifact_service(
-        client=httpx.AsyncClient(
-            transport=httpx.MockTransport(partial(_print, sent=[])),
-            base_url="http://artifact-service",
-        )
+def test_career_director_finds_jobs_for_the_users_preferences_through_find_jobs():
+    finder = ScriptedChatModel(replies=[_call("RankedJobs", jobs=[])])
+    director = _model(_call("find_jobs"), AIMessage("No jobs fit yet."))
+    container = _container(finder, _model(), director)
+
+    task = _send(
+        TestClient(create_app(container)),
+        [
+            {"text": "Find me remote jobs"},
+            {"data": {"facts": [], "preferences": {"work_modes": ["remote"]}}},
+        ],
     )
-    container.career_consultant.agent(
-        model=career_consultant._model(
-            _call("clarify", question="Which bullet?"),
-            career_consultant._answer(career_consultant.GOOD_EDIT),
-        )
+
+    assert task["status"]["state"] == "TASK_STATE_COMPLETED"
+    [report] = [m for m in director.requests[1] if isinstance(m, ToolMessage)]
+    assert json.loads(report.text) == {"jobs": []}
+    assert '"work_modes":["remote"]' in finder.requests[0][-1].text
+
+
+def test_a_workflows_question_reaches_the_user_and_their_answer_finishes_the_turn():
+    consultant = career_consultant._model(
+        _call("clarify", question="Which bullet?"),
+        career_consultant._answer(career_consultant.GOOD_EDIT),
     )
-    container.career_director.agent(
-        model=_model(_task("edit-document", REQUEST), AIMessage("I proposed one edit."))
+    director = _model(
+        _call("edit_document", request=REQUEST), AIMessage("I proposed one edit.")
     )
-    client = TestClient(create_app(container))
+    client = TestClient(create_app(_container(_model(), consultant, director)))
     state = to_jsonable_python(career_consultant._state())
 
     asked = _send(
@@ -127,3 +157,10 @@ def test_a_subagents_question_reaches_the_user_and_their_answer_finishes_the_tur
     }
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
     assert done["artifacts"][0]["parts"][0]["text"] == "I proposed one edit."
+    [answer] = [m.text for m in consultant.requests[-1] if isinstance(m, ToolMessage)]
+    assert answer == "The queue one"
+    [report] = [m for m in director.requests[-1] if isinstance(m, ToolMessage)]
+    assert json.loads(report.text)["changeset"]["edits"] == [
+        career_consultant.GOOD_EDIT.model_dump(mode="json")
+    ]
+    assert len(director.requests) == 2

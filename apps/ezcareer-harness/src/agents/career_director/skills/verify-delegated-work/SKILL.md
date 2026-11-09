@@ -1,6 +1,6 @@
 ---
 name: verify-delegated-work
-description: Check what a subagent returned before telling the user about it.
+description: Check what a workflow tool or subagent returned before telling the user about it.
 ---
 
 # Verify delegated work
