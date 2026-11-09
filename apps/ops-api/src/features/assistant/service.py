@@ -15,21 +15,29 @@ class AssistantService:
         self._profile = profile
         self._ezcareer = ezcareer
 
-    async def send(self, user_id: UUID, message: ChatMessage) -> Run[str]:
-        """Start a turn: career-director answers the user's text with their
-        profile's facts and preferences"""
+    async def send(
+        self, user_id: UUID, chat_id: UUID, message: ChatMessage
+    ) -> Run[str]:
+        """Start a turn of one of the user's chats: career-director answers with
+        their profile's facts and preferences, and the chat's earlier turns"""
         return await self._ezcareer.send(
             _AGENT,
             str,
-            context_id=str(user_id),
+            context_id=f"{user_id}:{chat_id}",
             text=message.text,
             data=await self._profile.agent_profile(user_id),
         )
 
-    async def answer(self, user_id: UUID, task_id: str, answer: Answer) -> Run[str]:
-        """Answer the widget a paused turn asked, and run the turn on"""
+    async def answer(
+        self, user_id: UUID, chat_id: UUID, task_id: str, answer: Answer
+    ) -> Run[str]:
+        """Answer the widget a paused turn of the chat asked, and run the turn on"""
         return await self._ezcareer.resume(
-            _AGENT, str, context_id=str(user_id), task_id=task_id, answer=answer
+            _AGENT,
+            str,
+            context_id=f"{user_id}:{chat_id}",
+            task_id=task_id,
+            answer=answer,
         )
 
 

@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
 
@@ -21,17 +22,25 @@ def get_assistant_service(
 AssistantServiceDep = Annotated[AssistantService, Depends(get_assistant_service)]
 
 
-@router.post("/messages")
+@router.post("/chats/{chat_id}/messages")
 async def send_message(
-    message: ChatMessage, user: CurrentUserDep, service: AssistantServiceDep
+    chat_id: UUID,
+    message: ChatMessage,
+    user: CurrentUserDep,
+    service: AssistantServiceDep,
 ) -> Run[str]:
-    """Ask career-director something; it replies, asks back with a widget, or fails"""
-    return await service.send(user.id, message)
+    """Ask career-director something in one chat; it replies, asks back with a
+    widget, or fails"""
+    return await service.send(user.id, chat_id, message)
 
 
-@router.post("/tasks/{task_id}/answer")
+@router.post("/chats/{chat_id}/tasks/{task_id}/answer")
 async def answer_task(
-    task_id: str, answer: Answer, user: CurrentUserDep, service: AssistantServiceDep
+    chat_id: UUID,
+    task_id: str,
+    answer: Answer,
+    user: CurrentUserDep,
+    service: AssistantServiceDep,
 ) -> Run[str]:
-    """Answer the widget a paused turn asked; the turn runs on from there"""
-    return await service.answer(user.id, task_id, answer)
+    """Answer the widget a paused turn of the chat asked; the turn runs on"""
+    return await service.answer(user.id, chat_id, task_id, answer)
