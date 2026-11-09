@@ -45,6 +45,12 @@ async def test_me_needs_a_session(auth_client):
     assert response.status_code == 401
 
 
+async def test_settings_need_a_session(auth_client):
+    response = await auth_client.get(f"{PREFIX}/settings")
+
+    assert response.status_code == 401
+
+
 async def test_expired_session_is_rejected(auth_app, auth_client):
     await _set_password(auth_app)
     await _sign_in(auth_client)

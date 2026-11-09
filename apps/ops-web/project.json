@@ -1,0 +1,29 @@
+{
+  "name": "ops-web",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/ops-web/src",
+  "tags": ["type:app", "scope:frontend"],
+  "targets": {
+    "bootstrap": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node -e \"const fs=require('fs'); if (!fs.existsSync('.env')) fs.copyFileSync('.env.example','.env')\"",
+        "cwd": "apps/ops-web"
+      }
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "options": {
+        "command": "vite",
+        "cwd": "apps/ops-web",
+        "tty": true
+      }
+    },
+    "preview": {
+      "continuous": true,
+      "dependsOn": ["build"]
+    }
+  }
+}
