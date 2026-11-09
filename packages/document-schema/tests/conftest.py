@@ -85,7 +85,13 @@ def resume() -> dict[str, Any]:
         },
         "design": {
             "template": "sidebar-band",
-            "layouts": {"sidebar-band": {"side": ["photo", "profile", "sk"]}},
+            "layouts": [
+                {
+                    "template": "sidebar-band",
+                    "region": "side",
+                    "blocks": ["photo", "profile", "sk"],
+                }
+            ],
         },
         "assets": {PHOTO: {"media_type": "image/png", "uri": "s3://assets/photo.png"}},
     }

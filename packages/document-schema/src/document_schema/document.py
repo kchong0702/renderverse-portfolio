@@ -28,11 +28,10 @@ def _check_references(
     if missing := [file for file in files if file not in assets]:
         raise ValueError(f"files not in assets: {missing}")
     ids = {block.id for block in blocks}
-    for template, regions in design.layouts.items():
-        placed = {block for blocks in regions.values() for block in blocks}
-        if unknown := placed - ids:
+    for placement in design.layouts:
+        if unknown := set(placement.blocks) - ids:
             raise ValueError(
-                f"layout for {template} places unknown blocks: {sorted(unknown)}"
+                f"layout for {placement.template} places unknown blocks: {sorted(unknown)}"
             )
 
 
