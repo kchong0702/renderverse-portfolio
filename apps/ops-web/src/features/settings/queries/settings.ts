@@ -1,5 +1,6 @@
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
 import {
+  fetchModels,
   fetchSettings,
   updateSettings,
   type Settings,
@@ -14,13 +15,18 @@ function applyPatch(settings: Settings, patch: SettingsPatch): Settings {
     job_agent: { ...settings.job_agent, ...patch.job_agent },
     automation: { ...settings.automation, ...patch.automation },
     scheduling: { ...settings.scheduling, ...patch.scheduling },
-    ai_provider: patch.ai_provider ?? settings.ai_provider,
+    ai_model: patch.ai_model ?? settings.ai_model,
   };
 }
 
 export const settingsQueryOptions = queryOptions({
   queryKey: ["settings"],
   queryFn: ({ signal }) => fetchSettings(signal),
+});
+
+export const modelsQueryOptions = queryOptions({
+  queryKey: ["settings", "models"],
+  queryFn: ({ signal }) => fetchModels(signal),
 });
 
 export const updateSettingsMutationOptions = mutationOptions({

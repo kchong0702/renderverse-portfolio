@@ -1,6 +1,6 @@
 import { http } from "@/shared/api/http";
 
-export type AiProvider = "claude" | "openai" | "glm";
+export type ModelFamily = "claude" | "glm" | "openai";
 export type ConnectionId = "google" | "jsearch" | "portfolio_site";
 
 export interface JobAgent {
@@ -27,11 +27,20 @@ export interface Connection {
   status: "connected" | "not_connected";
 }
 
+export interface ModelChoice {
+  family: ModelFamily;
+  model: string;
+}
+
+export interface ModelCatalog {
+  families: { family: ModelFamily; models: string[] }[];
+}
+
 export interface Settings {
   job_agent: JobAgent;
   automation: Automation;
   scheduling: Scheduling;
-  ai_provider: AiProvider;
+  ai_model: ModelChoice | null;
   connections: Connection[];
 }
 
@@ -39,7 +48,7 @@ export interface SettingsPatch {
   job_agent?: Partial<JobAgent>;
   automation?: Partial<Automation>;
   scheduling?: Partial<Scheduling>;
-  ai_provider?: AiProvider;
+  ai_model?: ModelChoice;
 }
 
 const URL = "/ops-api/v1/settings";
@@ -49,3 +58,6 @@ export const fetchSettings = (signal?: AbortSignal) =>
 
 export const updateSettings = (patch: SettingsPatch) =>
   http.patch<Settings>(URL, patch);
+
+export const fetchModels = (signal?: AbortSignal) =>
+  http.get<ModelCatalog>(`${URL}/models`, signal);

@@ -1,20 +1,16 @@
 import { useTranslation } from "react-i18next";
 import { SelectField } from "@/shared/components/fields";
 import Panel from "@/shared/components/Panel";
-import type { AiProvider, Scheduling, SettingsPatch } from "../api/settings";
+import type { Scheduling, SettingsPatch } from "../api/settings";
 import { MEETING_GAPS, WORK_HOURS, hhmm, withCurrent } from "../lib/options";
-
-const PROVIDERS: AiProvider[] = ["claude", "openai", "glm"];
 
 interface SchedulingPanelProps {
   scheduling: Scheduling;
-  aiProvider: AiProvider;
   onChange: (patch: SettingsPatch) => void;
 }
 
 export default function SchedulingPanel({
   scheduling,
-  aiProvider,
   onChange,
 }: SchedulingPanelProps) {
   const { t } = useTranslation();
@@ -67,17 +63,6 @@ export default function SchedulingPanel({
           }
         />
       </div>
-      <SelectField
-        label={t("settings.scheduling.aiModel")}
-        options={PROVIDERS.map((provider) => ({
-          value: provider,
-          label: t(`settings.scheduling.providers.${provider}`),
-        }))}
-        value={aiProvider}
-        onChange={(event) =>
-          onChange({ ai_provider: event.target.value as AiProvider })
-        }
-      />
     </Panel>
   );
 }
