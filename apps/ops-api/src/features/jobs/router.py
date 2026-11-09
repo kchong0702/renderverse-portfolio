@@ -1,19 +1,28 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status
 
+from src.clients.ezcareer import Completed, Failed
 from src.core.auth import CurrentUserDep
 from src.db.session import SessionDep
 from src.features.jobs.schemas import FitAnalysis, JobCreate, JobRead, JobUpdate
 from src.features.jobs.service import JobService
+from src.features.profile import ProfileServiceDep
+from src.features.settings import SettingsServiceDep
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
-def get_job_service(session: SessionDep) -> JobService:
-    """The job service on the request's database session"""
-    return JobService(session)
+def get_job_service(
+    session: SessionDep,
+    profile: ProfileServiceDep,
+    settings: SettingsServiceDep,
+    request: Request,
+) -> JobService:
+    """The job service on the request's database session, and the profile and
+    settings services"""
+    return JobService(session, profile, settings, request.app.state.ezcareer)
 
 
 JobServiceDep = Annotated[JobService, Depends(get_job_service)]
@@ -37,6 +46,15 @@ async def add_job(
     return added
 
 
+@router.post("/find")
+async def find_jobs(
+    user: CurrentUserDep, service: JobServiceDep
+) -> Completed[list[JobRead]] | Failed:
+    """Run the job agent now: it finds fresh jobs for the profile and stores
+    them as picks, or fails with its reason"""
+    return await service.find(user.id)
+
+
 @router.patch("/{job_id}")
 async def update_job(
     job_id: UUID, patch: JobUpdate, user: CurrentUserDep, service: JobServiceDep
@@ -51,3 +69,12 @@ async def replace_analysis(
 ) -> JobRead:
     """Store how a job fits the profile, replacing any earlier analysis"""
     return await service.analyse(user.id, job_id, analysis)
+
+
+@router.post("/{job_id}/analyse")
+async def analyse_job(
+    job_id: UUID, user: CurrentUserDep, service: JobServiceDep
+) -> Completed[JobRead] | Failed:
+    """Analyse the job's posting against the profile and store the analysis,
+    or fail with the agent's reason"""
+    return await service.analyse_posting(user.id, job_id)

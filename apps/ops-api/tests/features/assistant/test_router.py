@@ -9,7 +9,7 @@ from src.clients.ezcareer import Answer, EzcareerClient
 from src.clients.ezcareer.schemas import Completed, DataRequest, Started
 from src.core.config import get_settings
 from src.core.stores import AgentModelCall
-from tests.conftest import PREFIX
+from tests.conftest import PREFIX, a2a_sent
 
 ASSISTANT = f"{PREFIX}/assistant"
 CHAT_ID = "9b2d6f3e-1c4a-4e8b-9f0d-2a7c5e1b3d4f"
@@ -89,11 +89,6 @@ async def _ignore_usage(*args: object) -> None:
     """Drops a model call's usage"""
 
 
-def _sent(harness) -> list[dict]:
-    """The A2A requests the harness received, as JSON"""
-    return [json.loads(request.content) for request in harness.received]
-
-
 async def test_a_message_streams_career_directors_turn_with_the_profile(
     client, harness
 ):
@@ -135,7 +130,7 @@ async def test_a_message_streams_career_directors_turn_with_the_profile(
     assert request.url.path == "/ezcareer/a2a/career-director"
     assert request.headers["A2A-Version"] == "1.0"
     assert request.headers["Accept"] == "text/event-stream"
-    [sent] = _sent(harness)
+    [sent] = a2a_sent(harness)
     assert sent["method"] == "SendStreamingMessage"
     message = sent["params"]["message"]
     assert message["role"] == "ROLE_USER"
@@ -159,7 +154,7 @@ async def test_each_run_carries_the_users_model_on_the_request(client, harness):
     await client.post(f"{CHAT}/messages", json={"text": "Save it"})
     await client.post(f"{CHAT}/tasks/task-1/answer", json={"accept": True})
 
-    first, resume = (sent["params"] for sent in _sent(harness))
+    first, resume = (sent["params"] for sent in a2a_sent(harness))
     assert first["metadata"] == {"model": model}
     assert resume["metadata"] == first["metadata"]
     assert "metadata" not in first["message"]
@@ -174,7 +169,7 @@ async def test_each_chat_runs_in_a_context_of_its_own(client, harness):
         f"{ASSISTANT}/chats/{OTHER_CHAT_ID}/messages", json={"text": "Hi"}
     )
 
-    assert [sent["params"]["message"]["contextId"] for sent in _sent(harness)] == [
+    assert [sent["params"]["message"]["contextId"] for sent in a2a_sent(harness)] == [
         f"{me['id']}:{CHAT_ID}",
         f"{me['id']}:{OTHER_CHAT_ID}",
     ]
@@ -212,7 +207,7 @@ async def test_a_widget_is_shown_and_the_answer_streams_the_rest_of_the_turn(
         {"status": "started", "task_id": "task-1"},
         {"status": "completed", "reply": "Saved it."},
     ]
-    first, resume = (sent["params"]["message"] for sent in _sent(harness))
+    first, resume = (sent["params"]["message"] for sent in a2a_sent(harness))
     assert resume["taskId"] == "task-1"
     assert resume["contextId"] == first["contextId"]
     assert resume["parts"] == [{"data": {"input": None, "accept": True}}]
@@ -291,7 +286,7 @@ async def test_stop_cancels_the_chats_running_task(client, harness):
     response = await client.post(f"{CHAT}/tasks/task-1/cancel")
 
     assert response.status_code == 204
-    assert [(s["method"], s["params"]) for s in _sent(harness)] == [
+    assert [(s["method"], s["params"]) for s in a2a_sent(harness)] == [
         ("GetTask", {"id": "task-1"}),
         ("CancelTask", {"id": "task-1"}),
     ]
@@ -309,7 +304,7 @@ async def test_stop_leaves_another_chats_task_alone(client, harness):
     response = await client.post(f"{CHAT}/tasks/task-1/cancel")
 
     assert response.status_code == 404
-    assert [s["method"] for s in _sent(harness)] == ["GetTask"]
+    assert [s["method"] for s in a2a_sent(harness)] == ["GetTask"]
 
 
 async def test_a_stream_closed_before_the_turn_ends_cancels_its_task(harness):
@@ -330,7 +325,7 @@ async def test_a_stream_closed_before_the_turn_ends_cancels_its_task(harness):
     assert await anext(run) == Started(task_id="task-1")
     await run.aclose()
 
-    assert [(s["method"], s["params"].get("id")) for s in _sent(harness)] == [
+    assert [(s["method"], s["params"].get("id")) for s in a2a_sent(harness)] == [
         ("SendStreamingMessage", None),
         ("CancelTask", "task-1"),
     ]
@@ -442,7 +437,7 @@ async def test_a_stream_answers_the_data_requests_its_run_pauses_with(harness):
 
     assert events == [Started(task_id="task-1"), Completed(reply="Found it.")]
     assert [r.model_dump() for r in asked] == [{"fetch": "documents", "name": "nw"}]
-    resume = _sent(harness)[1]["params"]["message"]
+    resume = a2a_sent(harness)[1]["params"]["message"]
     assert resume["taskId"] == "task-1"
     assert resume["contextId"] == "u:c"
     assert resume["parts"] == [{"data": {"documents": ["Résumé for Northwind"]}}]
@@ -498,7 +493,7 @@ async def test_a_blocking_run_answers_its_data_requests_too(harness):
     )
 
     assert run == Completed(reply="ok")
-    assert _sent(harness)[1]["params"]["message"]["parts"] == [
+    assert a2a_sent(harness)[1]["params"]["message"]["parts"] == [
         {"data": {"documents": ["nw"]}}
     ]
 

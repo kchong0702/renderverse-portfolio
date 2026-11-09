@@ -61,7 +61,8 @@ class FakeHarness:
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         """Serve the catalog at GET /ezcareer/models and answer each A2A POST with
-        the next of outcomes, a list streaming as SSE, or refuse to connect when down"""
+        the next of outcomes, a list streaming as SSE and a reply named after its
+        executable as the harness names it, or refuse to connect when down"""
         if self.down:
             raise httpx2.ConnectError("connection refused", request=request)
         if request.method == "GET" and request.url.path == "/ezcareer/models":
@@ -79,10 +80,37 @@ class FakeHarness:
                         for e in outcome
                     ),
                 )
+            for artifact in (
+                outcome.get("result", {}).get("task", {}).get("artifacts", [])
+            ):
+                artifact.setdefault("name", request.url.path.rsplit("/", 1)[1])
             return httpx2.Response(
                 200, json={"jsonrpc": "2.0", "id": rpc_id, **outcome}
             )
         return httpx2.Response(404)
+
+
+def a2a_task(state: str, *, status_parts=None, artifact_parts=None) -> dict:
+    """A SendMessage result as the harness's A2A 1.0 server returns it"""
+    task = {
+        "id": "task-1",
+        "contextId": "context-1",
+        "status": {"state": f"TASK_STATE_{state}"},
+    }
+    if status_parts is not None:
+        task["status"]["message"] = {
+            "messageId": "m-agent",
+            "role": "ROLE_AGENT",
+            "parts": status_parts,
+        }
+    if artifact_parts is not None:
+        task["artifacts"] = [{"artifactId": "a-1", "parts": artifact_parts}]
+    return {"result": {"task": task}}
+
+
+def a2a_sent(harness: FakeHarness) -> list[dict]:
+    """The A2A requests the harness received, as JSON"""
+    return [json.loads(request.content) for request in harness.received]
 
 
 class FakeArtifact:
