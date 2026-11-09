@@ -11,10 +11,8 @@ from tests.conftest import ScriptedChatModel
 
 RESPONSE = (Path(__file__).parent / "fixtures" / "jsearch_search.json").read_text()
 INPUT = {
-    "profile": {
-        "facts": [{"id": "py", "text": "Six years of Python in production"}],
-        "preferences": {"countries": ["GB"]},
-    }
+    "facts": [{"id": "py", "text": "Six years of Python in production"}],
+    "preferences": {"countries": ["GB"]},
 }
 
 

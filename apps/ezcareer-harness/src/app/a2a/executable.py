@@ -14,7 +14,7 @@ from langchain_core.messages import HumanMessage
 from langgraph.errors import GraphRecursionError
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError
 from pydantic_core import to_jsonable_python
 
 from src.core.errors import ExecuteError
@@ -38,7 +38,7 @@ class Executable(BaseModel):
 
     kind: Literal["workflow", "agent"] = "workflow"
     """A workflow runs one task end to end; an agent is a shared agent the user
-    talks to, taking their text as its message"""
+    talks to; both take the user's text as their message"""
 
     graph: CompiledStateGraph
     """The graph it runs; with a checkpointer it can pause for input and resume"""
@@ -55,34 +55,38 @@ class LanggraphExecutor(AgentExecutor):
         input required"""
         updater = TaskUpdater(event_queue, context.task_id, context.context_id)
         data = get_data_parts(context.message.parts) if context.message else []
-        answer = data[0] if data else context.get_user_input()
         if context.current_task is None and context.message:
             await event_queue.enqueue_event(new_task_from_user_message(context.message))
         await updater.start_work()
         try:
             if context.current_task:
-                graph_input = Command(resume=answer)
-            elif self.executable.kind == "agent":
-                graph_input = (
-                    self.executable.graph.get_input_schema()
-                    .model_validate(
-                        {
-                            **(data[0] if data else {}),
-                            "messages": [HumanMessage(context.get_user_input())],
-                        }
-                    )
-                    .root
+                graph_input = Command(
+                    resume=data[0] if data else context.get_user_input()
                 )
             else:
                 graph_input = self.executable.graph.get_input_schema().model_validate(
-                    answer
+                    {
+                        **(data[0] if data else {}),
+                        "messages": [HumanMessage(text)]
+                        if (text := context.get_user_input())
+                        else [],
+                    }
                 )
+                if isinstance(graph_input, RootModel):
+                    graph_input = graph_input.root
         except ValidationError as error:
             await updater.failed(_reason(updater, f"Invalid input: {error}"))
             return
         try:
             result = await self.executable.graph.ainvoke(
-                graph_input, {"configurable": {"thread_id": context.task_id}}
+                graph_input,
+                {
+                    "configurable": {
+                        "thread_id": context.context_id
+                        if self.executable.kind == "agent"
+                        else context.task_id
+                    }
+                },
             )
         except GraphRecursionError:
             await updater.failed(_reason(updater, "Ran out of steps before finishing"))

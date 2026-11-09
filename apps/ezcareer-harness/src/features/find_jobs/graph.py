@@ -22,8 +22,14 @@ from src.shared.profile import Preferences, Profile, ProfileFact
 class FindJobsInput(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
-    profile: Profile
-    """The user's facts and preferences"""
+    facts: list[ProfileFact]
+    """The user's profile facts"""
+
+    preferences: Preferences = Field(default_factory=Preferences)
+    """What the user wants from a job"""
+
+    messages: Annotated[list[AnyMessage], add_messages] = Field(default_factory=list)
+    """The user's note, if any, then the agent's conversation across check rounds"""
 
 
 class FindJobsOutput(BaseModel):
@@ -35,15 +41,6 @@ class FindJobsOutput(BaseModel):
 
 class FindJobsState(FindJobsInput, FindJobsOutput):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
-
-    facts: list[ProfileFact] = Field(default_factory=list)
-    """The user's profile facts, for the agent"""
-
-    preferences: Preferences = Field(default_factory=Preferences)
-    """What the user wants from a job, for the agent"""
-
-    messages: Annotated[list[AnyMessage], add_messages] = Field(default_factory=list)
-    """The agent's conversation across check rounds"""
 
     structured_response: RankedJobs | None = None
     """The agent's latest answer"""
@@ -63,16 +60,13 @@ def _postings(messages: list[AnyMessage]) -> list[JobPosting]:
 
 
 def _brief(state: FindJobsState) -> dict:
-    """Ask the agent for jobs, handing it the user's profile"""
-    preferences = state.profile.preferences
+    """Ask the agent for jobs, handing it the user's preferences"""
     return {
-        "facts": state.profile.facts,
-        "preferences": preferences,
         "messages": [
             HumanMessage(
-                f"Find jobs for me. My preferences: {preferences.model_dump_json()}"
+                f"Find jobs for me. My preferences: {state.preferences.model_dump_json()}"
             )
-        ],
+        ]
     }
 
 
@@ -108,7 +102,11 @@ def build_graph(
             [
                 error
                 for check in checks
-                for error in check(state.structured_response, postings, state.profile)
+                for error in check(
+                    state.structured_response,
+                    postings,
+                    Profile(facts=state.facts, preferences=state.preferences),
+                )
             ]
         )
 

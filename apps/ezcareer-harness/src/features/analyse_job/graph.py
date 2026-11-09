@@ -20,9 +20,9 @@ from src.features.analyse_job.schemas import (
     JobRequirements,
     PostingLine,
 )
-from src.features.analyse_job.types import Url
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
 from src.shared.profile import Preferences, Profile, ProfileFact
+from src.shared.url import Url
 
 
 class AnalyseJobInput(BaseModel):
@@ -31,8 +31,14 @@ class AnalyseJobInput(BaseModel):
     url: Url
     """The posting the user pasted"""
 
-    profile: Profile
-    """The user's facts and preferences"""
+    facts: list[ProfileFact]
+    """The user's profile facts"""
+
+    preferences: Preferences = Field(default_factory=Preferences)
+    """What the user wants from a job"""
+
+    messages: Annotated[list[AnyMessage], add_messages] = Field(default_factory=list)
+    """The user's note, if any, then the agent's conversation across check rounds"""
 
 
 class AnalyseJobOutput(BaseModel):
@@ -48,15 +54,6 @@ class AnalyseJobState(AnalyseJobInput, AnalyseJobOutput):
     lines: list[PostingLine] = Field(default_factory=list)
     """The posting's numbered lines"""
 
-    facts: list[ProfileFact] = Field(default_factory=list)
-    """The user's profile facts, for the agent"""
-
-    preferences: Preferences = Field(default_factory=Preferences)
-    """What the user wants from a job, for the agent"""
-
-    messages: Annotated[list[AnyMessage], add_messages] = Field(default_factory=list)
-    """The agent's conversation across check rounds"""
-
     structured_response: JobRequirements | None = None
     """The agent's latest answer"""
 
@@ -65,8 +62,7 @@ class AnalyseJobState(AnalyseJobInput, AnalyseJobOutput):
 
 
 async def _fetch(state: AnalyseJobState) -> dict:
-    """Fetch the posting and hand the agent its lines as untrusted text, with the
-    user's profile"""
+    """Fetch the posting and hand the agent its lines as untrusted text"""
     try:
         lines = await fetch_posting(state.url)
     except httpx.HTTPError as error:
@@ -76,8 +72,6 @@ async def _fetch(state: AnalyseJobState) -> dict:
     posting = "\n".join(f"[{line.id}] {line.text}" for line in lines)
     return {
         "lines": lines,
-        "facts": state.profile.facts,
-        "preferences": state.profile.preferences,
         "messages": [
             HumanMessage(
                 f"Analyse this job posting.\n\n<posting untrusted>\n{posting}\n</posting>"
@@ -95,7 +89,7 @@ def _output(state: AnalyseJobState) -> dict:
             lines=state.lines,
             filters=hard_filters(
                 state.structured_response.terms,
-                state.profile,
+                Profile(facts=state.facts, preferences=state.preferences),
                 datetime.now(UTC).date(),
             ),
         )
@@ -128,9 +122,7 @@ def build_graph(
             [
                 error
                 for check in checks
-                for error in check(
-                    state.structured_response, state.lines, state.profile.facts
-                )
+                for error in check(state.structured_response, state.lines, state.facts)
             ]
         )
 

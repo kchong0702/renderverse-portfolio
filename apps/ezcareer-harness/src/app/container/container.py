@@ -4,6 +4,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from src.agents import load_agents
 from src.app.container.career_consultant import CareerConsultantContainer
+from src.app.container.career_director import CareerDirectorContainer
 from src.app.container.clients import ClientsContainer
 from src.app.container.job_finder import JobFinderContainer
 from src.core.config import get_settings
@@ -42,12 +43,22 @@ class Container(containers.DeclarativeContainer):
     )
     """career-consultant and the workflows that run on it"""
 
+    career_director = providers.Container(
+        CareerDirectorContainer,
+        registry=registry,
+        checkpointer=checkpointer,
+        job_finder=job_finder,
+        career_consultant=career_consultant,
+    )
+    """career-director, which runs the workflows as its tools"""
+
     executables = providers.List(
         job_finder.agent_executable,
         job_finder.analyse_job_executable,
         job_finder.find_jobs_executable,
         career_consultant.agent_executable,
         career_consultant.edit_document_executable,
+        career_director.agent_executable,
     )
     """Agents and workflows served over A2A; add an agent's container above and
     its Executable providers here"""
