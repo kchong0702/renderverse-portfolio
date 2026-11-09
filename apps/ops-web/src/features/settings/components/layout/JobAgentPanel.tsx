@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { SelectField } from "@/shared/components/ui/fields";
 import Panel from "@/shared/components/layout/Panel";
-import type { JobAgent, SettingsPatch } from "../api/settings";
-import DraftTextField from "./DraftTextField";
-import { MIN_SCORES, RUN_TIMES, hhmm, withCurrent } from "./options";
+import type { JobAgent, SettingsPatch } from "../../api/settings";
+import { MIN_SCORES, RUN_TIMES, hhmm, withCurrent } from "../../lib/options";
+import DraftTextField from "../ui/DraftTextField";
 
 interface JobAgentPanelProps {
   jobAgent: JobAgent;
