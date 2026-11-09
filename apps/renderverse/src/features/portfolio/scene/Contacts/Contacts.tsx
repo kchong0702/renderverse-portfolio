@@ -7,7 +7,7 @@ import { MdEmail } from "react-icons/md";
 import { FaLinkedin } from "react-icons/fa6";
 import { FaInstagram } from "react-icons/fa";
 import { MdClose } from "react-icons/md";
-import Indicator from "@/shared/components/ui/indicator/Indicator";
+import Indicator from "@/shared/components/ui/Indicator";
 import { MdContactPhone } from "react-icons/md";
 import { useTranslation } from "react-i18next";
 import type {

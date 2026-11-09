@@ -1,7 +1,7 @@
 import styles from "./ChatScreen.module.css";
 import { useSceneStore } from "@/experience/state/sceneStore";
 import { useEffect } from "react";
-import Ezbot from "./Ezbot";
+import Ezbot from "@/features/ezbot/components/ui/Ezbot";
 import Chat from "./Chat";
 import { useChatStore } from "@/features/ezbot/state/chatStore";
 import { useOpenChat } from "@/features/ezbot/hooks/useOpenChat";

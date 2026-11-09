@@ -2,7 +2,7 @@ import { Html } from "@react-three/drei";
 import { useControls } from "leva";
 import styles from "./Clock.module.css";
 import { useClock } from "@/features/clock/hooks/useClock";
-// import Indicator from "@/shared/components/ui/indicator/Indicator";
+// import Indicator from "@/shared/components/ui/Indicator";
 // import { IoPartlySunny } from "react-icons/io5";
 // import { MdNightsStay } from "react-icons/md";
 
