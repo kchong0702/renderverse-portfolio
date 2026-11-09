@@ -9,7 +9,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.agents import Workflow
+from src.agents import AgentOverride
 from src.core.config import get_settings
 from src.core.errors import ExecuteError
 from src.features.analyse_job.configurations import CHECKS, AnalyseJobConfigurations
@@ -139,7 +139,8 @@ def build_graph(
     )
     graph.add_node("fetch", _fetch)
     graph.add_node(
-        "agent", agent.with_config(Workflow(response_format=JobRequirements).config())
+        "agent",
+        agent.with_config(AgentOverride(response_format=JobRequirements).config()),
     )
     graph.add_node("check", check)
     graph.add_node("output", _output)

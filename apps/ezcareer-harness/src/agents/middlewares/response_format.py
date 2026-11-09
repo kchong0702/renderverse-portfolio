@@ -8,13 +8,15 @@ from langchain.agents.middleware import (
     ModelResponse,
 )
 
-from src.agents.workflow import current_workflow
+from src.agents.agent_override import current_override
 
 
 def _request(request: ModelRequest) -> ModelRequest:
-    """The model call with the calling workflow's response_format, or none"""
-    workflow = current_workflow()
-    return request.override(response_format=workflow and workflow.response_format)
+    """The model call with the override's response_format, or none"""
+    agent_override = current_override()
+    return request.override(
+        response_format=agent_override and agent_override.response_format
+    )
 
 
 class ResponseFormatMiddleware(AgentMiddleware):
@@ -22,7 +24,7 @@ class ResponseFormatMiddleware(AgentMiddleware):
     def wrap_model_call(
         self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
     ) -> ModelCallResult:
-        """Runs the model call with the workflow's response_format"""
+        """Runs the model call with the override's response_format"""
         return handler(_request(request))
 
     @override
@@ -31,5 +33,5 @@ class ResponseFormatMiddleware(AgentMiddleware):
         request: ModelRequest,
         handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
     ) -> ModelCallResult:
-        """Runs the model call with the workflow's response_format"""
+        """Runs the model call with the override's response_format"""
         return await handler(_request(request))

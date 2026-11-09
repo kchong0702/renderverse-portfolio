@@ -7,7 +7,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.agents import Workflow
+from src.agents import AgentOverride
 from src.core.config import get_settings
 from src.features.find_jobs.adapters import SearchProtocol
 from src.features.find_jobs.configurations import CHECKS, FindJobsConfigurations
@@ -119,7 +119,7 @@ def build_graph(
     graph.add_node(
         "agent",
         agent.with_config(
-            Workflow(
+            AgentOverride(
                 response_format=RankedJobs,
                 tools=(
                     search_jobs_tool(

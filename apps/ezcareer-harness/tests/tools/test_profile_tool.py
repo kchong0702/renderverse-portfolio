@@ -1,7 +1,7 @@
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from pydantic import BaseModel
 
-from src.agents import Agent, Workflow, build_agent
+from src.agents import Agent, AgentOverride, build_agent
 from src.agents.state import ProfileState
 from src.shared.profile import ProfileFact
 from src.tools import read_profile_facts
@@ -44,7 +44,7 @@ def test_agent_reads_the_facts_passed_with_the_run():
                 ProfileFact(id="pg", text="Tuned PostgreSQL queries"),
             ],
         },
-        Workflow(response_format=Done).config(),
+        AgentOverride(response_format=Done).config(),
     )
 
     [listing] = [
