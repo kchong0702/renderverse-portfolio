@@ -19,7 +19,7 @@ import {
   useModalStore,
   type ModalAction,
   type ModalInteraction,
-} from "@/shared/ui/modal/modalStore";
+} from "@/shared/state/modalStore";
 import Camera from "@/experience/camera/Camera";
 import { displayInitialHiddenHtml } from "@/shared/lib/event-handler";
 import {

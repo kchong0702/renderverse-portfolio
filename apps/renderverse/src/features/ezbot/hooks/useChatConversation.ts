@@ -5,7 +5,7 @@ import { EzbotApiError } from "@/features/ezbot/api/errors";
 import { stopChat } from "@/features/ezbot/api/chat/stopChat";
 import { streamChat } from "@/features/ezbot/api/chat/streamChat";
 import { useChatStore } from "@/features/ezbot/state/chatStore";
-import type { ChatMessage } from "@/features/ezbot/ui/types";
+import type { ChatMessage } from "@/features/ezbot/types";
 import { useRecheckEzbot, useRenewEzbotSession } from "./useEzbotSession";
 
 const failureText = (error: unknown, t: TFunction): string => {

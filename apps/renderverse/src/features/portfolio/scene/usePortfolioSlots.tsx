@@ -10,7 +10,7 @@ import type {
   SceneInteraction,
   SceneState,
 } from "@/experience/state/sceneStore";
-import type { ModalInteraction } from "@/shared/ui/modal/modalStore";
+import type { ModalInteraction } from "@/shared/state/modalStore";
 
 interface PortfolioSlotsOptions {
   state: SceneState;

@@ -1,21 +1,21 @@
 import { Html } from "@react-three/drei";
 import styles from "./Projects.module.css";
 import { useControls } from "leva";
-import Indicator from "@/shared/ui/indicator/Indicator";
+import Indicator from "@/shared/components/Indicator";
 import { BsProjectorFill } from "react-icons/bs";
 import { useTranslation } from "react-i18next";
 import Navbar from "./Navbar";
 import Project from "./Project";
 import Searchbar from "./Searchbar";
 import type { SceneInteraction } from "@/experience/state/sceneStore";
-import type { ModalInteraction } from "@/shared/ui/modal/modalStore";
+import type { ModalInteraction } from "@/shared/state/modalStore";
 import type { ProjectItem } from "@/features/portfolio/types";
 
 interface ProjectsProps {
   handlePLInteraction: SceneInteraction;
   handleModalInteraction: ModalInteraction;
 }
-// import CooldownLoader from "@/shared/ui/loader/CooldownLoader";
+// import CooldownLoader from "@/shared/components/CooldownLoader";
 
 function Projects({
   handlePLInteraction,

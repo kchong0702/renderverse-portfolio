@@ -1,17 +1,17 @@
 import { Canvas } from "@react-three/fiber";
 import { Leva } from "leva";
 // import { Perf } from "r3f-perf";
-import Crosshair from "@/experience/ui/Crosshair";
-import FocusBackButton from "@/experience/ui/FocusBackButton";
-import ProjectModal from "@/features/portfolio/ui/ProjectModal";
-import Audio from "@/features/audio/ui/Audio";
-import Menu from "@/features/menu/ui/Menu";
-import ChatScreen from "@/features/ezbot/ui/ChatScreen";
-import FigureRoom from "@/features/secret-room/ui/FigureRoom";
+import Crosshair from "@/experience/components/Crosshair";
+import FocusBackButton from "@/experience/components/FocusBackButton";
+import ProjectModal from "@/features/portfolio/components/ProjectModal";
+import Audio from "@/features/audio/components/Audio";
+import Menu from "@/features/menu/components/Menu";
+import ChatScreen from "@/features/ezbot/components/ChatScreen";
+import FigureRoom from "@/features/secret-room/components/FigureRoom";
 import { Suspense, lazy } from "react";
-import Loader from "@/shared/ui/loader/Loader";
+import Loader from "@/shared/components/Loader";
 import { delay } from "@/shared/lib/utility";
-import SceneLoader from "@/experience/ui/SceneLoader";
+import SceneLoader from "@/experience/components/SceneLoader";
 import { useBackToChat } from "@/features/ezbot/hooks/useBackToChat";
 import { CONFIG } from "./config";
 
