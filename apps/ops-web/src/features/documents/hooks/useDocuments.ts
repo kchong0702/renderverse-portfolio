@@ -1,6 +1,7 @@
 import { useMutation, useMutationState, useQuery } from "@tanstack/react-query";
 import type { DocumentKind, Edit } from "../api/documents";
 import {
+  answerEditMutationOptions,
   cancelImportMutationOptions,
   createDocumentMutationOptions,
   deleteDocumentMutationOptions,
@@ -10,6 +11,8 @@ import {
   editDocumentMutationOptions,
   exportPdfMutationOptions,
   importsQueryOptions,
+  readImportMutationOptions,
+  requestEditMutationOptions,
   setMasterMutationOptions,
   startImportMutationOptions,
   templatesQueryOptions,
@@ -72,4 +75,16 @@ export function useStartImport() {
 
 export function useCancelImport() {
   return useMutation(cancelImportMutationOptions);
+}
+
+export function useReadImport() {
+  return useMutation(readImportMutationOptions);
+}
+
+export function useRequestEdit() {
+  return useMutation(requestEditMutationOptions);
+}
+
+export function useAnswerEdit() {
+  return useMutation(answerEditMutationOptions);
 }

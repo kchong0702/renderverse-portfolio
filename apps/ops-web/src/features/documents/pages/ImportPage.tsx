@@ -11,6 +11,7 @@ import ImportSteps from "../components/ImportSteps";
 import {
   useCancelImport,
   useImports,
+  useReadImport,
   useStartImport,
   useTemplates,
 } from "../hooks/useDocuments";
@@ -26,6 +27,7 @@ export default function ImportPage() {
   const { t } = useTranslation();
   const imports = useImports();
   const start = useStartImport();
+  const read = useReadImport();
   const cancel = useCancelImport();
   const templates = useTemplates("resume");
   const current = imports.data?.[0];
@@ -54,15 +56,20 @@ export default function ImportPage() {
             <FileUp size={16} />
             {start.isPending
               ? t("documents.importPage.upload.uploading")
-              : t("documents.importPage.upload.choose")}
+              : read.isPending
+                ? t("documents.importPage.upload.reading")
+                : t("documents.importPage.upload.choose")}
             <input
               type="file"
               accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               className="sr-only"
-              disabled={start.isPending}
+              disabled={start.isPending || read.isPending}
               onChange={(event) => {
                 const file = event.target.files?.[0];
-                if (file) start.mutate(file);
+                if (file)
+                  start.mutate(file, {
+                    onSuccess: (row) => read.mutate(row.id),
+                  });
                 event.target.value = "";
               }}
             />
@@ -71,6 +78,18 @@ export default function ImportPage() {
             <p role="alert" className="text-crit m-0 text-sm">
               {t("documents.importPage.upload.failed", {
                 reason: start.error.message,
+              })}
+            </p>
+          )}
+          {read.isPending && (
+            <p role="status" className="text-ink-3 m-0 text-sm">
+              {t("documents.importPage.reading")}
+            </p>
+          )}
+          {read.isError && (
+            <p role="alert" className="text-crit m-0 text-sm">
+              {t("documents.importPage.readFailed", {
+                reason: read.error.message,
               })}
             </p>
           )}
@@ -87,9 +106,6 @@ export default function ImportPage() {
         ) : (
           imports.data.length > 0 && (
             <Panel title={t("documents.importPage.files")}>
-              <p className="bg-warn-bg text-warn m-0 rounded-lg px-4 py-3 text-sm">
-                {t("documents.importPage.pending")}
-              </p>
               <ul className="m-0 flex list-none flex-col p-0">
                 {imports.data.map((row) => (
                   <li
@@ -100,7 +116,9 @@ export default function ImportPage() {
                       <span className="flex flex-wrap items-center gap-2 font-semibold">
                         {row.filename}
                         <Badge tone={STATUS_TONE[row.status]}>
-                          {t(`documents.importPage.status.${row.status}`)}
+                          {read.isPending && read.variables === row.id
+                            ? t("documents.importPage.status.running")
+                            : t(`documents.importPage.status.${row.status}`)}
                         </Badge>
                       </span>
                       <span className="text-ink-3 text-xs">
@@ -111,6 +129,18 @@ export default function ImportPage() {
                         {row.error && ` · ${row.error}`}
                       </span>
                     </span>
+                    {(row.status === "pending" || row.status === "failed") && (
+                      <button
+                        type="button"
+                        disabled={read.isPending}
+                        onClick={() => read.mutate(row.id)}
+                        className={buttonClass("primary")}
+                      >
+                        {row.status === "failed"
+                          ? t("documents.importPage.retry")
+                          : t("documents.importPage.read")}
+                      </button>
+                    )}
                     {row.document_id && (
                       <Link
                         to={`/documents?doc=${row.document_id}`}

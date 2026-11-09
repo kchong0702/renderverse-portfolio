@@ -513,6 +513,17 @@
       "merriweather": "Merriweather",
       "eb-garamond": "EB Garamond"
     },
+    "request": {
+      "label": "Ask for a change",
+      "placeholder": "Tailor it for the Northwind Labs posting, or shorten it to one page",
+      "ask": "Propose edits",
+      "asking": "Proposing…",
+      "send": "Send",
+      "working": "The assistant is drafting edits from your facts and checking them. This can take a few minutes.",
+      "failed": "No edits proposed: {{reason}}",
+      "proposed_one": "The assistant proposed {{count}} edit. Review it below.",
+      "proposed_other": "The assistant proposed {{count}} edits. Review them below."
+    },
     "entryPanel": {
       "experience": "Experience entry",
       "education": "Education entry",
@@ -554,11 +565,13 @@
         "hint": "A PDF or Word (.docx) file, up to 10 MB. Every fact will link back to the line it came from.",
         "choose": "Choose a file",
         "uploading": "Uploading…",
-        "failed": "Not uploaded: {{reason}}"
+        "failed": "Not uploaded: {{reason}}",
+        "reading": "Reading…"
       },
       "loadFailed": "Imports could not load: {{reason}}",
       "files": "Uploaded files",
-      "pending": "Your file is stored. Reading it into an editable draft arrives with the import-resume workflow, which is not connected yet, so imports wait here until then.",
+      "reading": "Reading your résumé and checking every value against the line it came from. This can take a few minutes.",
+      "readFailed": "Not read: {{reason}}",
       "status": {
         "pending": "Waiting to be read",
         "running": "Reading…",
@@ -566,6 +579,8 @@
         "failed": "Could not read"
       },
       "uploaded": "{{size}} KB · uploaded {{date}}",
+      "read": "Read the file",
+      "retry": "Try again",
       "open": "Open the draft",
       "cancel": "Cancel import",
       "look": {
