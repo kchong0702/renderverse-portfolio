@@ -43,5 +43,5 @@ def test_a_profile_that_names_neither_reads_them_beside_it():
 
 
 def test_an_unknown_model_family_is_refused():
-    with pytest.raises(ValueError, match="unknown model family gpt"):
+    with pytest.raises(ValueError, match="Input should be 'claude', 'glm' or 'openai'"):
         _load(family="gpt")

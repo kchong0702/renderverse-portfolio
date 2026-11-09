@@ -141,10 +141,10 @@ def _tool_results(result: CareerConsultantState) -> dict[str, str]:
     return {m.name: m.text for m in result["messages"] if isinstance(m, ToolMessage)}
 
 
-def test_agent_reads_the_pdf_lines_and_profile_facts():
-    result = _agent(
+async def test_agent_reads_the_pdf_lines_and_profile_facts():
+    result = await _agent(
         _model(_call("read_pdf_lines"), _call("read_profile_facts"), _answer(GOOD_EDIT))
-    ).invoke(_state(), EDIT.config())
+    ).ainvoke(_state(), EDIT.config())
 
     results = _tool_results(result)
     assert "p1.s8  Led the migration of 30 services" in results["read_pdf_lines"]
@@ -155,7 +155,7 @@ def test_agent_reads_the_pdf_lines_and_profile_facts():
     assert result["structured_response"] == _changeset(GOOD_EDIT)
 
 
-def _asked(
+async def _asked(
     ask: AIMessage, answer: object, configurable: dict[str, str] | None = None
 ) -> tuple[CareerConsultantState, CareerConsultantState]:
     agent = _agent(_model(ask, _answer(GOOD_EDIT))).copy(
@@ -163,13 +163,13 @@ def _asked(
     )
     thread = EDIT.config({"configurable": {"thread_id": "t1", **(configurable or {})}})
     return (
-        agent.invoke(_state(), thread),
-        agent.invoke(Command(resume=answer), thread),
+        await agent.ainvoke(_state(), thread),
+        await agent.ainvoke(Command(resume=answer), thread),
     )
 
 
-def test_clarify_shows_the_user_a_widget_and_returns_what_they_typed():
-    paused, resumed = _asked(
+async def test_clarify_shows_the_user_a_widget_and_returns_what_they_typed():
+    paused, resumed = await _asked(
         _call("clarify", question="Which bullet should mention Kubernetes?"),
         Answer(input="The queue migration one").model_dump(),
     )
@@ -192,10 +192,10 @@ def test_clarify_shows_the_user_a_widget_and_returns_what_they_typed():
         (False, "Permission refused: Replace the summary. Don't do it."),
     ],
 )
-def test_permission_asks_the_user_to_confirm_and_returns_their_choice(
+async def test_permission_asks_the_user_to_confirm_and_returns_their_choice(
     accept: bool, reply: str
 ):
-    paused, resumed = _asked(
+    paused, resumed = await _asked(
         _call("permission", summary="Replace the summary"),
         Answer(accept=accept).model_dump(),
     )
@@ -210,8 +210,8 @@ def test_permission_asks_the_user_to_confirm_and_returns_their_choice(
     assert _tool_results(resumed)["permission"] == reply
 
 
-def test_with_a_parent_clarify_asks_the_parent_the_plain_question():
-    paused, resumed = _asked(
+async def test_with_a_parent_clarify_asks_the_parent_the_plain_question():
+    paused, resumed = await _asked(
         _call("clarify", question="Which job?"),
         Answer(input="Lumen Pay").model_dump(),
         {"parent": "career-director"},
@@ -221,8 +221,8 @@ def test_with_a_parent_clarify_asks_the_parent_the_plain_question():
     assert _tool_results(resumed)["clarify"] == "Lumen Pay"
 
 
-def test_with_a_parent_permission_asks_the_parent_as_plain_text():
-    paused, resumed = _asked(
+async def test_with_a_parent_permission_asks_the_parent_as_plain_text():
+    paused, resumed = await _asked(
         _call("permission", summary="Replace the summary"),
         Answer(accept=True).model_dump(),
         {"parent": "career-director"},
@@ -237,8 +237,8 @@ def test_with_a_parent_permission_asks_the_parent_as_plain_text():
     )
 
 
-def test_clarify_takes_a_plain_text_answer_as_what_was_typed():
-    _, resumed = _asked(_call("clarify", question="Which job?"), "Lumen Pay")
+async def test_clarify_takes_a_plain_text_answer_as_what_was_typed():
+    _, resumed = await _asked(_call("clarify", question="Which job?"), "Lumen Pay")
 
     assert _tool_results(resumed)["clarify"] == "Lumen Pay"
 
@@ -254,10 +254,10 @@ async def test_design_options_are_artifact_services_templates_for_the_document_k
     assert [template["id"] for template in templates] == ["plain-letter"]
 
 
-def test_agent_offers_its_tools_and_loads_both_skills():
+async def test_agent_offers_its_tools_and_loads_both_skills():
     model = _model(_answer(GOOD_EDIT))
 
-    _agent(model).invoke(_state(), EDIT.config())
+    await _agent(model).ainvoke(_state(), EDIT.config())
 
     assert {tool.name for tool in TOOLS} <= model.offered_tools[0]
     assert {"write_file", "edit_file", "task"}.isdisjoint(model.offered_tools[0])
@@ -265,10 +265,10 @@ def test_agent_offers_its_tools_and_loads_both_skills():
     assert "modify-career-documents" in system and "resume-ats-optimizer" in system
 
 
-def test_the_profile_describes_the_tools_and_marks_text_untrusted():
+async def test_the_profile_describes_the_tools_and_marks_text_untrusted():
     model = _model(_answer(GOOD_EDIT))
 
-    _agent(model).invoke(_state(), EDIT.config())
+    await _agent(model).ainvoke(_state(), EDIT.config())
 
     overrides = AGENT.profile.tool_description_overrides
     assert {name: model.tool_descriptions[name] for name in overrides} == overrides

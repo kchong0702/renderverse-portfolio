@@ -55,6 +55,7 @@ class Container(containers.DeclarativeContainer):
 
     import_document = providers.Container(
         ImportDocumentContainer,
+        registry=registry,
         checkpointer=checkpointer,
         artifact_service=clients.artifact_service,
     )

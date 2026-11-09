@@ -19,7 +19,7 @@ def _call(name: str, **args) -> AIMessage:
     )
 
 
-def test_agent_reads_the_facts_passed_with_the_run():
+async def test_agent_reads_the_facts_passed_with_the_run():
     model = ScriptedChatModel(
         replies=[_call("read_profile_facts"), _call("Done", ok=True)]
     )
@@ -31,7 +31,7 @@ def test_agent_reads_the_facts_passed_with_the_run():
         model=model,
     )
 
-    result = agent.invoke(
+    result = await agent.ainvoke(
         {
             "messages": [HumanMessage("What do I know?")],
             "facts": [

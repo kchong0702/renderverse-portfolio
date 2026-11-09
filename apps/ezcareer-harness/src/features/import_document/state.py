@@ -18,7 +18,7 @@ class ImportState(TypedDict, total=False):
     """The file's text lines"""
 
     structured_response: ResumeImport | None
-    """The LLM's last reply; None when it held no ResumeImport"""
+    """The agent's last reply; None when it held no ResumeImport"""
 
     parsing_error: str | None
     """Why the last reply held no ResumeImport; None when it did"""

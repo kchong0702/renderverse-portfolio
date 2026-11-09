@@ -37,6 +37,9 @@ LogFormat = Literal["json", "console"]
 
 Instrumentation = Literal["langchain"]
 
+Family = Literal["claude", "glm", "openai"]
+"""A model family, which picks the provider its models run on"""
+
 
 def _split_csv(v: object) -> object:
     if isinstance(v, str):
@@ -199,11 +202,11 @@ class AgentSettings(BaseModel):
     """The agent's profile.yaml, relative to the app folder; its folder holds
     system.md and skills/"""
 
-    family: str
+    family: Family
     """Model family the model belongs to, such as glm, which picks its provider"""
 
     model: str
-    """Exact model the agent runs on, such as glm-5.3"""
+    """Exact model the agent runs on, such as glm-5.3; one [models] offers"""
 
     @field_validator("path")
     @classmethod
@@ -296,6 +299,9 @@ class Settings(BaseSettings):
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     """Logging, tracing and metrics settings"""
 
+    models: dict[Family, tuple[str, ...]] = {}
+    """The models a user can pick, by family, read from config.toml's [models]"""
+
     agents: tuple[AgentSettings, ...] = ()
     """Every agent the app builds, read from config.toml's [[agents]] tables"""
 
@@ -355,6 +361,20 @@ class Settings(BaseSettings):
             file_secret_settings,
         )
 
+    def offers(self, family: Family, model: str) -> bool:
+        """Whether [models] offers model in family"""
+        return model in self.models.get(family, ())
+
+    @model_validator(mode="after")
+    def _agents_run_offered_models(self) -> Settings:
+        """Refuses an agent whose model [models] does not offer"""
+        for agent in self.agents:
+            if not self.offers(agent.family, agent.model):
+                raise ValueError(
+                    f"{agent.name} runs {agent.family} {agent.model}, which [models] does not offer"
+                )
+        return self
+
     def graph_profile(self, name: str) -> GraphProfile:
         """The profile of the graph with that name"""
         [profile] = [profile for profile in self.graph_profiles if profile.name == name]
@@ -377,6 +397,7 @@ __all__ = [
     "AgentSettings",
     "AppSettings",
     "ArtifactServiceSettings",
+    "Family",
     "GraphProfile",
     "Instrumentation",
     "JSearchSettings",

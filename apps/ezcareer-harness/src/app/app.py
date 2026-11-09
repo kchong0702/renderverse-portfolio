@@ -2,11 +2,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, ConfigDict
 
 from src.agents import register_harness_profiles
 from src.app.a2a import add_executable_routes
 from src.app.container import Container
-from src.core.config import get_settings
+from src.core.config import Family, get_settings
 from src.infrastructure import (
     configure_logging,
     configure_metrics,
@@ -22,6 +23,37 @@ _settings = get_settings()
 def health_check():
     """Health check endpoint"""
     return {"status": "ok", "version": _settings.app.version}
+
+
+class FamilyModels(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, use_attribute_docstrings=True
+    )
+
+    family: Family
+    """The model family"""
+
+    models: list[str]
+    """Models a user can pick in that family"""
+
+
+class ModelCatalog(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, use_attribute_docstrings=True
+    )
+
+    families: list[FamilyModels]
+    """Every family a user can pick from, with its models"""
+
+
+def list_models() -> ModelCatalog:
+    """The models a user can pick, by family, from [models]"""
+    return ModelCatalog(
+        families=[
+            FamilyModels(family=family, models=list(models))
+            for family, models in _settings.models.items()
+        ]
+    )
 
 
 @asynccontextmanager
@@ -61,6 +93,11 @@ def create_app(container: Container | None = None) -> FastAPI:
     app.add_api_route(
         path=f"{_settings.app.route_prefix}/health",
         endpoint=health_check,
+        methods=["GET"],
+    )
+    app.add_api_route(
+        path=f"{_settings.app.route_prefix}/models",
+        endpoint=list_models,
         methods=["GET"],
     )
     add_executable_routes(

@@ -8,7 +8,7 @@ from deepagents import HarnessProfileConfig, register_harness_profile
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.clients.llm_providers import PROVIDERS
-from src.core.config import _ROOT_PATH, AgentSettings
+from src.core.config import _ROOT_PATH, AgentSettings, Family
 
 
 class AgentProfile(BaseModel):
@@ -46,7 +46,7 @@ class Agent(BaseModel):
     folder: Path
     """Holds profile.yaml, system.md and the agent's own skills/"""
 
-    family: str
+    family: Family
     """Model family the model belongs to, such as glm"""
 
     model: str
@@ -83,8 +83,6 @@ class Agent(BaseModel):
     @classmethod
     def load(cls, settings: AgentSettings) -> Self:
         """Reads an agent's profile.yaml for the model and family its settings name"""
-        if settings.family not in PROVIDERS:
-            raise ValueError(f"{settings.name}: unknown model family {settings.family}")
         return cls(
             name=settings.name,
             folder=settings.path.parent,

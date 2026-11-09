@@ -172,6 +172,7 @@ async def test_candidate_configurations_without_the_check_take_the_first_answer(
     [agent] = [a for a in settings.agents if a.name == "job-finder"]
     config = tmp_path / "config.toml"
     config.write_text(
+        f'[models]\n{agent.family} = ["{agent.model}"]\n\n'
         f'[[agents]]\nname = "job-finder"\npath = "{agent.path}"\n'
         f'family = "{agent.family}"\nmodel = "{agent.model}"\n\n'
         f'[[graph_profiles]]\nname = "analyse-job"\npath = "{configurations}"\n'

@@ -1,13 +1,11 @@
 from functools import partial
 from typing import Literal
 
-from langchain_core.language_models import BaseChatModel
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
 
 from src.clients.artifact_service import ArtifactServiceClient
-from src.clients.llm_providers import llm_provider
 from src.core.config import get_settings
 from src.features.import_document.configurations import ImportResumeConfigurations
 from src.features.import_document.exceptions import ImportFailed
@@ -30,27 +28,20 @@ def _after_verify(state: ImportState) -> Literal["structure", "render"]:
 
 
 def build_graph(
+    agent: CompiledStateGraph,
     artifact_service: ArtifactServiceClient,
-    model: BaseChatModel | None = None,
     checkpointer: Checkpointer = None,
 ) -> CompiledStateGraph:
-    """The import-resume graph on its graph profile, converting and printing through
-    artifact_service; model replaces the configured LLM; checkpointer keeps runs"""
-    settings = get_settings()
-    profile = settings.graph_profile("import-resume")
-    configurations = profile.load(ImportResumeConfigurations)
+    """The import-resume graph run on agent, with the configurations the settings
+    name, converting and printing through artifact_service; checkpointer keeps runs"""
+    configurations = (
+        get_settings().graph_profile("import-resume").load(ImportResumeConfigurations)
+    )
     graph = StateGraph(
         ImportState, input_schema=ImportInput, output_schema=ImportResult
     )
     graph.add_node("extract", partial(extract, artifact_service=artifact_service))
-    graph.add_node(
-        "structure",
-        partial(
-            structure,
-            model=model or llm_provider(configurations.family, configurations.model),
-            prompt=(profile.folder / "system.md").read_text(),
-        ),
-    )
+    graph.add_node("structure", partial(structure, agent=agent))
     graph.add_node("verify", partial(verify, configurations=configurations))
     graph.add_node("render", partial(render, artifact_service=artifact_service))
     graph.add_edge(START, "extract")

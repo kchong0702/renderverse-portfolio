@@ -7,9 +7,11 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 from pydantic import JsonValue
 
+from src.app.container import Container
 from src.features.import_document import build_graph
 from src.features.import_document.exceptions import ImportFailed
 from src.features.import_document.schemas import ImportInput, ResumeImport
+from src.shared.run_context import RunContext
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.import_document.test_extract import _artifact_service
@@ -35,16 +37,19 @@ def _reply(headline: str) -> dict[str, JsonValue]:
     }
 
 
-def _model(*replies: dict[str, JsonValue] | None) -> ScriptedChatModel:
-    """A model that answers each call with the next reply as its ResumeImport, or
+def _model(
+    *replies: dict[str, JsonValue] | None, model_name: str = "glm-5.3"
+) -> ScriptedChatModel:
+    """model_name answering each call with the next reply as its ResumeImport, or
     with plain text for None"""
     return ScriptedChatModel(
+        model_name=model_name,
         replies=[
             AIMessage("Here is the résumé.")
             if reply is None
             else _call("ResumeImport", **reply)
             for reply in replies
-        ]
+        ],
     )
 
 
@@ -57,8 +62,8 @@ async def test_the_passing_draft_is_printed_in_the_default_template():
     requests: list[httpx.Request] = []
 
     result = await build_graph(
+        Container().import_document.agent(model=_model(_reply("Engineer"))),
         _artifact_service(partial(_print, sent=requests)),
-        model=_model(_reply("Engineer")),
     ).ainvoke(UPLOAD)
 
     [request] = requests
@@ -71,11 +76,24 @@ async def test_the_passing_draft_is_printed_in_the_default_template():
     assert [line.id for line in result["lines"]] == ["p1.s1", "p1.s2"]
 
 
+async def test_the_run_contexts_model_reads_the_resume_instead_of_its_own():
+    configured, picked = _model(), _model(_reply("Engineer"))
+
+    result = await build_graph(
+        Container().import_document.agent(model=configured),
+        _artifact_service(partial(_print, sent=[])),
+    ).ainvoke(UPLOAD, context=RunContext(model=picked))
+
+    assert result["pdf"] == "JVBERg=="
+    assert (len(configured.requests), len(picked.requests)) == (0, 1)
+
+
 async def test_a_failed_reply_goes_back_to_the_llm_with_its_errors():
     model = _model(_reply("Engineering lead"), _reply("Engineer"))
 
     result = await build_graph(
-        _artifact_service(partial(_print, sent=[])), model=model
+        Container().import_document.agent(model=model),
+        _artifact_service(partial(_print, sent=[])),
     ).ainvoke(UPLOAD)
 
     system, human, fix = model.requests[1]
@@ -93,7 +111,10 @@ async def test_a_failed_reply_goes_back_to_the_llm_with_its_errors():
 async def test_the_users_note_stays_ahead_of_the_checks_errors():
     model = _model(_reply("Engineering lead"), _reply("Engineer"))
 
-    await build_graph(_artifact_service(partial(_print, sent=[])), model=model).ainvoke(
+    await build_graph(
+        Container().import_document.agent(model=model),
+        _artifact_service(partial(_print, sent=[])),
+    ).ainvoke(
         UPLOAD.model_copy(update={"messages": [HumanMessage("Keep my headline")]})
     )
 
@@ -105,20 +126,26 @@ async def test_the_users_note_stays_ahead_of_the_checks_errors():
 async def test_a_reply_without_a_resume_import_gets_another_round():
     model = _model(None, _reply("Engineer"))
 
-    await build_graph(_artifact_service(partial(_print, sent=[])), model=model).ainvoke(
-        UPLOAD
-    )
+    await build_graph(
+        Container().import_document.agent(model=model),
+        _artifact_service(partial(_print, sent=[])),
+    ).ainvoke(UPLOAD)
 
     assert "(schema): the reply holds no ResumeImport" in model.requests[1][-1].content
     assert json.loads(model.requests[1][1].content)["previous_reply"] is None
 
 
-async def test_a_reply_that_breaks_the_schema_gets_another_round():
-    model = _model({"blocks": []}, _reply("Engineer"))
+@pytest.mark.parametrize(
+    "model_name",
+    [pytest.param("glm-5.3", id="tool"), pytest.param("gpt-6-luna", id="native")],
+)
+async def test_a_reply_that_breaks_the_schema_gets_another_round(model_name: str):
+    model = _model({"blocks": []}, _reply("Engineer"), model_name=model_name)
 
-    await build_graph(_artifact_service(partial(_print, sent=[])), model=model).ainvoke(
-        UPLOAD
-    )
+    await build_graph(
+        Container().import_document.agent(model=model),
+        _artifact_service(partial(_print, sent=[])),
+    ).ainvoke(UPLOAD)
 
     assert "exactly one profile" in model.requests[1][-1].content
 
@@ -128,9 +155,10 @@ async def test_a_photo_without_its_file_gets_another_round():
     photo["blocks"].append({"kind": "photo", "id": "photo", "file": "a" * 64})
     model = _model(photo, _reply("Engineer"))
 
-    await build_graph(_artifact_service(partial(_print, sent=[])), model=model).ainvoke(
-        UPLOAD
-    )
+    await build_graph(
+        Container().import_document.agent(model=model),
+        _artifact_service(partial(_print, sent=[])),
+    ).ainvoke(UPLOAD)
 
     assert "files not in assets" in model.requests[1][-1].content
 
@@ -141,7 +169,8 @@ async def test_an_import_that_never_passes_fails_once_no_round_can_be_checked():
 
     with pytest.raises(ImportFailed, match=r"blocks/profile/headline \(verbatim\)"):
         await build_graph(
-            _artifact_service(partial(_print, sent=requests)), model=model
+            Container().import_document.agent(model=model),
+            _artifact_service(partial(_print, sent=requests)),
         ).ainvoke(UPLOAD)
 
     assert len(model.requests) == 4
@@ -151,8 +180,8 @@ async def test_an_import_that_never_passes_fails_once_no_round_can_be_checked():
 async def test_a_draft_artifact_service_rejects_fails_the_import_for_good():
     with pytest.raises(ImportFailed) as failed:
         await build_graph(
+            Container().import_document.agent(model=_model(_reply("Engineer"))),
             _artifact_service(_reject),
-            model=_model(_reply("Engineer")),
         ).ainvoke(UPLOAD)
 
     assert str(failed.value) == "the draft couldn't be printed"
@@ -161,8 +190,8 @@ async def test_a_draft_artifact_service_rejects_fails_the_import_for_good():
 async def test_an_artifact_service_outage_fails_the_import_until_a_retry():
     with pytest.raises(ImportFailed) as failed:
         await build_graph(
+            Container().import_document.agent(model=_model(_reply("Engineer"))),
             _artifact_service(_fail),
-            model=_model(_reply("Engineer")),
         ).ainvoke(UPLOAD)
 
     assert str(failed.value) == "couldn't print the draft; try again"

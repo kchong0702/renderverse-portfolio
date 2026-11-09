@@ -8,12 +8,6 @@ class ImportResumeConfigurations(BaseModel):
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    family: Literal["claude", "glm", "openai"]
-    """Model family, which picks the provider"""
-
-    model: str
-    """Exact model that reads the résumé, such as gpt-6-luna"""
-
     checks: list[Literal["verbatim", "coverage", "order"]]
     """Checks run on each reply; errors go back to the LLM"""
 

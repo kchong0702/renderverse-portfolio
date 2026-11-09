@@ -11,7 +11,11 @@ from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
-from src.agents.middlewares import InjectToolsMiddleware, ResponseFormatMiddleware
+from src.agents.middlewares import (
+    InjectToolsMiddleware,
+    ResponseFormatMiddleware,
+    dynamic_model_call,
+)
 from src.agents.registry import Agent
 from src.clients.llm_providers import llm_provider
 
@@ -27,7 +31,7 @@ def build_agent(
     model: BaseChatModel | None = None,
 ) -> CompiledStateGraph:
     """Builds a registered agent as a deep agent that can only read its files and
-    skills, able to reply in any of response_formats"""
+    skills, able to reply in any of response_formats, on its run context's model"""
     backend = CompositeBackend(
         default=FilesystemBackend(root_dir=agent.skills, virtual_mode=True),
         routes={"/artifacts/": StateBackend()},
@@ -44,8 +48,9 @@ def build_agent(
             *middleware,
             InjectToolsMiddleware(agent.profile.tool_description_overrides),
             ResponseFormatMiddleware(),
+            dynamic_model_call,
         ],
-        skills=["/"],
+        skills=["/"] if agent.skills.is_dir() else None,
         permissions=[
             FilesystemPermission(operations=["write"], paths=["/**"], mode="deny")
         ],
