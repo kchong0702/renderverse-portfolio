@@ -114,7 +114,7 @@ class EzcareerClient:
             timeout=settings.timeout_seconds,
             transport=transport,
         )
-        self._run_timeout = settings.run_timeout_seconds
+        self.run_timeout_seconds = settings.run_timeout_seconds
         self._record_usage = record_usage
 
     async def models(self) -> ModelCatalog:
@@ -150,7 +150,7 @@ class EzcareerClient:
                         params=SendMessageParams(message=message, metadata=metadata),
                     ).model_dump_json(),
                     headers={"A2A-Version": "1.0", "Content-Type": "application/json"},
-                    timeout=self._run_timeout,
+                    timeout=self.run_timeout_seconds,
                 )
                 response.raise_for_status()
                 outcome = TypeAdapter(
@@ -346,7 +346,7 @@ class EzcareerClient:
                     method="POST",
                     content=request.model_dump_json(),
                     headers={"A2A-Version": "1.0", "Content-Type": "application/json"},
-                    timeout=self._run_timeout,
+                    timeout=self.run_timeout_seconds,
                 ) as source:
                     async for event in source:
                         outcome = TypeAdapter(

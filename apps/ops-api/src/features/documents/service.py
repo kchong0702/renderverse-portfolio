@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from uuid import UUID
+from datetime import timedelta
+from pathlib import PurePath
+from uuid import UUID, uuid4
 
 from document_schema import (
     AnyDocument,
@@ -15,8 +17,23 @@ from document_schema import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.artifact import ArtifactClient, Render
+from src.clients.ezcareer import (
+    Answer,
+    Completed,
+    EzcareerClient,
+    Failed,
+    InputRequired,
+    Run,
+)
 from src.core.config import DocumentsSettings
-from src.core.exceptions import Conflict, InvalidInput, NotFound
+from src.core.exceptions import (
+    Conflict,
+    InvalidInput,
+    NotFound,
+    ServiceUnavailable,
+)
+from src.db.base import utcnow
+from src.features.documents.enums import ImportStatus
 from src.features.documents.models import (
     Document,
     DocumentChangeset,
@@ -32,10 +49,17 @@ from src.features.documents.schemas import (
     DocumentRead,
     DocumentSummary,
     DocumentUpdate,
+    EditDocumentInput,
+    EditDocumentOutput,
+    EditRequest,
     ImportRead,
+    ImportResumeInput,
+    ImportResumeOutput,
     VersionCreate,
     VersionRead,
 )
+from src.features.profile import ProfileService
+from src.features.settings import SettingsService
 
 
 def _pending(changesets: Sequence[DocumentChangeset]) -> int:
@@ -77,12 +101,19 @@ class DocumentService:
         session: AsyncSession,
         artifact: ArtifactClient,
         limits: DocumentsSettings,
+        profile: ProfileService,
+        settings: SettingsService,
+        ezcareer: EzcareerClient,
     ):
-        """Read and write documents through a repository on the session, render them
-        with artifact-service, and keep at most limits' documents of each kind"""
+        """Hold the session to commit on and a repository on it, artifact-service, the
+        documents limit, the profile the agents read, the user's model and the harness"""
+        self._session = session
         self._repository = DocumentRepository(session)
         self._artifact = artifact
         self._limits = limits
+        self._profile = profile
+        self._settings = settings
+        self._ezcareer = ezcareer
 
     async def _make_room(self, user_id: UUID, kind: DocumentKind) -> None:
         """Conflict when the user already keeps the most documents of this kind"""
@@ -283,6 +314,63 @@ class DocumentService:
         row.changeset = row.changeset.model_copy(update={"status": decision.status})
         return ChangesetRead.model_validate(row, from_attributes=True)
 
+    async def request_edit(
+        self,
+        user_id: UUID,
+        document_id: UUID,
+        request_id: UUID,
+        request: EditRequest,
+    ) -> Run[ChangesetRead]:
+        """Run edit-document on the user's request; the changeset it proposes is
+        stored for the user to answer, or it asks back with a widget, or fails"""
+        document = await self._load(user_id, document_id)
+        data = EditDocumentInput(
+            document=document.body,
+            lines=document.lines,
+            facts=(await self._profile.agent_profile(user_id)).facts,
+        )
+        metadata = await self._settings.run_metadata(user_id)
+        await self._session.commit()
+        return await self._store_proposal(
+            user_id,
+            document_id,
+            await self._ezcareer.send(
+                "edit-document",
+                EditDocumentOutput,
+                user_id=user_id,
+                context_id=f"{user_id}:{request_id}",
+                text=request.text,
+                data=data,
+                metadata=metadata,
+            ),
+        )
+
+    async def answer_edit(
+        self,
+        user_id: UUID,
+        document_id: UUID,
+        request_id: UUID,
+        task_id: str,
+        answer: Answer,
+    ) -> Run[ChangesetRead]:
+        """Answer the widget a paused edit-document run asked, and run it on"""
+        await self._load(user_id, document_id)
+        metadata = await self._settings.run_metadata(user_id)
+        await self._session.commit()
+        return await self._store_proposal(
+            user_id,
+            document_id,
+            await self._ezcareer.resume(
+                "edit-document",
+                EditDocumentOutput,
+                user_id=user_id,
+                context_id=f"{user_id}:{request_id}",
+                task_id=task_id,
+                answer=answer,
+                metadata=metadata,
+            ),
+        )
+
     async def imports(self, user_id: UUID) -> list[ImportRead]:
         """Every uploaded résumé file, the latest first"""
         return [
@@ -293,8 +381,8 @@ class DocumentService:
     async def start_import(
         self, user_id: UUID, filename: str, media_type: str, content: bytes
     ) -> ImportRead:
-        """Store an uploaded PDF or Word résumé as a pending import;
-        nothing reads it until import-resume is wired in"""
+        """Store an uploaded PDF or Word résumé as a pending import for
+        read_import to run import-resume on"""
         if media_type not in self._limits.upload_types:
             raise InvalidInput("Upload a PDF or Word (.docx) file")
         if not content or len(content) > self._limits.max_upload_bytes:
@@ -311,6 +399,58 @@ class DocumentService:
                 content=content,
             )
         )
+        return ImportRead.model_validate(row, from_attributes=True)
+
+    async def read_import(self, user_id: UUID, import_id: UUID) -> ImportRead:
+        """Claim a pending or failed import and run import-resume on it with no
+        transaction open: it becomes a draft document, or fails with the reason"""
+        row = await self._repository.claim_import(
+            user_id,
+            import_id,
+            utcnow() - timedelta(seconds=self._ezcareer.run_timeout_seconds),
+        )
+        if row is None:
+            if await self._repository.owned(DocumentImport, user_id, import_id) is None:
+                raise NotFound("No such import")
+            raise Conflict("This import is already done or being read")
+        data = ImportResumeInput(file=await self._repository.file(row))
+        metadata = await self._settings.run_metadata(user_id)
+        await self._session.commit()
+        try:
+            run = await self._ezcareer.send(
+                "import-resume",
+                ImportResumeOutput,
+                user_id=user_id,
+                context_id=f"{user_id}:{uuid4()}",
+                data=data,
+                metadata=metadata,
+            )
+        except ServiceUnavailable:
+            row.status = ImportStatus.PENDING
+            await self._session.commit()
+            raise
+        match run:
+            case Completed(reply=reply):
+                document = await self._repository.add(
+                    Document(
+                        user_id=user_id,
+                        kind=reply.document.kind,
+                        title=PurePath(row.filename).stem[:200] or "Résumé",
+                        body=reply.document,
+                        lines=reply.lines,
+                    )
+                )
+                await self._keep(document, "Imported")
+                row.status = ImportStatus.DONE
+                row.document_id = document.id
+                row.error = ""
+            case InputRequired():
+                row.status = ImportStatus.FAILED
+                row.error = "import-resume asked for input ops cannot give"
+            case Failed(reason=reason):
+                row.status = ImportStatus.FAILED
+                row.error = reason
+        await self._repository.flush()
         return ImportRead.model_validate(row, from_attributes=True)
 
     async def delete_import(self, user_id: UUID, import_id: UUID) -> None:
@@ -339,6 +479,17 @@ class DocumentService:
             if pending
             else None,
         )
+
+    async def _store_proposal(
+        self, user_id: UUID, document_id: UUID, run: Run[EditDocumentOutput]
+    ) -> Run[ChangesetRead]:
+        """Store a finished edit-document run's changeset; a widget or a failure
+        goes back as it is"""
+        if isinstance(run, Completed):
+            return Completed(
+                reply=await self.propose(user_id, document_id, run.reply.changeset)
+            )
+        return run
 
     async def _keep(self, document: Document, label: str) -> DocumentVersion:
         """Copy the current draft into the next version"""

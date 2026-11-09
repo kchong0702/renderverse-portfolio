@@ -5,7 +5,10 @@ from enum import StrEnum
 
 class ImportStatus(StrEnum):
     PENDING = "pending"
-    """Stored and waiting for ezcareer-harness's import-resume, not wired in yet"""
+    """Stored and waiting for ezcareer-harness's import-resume to read it"""
+
+    RUNNING = "running"
+    """import-resume is reading it now"""
 
     DONE = "done"
     """import-resume made the draft in document_id"""

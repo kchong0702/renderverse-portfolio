@@ -3,7 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from document_schema import AnyDocument, Changeset, DocumentKind
-from pydantic import TypeAdapter
+from pydantic import BaseModel, Field, TypeAdapter
 from sqlalchemy import (
     ForeignKey,
     Index,
@@ -18,6 +18,29 @@ from sqlalchemy.orm import Mapped, mapped_column
 from src.db.base import Base, EnumString, PydanticJson
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 from src.features.documents.enums import ImportStatus
+
+
+class SourceLine(BaseModel):
+    id: str = Field(pattern=r"^p\d+\.s\d+$")
+    """Page and line number, such as p1.s41, which the document's values cite"""
+
+    text: str
+    """The line's text"""
+
+    page: int = Field(ge=1)
+    """Page it is on"""
+
+    x0: float
+    """Left edge, in points from the page's left"""
+
+    top: float
+    """Top edge, in points from the page's top"""
+
+    x1: float
+    """Right edge, in points from the page's left"""
+
+    bottom: float
+    """Bottom edge, in points from the page's top"""
 
 
 class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -46,6 +69,12 @@ class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
         PydanticJson(TypeAdapter[AnyDocument](AnyDocument))
     )
     """The current draft as document-schema's AnyDocument"""
+
+    lines: Mapped[list[SourceLine]] = mapped_column(
+        PydanticJson(TypeAdapter(list[SourceLine])), default=list
+    )
+    """The imported file's lines, which edit-document checks citations against;
+    empty for a document not imported"""
 
 
 class DocumentVersion(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -111,4 +140,10 @@ class DocumentImport(IdMixin, UserScopedMixin, AuditMixin, Base):
     """Why the import failed; empty otherwise"""
 
 
-__all__ = ["Document", "DocumentChangeset", "DocumentImport", "DocumentVersion"]
+__all__ = [
+    "Document",
+    "DocumentChangeset",
+    "DocumentImport",
+    "DocumentVersion",
+    "SourceLine",
+]
