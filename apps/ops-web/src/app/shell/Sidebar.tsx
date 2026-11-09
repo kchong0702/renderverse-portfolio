@@ -1,9 +1,9 @@
+import { Sparkle } from "lucide-react";
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
 import { SignOutButton, useMe } from "@/features/auth";
 import { cn } from "@/shared/lib/cn";
-import { SparkIcon } from "@/shared/components/ui/icons";
 import { navGroups } from "./nav";
 import ThemeToggle from "./ThemeToggle";
 
@@ -26,7 +26,7 @@ export default function Sidebar() {
     >
       <div className="border-side-line flex items-center gap-2.5 border-b px-[22px] py-[22px]">
         <span className="border-side-on-border bg-side-tile text-amber-soft flex size-8 items-center justify-center rounded-lg border">
-          <SparkIcon size={16} />
+          <Sparkle size={16} />
         </span>
         <span className="flex flex-col">
           <span className="text-[17px] leading-tight font-bold">

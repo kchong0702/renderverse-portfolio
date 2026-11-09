@@ -1,8 +1,8 @@
+import { Sparkle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { TextField } from "@/shared/components/ui/fields";
-import { SparkIcon } from "@/shared/components/ui/icons";
 import ProviderButton from "../components/ui/ProviderButton";
 import { useMe, useSignIn, useSignInMethods } from "../hooks/useAuth";
 
@@ -48,7 +48,7 @@ export default function SignInPage() {
       <div className="bg-panel border-hair shadow-card flex w-full max-w-[400px] flex-col gap-6 rounded-xl border px-[26px] py-8 sm:px-9">
         <div className="flex items-center gap-2.5">
           <span className="border-side-on-border bg-side text-amber-soft flex size-9 items-center justify-center rounded-lg border">
-            <SparkIcon size={17} />
+            <Sparkle />
           </span>
           <span className="flex flex-col">
             <span className="text-[17px] leading-tight font-bold">

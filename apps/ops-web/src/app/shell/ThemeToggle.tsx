@@ -1,7 +1,7 @@
+import { Moon, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useThemeStore } from "@/shared/theme/themeStore";
 import { useResolvedTheme } from "@/shared/theme/useApplyTheme";
-import { MoonIcon, SunIcon } from "@/shared/components/ui/icons";
 
 export default function ThemeToggle() {
   const { t } = useTranslation();
@@ -18,7 +18,7 @@ export default function ThemeToggle() {
       )}
       className="text-side-muted hover:text-side-ink hover:bg-side-tile flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-lg"
     >
-      {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+      {theme === "dark" ? <Sun /> : <Moon />}
     </button>
   );
 }
