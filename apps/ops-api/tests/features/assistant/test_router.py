@@ -3,6 +3,8 @@ import json
 from tests.conftest import PREFIX
 
 ASSISTANT = f"{PREFIX}/assistant"
+CHAT_ID = "9b2d6f3e-1c4a-4e8b-9f0d-2a7c5e1b3d4f"
+CHAT = f"{ASSISTANT}/chats/{CHAT_ID}"
 
 WIDGET = {
     "label": "May I go ahead? Save the job to your list.",
@@ -48,7 +50,7 @@ async def test_a_message_reaches_career_director_with_the_profile(client, harnes
     harness.outcomes = [_task("COMPLETED", artifact_parts=[{"text": "Two fit."}])]
 
     response = await client.post(
-        f"{ASSISTANT}/messages", json={"text": "Find me remote jobs"}
+        f"{CHAT}/messages", json={"text": "Find me remote jobs"}
     )
 
     assert response.status_code == 200
@@ -60,11 +62,30 @@ async def test_a_message_reaches_career_director_with_the_profile(client, harnes
     assert sent["method"] == "SendMessage"
     message = sent["params"]["message"]
     assert message["role"] == "ROLE_USER"
-    assert message["contextId"] == me["id"]
+    assert message["contextId"] == f"{me['id']}:{CHAT_ID}"
     assert "taskId" not in message
     assert message["parts"] == [
         {"text": "Find me remote jobs"},
         {"data": agent_profile},
+    ]
+
+
+async def test_each_chat_runs_in_a_context_of_its_own(client, harness):
+    harness.outcomes = [
+        _task("COMPLETED", artifact_parts=[{"text": "One."}]),
+        _task("COMPLETED", artifact_parts=[{"text": "Two."}]),
+    ]
+    me = (await client.get(f"{PREFIX}/me")).json()
+
+    await client.post(f"{CHAT}/messages", json={"text": "Hi"})
+    await client.post(
+        f"{ASSISTANT}/chats/1f0e3c2a-7b6d-4c5e-8a9f-0b1c2d3e4f5a/messages",
+        json={"text": "Hi"},
+    )
+
+    assert [sent["params"]["message"]["contextId"] for sent in _sent(harness)] == [
+        f"{me['id']}:{CHAT_ID}",
+        f"{me['id']}:1f0e3c2a-7b6d-4c5e-8a9f-0b1c2d3e4f5a",
     ]
 
 
@@ -74,8 +95,8 @@ async def test_a_widget_is_shown_and_the_answer_resumes_its_task(client, harness
         _task("COMPLETED", artifact_parts=[{"text": "Saved it."}]),
     ]
 
-    asked = await client.post(f"{ASSISTANT}/messages", json={"text": "Save it"})
-    done = await client.post(f"{ASSISTANT}/tasks/task-1/answer", json={"accept": True})
+    asked = await client.post(f"{CHAT}/messages", json={"text": "Save it"})
+    done = await client.post(f"{CHAT}/tasks/task-1/answer", json={"accept": True})
 
     assert asked.json() == {
         "status": "input_required",
@@ -100,7 +121,7 @@ async def test_a_failed_task_returns_its_reason(client, harness):
         _task("FAILED", status_parts=[{"text": "Ran out of steps before finishing"}])
     ]
 
-    response = await client.post(f"{ASSISTANT}/messages", json={"text": "Hi"})
+    response = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
 
     assert response.status_code == 200
     assert response.json() == {
@@ -114,7 +135,7 @@ async def test_answering_a_task_the_harness_lost_fails_with_its_reason(client, h
     harness.outcomes = [{"error": {"code": -32001, "message": reason}}]
 
     response = await client.post(
-        f"{ASSISTANT}/tasks/task-1/answer", json={"input": "The queue one"}
+        f"{CHAT}/tasks/task-1/answer", json={"input": "The queue one"}
     )
 
     assert response.json() == {"status": "failed", "reason": reason}
@@ -123,7 +144,7 @@ async def test_answering_a_task_the_harness_lost_fails_with_its_reason(client, h
 async def test_unreachable_harness_gives_a_clear_error(client, harness):
     harness.down = True
 
-    response = await client.post(f"{ASSISTANT}/messages", json={"text": "Hi"})
+    response = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
 
     assert response.status_code == 503
     assert response.json() == {
@@ -134,6 +155,6 @@ async def test_unreachable_harness_gives_a_clear_error(client, harness):
 async def test_a_reply_ops_api_cannot_read_gives_the_same_error(client, harness):
     harness.outcomes = [_task("COMPLETED", artifact_parts=[])]
 
-    response = await client.post(f"{ASSISTANT}/messages", json={"text": "Hi"})
+    response = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
 
     assert response.status_code == 503
