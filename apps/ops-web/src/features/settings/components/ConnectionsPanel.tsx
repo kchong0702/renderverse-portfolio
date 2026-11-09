@@ -4,8 +4,49 @@ import { buttonClass } from "@/shared/components/button";
 import { TextField } from "@/shared/components/fields";
 import { cn } from "@/shared/lib/cn";
 import Panel from "@/shared/components/Panel";
-import type { Connection } from "../api/settings";
-import { useConnectJsearch, useDisconnectJsearch } from "../hooks/useSettings";
+import { googleConnectUrl, type Connection } from "../api/settings";
+import {
+  useConnectJsearch,
+  useDisconnectGoogle,
+  useDisconnectJsearch,
+} from "../hooks/useSettings";
+
+function GoogleAction({ connection }: { connection: Connection }) {
+  const { t } = useTranslation();
+  const disconnect = useDisconnectGoogle();
+
+  if (connection.status === "not_configured")
+    return (
+      <button type="button" className={buttonClass()} disabled>
+        {t("settings.connections.google.notConfigured")}
+      </button>
+    );
+  if (connection.status === "not_connected")
+    return (
+      <a href={googleConnectUrl("/settings")} className={buttonClass()}>
+        {t("settings.connections.google.connect")}
+      </a>
+    );
+  return (
+    <span className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        className={buttonClass()}
+        disabled={disconnect.isPending}
+        onClick={() => disconnect.mutate()}
+      >
+        {t("settings.connections.google.disconnect")}
+      </button>
+      {disconnect.isError && (
+        <span role="alert" className="text-crit text-sm">
+          {t("settings.connections.google.disconnectFailed", {
+            reason: disconnect.error.message,
+          })}
+        </span>
+      )}
+    </span>
+  );
+}
 
 export default function ConnectionsPanel({
   connections,
@@ -30,21 +71,28 @@ export default function ConnectionsPanel({
           className="border-hair-soft flex flex-col gap-3.5 border-t pt-3.5"
         >
           <div className="flex items-center justify-between gap-3.5">
-            <span className="flex flex-col">
+            <span className="flex min-w-0 flex-col">
               <span className="font-semibold">
                 {t(`settings.connections.names.${connection.id}`)}
               </span>
               <span
                 className={cn(
-                  "text-sm",
+                  "text-sm break-words",
                   connection.status === "connected" ? "text-ok" : "text-ink-3",
                 )}
               >
-                {connection.status === "connected" && connection.quota
-                  ? t("settings.connections.quota", { ...connection.quota })
-                  : t(`settings.connections.status.${connection.status}`)}
+                {connection.account
+                  ? t("settings.connections.connectedAs", {
+                      account: connection.account,
+                    })
+                  : connection.status === "connected" && connection.quota
+                    ? t("settings.connections.quota", { ...connection.quota })
+                    : t(`settings.connections.status.${connection.status}`)}
               </span>
             </span>
+            {connection.id === "google" && (
+              <GoogleAction connection={connection} />
+            )}
             {connection.id === "jsearch" && apiKey === null && (
               <button
                 type="button"

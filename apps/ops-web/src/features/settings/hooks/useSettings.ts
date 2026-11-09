@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   connectJsearchMutationOptions,
+  disconnectGoogleMutationOptions,
   disconnectJsearchMutationOptions,
   modelsQueryOptions,
   settingsQueryOptions,
@@ -25,4 +26,8 @@ export function useConnectJsearch() {
 
 export function useDisconnectJsearch() {
   return useMutation(disconnectJsearchMutationOptions);
+}
+
+export function useDisconnectGoogle() {
+  return useMutation(disconnectGoogleMutationOptions);
 }

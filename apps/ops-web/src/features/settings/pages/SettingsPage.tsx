@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import PageBody from "@/shared/components/PageBody";
 import PageHeader from "@/shared/components/PageHeader";
 import StateMessage from "@/shared/components/StateMessage";
@@ -13,6 +14,7 @@ export default function SettingsPage() {
   const { t } = useTranslation();
   const settings = useSettings();
   const update = useUpdateSettings();
+  const googleError = useSearchParams()[0].get("google_error");
 
   const saveStatus = update.isPending
     ? t("settings.save.saving")
@@ -41,6 +43,13 @@ export default function SettingsPage() {
         }
       />
       <PageBody>
+        {googleError && (
+          <StateMessage tone="error">
+            {t(
+              `settings.connections.googleErrors.${googleError === "denied" || googleError === "scopes" ? googleError : "failed"}`,
+            )}
+          </StateMessage>
+        )}
         {settings.isPending ? (
           <StateMessage>{t("common.loading")}</StateMessage>
         ) : settings.isError ? (

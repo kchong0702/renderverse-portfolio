@@ -3,6 +3,7 @@ import { config } from "@/shared/config";
 
 export type ModelFamily = "claude" | "glm" | "openai";
 export type ConnectionId = "google" | "jsearch" | "portfolio_site";
+export type ConnectionStatus = "connected" | "not_connected" | "not_configured";
 
 export interface JobAgent {
   query: string;
@@ -30,8 +31,9 @@ export interface SearchQuota {
 
 export interface Connection {
   id: ConnectionId;
-  status: "connected" | "not_connected";
+  status: ConnectionStatus;
   quota: SearchQuota | null;
+  account: string | null;
 }
 
 export interface ModelChoice {
@@ -74,3 +76,9 @@ export const connectJsearch = (apiKey: string) =>
 
 export const disconnectJsearch = () =>
   http.delete<Settings>(`${URL}/connections/jsearch`);
+const GOOGLE_URL = "/ops-api/v1/integrations/google";
+
+export const googleConnectUrl = (next: string) =>
+  `${GOOGLE_URL}/connect?${new URLSearchParams({ next })}`;
+
+export const disconnectGoogle = () => http.delete(GOOGLE_URL);
