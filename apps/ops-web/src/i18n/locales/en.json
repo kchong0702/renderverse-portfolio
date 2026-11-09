@@ -41,6 +41,63 @@
       "newJobs": "{{count}} new"
     }
   },
+  "dashboard": {
+    "subtitle": {
+      "30d": "Last 30 days",
+      "90d": "Last 90 days",
+      "all": "All time"
+    },
+    "periods": {
+      "label": "Period",
+      "30d": "30 days",
+      "90d": "90 days",
+      "all": "All time"
+    },
+    "newApplication": "New application",
+    "loadFailed": "The dashboard could not be loaded: {{reason}}",
+    "kpis": {
+      "applications": "Applications",
+      "change": "{{change}} on the previous {{days}} days",
+      "drafts_one": "{{count}} draft not sent yet",
+      "drafts_other": "{{count}} drafts not sent yet",
+      "responseRate": "Response rate",
+      "replies_one": "{{count}} reply from {{sent}}",
+      "replies_other": "{{count}} replies from {{sent}}",
+      "interviews": "Interviews",
+      "soon": "{{count}} in the next 7 days",
+      "offers": "Offers",
+      "offerNext": "Next step {{when}}"
+    },
+    "pipeline": {
+      "title": "Pipeline",
+      "saved": "Saved"
+    },
+    "weeks": {
+      "title": "By week",
+      "applied": "Applied",
+      "chart": "Applications sent in each of the last 8 weeks: {{counts}}"
+    },
+    "next": {
+      "title": "Next steps and interviews",
+      "count": "{{count}} in the next 7 days",
+      "empty": "Nothing due in the next 7 days, and no new agent picks scoring 70 or more.",
+      "followUp": "Follow up with {{company}}",
+      "noReply": "Applied, no reply yet",
+      "new": "New",
+      "fromAgent": "From the agent · fit {{fit}}",
+      "open": "Open",
+      "review": "Review"
+    },
+    "agent": {
+      "title": "Job agent",
+      "daily": "Daily at {{time}}",
+      "picks_one": "{{count}} new pick, {{best}} scored 70+",
+      "picks_other": "{{count}} new picks, {{best}} scored 70+"
+    },
+    "portfolio": {
+      "notYet": "Releases and changes waiting to publish appear here once the site is connected."
+    }
+  },
   "jobs": {
     "title": "Jobs",
     "subtitle": "Scored against your profile",
