@@ -1,11 +1,11 @@
 import { useTranslation } from "react-i18next";
-import PageBody from "@/shared/components/layout/PageBody";
-import PageHeader from "@/shared/components/layout/PageHeader";
-import StateMessage from "@/shared/components/ui/StateMessage";
-import AutomationPanel from "../components/layout/AutomationPanel";
-import ConnectionsPanel from "../components/layout/ConnectionsPanel";
-import JobAgentPanel from "../components/layout/JobAgentPanel";
-import SchedulingPanel from "../components/layout/SchedulingPanel";
+import PageBody from "@/shared/components/PageBody";
+import PageHeader from "@/shared/components/PageHeader";
+import StateMessage from "@/shared/components/StateMessage";
+import AutomationPanel from "../components/AutomationPanel";
+import ConnectionsPanel from "../components/ConnectionsPanel";
+import JobAgentPanel from "../components/JobAgentPanel";
+import SchedulingPanel from "../components/SchedulingPanel";
 import { useSettings, useUpdateSettings } from "../hooks/useSettings";
 
 export default function SettingsPage() {

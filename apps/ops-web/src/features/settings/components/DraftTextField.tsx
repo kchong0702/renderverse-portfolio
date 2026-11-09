@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TextField } from "@/shared/components/ui/fields";
+import { TextField } from "@/shared/components/fields";
 
 interface DraftTextFieldProps {
   label: string;

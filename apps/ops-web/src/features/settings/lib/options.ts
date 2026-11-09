@@ -1,4 +1,4 @@
-import type { SelectOption } from "@/shared/components/ui/fields";
+import type { SelectOption } from "@/shared/components/fields";
 
 export const RUN_TIMES = ["08:00", "12:00", "18:00"];
 export const MIN_SCORES = [60, 70, 80];
