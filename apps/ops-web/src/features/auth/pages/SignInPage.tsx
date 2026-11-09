@@ -2,8 +2,8 @@ import { Sparkle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useSearchParams } from "react-router-dom";
-import { TextField } from "@/shared/components/ui/fields";
-import ProviderButton from "../components/ui/ProviderButton";
+import { TextField } from "@/shared/components/fields";
+import ProviderButton from "../components/ProviderButton";
 import { useMe, useSignIn, useSignInMethods } from "../hooks/useAuth";
 
 const callbackErrors = ["not_allowed", "failed"] as const;

@@ -1,6 +1,6 @@
 import { LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useSignInMethods, useSignOut } from "../../hooks/useAuth";
+import { useSignInMethods, useSignOut } from "../hooks/useAuth";
 
 export default function SignOutButton() {
   const { t } = useTranslation();
