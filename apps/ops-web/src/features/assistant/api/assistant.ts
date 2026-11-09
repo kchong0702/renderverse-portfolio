@@ -19,11 +19,13 @@ export type AssistantReply =
   | { status: "failed"; reason: string };
 
 export interface ChatMessage {
+  chatId: string;
   text: string;
   document_id?: string;
 }
 
 export interface TaskAnswer {
+  chatId: string;
   taskId: string;
   answer: Answer;
   shown: string;
@@ -31,11 +33,11 @@ export interface TaskAnswer {
 
 const URL = "/ops-api/v1/assistant";
 
-export const sendMessage = (message: ChatMessage) =>
-  http.post<AssistantReply>(`${URL}/messages`, message);
+export const sendMessage = ({ chatId, ...message }: ChatMessage) =>
+  http.post<AssistantReply>(`${URL}/chats/${chatId}/messages`, message);
 
-export const answerTask = ({ taskId, answer }: TaskAnswer) =>
+export const answerTask = ({ chatId, taskId, answer }: TaskAnswer) =>
   http.post<AssistantReply>(
-    `${URL}/tasks/${encodeURIComponent(taskId)}/answer`,
+    `${URL}/chats/${chatId}/tasks/${encodeURIComponent(taskId)}/answer`,
     answer,
   );

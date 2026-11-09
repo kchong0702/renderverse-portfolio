@@ -8,9 +8,11 @@ export type ChatEntry =
 interface AssistantState {
   open: boolean;
   setOpen: (open: boolean) => void;
+  chatId: string;
   entries: ChatEntry[];
   add: (entry: ChatEntry) => void;
   restore: (entries: ChatEntry[]) => void;
+  newChat: () => void;
 }
 
 export const useAssistantStore = create<AssistantState>()(
@@ -18,14 +20,16 @@ export const useAssistantStore = create<AssistantState>()(
     (set) => ({
       open: false,
       setOpen: (open) => set({ open }),
+      chatId: crypto.randomUUID(),
       entries: [],
       add: (entry) => set((state) => ({ entries: [...state.entries, entry] })),
       restore: (entries) => set({ entries }),
+      newChat: () => set({ chatId: crypto.randomUUID(), entries: [] }),
     }),
     {
       name: "ops:assistant",
       storage: createJSONStorage(() => sessionStorage),
-      partialize: ({ entries }) => ({ entries }),
+      partialize: ({ chatId, entries }) => ({ chatId, entries }),
     },
   ),
 );
