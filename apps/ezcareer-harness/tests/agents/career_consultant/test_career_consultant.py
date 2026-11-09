@@ -202,7 +202,9 @@ def test_permission_asks_the_user_to_confirm_and_returns_their_choice(
 
     assert [WidgetSetting.model_validate(i.value) for i in paused["__interrupt__"]] == [
         WidgetSetting(
-            label="Replace the summary", submit_btn="Confirm", cancel_btn="Cancel"
+            label="May I go ahead? Replace the summary",
+            submit_btn="Confirm",
+            cancel_btn="Cancel",
         )
     ]
     assert _tool_results(resumed)["permission"] == reply
@@ -215,10 +217,24 @@ def test_with_a_parent_clarify_asks_the_parent_the_plain_question():
         {"parent": "career-director"},
     )
 
-    assert [i.value for i in paused["__interrupt__"]] == [
-        {"kind": "question", "text": "Which job?"}
-    ]
+    assert [i.value for i in paused["__interrupt__"]] == ["Which job?"]
     assert _tool_results(resumed)["clarify"] == "Lumen Pay"
+
+
+def test_with_a_parent_permission_asks_the_parent_as_plain_text():
+    paused, resumed = _asked(
+        _call("permission", summary="Replace the summary"),
+        Answer(accept=True).model_dump(),
+        {"parent": "career-director"},
+    )
+
+    assert [i.value for i in paused["__interrupt__"]] == [
+        "May I go ahead? Replace the summary"
+    ]
+    assert (
+        _tool_results(resumed)["permission"]
+        == "Permission granted: Replace the summary. Go ahead."
+    )
 
 
 def test_clarify_takes_a_plain_text_answer_as_what_was_typed():

@@ -1,4 +1,4 @@
 from src.shared.widget.ask import ask
-from src.shared.widget.types import Answer, ParentRequest, WidgetSetting
+from src.shared.widget.types import Answer, WidgetSetting
 
-__all__ = ["Answer", "ParentRequest", "WidgetSetting", "ask"]
+__all__ = ["Answer", "WidgetSetting", "ask"]

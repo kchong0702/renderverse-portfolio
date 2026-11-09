@@ -1,5 +1,3 @@
-from typing import Literal
-
 from pydantic import BaseModel, ConfigDict
 
 
@@ -20,16 +18,6 @@ class WidgetSetting(BaseModel):
 
     cancel_btn: str | None = None
     """Text of the cancel button; shown only when set"""
-
-
-class ParentRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
-
-    kind: Literal["question", "permission"]
-    """A question wants an input back; a permission request wants accept back"""
-
-    text: str
-    """The question, or the action that needs permission"""
 
 
 class Answer(BaseModel):
