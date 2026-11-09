@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
-import PageBody from "@/shared/components/layout/PageBody";
-import PageHeader from "@/shared/components/layout/PageHeader";
-import StateMessage from "@/shared/components/ui/StateMessage";
+import PageBody from "@/shared/components/PageBody";
+import PageHeader from "@/shared/components/PageHeader";
+import StateMessage from "@/shared/components/StateMessage";
 import type { NavKey } from "./nav";
 
 export default function ComingSoon({ page }: { page: NavKey }) {

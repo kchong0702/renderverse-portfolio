@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { oauthLoginUrl, type OAuthProvider } from "../../api/auth";
+import { oauthLoginUrl, type OAuthProvider } from "../api/auth";
 
 const providerMarks = {
   google: (
