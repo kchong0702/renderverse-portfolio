@@ -6,8 +6,8 @@ from uuid import UUID
 from sqlalchemy import ForeignKey, String, Time
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.db.base import Base
-from src.core.db.mixins import AuditMixin
+from src.db.base import Base
+from src.db.mixins import AuditMixin
 
 
 class UserSettings(AuditMixin, Base):

@@ -7,7 +7,7 @@ from src.core.auth.models import AuthIdentity, AuthSession, SignInAttempts
 from src.core.auth.repository import AuthRepository
 from src.core.auth.service import AuthService
 from src.core.config import get_settings, reload_settings
-from src.core.db.base import utcnow
+from src.db.base import utcnow
 from tests.conftest import OWNER, PREFIX
 
 PASSWORD = "correct horse battery"

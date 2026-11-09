@@ -9,8 +9,8 @@ from src.core.auth.oauth_providers import OAuthIdentity, Provider
 from src.core.auth.passwords import MIN_PASSWORD_LENGTH, hash_password, verify_password
 from src.core.auth.repository import AuthRepository
 from src.core.config import AuthSettings
-from src.core.db.base import utcnow
 from src.core.exceptions import Forbidden, InvalidInput, TooManyRequests, Unauthorized
+from src.db.base import utcnow
 
 _RENEW_AFTER = timedelta(hours=1)
 

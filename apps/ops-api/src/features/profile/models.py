@@ -6,8 +6,8 @@ from uuid import UUID
 from sqlalchemy import Enum, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.db.base import Base, JsonType
-from src.core.db.mixins import AuditMixin, IdMixin, UserScopedMixin
+from src.db.base import Base, JsonType
+from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 
 
 class EntryKind(StrEnum):

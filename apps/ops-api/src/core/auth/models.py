@@ -5,8 +5,8 @@ from datetime import datetime
 from sqlalchemy import DateTime, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.db.base import Base, utcnow
-from src.core.db.mixins import IdMixin, UserScopedMixin
+from src.db.base import Base, utcnow
+from src.db.mixins import IdMixin, UserScopedMixin
 
 
 class User(IdMixin, Base):

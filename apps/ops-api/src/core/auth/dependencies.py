@@ -10,8 +10,8 @@ from src.core.auth.oauth_providers import AuthlibAdapter, Provider
 from src.core.auth.repository import AuthRepository
 from src.core.auth.service import AuthService
 from src.core.config import get_settings
-from src.core.db.session import SessionDep
 from src.core.exceptions import Unauthorized
+from src.db.session import SessionDep
 
 SESSION_COOKIE = "ops_session"
 

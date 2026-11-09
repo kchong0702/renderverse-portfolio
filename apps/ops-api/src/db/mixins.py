@@ -7,7 +7,7 @@ from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.app.actor import current_actor
-from src.core.db.base import utcnow
+from src.db.base import utcnow
 
 
 class IdMixin:
