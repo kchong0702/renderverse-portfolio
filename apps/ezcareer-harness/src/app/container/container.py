@@ -6,6 +6,7 @@ from src.agents import load_agents
 from src.app.container.career_consultant import CareerConsultantContainer
 from src.app.container.career_director import CareerDirectorContainer
 from src.app.container.clients import ClientsContainer
+from src.app.container.import_document import ImportDocumentContainer
 from src.app.container.job_finder import JobFinderContainer
 from src.core.config import get_settings
 
@@ -52,6 +53,13 @@ class Container(containers.DeclarativeContainer):
     )
     """career-director, which runs the workflows as its tools"""
 
+    import_document = providers.Container(
+        ImportDocumentContainer,
+        checkpointer=checkpointer,
+        artifact_service=clients.artifact_service,
+    )
+    """The import-resume workflow, which turns an uploaded résumé into a draft"""
+
     executables = providers.List(
         job_finder.agent_executable,
         job_finder.analyse_job_executable,
@@ -59,6 +67,7 @@ class Container(containers.DeclarativeContainer):
         career_consultant.agent_executable,
         career_consultant.edit_document_executable,
         career_director.agent_executable,
+        import_document.import_resume_executable,
     )
     """Agents and workflows served over A2A; add an agent's container above and
     its Executable providers here"""

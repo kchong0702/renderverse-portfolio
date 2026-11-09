@@ -4,6 +4,7 @@ from typing import Literal
 from langchain_core.language_models import BaseChatModel
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import Checkpointer
 
 from src.clients.artifact_service import ArtifactServiceClient
 from src.clients.llm_providers import llm_provider
@@ -29,10 +30,12 @@ def _after_verify(state: ImportState) -> Literal["structure", "render"]:
 
 
 def build_graph(
-    artifact_service: ArtifactServiceClient, model: BaseChatModel | None = None
+    artifact_service: ArtifactServiceClient,
+    model: BaseChatModel | None = None,
+    checkpointer: Checkpointer = None,
 ) -> CompiledStateGraph:
-    """The import-resume graph on its graph profile, converting the upload and
-    printing the draft through artifact_service; model replaces the configured LLM"""
+    """The import-resume graph on its graph profile, converting and printing through
+    artifact_service; model replaces the configured LLM; checkpointer keeps runs"""
     settings = get_settings()
     profile = settings.graph_profile("import-resume")
     configurations = profile.load(ImportResumeConfigurations)
@@ -55,7 +58,7 @@ def build_graph(
     graph.add_edge("structure", "verify")
     graph.add_conditional_edges("verify", _after_verify)
     graph.add_edge("render", END)
-    return graph.compile().with_config(
+    return graph.compile(checkpointer=checkpointer).with_config(
         recursion_limit=configurations.recursion_limit,
         metadata={"flow": "import-resume"},
     )
