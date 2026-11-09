@@ -162,3 +162,31 @@ def test_the_original_document_is_unchanged(resume):
     )
 
     assert document.content.blocks[0].id == "profile"
+
+
+def test_the_edits_are_unchanged_by_deleting_inside_an_inserted_item(resume):
+    document = DOCUMENT.validate_python(resume)
+    edits = EDITS.validate_python(
+        [
+            {
+                "kind": "insert_item",
+                "parent": "blocks/exp/items",
+                "item": {
+                    "id": "globex",
+                    "role": value("Engineer"),
+                    "company": value("Globex"),
+                    "bullets": [
+                        {"id": "g1", "text": rich("Built the billing service.")},
+                        {"id": "g2", "text": rich("Ran the on-call rota.")},
+                    ],
+                },
+            },
+            {"kind": "delete", "path": "blocks/exp/items/globex/bullets/g2"},
+        ]
+    )
+
+    first = apply_edits(document, edits)
+    second = apply_edits(document, edits)
+
+    assert second == first
+    assert [bullet.id for bullet in _block(second, "exp").items[0].bullets] == ["g1"]
