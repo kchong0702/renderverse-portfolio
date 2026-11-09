@@ -79,7 +79,14 @@ class LanggraphExecutor(AgentExecutor):
             return
         try:
             result = await self.executable.graph.ainvoke(
-                graph_input, {"configurable": {"thread_id": context.task_id}}
+                graph_input,
+                {
+                    "configurable": {
+                        "thread_id": context.context_id
+                        if self.executable.kind == "agent"
+                        else context.task_id
+                    }
+                },
             )
         except GraphRecursionError:
             await updater.failed(_reason(updater, "Ran out of steps before finishing"))

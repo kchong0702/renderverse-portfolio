@@ -197,10 +197,14 @@ def _agent_client(agent: CompiledStateGraph) -> TestClient:
     return TestClient(app)
 
 
-def _say(client: TestClient, text: str, task: dict | None = None) -> dict:
+def _say(
+    client: TestClient, text: str, task: dict | None = None, context: str | None = None
+) -> dict:
     message = {"messageId": f"m-{text}", "role": "ROLE_USER", "parts": [{"text": text}]}
     if task:
         message |= {"taskId": task["id"], "contextId": task["contextId"]}
+    if context:
+        message |= {"contextId": context}
     response = client.post(
         "/ezcareer/a2a/greeter",
         headers={"A2A-Version": "1.0"},
@@ -222,6 +226,23 @@ def test_an_agent_takes_the_users_text_and_replies_in_text():
     assert task["status"]["state"] == "TASK_STATE_COMPLETED"
     assert task["artifacts"][0]["parts"][0]["text"] == "Hello, Ada!"
     assert model.requests[0][-1].text == "Hi, I'm Ada"
+
+
+def test_an_agent_remembers_earlier_turns_in_the_same_context():
+    model = ScriptedChatModel(
+        replies=[AIMessage("Hello, Ada!"), AIMessage("Your name is Ada.")]
+    )
+    client = _agent_client(create_agent(model, checkpointer=InMemorySaver()))
+
+    first = _say(client, "Hi, I'm Ada")
+    second = _say(client, "What's my name?", context=first["contextId"])
+
+    assert second["id"] != first["id"]
+    assert [m.text for m in model.requests[1][-3:]] == [
+        "Hi, I'm Ada",
+        "Hello, Ada!",
+        "What's my name?",
+    ]
 
 
 def test_an_agent_that_answers_with_a_structure_replies_in_data():
