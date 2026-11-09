@@ -43,3 +43,7 @@ path = "src/features/analyse_job/harness/configurations.yaml"
 [[graph_profiles]]
 name = "find-jobs"
 path = "src/features/find_jobs/harness/configurations.yaml"
+
+[[graph_profiles]]
+name = "write-document"
+path = "src/features/write_document/harness/configurations.yaml"
