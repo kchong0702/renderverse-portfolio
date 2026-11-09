@@ -1,2 +1,2 @@
 export { default as SettingsPage } from "./pages/SettingsPage";
-export type { AiProvider, Settings } from "./api/settings";
+export type { ModelFamily, Settings } from "./api/settings";
