@@ -2,7 +2,7 @@ import { Sparkle } from "lucide-react";
 import { useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { buttonClass } from "@/shared/components/ui/button";
-import { useAssistantStore } from "../state/assistantStore";
+import { useAssistantStore } from "../../state/assistantStore";
 
 /** The floating assistant button and the panel it opens, about `topic` */
 export default function AssistantDock({ topic }: { topic?: string }) {
