@@ -24,6 +24,7 @@ async def test_a_jsearch_key_is_stored_encrypted_and_never_returned(app, client)
         "id": "jsearch",
         "status": "connected",
         "quota": None,
+        "account": None,
     }
     reread = await client.get(SETTINGS)
     assert API_KEY not in saved.text + reread.text
@@ -72,6 +73,7 @@ async def test_a_removed_jsearch_key_is_no_longer_sent(client, harness):
         "id": "jsearch",
         "status": "not_connected",
         "quota": None,
+        "account": None,
     }
     assert "metadata" not in a2a_sent(harness)[0]["params"]
 
@@ -101,6 +103,7 @@ async def test_the_connection_shows_the_last_find_runs_quota(client, harness):
         "id": "jsearch",
         "status": "connected",
         "quota": {"remaining": 179, "limit": 200},
+        "account": None,
     }
     changed = await client.put(JSEARCH, json={"api_key": "rapidapi-key-2"})
     assert _jsearch(changed.json())["quota"] is None
@@ -122,6 +125,7 @@ async def test_a_run_on_the_servers_key_shows_no_quota(client, harness):
         "id": "jsearch",
         "status": "not_connected",
         "quota": None,
+        "account": None,
     }
 
 

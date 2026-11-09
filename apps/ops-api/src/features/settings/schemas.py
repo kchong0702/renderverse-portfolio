@@ -10,8 +10,8 @@ from src.clients.ezcareer import ModelChoice
 ConnectionId = Literal["google", "jsearch", "portfolio_site"]
 """An outside service Ops connects to"""
 
-ConnectionStatus = Literal["connected", "not_connected"]
-"""Whether a connection is set up"""
+ConnectionStatus = Literal["connected", "not_connected", "not_configured"]
+"""Whether a connection is set up; not_configured when the server lacks its keys"""
 
 
 class JobAgent(BaseModel):
@@ -67,6 +67,9 @@ class Connection(BaseModel):
 
     quota: SearchQuota | None = None
     """JSearch's searches left, from the last find run; None when not known"""
+
+    account: str | None = None
+    """The connected account, such as the Gmail address; None when not connected"""
 
 
 class JSearchKey(BaseModel):

@@ -29,6 +29,14 @@ Env = Literal["dev", "staging", "prod"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 LogFormat = Literal["json", "console"]
 
+_INBOX_QUERY = (
+    "newer_than:90d -category:promotions -category:social "
+    "(subject:(application OR applying OR interview OR offer OR recruiter "
+    'OR candidate OR "next steps") '
+    "OR from:(greenhouse.io OR lever.co OR ashbyhq.com OR myworkday.com "
+    "OR workablemail.com OR smartrecruiters.com))"
+)
+
 
 def _split_csv(v: object) -> object:
     if isinstance(v, str):
@@ -285,6 +293,45 @@ class JSearchSettings(BaseModel):
         return v
 
 
+class GoogleSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    client_id: str = ""
+    """OAuth client id for reading Gmail and Calendar; connecting Google needs it"""
+
+    client_secret: SecretStr = SecretStr("")
+    """OAuth client secret"""
+
+    redirect_uri: str = "http://localhost:5174/ops-api/v1/integrations/google/callback"
+    """Where Google sends the user back; must be listed on the OAuth client"""
+
+    encryption_key: SecretStr = SecretStr("")
+    """Fernet key that encrypts stored Google refresh tokens; connecting needs it"""
+
+    inbox_query: str = _INBOX_QUERY
+    """Gmail search that picks the job-search emails Inbox lists"""
+
+    timeout_seconds: float = Field(default=10, gt=0)
+    """How long a request to Google may take"""
+
+    @field_validator("encryption_key", mode="after")
+    @classmethod
+    def _must_be_a_fernet_key(cls, v: SecretStr) -> SecretStr:
+        """Fail at startup on a key Fernet cannot use, not on the first connect"""
+        if v.get_secret_value():
+            Fernet(v.get_secret_value())
+        return v
+
+    @property
+    def configured(self) -> bool:
+        """Whether the client id, secret and encryption key are all set"""
+        return bool(
+            self.client_id
+            and self.client_secret.get_secret_value()
+            and self.encryption_key.get_secret_value()
+        )
+
+
 class ObservabilitySettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
@@ -332,6 +379,9 @@ class Settings(BaseSettings):
     jsearch: JSearchSettings = Field(default_factory=JSearchSettings)
     """Keeping each user's JSearch API key"""
 
+    google: GoogleSettings = Field(default_factory=GoogleSettings)
+    """Reading the user's Gmail and Google Calendar"""
+
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     """Logging settings"""
 
@@ -373,6 +423,7 @@ __all__ = [
     "DatabaseSettings",
     "DocumentsSettings",
     "EzcareerSettings",
+    "GoogleSettings",
     "JSearchSettings",
     "ObservabilitySettings",
     "Settings",
