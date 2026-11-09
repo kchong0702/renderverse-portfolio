@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.core.exceptions import InvalidInput
 from src.features.settings.models import UserSettings
 from src.features.settings.repository import SettingsRepository
@@ -55,8 +57,9 @@ def _to_read(settings: UserSettings) -> SettingsRead:
 
 
 class SettingsService:
-    def __init__(self, repository: SettingsRepository):
-        self._repository = repository
+    def __init__(self, session: AsyncSession):
+        """Read and write the settings through a repository on the session"""
+        self._repository = SettingsRepository(session)
 
     async def get(self, user_id: UUID) -> SettingsRead:
         return _to_read(await self._load(user_id))

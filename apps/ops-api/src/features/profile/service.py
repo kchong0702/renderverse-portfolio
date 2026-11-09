@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.core.exceptions import NotFound
 from src.features.profile.enums import EntryKind
 from src.features.profile.models import Profile, ProfileEntry, ProfileSkill
@@ -80,9 +82,9 @@ def _entry_fact(entry: ProfileEntry) -> ProfileFact:
 
 
 class ProfileService:
-    def __init__(self, repository: ProfileRepository):
-        """Keep the repository every operation reads and writes through"""
-        self._repository = repository
+    def __init__(self, session: AsyncSession):
+        """Read and write the profile through a repository on the session"""
+        self._repository = ProfileRepository(session)
 
     async def get(self, user_id: UUID) -> ProfileRead:
         """The user's profile, created empty on first read"""
@@ -123,7 +125,7 @@ class ProfileService:
         self, user_id: UUID, entry_id: UUID, entry: EntryWrite
     ) -> EntryRead:
         """Overwrite every field of an entry but its kind"""
-        row = await self._repository.entry(user_id, entry_id)
+        row = await self._repository.owned(ProfileEntry, user_id, entry_id)
         if row is None:
             raise NotFound("No such entry")
         for field, value in entry.model_dump().items():
@@ -132,7 +134,7 @@ class ProfileService:
 
     async def delete_entry(self, user_id: UUID, entry_id: UUID) -> None:
         """Remove an entry"""
-        row = await self._repository.entry(user_id, entry_id)
+        row = await self._repository.owned(ProfileEntry, user_id, entry_id)
         if row is None:
             raise NotFound("No such entry")
         await self._repository.delete(row)
@@ -155,7 +157,7 @@ class ProfileService:
         self, user_id: UUID, skill_id: UUID, skill: SkillWrite
     ) -> SkillRead:
         """Overwrite every field of a skill"""
-        row = await self._repository.skill(user_id, skill_id)
+        row = await self._repository.owned(ProfileSkill, user_id, skill_id)
         if row is None:
             raise NotFound("No such skill")
         for field, value in skill.model_dump().items():
@@ -164,7 +166,7 @@ class ProfileService:
 
     async def delete_skill(self, user_id: UUID, skill_id: UUID) -> None:
         """Remove a skill"""
-        row = await self._repository.skill(user_id, skill_id)
+        row = await self._repository.owned(ProfileSkill, user_id, skill_id)
         if row is None:
             raise NotFound("No such skill")
         await self._repository.delete(row)
