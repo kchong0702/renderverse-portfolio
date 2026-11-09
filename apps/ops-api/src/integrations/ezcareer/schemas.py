@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import BaseModel
 
-ModelFamily = Literal["claude", "glm", "openai"]
-"""A model provider ezcareer-harness can run"""
+from src.integrations.ezcareer.types import ModelFamily
 
 
 class FamilyModels(BaseModel):
@@ -21,4 +18,4 @@ class ModelCatalog(BaseModel):
     """Every provider ezcareer-harness offers, with its models"""
 
 
-__all__ = ["FamilyModels", "ModelCatalog", "ModelFamily"]
+__all__ = ["FamilyModels", "ModelCatalog"]
