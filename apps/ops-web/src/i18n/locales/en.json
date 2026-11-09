@@ -139,6 +139,51 @@
     "message": "Message the assistant",
     "placeholder": "Ask anything",
     "send": "Send",
-    "notConnected": "Not connected yet. The assistant arrives with the career agent."
+    "conversation": "Conversation with the assistant",
+    "thinking": "Thinking…",
+    "failed": "That did not work: {{reason}}",
+    "answerFailed": "Your answer was not sent: {{reason}}",
+    "suggestions": {
+      "dashboard": [
+        "Which applications need me this week?",
+        "Why did my response rate drop?",
+        "Plan my week around the interviews"
+      ],
+      "jobs": [
+        "Find jobs that fit my preferences",
+        "What would raise my fit for a Platform Engineer role?",
+        "Find similar roles in Penang"
+      ],
+      "applications": [
+        "Draft a follow-up for my oldest application",
+        "Which offers should I prioritise?",
+        "Summarise where each application stands"
+      ],
+      "documents": [
+        "Shorten my résumé to one page",
+        "Write a cover letter",
+        "Match my résumé to a posting's keywords"
+      ],
+      "portfolio": [
+        "Write a tagline for Renderverse",
+        "Which projects should be featured?",
+        "What changed since the last release?"
+      ],
+      "inbox": [
+        "Which emails need an answer today?",
+        "Draft a reply to the latest employer email",
+        "Summarise my latest offer"
+      ],
+      "calendar": [
+        "Find a free hour for interview prep",
+        "Move my next follow-up to Thursday",
+        "What is on next week?"
+      ],
+      "settings": [
+        "Explain what the job agent does",
+        "Should I raise the minimum score?",
+        "What happens when I disconnect Google?"
+      ]
+    }
   }
 }
