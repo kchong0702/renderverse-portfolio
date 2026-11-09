@@ -6,7 +6,6 @@ interface StateMessageProps {
   children: ReactNode;
 }
 
-/** Loading, empty and error states in a page body */
 export default function StateMessage({
   tone = "neutral",
   children,

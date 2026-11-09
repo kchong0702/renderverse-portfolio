@@ -11,15 +11,10 @@ export class ApiError extends Error {
 }
 
 async function errorMessage(response: Response): Promise<string> {
-  try {
-    const body = await response.json();
-    // FastAPI sends { detail: string } for handled errors and a list for validation
-    if (typeof body.detail === "string") return body.detail;
-    if (Array.isArray(body.detail) && body.detail[0]?.msg)
-      return body.detail[0].msg;
-  } catch {
-    // Not JSON; fall back to the status text
-  }
+  const body = await response.json().catch(() => null);
+  if (typeof body?.detail === "string") return body.detail;
+  if (Array.isArray(body?.detail) && body.detail[0]?.msg)
+    return body.detail[0].msg;
   return (
     response.statusText ||
     i18n.t("errors.requestFailed", { status: response.status })

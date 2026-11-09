@@ -4,7 +4,6 @@ import PageHeader from "@/shared/components/layout/PageHeader";
 import StateMessage from "@/shared/components/ui/StateMessage";
 import type { NavKey } from "./nav";
 
-/** Stands in for a screen whose feature has not been built yet */
 export default function ComingSoon({ page }: { page: NavKey }) {
   const { t } = useTranslation();
   return (

@@ -12,13 +12,11 @@ function FullPageStatus({ children }: { children: ReactNode }) {
   );
 }
 
-/** Renders its children for a signed-in user and sends anyone else to sign in */
 export default function RequireAuth({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const location = useLocation();
   const me = useMe();
 
-  // Checked before data: an expired session keeps the old data alongside the 401
   if (me.error instanceof ApiError && me.error.status === 401) {
     const next = location.pathname + location.search;
     return (

@@ -9,7 +9,6 @@ import { useMe, useSignIn, useSignInMethods } from "../hooks/useAuth";
 const callbackErrors = ["not_allowed", "failed"] as const;
 type CallbackError = (typeof callbackErrors)[number];
 
-/** Only a path on ops-web, so a link cannot send you to another site */
 function safeNext(next: string | null): string {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return "/";
   return next.startsWith("/sign-in") ? "/" : next;

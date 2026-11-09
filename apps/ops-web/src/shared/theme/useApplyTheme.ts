@@ -9,7 +9,6 @@ function subscribe(onChange: () => void) {
   return () => media.removeEventListener("change", onChange);
 }
 
-/** The theme in effect: the chosen one, or the system's when set to follow it */
 export function useResolvedTheme(): "light" | "dark" {
   const mode = useThemeStore((state) => state.mode);
   const systemDark = useSyncExternalStore(
@@ -20,7 +19,6 @@ export function useResolvedTheme(): "light" | "dark" {
   return mode;
 }
 
-/** Keeps html[data-theme] in step with the resolved theme */
 export function useApplyTheme() {
   const theme = useResolvedTheme();
   useEffect(() => {

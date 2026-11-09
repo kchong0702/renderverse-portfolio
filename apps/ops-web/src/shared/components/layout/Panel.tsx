@@ -7,7 +7,6 @@ interface PanelProps {
   className?: string;
 }
 
-/** A titled card section; the title labels the region for screen readers */
 export default function Panel({ title, children, className }: PanelProps) {
   const headingId = useId();
   return (

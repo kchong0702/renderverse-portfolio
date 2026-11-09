@@ -2,7 +2,6 @@ import { LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSignInMethods, useSignOut } from "../../hooks/useAuth";
 
-/** Hidden while ops-api runs with auth disabled, where there is no session */
 export default function SignOutButton() {
   const { t } = useTranslation();
   const { data: methods } = useSignInMethods();

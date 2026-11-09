@@ -8,7 +8,6 @@ interface ThemeState {
   setMode: (mode: ThemeMode) => void;
 }
 
-// The key index.html reads before the first paint, so a dark page never flashes light
 export const THEME_STORAGE_KEY = "ops:theme";
 
 export const useThemeStore = create<ThemeState>()(

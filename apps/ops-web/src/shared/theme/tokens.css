@@ -1,10 +1,6 @@
-/* The palettes of the "Ops career workspace" design. Light is the default;
-   html[data-theme="dark"] swaps every variable, so utilities never change. */
-
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 
-  /* Page and surfaces */
   --color-ground: #faf9f6;
   --color-panel: #ffffff;
   --color-well: #f2f0ee;
@@ -12,12 +8,10 @@
   --color-hair: #e7e5e4;
   --color-hair-soft: #f2f0ee;
 
-  /* Text, strongest to quietest */
   --color-ink: #1c1917;
   --color-ink-2: #44403c;
   --color-ink-3: #6f6862;
 
-  /* Sidebar, dark in both themes */
   --color-side: #1c1917;
   --color-side-ink: #f5f5f4;
   --color-side-muted: #a8a29e;
@@ -30,14 +24,12 @@
   --color-side-badge: #292524;
   --color-side-badge-on: #44403c;
 
-  /* Accent and actions */
   --color-amber: #b45309;
   --color-amber-soft: #fcd34d;
   --color-primary: #1c1917;
   --color-on-primary: #ffffff;
   --color-focus: #d97706;
 
-  /* Status */
   --color-ok: #047857;
   --color-ok-bg: #ecfdf5;
   --color-warn: #a35400;

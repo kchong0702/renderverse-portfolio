@@ -12,7 +12,6 @@
       rel="stylesheet"
     />
     <script>
-      // Apply the saved theme before the first paint (see shared/theme/themeStore.ts)
       try {
         const mode = JSON.parse(localStorage.getItem("ops:theme") || "{}").state
           ?.mode;
