@@ -56,3 +56,15 @@ export const navGroups: NavGroup[] = [
     ],
   },
 ];
+
+export function navItemAt(pathname: string): NavItem | undefined {
+  return navGroups
+    .flatMap((group) => group.items)
+    .find(({ path }) =>
+      path === "/" ? pathname === "/" : pathname.startsWith(path),
+    );
+}
+
+export function useNavBadges(): Partial<Record<NavKey, string>> {
+  return {};
+}
