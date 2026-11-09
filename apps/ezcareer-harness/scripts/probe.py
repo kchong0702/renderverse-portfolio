@@ -45,14 +45,15 @@ WORKFLOWS: dict[str, RunWorkflow] = {
 
 def harness_hash(settings: Settings) -> str:
     """Sha256 of the harness the settings name: every file of every agent folder
-    and every graph's harness folder, with its path"""
-    paths = [agent.path.parent for agent in settings.agents]
-    paths += [profile.folder for profile in settings.graph_profiles]
+    and every graph's harness folder, and the harness profiles file, with its path"""
+    roots = [agent.path.parent for agent in settings.agents]
+    roots += [profile.folder for profile in settings.graph_profiles]
+    files = [
+        path for root in roots for path in sorted(root.rglob("*")) if path.is_file()
+    ]
     digest = sha256()
-    for root in paths:
-        for path in sorted(root.rglob("*")):
-            if path.is_file():
-                digest.update(str(path).encode() + b"\0" + path.read_bytes() + b"\0")
+    for path in [*files, settings.harness_profiles]:
+        digest.update(str(path).encode() + b"\0" + path.read_bytes() + b"\0")
     return digest.hexdigest()
 
 
