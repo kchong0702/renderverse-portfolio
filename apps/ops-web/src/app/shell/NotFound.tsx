@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import PageBody from "@/shared/ui/PageBody";
-import PageHeader from "@/shared/ui/PageHeader";
-import StateMessage from "@/shared/ui/StateMessage";
+import PageBody from "@/shared/components/layout/PageBody";
+import PageHeader from "@/shared/components/layout/PageHeader";
+import StateMessage from "@/shared/components/ui/StateMessage";
 
 export default function NotFound() {
   const { t } = useTranslation();

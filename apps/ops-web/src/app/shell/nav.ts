@@ -8,7 +8,7 @@ import {
   JobsIcon,
   PortfolioIcon,
   SettingsIcon,
-} from "@/shared/ui/icons";
+} from "@/shared/components/ui/icons";
 
 export type NavKey =
   | "dashboard"

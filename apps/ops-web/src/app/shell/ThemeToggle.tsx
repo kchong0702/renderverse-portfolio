@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useThemeStore } from "@/shared/theme/themeStore";
 import { useResolvedTheme } from "@/shared/theme/useApplyTheme";
-import { MoonIcon, SunIcon } from "@/shared/ui/icons";
+import { MoonIcon, SunIcon } from "@/shared/components/ui/icons";
 
 export default function ThemeToggle() {
   const { t } = useTranslation();

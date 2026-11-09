@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { SignOutIcon } from "@/shared/ui/icons";
-import { useSignInMethods, useSignOut } from "../hooks/useAuth";
+import { SignOutIcon } from "@/shared/components/ui/icons";
+import { useSignInMethods, useSignOut } from "../../hooks/useAuth";
 
 /** Hidden while ops-api runs with auth disabled, where there is no session */
 export default function SignOutButton() {

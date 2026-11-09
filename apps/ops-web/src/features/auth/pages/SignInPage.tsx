@@ -1,41 +1,18 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useSearchParams } from "react-router-dom";
-import { TextField } from "@/shared/ui/fields";
-import { SparkIcon } from "@/shared/ui/icons";
-import { oauthLoginUrl, type OAuthProvider } from "../api/auth";
+import { TextField } from "@/shared/components/ui/fields";
+import { SparkIcon } from "@/shared/components/ui/icons";
+import ProviderButton from "../components/ui/ProviderButton";
 import { useMe, useSignIn, useSignInMethods } from "../hooks/useAuth";
-import { GitHubMark, GoogleMark } from "./brandIcons";
 
 const callbackErrors = ["not_allowed", "failed"] as const;
 type CallbackError = (typeof callbackErrors)[number];
-
-const providerMarks = { google: GoogleMark, github: GitHubMark };
 
 /** Only a path on ops-web, so a link cannot send you to another site */
 function safeNext(next: string | null): string {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return "/";
   return next.startsWith("/sign-in") ? "/" : next;
-}
-
-function ProviderButton({
-  provider,
-  next,
-}: {
-  provider: OAuthProvider;
-  next: string;
-}) {
-  const { t } = useTranslation();
-  const Mark = providerMarks[provider];
-  return (
-    <a
-      href={oauthLoginUrl(provider, next)}
-      className="border-hair bg-ground text-ink hover:bg-well flex min-h-11 items-center justify-center gap-2.5 rounded-lg border text-sm font-medium no-underline"
-    >
-      <Mark />
-      {t(`auth.continueWith.${provider}`)}
-    </a>
-  );
 }
 
 export default function SignInPage() {
