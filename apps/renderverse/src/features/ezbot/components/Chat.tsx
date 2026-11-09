@@ -14,7 +14,7 @@ import { useNavigateToSection } from "@/features/ezbot/hooks/useNavigateToSectio
 import styles from "./Chat.module.css";
 import Chatbubble, { type ChatbubbleProps } from "./Chatbubble";
 import ChatTypingIndicator from "./ChatTypingIndicator";
-import { STICK_THRESHOLD_PX, SUGGESTIONS } from "./constants";
+import { STICK_THRESHOLD_PX, SUGGESTIONS } from "@/features/ezbot/constants";
 
 interface ChatProps {
   close: () => void;

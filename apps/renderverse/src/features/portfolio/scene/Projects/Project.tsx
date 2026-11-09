@@ -1,5 +1,5 @@
 import styles from "./Project.module.css";
-import type { ModalInteraction } from "@/shared/ui/modal/modalStore";
+import type { ModalInteraction } from "@/shared/state/modalStore";
 import type { ProjectItem } from "@/features/portfolio/types";
 
 interface ProjectProps {

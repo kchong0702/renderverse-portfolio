@@ -1,5 +1,5 @@
-import Modal from "@/shared/ui/modal/Modal";
-import { useModalStore } from "@/shared/ui/modal/modalStore";
+import Modal from "@/shared/components/ui/modal/Modal";
+import { useModalStore } from "@/shared/state/modalStore";
 import { useSceneStore } from "@/experience/state/sceneStore";
 import ProjectContent from "./ProjectContent";
 import type { ProjectItem } from "@/features/portfolio/types";

@@ -1,5 +1,5 @@
 import { IoEnter } from "react-icons/io5";
-import Indicator from "@/shared/ui/indicator/Indicator";
+import Indicator from "@/shared/components/ui/indicator/Indicator";
 
 export default function GodzillaHPSubIndicator() {
   return (
