@@ -38,6 +38,9 @@ export interface JobList {
   new_count: number;
 }
 
+export type AgentRun<R> =
+  { status: "completed"; reply: R } | { status: "failed"; reason: string };
+
 export interface JobUpdate {
   id: string;
   status?: JobStatus;
@@ -51,3 +54,8 @@ export const fetchJobs = (signal?: AbortSignal) =>
 
 export const updateJob = ({ id, ...patch }: JobUpdate) =>
   http.patch<Job>(`${URL}/${id}`, patch);
+
+export const findJobs = () => http.post<AgentRun<Job[]>>(`${URL}/find`);
+
+export const analyseJob = (id: string) =>
+  http.post<AgentRun<Job>>(`${URL}/${id}/analyse`);

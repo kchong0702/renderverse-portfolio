@@ -107,6 +107,12 @@
     "title": "Jobs",
     "subtitle": "Scored against your profile",
     "agentSchedule": "Agent schedule",
+    "runAgent": "Run agent now",
+    "runningAgent": "Running agent…",
+    "runningNote": "The job agent is searching and scoring postings against your profile. This can take a few minutes.",
+    "runFailed": "The job agent stopped: {{reason}}",
+    "found_one": "The job agent found {{count}} job.",
+    "found_other": "The job agent found {{count}} jobs.",
     "loadFailed": "Jobs could not be loaded: {{reason}}",
     "tabs": {
       "label": "Job lists",
@@ -114,7 +120,7 @@
       "saved": "Saved"
     },
     "empty": {
-      "picked": "No agent picks yet. The daily job agent adds postings here.",
+      "picked": "No agent picks yet. Run the agent now, or the daily job agent adds postings here.",
       "saved": "Nothing saved yet. Save an agent pick to keep it here."
     },
     "postings": "Postings",
@@ -131,6 +137,12 @@
     "save": "Save",
     "saved": "Saved",
     "dismiss": "Dismiss",
+    "analyse": "Analyse fit",
+    "analyseAgain": "Analyse again",
+    "analysing": "Analysing…",
+    "analysingNote": "Reading the posting and mapping each requirement to your profile. This can take a minute.",
+    "analyseFailed": "Not analysed: {{reason}}",
+    "noPostingUrl": "This job has no posting URL to analyse",
     "updateFailed": "Not saved: {{reason}}",
     "requirements": "Requirements",
     "matchCount": {
