@@ -1,8 +1,8 @@
 import { Sparkle } from "lucide-react";
 import { useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { buttonClass } from "@/shared/components/ui/button";
-import { useAssistantStore } from "../../state/assistantStore";
+import { buttonClass } from "@/shared/components/button";
+import { useAssistantStore } from "../state/assistantStore";
 
 export default function AssistantDock({ topic }: { topic?: string }) {
   const { t, i18n } = useTranslation();
