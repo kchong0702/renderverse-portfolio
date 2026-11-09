@@ -11,10 +11,12 @@ from src.features.settings.schemas import (
     Automation,
     Connection,
     JobAgent,
+    ModelChoice,
     Scheduling,
     SettingsRead,
     SettingsUpdate,
 )
+from src.integrations.ezcareer import EzcareerClient, ModelCatalog
 
 _JOB_AGENT_COLUMNS = {
     "query": "job_query",
@@ -51,20 +53,26 @@ def _to_read(settings: UserSettings) -> SettingsRead:
             work_day_end=settings.work_day_end,
             meeting_gap_minutes=settings.meeting_gap_minutes,
         ),
-        ai_provider=settings.ai_provider,  # type: ignore[arg-type]
+        ai_model=ModelChoice(family=settings.ai_family, model=settings.ai_model)
+        if settings.ai_family is not None and settings.ai_model is not None
+        else None,
         connections=_connections(),
     )
 
 
 class SettingsService:
-    def __init__(self, session: AsyncSession):
-        """Read and write the settings through a repository on the session"""
+    def __init__(self, session: AsyncSession, ezcareer: EzcareerClient):
+        """Read and write the settings through a repository on the session, and list
+        the models ezcareer-harness serves"""
         self._repository = SettingsRepository(session)
+        self._ezcareer = ezcareer
 
     async def get(self, user_id: UUID) -> SettingsRead:
+        """The user's settings, created with the defaults on first read"""
         return _to_read(await self._load(user_id))
 
     async def update(self, user_id: UUID, patch: SettingsUpdate) -> SettingsRead:
+        """Apply the fields sent; a new model must be one ezcareer-harness offers"""
         settings = await self._load(user_id)
 
         if patch.job_agent is not None:
@@ -74,12 +82,26 @@ class SettingsService:
             if section is not None:
                 for field, value in section.model_dump(exclude_unset=True).items():
                     setattr(settings, field, value)
-        if patch.ai_provider is not None:
-            settings.ai_provider = patch.ai_provider
+        if patch.ai_model is not None:
+            choice = patch.ai_model
+            catalog = await self._ezcareer.models()
+            if not any(
+                entry.family == choice.family and choice.model in entry.models
+                for entry in catalog.families
+            ):
+                raise InvalidInput(
+                    f"ezcareer-harness does not offer {choice.model} for {choice.family}"
+                )
+            settings.ai_family = choice.family
+            settings.ai_model = choice.model
 
         if settings.work_day_start >= settings.work_day_end:
             raise InvalidInput("The work day must end after it starts")
         return _to_read(settings)
+
+    async def models(self) -> ModelCatalog:
+        """The models a user can pick from, as ezcareer-harness lists them"""
+        return await self._ezcareer.models()
 
     async def _load(self, user_id: UUID) -> UserSettings:
         settings = await self._repository.get(user_id)

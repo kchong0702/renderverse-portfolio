@@ -25,7 +25,7 @@ async def test_defaults_on_first_read(client):
         "work_day_end": "18:00:00",
         "meeting_gap_minutes": 30,
     }
-    assert body["ai_provider"] == "claude"
+    assert body["ai_model"] is None
     assert {c["id"]: c["status"] for c in body["connections"]} == {
         "google": "not_connected",
         "jsearch": "not_connected",
@@ -39,7 +39,6 @@ async def test_patch_changes_only_the_fields_sent(client):
         json={
             "job_agent": {"query": "Backend engineer, Python", "min_score": 80},
             "automation": {"suggest_replies": False},
-            "ai_provider": "glm",
         },
     )
 
@@ -50,7 +49,6 @@ async def test_patch_changes_only_the_fields_sent(client):
     assert body["job_agent"]["run_at"] == "08:00:00"
     assert body["automation"]["suggest_replies"] is False
     assert body["automation"]["follow_up_reminders"] is True
-    assert body["ai_provider"] == "glm"
 
     reread = await client.get(f"{PREFIX}/settings")
     assert reread.json() == body
@@ -64,12 +62,6 @@ async def test_work_day_must_end_after_it_starts(client):
 
     assert response.status_code == 422
     assert response.json()["detail"] == "The work day must end after it starts"
-
-
-async def test_rejects_unknown_ai_provider(client):
-    response = await client.patch(f"{PREFIX}/settings", json={"ai_provider": "gpt"})
-
-    assert response.status_code == 422
 
 
 async def test_rows_record_who_created_and_changed_them(app, client):

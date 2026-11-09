@@ -3,6 +3,7 @@ from dependency_injector import containers, providers
 from src.core.auth.oauth_providers import build_providers
 from src.core.config import get_settings
 from src.db.session import create_engine, create_session_factory
+from src.integrations.ezcareer import EzcareerClient
 
 
 class Container(containers.DeclarativeContainer):
@@ -15,3 +16,5 @@ class Container(containers.DeclarativeContainer):
     oauth_providers = providers.Singleton(
         build_providers, settings=settings.provided.auth
     )
+
+    ezcareer = providers.Singleton(EzcareerClient, settings=settings.provided.ezcareer)
