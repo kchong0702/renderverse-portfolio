@@ -10,6 +10,7 @@ from pydantic import JsonValue
 from src.features.import_document import build_graph
 from src.features.import_document.exceptions import ImportFailed
 from src.features.import_document.schemas import ImportInput, ResumeImport
+from src.shared.run_context import RunContext
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.import_document.test_extract import _artifact_service
@@ -69,6 +70,17 @@ async def test_the_passing_draft_is_printed_in_the_default_template():
     assert result["pdf"] == "JVBERg=="
     assert result["report"].pages == 1
     assert [line.id for line in result["lines"]] == ["p1.s1", "p1.s2"]
+
+
+async def test_the_run_contexts_model_reads_the_resume_instead_of_its_own():
+    configured, picked = _model(), _model(_reply("Engineer"))
+
+    result = await build_graph(
+        _artifact_service(partial(_print, sent=[])), model=configured
+    ).ainvoke(UPLOAD, context=RunContext(model=picked))
+
+    assert result["pdf"] == "JVBERg=="
+    assert (len(configured.requests), len(picked.requests)) == (0, 1)
 
 
 async def test_a_failed_reply_goes_back_to_the_llm_with_its_errors():

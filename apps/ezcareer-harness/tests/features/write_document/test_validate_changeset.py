@@ -20,7 +20,7 @@ BAD_EDIT = GOOD_EDIT.model_copy(
 )
 
 
-def test_validate_changeset_lists_errors_until_the_changeset_passes():
+async def test_validate_changeset_lists_errors_until_the_changeset_passes():
     model = _model(
         _call(
             "validate_changeset",
@@ -33,7 +33,7 @@ def test_validate_changeset_lists_errors_until_the_changeset_passes():
         _answer(GOOD_EDIT),
     )
 
-    result = _agent(model).invoke(
+    result = await _agent(model).ainvoke(
         _state(),
         AgentOverride(response_format=Changeset, tools=(validate_changeset,)).config(),
     )

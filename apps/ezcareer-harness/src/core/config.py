@@ -361,11 +361,15 @@ class Settings(BaseSettings):
             file_secret_settings,
         )
 
+    def offers(self, family: Family, model: str) -> bool:
+        """Whether [models] offers model in family"""
+        return model in self.models.get(family, ())
+
     @model_validator(mode="after")
     def _agents_run_offered_models(self) -> Settings:
         """Refuses an agent whose model [models] does not offer"""
         for agent in self.agents:
-            if agent.model not in self.models.get(agent.family, ()):
+            if not self.offers(agent.family, agent.model):
                 raise ValueError(
                     f"{agent.name} runs {agent.family} {agent.model}, which [models] does not offer"
                 )

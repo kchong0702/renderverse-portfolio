@@ -145,10 +145,10 @@ async def test_a_workflow_that_cannot_run_tells_the_director_why():
     assert result["messages"][-1].text == "Open a document first."
 
 
-def test_the_director_offers_its_workflow_tools_but_no_task_or_write_tools():
+async def test_the_director_offers_its_workflow_tools_but_no_task_or_write_tools():
     model = _model(AIMessage("Hello."))
 
-    _director(model, tools=(_edit_document(career_consultant._model()),)).invoke(
+    await _director(model, tools=(_edit_document(career_consultant._model()),)).ainvoke(
         _state()
     )
 

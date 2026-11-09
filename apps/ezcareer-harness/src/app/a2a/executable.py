@@ -17,12 +17,36 @@ from langgraph.types import Command
 from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError
 from pydantic_core import to_jsonable_python
 
+from src.clients.llm_providers import llm_provider
+from src.core.config import Family, get_settings
 from src.core.errors import ExecuteError
+from src.shared.run_context import RunContext
 
 
 def _reason(updater: TaskUpdater, text: str) -> Message:
     """An agent message carrying the reason a run stopped"""
     return updater.new_agent_message([new_text_part(text)])
+
+
+class ModelChoice(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, use_attribute_docstrings=True
+    )
+
+    family: Family
+    """The model's family"""
+
+    model: str
+    """A model [models] offers for that family"""
+
+
+class RunMetadata(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, use_attribute_docstrings=True
+    )
+
+    model: ModelChoice
+    """The model the user picked for the run"""
 
 
 class Executable(BaseModel):
@@ -51,14 +75,19 @@ class LanggraphExecutor(AgentExecutor):
 
     @override
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
-        """Run or resume the graph and report it as completed, failed or
-        input required"""
+        """Run or resume the graph, on the model the request metadata names, and
+        report it as completed, failed or input required"""
         updater = TaskUpdater(event_queue, context.task_id, context.context_id)
         data = get_data_parts(context.message.parts) if context.message else []
         if context.current_task is None and context.message:
             await event_queue.enqueue_event(new_task_from_user_message(context.message))
         await updater.start_work()
         try:
+            metadata = (
+                RunMetadata.model_validate(context.metadata)
+                if context.metadata
+                else None
+            )
             if context.current_task:
                 graph_input = Command(
                     resume=data[0] if data else context.get_user_input()
@@ -77,6 +106,16 @@ class LanggraphExecutor(AgentExecutor):
         except ValidationError as error:
             await updater.failed(_reason(updater, f"Invalid input: {error}"))
             return
+        if metadata and not get_settings().offers(
+            metadata.model.family, metadata.model.model
+        ):
+            await updater.failed(
+                _reason(
+                    updater,
+                    f"ezcareer-harness does not offer {metadata.model.model} for {metadata.model.family}",
+                )
+            )
+            return
         try:
             result = await self.executable.graph.ainvoke(
                 graph_input,
@@ -87,6 +126,11 @@ class LanggraphExecutor(AgentExecutor):
                         else context.task_id
                     }
                 },
+                context=RunContext(
+                    model=llm_provider(metadata.model.family, metadata.model.model)
+                )
+                if metadata
+                else None,
             )
         except GraphRecursionError:
             await updater.failed(_reason(updater, "Ran out of steps before finishing"))
