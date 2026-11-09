@@ -2,12 +2,7 @@ from collections.abc import Sequence
 from functools import reduce
 from operator import or_
 
-from deepagents import (
-    DeepAgentState,
-    FilesystemPermission,
-    create_deep_agent,
-    register_harness_profile,
-)
+from deepagents import DeepAgentState, FilesystemPermission, create_deep_agent
 from deepagents.backends import CompositeBackend, FilesystemBackend, StateBackend
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models import BaseChatModel
@@ -15,9 +10,15 @@ from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
-from src.agents.middlewares import InjectToolsMiddleware, ResponseFormatMiddleware
+from src.agents.harness_profiles import register_harness_profiles
+from src.agents.middlewares import (
+    ExcludeToolsMiddleware,
+    InjectToolsMiddleware,
+    ResponseFormatMiddleware,
+)
 from src.agents.registry import Agent
 from src.clients.llm_providers import llm_provider
+from src.core.config import get_settings
 
 
 def build_agent(
@@ -30,9 +31,9 @@ def build_agent(
     context_schema: type | None = None,
     model: BaseChatModel | None = None,
 ) -> CompiledStateGraph:
-    """Builds a registered agent as a deep agent with its skills read-only, under
-    its model's harness profile, able to reply in any of response_formats"""
-    register_harness_profile(f"{agent.provider}:{agent.model}", agent.profile)
+    """Builds a registered agent as a deep agent with its skills read-only and its
+    profile's tools, able to reply in any of response_formats"""
+    register_harness_profiles(get_settings().harness_profiles)
     built = create_deep_agent(
         model=model or llm_provider(agent.family, agent.model),
         tools=tools,
@@ -40,6 +41,7 @@ def build_agent(
         middleware=[
             *middleware,
             InjectToolsMiddleware(agent.profile.tool_description_overrides),
+            ExcludeToolsMiddleware(agent.profile.excluded_tools),
             ResponseFormatMiddleware(),
         ],
         skills=["/"],

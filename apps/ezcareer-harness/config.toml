@@ -1,4 +1,5 @@
 job_sources = ["jsearch"]
+harness_profiles = "src/agents/harness_profiles.yaml"
 
 [app]
 name = "ezcareer-harness"
