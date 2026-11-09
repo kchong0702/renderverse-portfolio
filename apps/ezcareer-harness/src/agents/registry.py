@@ -21,9 +21,6 @@ class AgentProfile(BaseModel):
     skills: Path = Path("skills")
     """The agent's skills folder, one SKILL.md folder per skill, relative to its folder"""
 
-    models: dict[str, list[str]]
-    """Models the agent can run on, by family, such as glm"""
-
     excluded_tools: frozenset[str] = frozenset()
     """Tools the agent is never offered, such as deepagents' write_file"""
 
@@ -46,7 +43,7 @@ class Agent(BaseModel):
     """Holds profile.yaml, system.md and the agent's own skills/"""
 
     family: str
-    """Model family profile.yaml lists the model under, such as glm"""
+    """Model family the model belongs to, such as glm"""
 
     model: str
     """Exact model the agent runs on, such as glm-5.3"""
@@ -81,26 +78,17 @@ class Agent(BaseModel):
 
     @classmethod
     def load(cls, settings: AgentSettings) -> Self:
-        """Reads an agent's profile.yaml and checks it lists the model it runs on
-        under exactly one known family"""
-        profile = AgentProfile.model_validate(yaml.safe_load(settings.path.read_text()))
-        families = [
-            family
-            for family, models in profile.models.items()
-            if settings.model in models
-        ]
-        if len(families) != 1:
-            raise ValueError(
-                f"{settings.path} must list {settings.model} under exactly one family"
-            )
-        if families[0] not in PROVIDERS:
-            raise ValueError(f"{settings.path}: unknown model family {families[0]}")
+        """Reads an agent's profile.yaml for the model and family its settings name"""
+        if settings.family not in PROVIDERS:
+            raise ValueError(f"{settings.name}: unknown model family {settings.family}")
         return cls(
             name=settings.name,
             folder=settings.path.parent,
-            family=families[0],
+            family=settings.family,
             model=settings.model,
-            profile=profile,
+            profile=AgentProfile.model_validate(
+                yaml.safe_load(settings.path.read_text())
+            ),
         )
 
 

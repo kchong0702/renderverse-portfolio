@@ -19,7 +19,10 @@ from tests.conftest import ScriptedChatModel
 
 FIXTURES = Path(__file__).parent / "fixtures"
 GREETER = AgentSettings(
-    name="greeter", path=FIXTURES / "greeter/profile.yaml", model="glm-5.3"
+    name="greeter",
+    path=FIXTURES / "greeter/profile.yaml",
+    family="glm",
+    model="glm-5.3",
 )
 
 
@@ -69,7 +72,7 @@ def test_config_toml_lists_agents_as_tables(tmp_path: Path, monkeypatch):
     toml = tmp_path / "config.toml"
     toml.write_text(
         '[[agents]]\nname = "greeter"\npath = "src/agents/greeter/profile.yaml"\n'
-        'model = "glm-5.3"\n'
+        'family = "glm"\nmodel = "glm-5.3"\n'
     )
     monkeypatch.setenv("EZCAREER_HARNESS_CONFIG", str(toml))
 
@@ -116,7 +119,7 @@ def test_system_prompt_holds_the_agents_system_md_and_its_skills():
 
 def test_the_harness_profiles_turn_off_the_general_purpose_subagent(tmp_path: Path):
     shutil.copytree(FIXTURES / "greeter", tmp_path, dirs_exist_ok=True)
-    (tmp_path / "profile.yaml").write_text("models:\n  glm: [glm-5.3]\n")
+    (tmp_path / "profile.yaml").write_text("system_prompt: system.md\nskills: skills\n")
     model = ScriptedChatModel(replies=[_call("Greeting", text="Hi")])
 
     _ask(
@@ -126,11 +129,6 @@ def test_the_harness_profiles_turn_off_the_general_purpose_subagent(tmp_path: Pa
 
     assert "write_file" in model.offered_tools[0]
     assert "task" not in model.offered_tools[0]
-
-
-def test_a_model_without_a_profile_is_refused():
-    with pytest.raises(ValueError, match="must list gpt-9 under exactly one family"):
-        Agent.load(GREETER.model_copy(update={"model": "gpt-9"}))
 
 
 def test_agent_reads_a_skill_but_cannot_change_it():
@@ -278,7 +276,7 @@ def test_a_run_leaves_the_agents_folder_unchanged(tmp_path: Path):
 
 async def test_agents_on_one_model_keep_their_own_tools(tmp_path: Path):
     shutil.copytree(FIXTURES / "greeter", tmp_path, dirs_exist_ok=True)
-    (tmp_path / "profile.yaml").write_text("models:\n  glm: [glm-5.3]\n")
+    (tmp_path / "profile.yaml").write_text("system_prompt: system.md\nskills: skills\n")
     read_only_model = ScriptedChatModel(replies=[_call("Greeting", text="Hi")])
     writer_model = ScriptedChatModel(replies=[_call("Greeting", text="Hi")])
     read_only = build_agent(

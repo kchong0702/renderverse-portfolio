@@ -30,11 +30,13 @@ hide_outputs = false
 [[agents]]
 name = "job-finder"
 path = "src/agents/job_finder/profile.yaml"
+family = "glm"
 model = "glm-5.3"
 
 [[agents]]
 name = "career-consultant"
 path = "src/agents/career_consultant/profile.yaml"
+family = "openai"
 model = "gpt-6-luna"
 
 [[graph_profiles]]

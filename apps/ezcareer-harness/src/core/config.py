@@ -199,8 +199,11 @@ class AgentSettings(BaseModel):
     """The agent's profile.yaml, relative to the app folder; its folder holds
     system.md and skills/"""
 
+    family: str
+    """Model family the model belongs to, such as glm, which picks its provider"""
+
     model: str
-    """Exact model the agent runs on, such as glm-5.3; profile.yaml must list it"""
+    """Exact model the agent runs on, such as glm-5.3"""
 
     @field_validator("path")
     @classmethod
