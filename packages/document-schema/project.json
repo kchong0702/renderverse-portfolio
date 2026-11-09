@@ -1,0 +1,48 @@
+{
+  "name": "document-schema",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "packages/document-schema/src",
+  "tags": ["type:lib", "scope:backend"],
+  "targets": {
+    "lint": {
+      "executor": "nx:run-commands",
+      "inputs": ["default", "uv"],
+      "options": {
+        "command": "uv run ruff check .",
+        "cwd": "packages/document-schema"
+      }
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run ruff format .",
+        "cwd": "packages/document-schema"
+      }
+    },
+    "format:check": {
+      "executor": "nx:run-commands",
+      "inputs": ["default", "uv"],
+      "options": {
+        "command": "uv run ruff format --check .",
+        "cwd": "packages/document-schema"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "inputs": ["default", "uv"],
+      "options": {
+        "command": "uv run pyright",
+        "cwd": "packages/document-schema"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "inputs": ["default", "uv"],
+      "options": {
+        "command": "uv run pytest",
+        "cwd": "packages/document-schema"
+      }
+    }
+  }
+}

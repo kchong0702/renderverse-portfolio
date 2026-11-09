@@ -16,4 +16,5 @@ package = false
 members = [
     "apps/ezbot-harness",
     "apps/ops-api",
+    "packages/document-schema",
 ]
