@@ -2,7 +2,12 @@ from collections.abc import Sequence
 from functools import reduce
 from operator import or_
 
-from deepagents import DeepAgentState, FilesystemPermission, create_deep_agent
+from deepagents import (
+    CompiledSubAgent,
+    DeepAgentState,
+    FilesystemPermission,
+    create_deep_agent,
+)
 from deepagents.backends import CompositeBackend, FilesystemBackend, StateBackend
 from deepagents.middleware.filesystem import FilesystemMiddleware
 from langchain.agents.middleware import AgentMiddleware
@@ -21,13 +26,14 @@ def build_agent(
     *,
     response_formats: Sequence[type[BaseModel]] = (),
     tools: Sequence[BaseTool] = (),
+    subagents: Sequence[CompiledSubAgent] = (),
     middleware: Sequence[AgentMiddleware] = (),
     state_schema: type[DeepAgentState] = DeepAgentState,
     context_schema: type | None = None,
     model: BaseChatModel | None = None,
 ) -> CompiledStateGraph:
     """Builds a registered agent as a deep agent that can only read its files and
-    skills, able to reply in any of response_formats"""
+    skills, able to reply in any of response_formats and run subagents"""
     backend = CompositeBackend(
         default=FilesystemBackend(root_dir=agent.skills, virtual_mode=True),
         routes={"/artifacts/": StateBackend()},
@@ -36,6 +42,7 @@ def build_agent(
     built = create_deep_agent(
         model=model or llm_provider(agent.family, agent.model),
         tools=tools,
+        subagents=subagents,
         system_prompt=agent.system_prompt.read_text(),
         middleware=[
             FilesystemMiddleware(
