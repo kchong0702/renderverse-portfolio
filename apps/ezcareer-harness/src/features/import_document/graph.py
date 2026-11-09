@@ -1,4 +1,5 @@
 from functools import partial
+from typing import Literal
 
 from langchain_core.language_models import BaseChatModel
 from langgraph.graph import END, START, StateGraph
@@ -8,9 +9,14 @@ from src.clients.artifact_service import ArtifactServiceClient
 from src.clients.llm_providers import llm_provider
 from src.core.config import get_settings
 from src.features.import_document.configurations import ImportResumeConfigurations
-from src.features.import_document.nodes import extract, structure
+from src.features.import_document.nodes import extract, structure, verify
 from src.features.import_document.schemas import ImportInput
 from src.features.import_document.state import ImportState
+
+
+def _after_verify(state: ImportState) -> Literal["structure", "__end__"]:
+    """Sends a reply that failed the checks back to structure"""
+    return "structure" if state["errors"] else END
 
 
 def build_graph(
@@ -31,7 +37,12 @@ def build_graph(
             prompt=(profile.folder / "system.md").read_text(),
         ),
     )
+    graph.add_node("verify", partial(verify, configurations=configurations))
     graph.add_edge(START, "extract")
     graph.add_edge("extract", "structure")
-    graph.add_edge("structure", END)
-    return graph.compile()
+    graph.add_edge("structure", "verify")
+    graph.add_conditional_edges("verify", _after_verify)
+    return graph.compile().with_config(
+        recursion_limit=configurations.recursion_limit,
+        metadata={"flow": "import-resume"},
+    )
