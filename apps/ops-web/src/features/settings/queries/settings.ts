@@ -1,6 +1,7 @@
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
 import {
   connectJsearch,
+  disconnectGoogle,
   disconnectJsearch,
   fetchModels,
   fetchSettings,
@@ -61,4 +62,10 @@ export const disconnectJsearchMutationOptions = mutationOptions({
   mutationFn: disconnectJsearch,
   onSuccess: (settings, _variables, _result, { client }) =>
     client.setQueryData(settingsQueryOptions.queryKey, settings),
+});
+
+export const disconnectGoogleMutationOptions = mutationOptions({
+  mutationFn: disconnectGoogle,
+  onSettled: (_data, _error, _variables, _result, { client }) =>
+    client.invalidateQueries({ queryKey: settingsQueryOptions.queryKey }),
 });

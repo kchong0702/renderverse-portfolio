@@ -662,7 +662,8 @@
       },
       "status": {
         "connected": "Connected",
-        "not_connected": "Not connected yet"
+        "not_connected": "Not connected yet",
+        "not_configured": "Not set up on the server yet"
       },
       "quota": "Connected · {{remaining}} of {{limit}} searches left this month",
       "jsearch": {
@@ -673,6 +674,18 @@
         "cancel": "Cancel",
         "remove": "Remove key",
         "failed": "Not saved: {{reason}}"
+      },
+      "connectedAs": "Connected as {{account}}",
+      "google": {
+        "connect": "Connect",
+        "disconnect": "Disconnect",
+        "notConfigured": "Not configured",
+        "disconnectFailed": "Not disconnected: {{reason}}"
+      },
+      "googleErrors": {
+        "denied": "Google was not connected because access was declined.",
+        "scopes": "Google was not connected. Allow both Gmail and Calendar, then try again.",
+        "failed": "Google could not be connected. Try again."
       }
     },
     "jobAgent": {
@@ -728,6 +741,43 @@
     "system": {
       "title": "System settings"
     }
+  },
+  "googleNotice": {
+    "not_configured": "Google is not set up on the server yet. Add the OAuth client to ops-api, then connect your account in Settings.",
+    "not_connected": "Connect your Google account to see this here. Ops only reads Gmail and Calendar and never sends anything.",
+    "expired": "Google access expired or was revoked. Reconnect to keep reading Gmail and Calendar.",
+    "connect": "Connect Google",
+    "reconnect": "Reconnect Google"
+  },
+  "inbox": {
+    "title": "Inbox",
+    "subtitle": "Gmail · {{account}}",
+    "refresh": "Refresh",
+    "messages": "Emails",
+    "unread": "Unread",
+    "noSubject": "(No subject)",
+    "to": "To {{to}}",
+    "openInGmail": "Open in Gmail",
+    "empty": "No job-search emails match the Gmail search yet.",
+    "loadFailed": "Inbox could not be loaded: {{reason}}",
+    "messageFailed": "This email could not be loaded: {{reason}}"
+  },
+  "calendar": {
+    "title": "Calendar",
+    "subtitle": "Google Calendar · {{account}}",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week",
+    "today": "Today",
+    "workHours": "Work hours {{start}} to {{end}}",
+    "allDay": "All day",
+    "untitled": "Busy",
+    "legend": {
+      "interview": "Interview",
+      "other": "Other event"
+    },
+    "comingUp": "Coming up",
+    "nothingComingUp": "Nothing in the next two weeks.",
+    "loadFailed": "Calendar could not be loaded: {{reason}}"
   },
   "auth": {
     "title": "Sign in",
