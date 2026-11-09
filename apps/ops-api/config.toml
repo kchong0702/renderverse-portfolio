@@ -82,6 +82,10 @@ output_per_mtok = "4.4"
 cache_read_per_mtok = "0.26"
 cache_write_per_mtok = "0"
 
+[google]
+redirect_uri = "http://localhost:5174/ops-api/v1/integrations/google/callback"
+timeout_seconds = 10
+
 [observability]
 service_name = "ops-api"
 log_level = "INFO"

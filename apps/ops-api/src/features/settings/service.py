@@ -15,6 +15,7 @@ from src.clients.ezcareer import (
 )
 from src.core.config import JSearchSettings
 from src.core.exceptions import Conflict, InvalidInput, ServiceUnavailable
+from src.features.google import GoogleService
 from src.features.settings.models import UserSettings
 from src.features.settings.repository import SettingsRepository
 from src.features.settings.schemas import (
@@ -35,29 +36,7 @@ _JOB_AGENT_COLUMNS = {
 }
 
 
-def _connections(settings: UserSettings) -> list[Connection]:
-    """JSearch from the stored key and its last quota; the others wait for their
-    integrations"""
-    return [
-        Connection(id="google", status="not_connected"),
-        Connection(
-            id="jsearch",
-            status="connected"
-            if settings.jsearch_ciphertext is not None
-            else "not_connected",
-            quota=SearchQuota(
-                remaining=settings.jsearch_quota_remaining,
-                limit=settings.jsearch_quota_limit,
-            )
-            if settings.jsearch_quota_remaining is not None
-            and settings.jsearch_quota_limit is not None
-            else None,
-        ),
-        Connection(id="portfolio_site", status="not_connected"),
-    ]
-
-
-def _to_read(settings: UserSettings) -> SettingsRead:
+def _to_read(settings: UserSettings, connections: list[Connection]) -> SettingsRead:
     return SettingsRead(
         job_agent=JobAgent(
             query=settings.job_query,
@@ -78,18 +57,24 @@ def _to_read(settings: UserSettings) -> SettingsRead:
         ai_model=ModelChoice(family=settings.ai_family, model=settings.ai_model)
         if settings.ai_family is not None and settings.ai_model is not None
         else None,
-        connections=_connections(settings),
+        connections=connections,
     )
 
 
 class SettingsService:
     def __init__(
-        self, session: AsyncSession, ezcareer: EzcareerClient, jsearch: JSearchSettings
+        self,
+        session: AsyncSession,
+        ezcareer: EzcareerClient,
+        google: GoogleService,
+        jsearch: JSearchSettings,
     ):
         """Read and write the settings through a repository on the session, list the
-        models ezcareer-harness serves, and keep the key that encrypts JSearch keys"""
+        models ezcareer-harness serves, read the user's Google connection, and keep
+        the key that encrypts JSearch keys"""
         self._repository = SettingsRepository(session)
         self._ezcareer = ezcareer
+        self._google = google
         self._jsearch = jsearch
 
     def _fernet(self) -> Fernet:
@@ -101,9 +86,40 @@ class SettingsService:
             )
         return Fernet(self._jsearch.encryption_key.get_secret_value())
 
+    async def _connections(self, settings: UserSettings) -> list[Connection]:
+        """Google from its stored account, JSearch from the stored key and its last
+        quota; the portfolio site waits for its integration"""
+        account = await self._google.account(settings.user_id)
+        google = (
+            Connection(id="google", status="connected", account=account)
+            if account is not None
+            else Connection(
+                id="google",
+                status="not_connected" if self._google.configured else "not_configured",
+            )
+        )
+        return [
+            google,
+            Connection(
+                id="jsearch",
+                status="connected"
+                if settings.jsearch_ciphertext is not None
+                else "not_connected",
+                quota=SearchQuota(
+                    remaining=settings.jsearch_quota_remaining,
+                    limit=settings.jsearch_quota_limit,
+                )
+                if settings.jsearch_quota_remaining is not None
+                and settings.jsearch_quota_limit is not None
+                else None,
+            ),
+            Connection(id="portfolio_site", status="not_connected"),
+        ]
+
     async def get(self, user_id: UUID) -> SettingsRead:
         """The user's settings, created with the defaults on first read"""
-        return _to_read(await self._load(user_id))
+        settings = await self._load(user_id)
+        return _to_read(settings, await self._connections(settings))
 
     async def update(self, user_id: UUID, patch: SettingsUpdate) -> SettingsRead:
         """Apply the fields sent; a new model must be one ezcareer-harness offers"""
@@ -131,7 +147,7 @@ class SettingsService:
 
         if settings.work_day_start >= settings.work_day_end:
             raise InvalidInput("The work day must end after it starts")
-        return _to_read(settings)
+        return _to_read(settings, await self._connections(settings))
 
     async def models(self) -> ModelCatalog:
         """The models a user can pick from, as ezcareer-harness lists them"""
@@ -146,7 +162,7 @@ class SettingsService:
         )
         settings.jsearch_quota_remaining = None
         settings.jsearch_quota_limit = None
-        return _to_read(settings)
+        return _to_read(settings, await self._connections(settings))
 
     async def disconnect_jsearch(self, user_id: UUID) -> SettingsRead:
         """Forget the user's JSearch key and its quota; a no-op if none is stored"""
@@ -154,7 +170,7 @@ class SettingsService:
         settings.jsearch_ciphertext = None
         settings.jsearch_quota_remaining = None
         settings.jsearch_quota_limit = None
-        return _to_read(settings)
+        return _to_read(settings, await self._connections(settings))
 
     async def record_quota(self, user_id: UUID, quota: SearchQuota | None) -> None:
         """Keep the quota a find run read on the user's JSearch key; a run on the

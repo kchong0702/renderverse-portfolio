@@ -1,8 +1,9 @@
 import json
 import os
-from base64 import b64encode
+from base64 import b64encode, urlsafe_b64encode
 from collections.abc import AsyncIterator
 from tempfile import TemporaryDirectory
+from urllib.parse import parse_qs, urlsplit
 
 import httpx2
 import pytest
@@ -16,6 +17,11 @@ from starlette.responses import RedirectResponse, Response
 PREFIX = "/ops-api/v1"
 OWNER = "owner@example.com"
 JSEARCH_ENCRYPTION_KEY = "pcmpLWT8lLZJmPF7IsUqBimTLFLTgPGcQmjx82jBz9M="
+ENCRYPTION_KEY = urlsafe_b64encode(b"e" * 32).decode()
+GOOGLE_SCOPES = (
+    "https://www.googleapis.com/auth/gmail.readonly "
+    "https://www.googleapis.com/auth/calendar.readonly"
+)
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -25,6 +31,9 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ["OPS_API_EZCAREER__STORES"] = "memory"
     os.environ["OPS_API_ARTIFACT__URL"] = "http://artifact.test/artifact-service"
     os.environ["OPS_API_JSEARCH__ENCRYPTION_KEY"] = JSEARCH_ENCRYPTION_KEY
+    os.environ["OPS_API_GOOGLE__CLIENT_ID"] = "client.test"
+    os.environ["OPS_API_GOOGLE__CLIENT_SECRET"] = "client-secret"
+    os.environ["OPS_API_GOOGLE__ENCRYPTION_KEY"] = ENCRYPTION_KEY
 
 
 class FakeProvider:
@@ -213,15 +222,93 @@ class FakeArtifact:
         return httpx2.Response(404)
 
 
+class FakeGoogle:
+    """Stands in for Google's token endpoint, Gmail and Calendar"""
+
+    def __init__(self):
+        self.scope = GOOGLE_SCOPES
+        self.revoked = False
+        self.down = False
+        self.refreshed_with: list[str] = []
+        self.revoked_tokens: list[str] = []
+        self.gmail_queries: list[str] = []
+        self.calendar_params: list[dict[str, list[str]]] = []
+        self.messages: dict[str, dict[str, object]] = {}
+        self.events: list[dict[str, object]] = []
+
+    def _token(self, form: dict[str, list[str]]) -> httpx2.Response:
+        """A code always works; a refresh works until the grant is revoked"""
+        if form["grant_type"] == ["authorization_code"]:
+            return httpx2.Response(
+                200,
+                json={
+                    "access_token": "access-1",
+                    "refresh_token": "refresh-1",
+                    "scope": self.scope,
+                },
+            )
+        if self.revoked:
+            return httpx2.Response(400, json={"error": "invalid_grant"})
+        self.refreshed_with += form["refresh_token"]
+        return httpx2.Response(200, json={"access_token": "access-2"})
+
+    def _api(self, request: httpx2.Request) -> httpx2.Response:
+        """Gmail and Calendar for a request that carries an access token"""
+        path = request.url.path
+        query = parse_qs(urlsplit(str(request.url)).query)
+        if path == "/gmail/v1/users/me/profile":
+            return httpx2.Response(200, json={"emailAddress": "kelvin@gmail.com"})
+        if path == "/gmail/v1/users/me/messages":
+            self.gmail_queries += query["q"]
+            refs = [{"id": key, "threadId": f"t-{key}"} for key in self.messages]
+            return httpx2.Response(200, json={"messages": refs} if refs else {})
+        if path.startswith("/gmail/v1/users/me/messages/"):
+            message = self.messages.get(path.rsplit("/", 1)[1])
+            return (
+                httpx2.Response(200, json=message) if message else httpx2.Response(404)
+            )
+        if path == "/calendar/v3/calendars/primary/events":
+            self.calendar_params.append(query)
+            return httpx2.Response(200, json={"items": self.events})
+        return httpx2.Response(404)
+
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        """Route a request the way Google's hosts would"""
+        if self.down:
+            raise httpx2.ConnectError("connection refused", request=request)
+        if request.url.path == "/token":
+            return self._token(parse_qs(request.content.decode()))
+        if request.url.path == "/revoke":
+            self.revoked_tokens += parse_qs(request.content.decode())["token"]
+            return httpx2.Response(200)
+        if request.headers.get("authorization", "").startswith("Bearer access-"):
+            return self._api(request)
+        return httpx2.Response(401, content=json.dumps({"error": "unauthorized"}))
+
+
+async def connect_google(client: httpx2.AsyncClient, next_path: str = "/settings"):
+    """Run the connect flow against FakeGoogle and return the callback's response"""
+    start = await client.get(
+        f"{PREFIX}/integrations/google/connect", params={"next": next_path}
+    )
+    state = parse_qs(urlsplit(start.headers["location"]).query)["state"][0]
+    return await client.get(
+        f"{PREFIX}/integrations/google/callback",
+        params={"code": "code-1", "state": state},
+    )
+
+
 async def _app(
     harness: FakeHarness,
     artifact: FakeArtifact,
+    google: FakeGoogle,
     oauth_providers: dict | None = None,
 ) -> AsyncIterator[FastAPI]:
     from src.app.app import create_app
     from src.app.container import Container
     from src.clients.artifact import ArtifactClient
     from src.clients.ezcareer import EzcareerClient
+    from src.clients.google import GoogleClient
     from src.core.config import reload_settings
     from src.core.stores import UsageLedger
     from src.db.base import Base
@@ -252,6 +339,9 @@ async def _app(
             )
         )
     )
+    container.google.override(
+        providers.Object(GoogleClient(settings.google, httpx2.MockTransport(google)))
+    )
 
     yield create_app(container)
     await engine.dispose()
@@ -276,9 +366,16 @@ def artifact() -> FakeArtifact:
 
 
 @pytest.fixture
-async def app(harness: FakeHarness, artifact: FakeArtifact) -> AsyncIterator[FastAPI]:
+def google() -> FakeGoogle:
+    return FakeGoogle()
+
+
+@pytest.fixture
+async def app(
+    harness: FakeHarness, artifact: FakeArtifact, google: FakeGoogle
+) -> AsyncIterator[FastAPI]:
     """Auth disabled: every request is auth.dev_email"""
-    async for app in _app(harness, artifact):
+    async for app in _app(harness, artifact, google):
         yield app
 
 
@@ -302,12 +399,13 @@ async def auth_app(
     oauth_providers: dict[str, FakeProvider],
     harness: FakeHarness,
     artifact: FakeArtifact,
+    google: FakeGoogle,
 ) -> AsyncIterator[FastAPI]:
     """Auth enabled, OWNER allowlisted, fake Google and GitHub"""
     monkeypatch.setenv("OPS_API_AUTH__ENABLED", "true")
     monkeypatch.setenv("OPS_API_AUTH__ALLOWED_EMAILS", OWNER)
     monkeypatch.setenv("OPS_API_AUTH__SECRET_KEY", "k" * 32)
-    async for app in _app(harness, artifact, oauth_providers):
+    async for app in _app(harness, artifact, google, oauth_providers):
         yield app
 
 

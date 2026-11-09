@@ -7,6 +7,7 @@ from src.features.documents.models import (
     DocumentImport,
     DocumentVersion,
 )
+from src.features.google.models import GoogleAccount
 from src.features.jobs.models import Job, JobRun
 from src.features.profile.models import Profile, ProfileEntry, ProfileSkill
 from src.features.settings.models import UserSettings
@@ -21,6 +22,7 @@ __all__ = [
     "DocumentChangeset",
     "DocumentImport",
     "DocumentVersion",
+    "GoogleAccount",
     "Job",
     "JobRun",
     "Profile",

@@ -6,15 +6,20 @@ from src.clients.ezcareer import ModelCatalog
 from src.core.auth import CurrentUserDep
 from src.core.config import get_settings
 from src.db.session import SessionDep
+from src.features.google import GoogleServiceDep
 from src.features.settings.schemas import JSearchKey, SettingsRead, SettingsUpdate
 from src.features.settings.service import SettingsService
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 
-def get_settings_service(session: SessionDep, request: Request) -> SettingsService:
+def get_settings_service(
+    session: SessionDep, google: GoogleServiceDep, request: Request
+) -> SettingsService:
     """The settings service on the request's database session"""
-    return SettingsService(session, request.app.state.ezcareer, get_settings().jsearch)
+    return SettingsService(
+        session, request.app.state.ezcareer, google, get_settings().jsearch
+    )
 
 
 SettingsServiceDep = Annotated[SettingsService, Depends(get_settings_service)]
