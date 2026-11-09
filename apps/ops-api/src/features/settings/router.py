@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from src.core.auth import CurrentUserDep
-from src.core.db.session import SessionDep
+from src.db.session import SessionDep
 from src.features.settings.repository import SettingsRepository
 from src.features.settings.schemas import SettingsRead, SettingsUpdate
 from src.features.settings.service import SettingsService

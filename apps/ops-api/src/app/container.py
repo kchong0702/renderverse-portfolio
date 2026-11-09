@@ -2,7 +2,7 @@ from dependency_injector import containers, providers
 
 from src.core.auth.oauth_providers import build_providers
 from src.core.config import get_settings
-from src.core.db.session import create_engine, create_session_factory
+from src.db.session import create_engine, create_session_factory
 
 
 class Container(containers.DeclarativeContainer):

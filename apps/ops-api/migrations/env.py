@@ -8,9 +8,9 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from migrations.ext import rls
-from src.app import models  # noqa: F401
 from src.core.config import get_settings
-from src.core.db.base import Base
+from src.db import models  # noqa: F401
+from src.db.base import Base
 
 config = context.config
 

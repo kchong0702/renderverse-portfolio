@@ -7,8 +7,8 @@ from getpass import getpass
 from src.core.auth.repository import AuthRepository
 from src.core.auth.service import AuthService
 from src.core.config import get_settings
-from src.core.db.session import create_engine, create_session_factory, session_scope
 from src.core.exceptions import InvalidInput
+from src.db.session import create_engine, create_session_factory, session_scope
 
 
 async def _set_password(email: str, password: str) -> None:

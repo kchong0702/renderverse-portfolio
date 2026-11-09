@@ -51,7 +51,7 @@ ops-api owns sign-in, in `src/core/auth`, so every feature gets the user from `C
   locally (`local` profile).
 - **Users:** every table except `users` has a `user_id`, so other users can be added later; a test
   fails on a table without it. The request's user comes from `src/core/auth`.
-- **Audit columns:** every feature table uses `AuditMixin` (`src/core/db/mixins.py`):
+- **Audit columns:** every feature table uses `AuditMixin` (`src/db/mixins.py`):
   `created_at`, `updated_at`, `created_by`, `updated_by`; a test fails on a feature table without
   it. `*_by` holds an actor string, `user:<uuid>`, `agent:<name>` or `system`, filled in on insert
   and update from the request's actor (`src/app/actor.py`, set by `current_user`). Only the

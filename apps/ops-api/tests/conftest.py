@@ -42,12 +42,12 @@ class FakeProvider:
 
 
 async def _app(oauth_providers: dict | None = None) -> AsyncIterator[FastAPI]:
-    from src.app import models  # noqa: F401
     from src.app.app import create_app
     from src.app.container import Container
     from src.core.config import reload_settings
-    from src.core.db.base import Base
-    from src.core.db.session import create_session_factory
+    from src.db import models  # noqa: F401
+    from src.db.base import Base
+    from src.db.session import create_session_factory
 
     reload_settings()
     engine = create_async_engine(

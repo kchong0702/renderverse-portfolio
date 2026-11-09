@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 
 from src.core.auth import CurrentUserDep
-from src.core.db.session import SessionDep
+from src.db.session import SessionDep
 from src.features.profile.repository import ProfileRepository
 from src.features.profile.schemas import (
     AgentProfile,
