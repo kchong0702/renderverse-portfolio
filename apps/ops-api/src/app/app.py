@@ -59,6 +59,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         yield
         await container.engine().dispose()
+        await container.ezcareer().aclose()
 
     app = FastAPI(
         title=settings.app.name.upper(),
@@ -71,6 +72,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     app.state.container = container
     app.state.session_factory = container.session_factory()
     app.state.oauth_providers = container.oauth_providers()
+    app.state.ezcareer = container.ezcareer()
 
     _add_middleware(app, settings)
 
