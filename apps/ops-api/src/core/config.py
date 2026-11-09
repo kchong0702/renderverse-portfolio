@@ -190,6 +190,9 @@ class EzcareerSettings(BaseModel):
     timeout_seconds: float = Field(default=10, gt=0)
     """How long a request to ezcareer-harness may take"""
 
+    run_timeout_seconds: float = Field(default=300, gt=0)
+    """How long an agent or workflow run may take before it pauses or ends"""
+
 
 class ObservabilitySettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
