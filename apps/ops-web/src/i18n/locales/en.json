@@ -1,0 +1,137 @@
+{
+  "common": {
+    "loading": "Loading…"
+  },
+  "errors": {
+    "requestFailed": "Request failed ({{status}})"
+  },
+  "shell": {
+    "product": "Ops",
+    "tagline": "Your career starts here",
+    "space": "Career space",
+    "mainNav": "Main",
+    "useDarkTheme": "Use the dark theme",
+    "useLightTheme": "Use the light theme",
+    "comingSoon": "This screen is coming in a later step of the rebuild.",
+    "notFound": {
+      "title": "Page not found",
+      "body": "There is nothing at this address.",
+      "home": "Go to the dashboard"
+    },
+    "signOut": "Sign out",
+    "loadFailed": "Ops could not load: {{reason}}",
+    "retry": "Try again"
+  },
+  "nav": {
+    "groups": {
+      "jobSearch": "Job search",
+      "you": "You",
+      "stayOnTrack": "Stay on track"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "jobs": "Jobs",
+      "applications": "Applications",
+      "documents": "Documents",
+      "portfolio": "Portfolio",
+      "inbox": "Inbox",
+      "calendar": "Calendar",
+      "settings": "Settings"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Connections and automation",
+    "loadFailed": "Settings could not be loaded: {{reason}}",
+    "save": {
+      "saving": "Saving…",
+      "saved": "All changes saved",
+      "failed": "Not saved: {{reason}}"
+    },
+    "connections": {
+      "title": "Connections",
+      "names": {
+        "google": "Google account",
+        "jsearch": "JSearch",
+        "portfolio_site": "Portfolio site"
+      },
+      "status": {
+        "connected": "Connected",
+        "not_connected": "Not connected yet"
+      }
+    },
+    "jobAgent": {
+      "title": "Job agent",
+      "query": "Search for",
+      "queryPlaceholder": "e.g. Backend engineer, Python",
+      "location": "Where",
+      "locationPlaceholder": "e.g. Kuala Lumpur or remote",
+      "runAt": "Runs daily at",
+      "minScore": "Keep postings that score at least"
+    },
+    "automation": {
+      "title": "Applying and follow-ups",
+      "rules": {
+        "tailor_strong_matches": {
+          "label": "Draft a tailored résumé for new picks scoring 85 or more",
+          "note": "Drafts wait in Documents for your review"
+        },
+        "follow_up_reminders": {
+          "label": "Remind me to follow up after 7 days without a reply",
+          "note": "Adds a task to your calendar and drafts the email"
+        },
+        "suggest_replies": {
+          "label": "Read employer replies and suggest an answer",
+          "note": "Suggestions appear in Inbox"
+        }
+      },
+      "approval": {
+        "label": "Never send or apply without my approval",
+        "note": "Always on"
+      }
+    },
+    "scheduling": {
+      "title": "Scheduling",
+      "workHours": "Work hours",
+      "hoursRange": "{{start}} to {{end}}",
+      "meetingGap": "Gap between meetings",
+      "gap_one": "{{count}} minute",
+      "gap_other": "{{count}} minutes",
+      "aiModel": "AI model",
+      "providers": {
+        "claude": "Claude",
+        "openai": "OpenAI",
+        "glm": "GLM"
+      }
+    }
+  },
+  "auth": {
+    "title": "Sign in",
+    "subtitle": "Only invited accounts can sign in.",
+    "continueWith": {
+      "google": "Continue with Google",
+      "github": "Continue with GitHub"
+    },
+    "or": "or",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "errors": {
+      "not_allowed": "That account isn't invited. Sign in with an invited email.",
+      "failed": "Sign-in was cancelled or didn't finish. Try again.",
+      "password": "Not signed in: {{reason}}"
+    }
+  },
+  "assistant": {
+    "title": "Assistant",
+    "open": "Ask the assistant",
+    "close": "Close assistant",
+    "askAbout": "Ask about {{topic}}, or anything in your job search",
+    "askAnything": "Ask anything in your job search",
+    "message": "Message the assistant",
+    "placeholder": "Ask anything",
+    "send": "Send",
+    "notConnected": "Not connected yet. The assistant arrives with the career agent."
+  }
+}
