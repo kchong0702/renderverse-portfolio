@@ -1,5 +1,7 @@
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
+import { ApplicationsPage } from "@/features/applications";
 import { RequireAuth, SignInPage } from "@/features/auth";
+import { JobsPage } from "@/features/jobs";
 import { SettingsPage } from "@/features/settings";
 import { useApplyTheme } from "@/shared/theme/useApplyTheme";
 import AppShell from "./shell/AppShell";
@@ -17,8 +19,8 @@ const router = createBrowserRouter(
       ),
       children: [
         { path: "/", element: <ComingSoon page="dashboard" /> },
-        { path: "/jobs", element: <ComingSoon page="jobs" /> },
-        { path: "/applications", element: <ComingSoon page="applications" /> },
+        { path: "/jobs", element: <JobsPage /> },
+        { path: "/applications", element: <ApplicationsPage /> },
         { path: "/documents", element: <ComingSoon page="documents" /> },
         { path: "/portfolio", element: <ComingSoon page="portfolio" /> },
         { path: "/inbox", element: <ComingSoon page="inbox" /> },
