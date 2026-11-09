@@ -40,6 +40,7 @@ WORKFLOWS: dict[str, RunWorkflow] = {
     "analyse-job": partial(_run_graph, "analyse-job"),
     "find-jobs": partial(_run_graph, "find-jobs"),
     "edit-document": partial(_run_graph, "edit-document"),
+    "import-resume": partial(_run_graph, "import-resume"),
 }
 """Every workflow a probe can run, by name"""
 
