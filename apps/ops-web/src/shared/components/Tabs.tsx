@@ -28,7 +28,6 @@ interface TabListProps extends ComponentProps<typeof RadixTabs.List> {
   variant?: TabsVariant;
 }
 
-/** A row of tabs, underlined on a rule or as pills on a chip track */
 export function TabList({
   variant = "underline",
   className,

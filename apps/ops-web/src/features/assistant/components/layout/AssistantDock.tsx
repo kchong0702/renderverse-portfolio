@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { buttonClass } from "@/shared/components/ui/button";
 import { useAssistantStore } from "../../state/assistantStore";
 
-/** The floating assistant button and the panel it opens, about `topic` */
 export default function AssistantDock({ topic }: { topic?: string }) {
   const { t, i18n } = useTranslation();
   const open = useAssistantStore((state) => state.open);
