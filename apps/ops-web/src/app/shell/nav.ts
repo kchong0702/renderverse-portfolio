@@ -1,14 +1,14 @@
-import type { ComponentType } from "react";
 import {
-  ApplicationsIcon,
-  CalendarIcon,
-  DashboardIcon,
-  DocumentsIcon,
-  InboxIcon,
-  JobsIcon,
-  PortfolioIcon,
-  SettingsIcon,
-} from "@/shared/components/ui/icons";
+  Briefcase,
+  Calendar,
+  Compass,
+  FileText,
+  Folder,
+  Inbox,
+  LayoutDashboard,
+  Settings,
+  type LucideIcon,
+} from "lucide-react";
 
 export type NavKey =
   | "dashboard"
@@ -23,7 +23,7 @@ export type NavKey =
 export interface NavItem {
   key: NavKey;
   path: string;
-  icon: ComponentType<{ size?: number }>;
+  icon: LucideIcon;
 }
 
 export interface NavGroup {
@@ -34,27 +34,27 @@ export interface NavGroup {
 
 // Sidebar order from the design. Badges arrive with each feature's count hook.
 export const navGroups: NavGroup[] = [
-  { items: [{ key: "dashboard", path: "/", icon: DashboardIcon }] },
+  { items: [{ key: "dashboard", path: "/", icon: LayoutDashboard }] },
   {
     heading: "jobSearch",
     items: [
-      { key: "jobs", path: "/jobs", icon: JobsIcon },
-      { key: "applications", path: "/applications", icon: ApplicationsIcon },
+      { key: "jobs", path: "/jobs", icon: Compass },
+      { key: "applications", path: "/applications", icon: Briefcase },
     ],
   },
   {
     heading: "you",
     items: [
-      { key: "documents", path: "/documents", icon: DocumentsIcon },
-      { key: "portfolio", path: "/portfolio", icon: PortfolioIcon },
+      { key: "documents", path: "/documents", icon: FileText },
+      { key: "portfolio", path: "/portfolio", icon: Folder },
     ],
   },
   {
     heading: "stayOnTrack",
     items: [
-      { key: "inbox", path: "/inbox", icon: InboxIcon },
-      { key: "calendar", path: "/calendar", icon: CalendarIcon },
-      { key: "settings", path: "/settings", icon: SettingsIcon },
+      { key: "inbox", path: "/inbox", icon: Inbox },
+      { key: "calendar", path: "/calendar", icon: Calendar },
+      { key: "settings", path: "/settings", icon: Settings },
     ],
   },
 ];
