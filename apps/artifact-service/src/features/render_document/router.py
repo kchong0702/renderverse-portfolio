@@ -19,7 +19,7 @@ router = APIRouter(tags=["render"])
 async def render(
     request: RenderRequest, browser: Annotated[Browser, Depends(_browser)]
 ) -> RenderResponse:
-    """Print a document with a template as a PDF and report how its pages came out"""
+    """Print a document in its design's template as a PDF and report how its pages came out"""
     try:
         return await render_document(request, browser)
     except TimeoutError as exc:

@@ -52,20 +52,7 @@ def body() -> dict[str, Any]:
                 ]
             },
             "assets": {PHOTO: {"media_type": "image/png", "uri": "s3://photo"}},
-        },
-        "template": {
-            "id": "sidebar-band",
-            "name": "Sidebar band",
-            "description": "An accent band down the page",
-            "kinds": ["resume", "cv"],
-            "body_font": "inter",
-            "heading_font": "inter",
-            "accent": "#1F4E79",
-            "regions": {
-                "side": {"area": {"column": 1, "span": 4}, "fill": "accent"},
-                "main": {"area": {"column": 5, "span": 8}},
-            },
-            "layout": {"default": "main", "photo": "side", "profile": "side"},
+            "design": {"template": "sidebar-band"},
         },
         "assets": {PHOTO: base64.b64encode(PNG).decode()},
     }
@@ -101,7 +88,7 @@ def test_a_long_document_runs_onto_more_pages(
 def test_a_side_column_past_the_first_page_is_reported(
     client: TestClient, body: dict[str, Any]
 ) -> None:
-    body["template"]["layout"]["experience"] = "side"
+    body["document"]["design"]["layouts"] = {"sidebar-band": {"side": ["exp"]}}
     body["document"]["content"]["blocks"][2]["items"] = [job(i) for i in range(12)]
 
     warnings = client.post(URL, json=body).json()["report"]["warnings"]
@@ -141,12 +128,38 @@ def test_asset_bytes_must_match_the_document(
     assert message in response.text
 
 
-def test_a_template_for_another_kind_is_rejected(
+def test_an_unknown_template_is_rejected(
     client: TestClient, body: dict[str, Any]
 ) -> None:
-    body["template"]["kinds"] = ["cover_letter"]
+    body["document"]["design"]["template"] = "no-such-template"
 
     response = client.post(URL, json=body)
 
     assert response.status_code == 422
-    assert "does not lay out a resume" in response.text
+    assert "no template no-such-template" in response.text
+
+
+def test_a_template_for_another_kind_is_rejected(client: TestClient) -> None:
+    letter = {
+        "kind": "cover_letter",
+        "content": {
+            "blocks": [
+                {"kind": "profile", "id": "profile", "name": value("Kelvin")},
+                {
+                    "kind": "letter",
+                    "id": "letter",
+                    "greeting": value("Dear Ms Rahman,"),
+                    "paragraphs": [
+                        {"id": "p1", "text": {"html": "I would like to apply."}}
+                    ],
+                    "closing": value("Yours sincerely,"),
+                },
+            ]
+        },
+        "design": {"template": "classic-two-column"},
+    }
+
+    response = client.post(URL, json={"document": letter})
+
+    assert response.status_code == 422
+    assert "classic-two-column does not lay out a cover_letter" in response.text

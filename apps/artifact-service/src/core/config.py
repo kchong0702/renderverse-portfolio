@@ -137,6 +137,9 @@ class RendererSettings(BaseModel):
     dist: Path = _ROOT_PATH.parents[1] / "packages/document-renderer/dist/print"
     """The print page that document-renderer builds"""
 
+    templates: Path = _ROOT_PATH.parents[1] / "packages/document-renderer/templates"
+    """Folder of the renderer's <id>.yaml template specs"""
+
     origin: str = "http://renderer/"
     """Made-up origin Chromium loads the print page and assets from, never the network"""
 

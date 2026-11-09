@@ -46,6 +46,8 @@ COPY --from=artifact-service-build /app/apps/artifact-service /app/apps/artifact
 
 COPY --from=document-renderer-build /app/packages/document-renderer/dist/print /app/packages/document-renderer/dist/print
 
+COPY packages/document-renderer/templates /app/packages/document-renderer/templates
+
 RUN playwright install --with-deps chromium
 
 RUN useradd --create-home --uid 10001 artifact

@@ -8,6 +8,7 @@ from playwright.async_api import Page, Route
 from src.core.config import get_settings
 from src.features.render_document.browser import Browser
 from src.features.render_document.schemas import RenderRequest, RenderResponse
+from src.shared.templates import templates
 
 _settings = get_settings()
 
@@ -41,7 +42,9 @@ async def render_document(request: RenderRequest, browser: Browser) -> RenderRes
                 "input => window.render(input)",
                 {
                     "document": request.document.model_dump(mode="json"),
-                    "template": request.template.model_dump(mode="json"),
+                    "template": templates()[
+                        request.document.design.template
+                    ].model_dump(mode="json"),
                 },
             )
             pdf = await page.pdf(prefer_css_page_size=True, print_background=True)
