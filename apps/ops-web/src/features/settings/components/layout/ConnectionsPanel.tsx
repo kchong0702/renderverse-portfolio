@@ -3,7 +3,6 @@ import { cn } from "@/shared/lib/cn";
 import Panel from "@/shared/components/layout/Panel";
 import type { Connection } from "../../api/settings";
 
-// Connect and disconnect actions arrive with each integration
 export default function ConnectionsPanel({
   connections,
 }: {

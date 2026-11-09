@@ -9,7 +9,6 @@ interface DraftTextFieldProps {
   onSave: (value: string) => void;
 }
 
-/** A text field that keeps what you type locally and saves it when you leave */
 export default function DraftTextField({
   value,
   onSave,

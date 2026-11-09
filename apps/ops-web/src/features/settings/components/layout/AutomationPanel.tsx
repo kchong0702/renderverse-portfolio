@@ -33,7 +33,6 @@ export default function AutomationPanel({
           }
         />
       ))}
-      {/* Product principle: agents prepare, the user sends and applies */}
       <CheckboxRow
         label={t("settings.automation.approval.label")}
         note={t("settings.automation.approval.note")}

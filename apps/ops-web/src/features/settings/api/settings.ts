@@ -1,14 +1,11 @@
 import { http } from "@/shared/api/http";
 
-// Mirrors ops-api's features/settings/schemas.py
-
 export type AiProvider = "claude" | "openai" | "glm";
 export type ConnectionId = "google" | "jsearch" | "portfolio_site";
 
 export interface JobAgent {
   query: string;
   location: string;
-  /** "HH:MM:SS" */
   run_at: string;
   min_score: number;
 }
