@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, computed_field
 
 from src.features.jobs.enums import Importance, JobStatus, Match
+from src.features.profile import AgentProfile
 
 
 class Requirement(BaseModel):
@@ -83,4 +84,62 @@ class JobUpdate(BaseModel):
     """Save, dismiss or return the job to the agent's picks"""
 
 
-__all__ = ["FitAnalysis", "JobCreate", "JobRead", "JobUpdate", "Requirement"]
+class AnalyseJobInput(AgentProfile):
+    url: str
+    """The posting analyse-job fetches and maps to the profile"""
+
+
+class AnalyseJobOutput(BaseModel):
+    analysis: FitAnalysis
+    """How the posting fits; the harness also sends lines and filters, unread"""
+
+
+class JobPosting(BaseModel):
+    id: str
+    """JSearch job id"""
+
+    title: str
+    """Job title"""
+
+    company: str
+    """Employer name"""
+
+    location: str
+    """City and country, as JSearch gives them"""
+
+    remote: bool
+    """Whether the job is remote"""
+
+    posted_at: datetime | None
+    """When the job was posted, if known"""
+
+    apply_url: str
+    """Where to apply"""
+
+
+class MatchedJob(BaseModel):
+    posting: JobPosting
+    """The job as find-jobs' search returned it"""
+
+    requirements: list[Requirement]
+    """The agent's mapping of its requirements to the profile"""
+
+    fit: int
+    """Fit score from 0 to 100, computed by the harness"""
+
+
+class FindJobsOutput(BaseModel):
+    jobs: list[MatchedJob]
+    """Jobs that fit the profile and preferences, best first"""
+
+
+__all__ = [
+    "AnalyseJobInput",
+    "AnalyseJobOutput",
+    "FindJobsOutput",
+    "FitAnalysis",
+    "JobCreate",
+    "JobRead",
+    "JobUpdate",
+    "Requirement",
+]
