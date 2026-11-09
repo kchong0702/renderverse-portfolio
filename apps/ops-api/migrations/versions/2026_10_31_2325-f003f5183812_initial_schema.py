@@ -1,0 +1,129 @@
+"""initial schema
+
+Revision ID: f003f5183812
+Revises:
+Create Date: 2026-10-31 23:25:47.345875
+
+"""
+
+from collections.abc import Sequence
+
+import sqlalchemy as sa
+from alembic import op
+
+revision: str = "f003f5183812"
+down_revision: str | Sequence[str] | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
+
+
+def upgrade() -> None:
+    """Upgrade schema."""
+    op.create_table(
+        "auth_sign_in_attempts",
+        sa.Column("email", sa.String(length=320), nullable=False),
+        sa.Column("attempts", sa.Integer(), nullable=False),
+        sa.Column("window_ends_at", sa.DateTime(timezone=True), nullable=False),
+        sa.PrimaryKeyConstraint("email", name=op.f("pk_auth_sign_in_attempts")),
+    )
+    op.create_table(
+        "users",
+        sa.Column("email", sa.String(length=320), nullable=False),
+        sa.Column("password_hash", sa.String(length=255), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_users")),
+        sa.UniqueConstraint("email", name=op.f("uq_users_email")),
+    )
+    op.create_table(
+        "auth_identities",
+        sa.Column("provider", sa.String(length=20), nullable=False),
+        sa.Column("subject", sa.String(length=255), nullable=False),
+        sa.Column("email", sa.String(length=320), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_auth_identities_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_auth_identities")),
+        sa.UniqueConstraint(
+            "provider", "subject", name=op.f("uq_auth_identities_provider")
+        ),
+    )
+    op.create_index(
+        op.f("ix_auth_identities_user_id"), "auth_identities", ["user_id"], unique=False
+    )
+    op.create_table(
+        "auth_sessions",
+        sa.Column("token_hash", sa.String(length=64), nullable=False),
+        sa.Column("user_agent", sa.String(length=255), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("last_seen_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_auth_sessions_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_auth_sessions")),
+        sa.UniqueConstraint("token_hash", name=op.f("uq_auth_sessions_token_hash")),
+    )
+    op.create_index(
+        op.f("ix_auth_sessions_user_id"), "auth_sessions", ["user_id"], unique=False
+    )
+    op.create_table(
+        "user_settings",
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column("job_query", sa.String(length=200), nullable=False),
+        sa.Column("job_location", sa.String(length=200), nullable=False),
+        sa.Column("job_agent_run_at", sa.Time(), nullable=False),
+        sa.Column("job_min_score", sa.Integer(), nullable=False),
+        sa.Column("tailor_strong_matches", sa.Boolean(), nullable=False),
+        sa.Column("follow_up_reminders", sa.Boolean(), nullable=False),
+        sa.Column("suggest_replies", sa.Boolean(), nullable=False),
+        sa.Column("work_day_start", sa.Time(), nullable=False),
+        sa.Column("work_day_end", sa.Time(), nullable=False),
+        sa.Column("meeting_gap_minutes", sa.Integer(), nullable=False),
+        sa.Column("ai_provider", sa.String(length=20), nullable=False),
+        sa.Column("created_by", sa.String(length=100), nullable=False),
+        sa.Column("updated_by", sa.String(length=100), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_user_settings_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("user_id", name=op.f("pk_user_settings")),
+    )
+    op.enable_rls("auth_sign_in_attempts")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("users")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("auth_identities")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("auth_sessions")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("user_settings")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("alembic_version")  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    op.disable_rls("alembic_version")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("user_settings")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("auth_sessions")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("auth_identities")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("users")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("auth_sign_in_attempts")  # pyright: ignore[reportAttributeAccessIssue]
+    op.drop_table("user_settings")
+    op.drop_index(op.f("ix_auth_sessions_user_id"), table_name="auth_sessions")
+    op.drop_table("auth_sessions")
+    op.drop_index(op.f("ix_auth_identities_user_id"), table_name="auth_identities")
+    op.drop_table("auth_identities")
+    op.drop_table("users")
+    op.drop_table("auth_sign_in_attempts")
