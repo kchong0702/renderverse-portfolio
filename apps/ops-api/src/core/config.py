@@ -74,6 +74,16 @@ class AppSettings(BaseModel):
         return _split_csv(v)
 
 
+class ArtifactSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    url: str = "http://127.0.0.1:8210/artifact-service"
+    """artifact-service base URL, including its route prefix"""
+
+    timeout_seconds: float = Field(default=60, gt=0)
+    """How long a request may take; a render can take 30 seconds"""
+
+
 class OAuthClientSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
@@ -267,6 +277,9 @@ class Settings(BaseSettings):
     app: AppSettings = Field(default_factory=AppSettings)
     """Server and HTTP settings"""
 
+    artifact: ArtifactSettings = Field(default_factory=ArtifactSettings)
+    """Where ops-api reaches artifact-service for templates and PDFs"""
+
     auth: AuthSettings = Field(default_factory=AuthSettings)
     """Sign-in and session settings"""
 
@@ -312,6 +325,7 @@ def reload_settings() -> Settings:
 
 __all__ = [
     "AppSettings",
+    "ArtifactSettings",
     "AuthSettings",
     "DatabaseSettings",
     "EzcareerSettings",
