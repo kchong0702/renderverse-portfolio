@@ -66,7 +66,7 @@ def test_a_signature_must_be_in_the_assets(letter: dict[str, Any]) -> None:
 
 
 def test_a_layout_places_only_blocks_that_exist(resume: dict[str, Any]) -> None:
-    resume["design"]["layouts"]["sidebar-band"]["main"] = ["missing"]
+    resume["design"]["layouts"][0]["blocks"] = ["missing"]
 
     with pytest.raises(ValidationError, match="unknown blocks"):
         DOCUMENT.validate_python(resume)

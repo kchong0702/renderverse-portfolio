@@ -6,9 +6,11 @@ import pytest
 from document_schema import (
     AnyDocument,
     AnyEdit,
+    Bullet,
     Experience,
     InsertBlock,
     InsertItem,
+    Job,
     RichValue,
 )
 from langchain_core.messages import AIMessage, HumanMessage
@@ -40,12 +42,12 @@ NEW_BULLET = InsertItem(
     kind="insert_item",
     parent="blocks/experience/items/lumen/bullets",
     after="latency",
-    item={
-        "id": "k8s",
-        "text": RichValue(
+    item=Bullet(
+        id="k8s",
+        text=RichValue(
             html="Ran production workloads on Kubernetes.", src=["fact:k8s"]
-        ).model_dump(mode="json"),
-    },
+        ),
+    ),
 )
 
 PLATFORM_JOB = {
@@ -197,7 +199,7 @@ async def test_page_fit_deletes_untouched_bullets_until_the_page_count_holds():
             kind="insert_item",
             parent="blocks/experience/items",
             after="bayu",
-            item=PLATFORM_JOB,
+            item=Job.model_validate(PLATFORM_JOB),
         ),
         InsertBlock(
             kind="insert_block",

@@ -1,14 +1,7 @@
 from enum import StrEnum
 from typing import Annotated, Literal, Self
 
-from pydantic import (
-    AfterValidator,
-    BaseModel,
-    ConfigDict,
-    Field,
-    StringConstraints,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from document_schema.enums import Align, Font, Region
 from document_schema.types import BlockId, Colour
@@ -17,13 +10,6 @@ TemplateId = Annotated[
     str, StringConstraints(pattern=r"^([a-z0-9-]{1,40}|custom-[0-9a-f-]{36})$")
 ]
 """A default template such as sidebar-band, or a user's custom-<uuid>"""
-
-
-def _no_repeats(blocks: list[BlockId]) -> list[BlockId]:
-    """Rejects a block listed twice in one region"""
-    if len(blocks) != len(set(blocks)):
-        raise ValueError("a block is listed twice in one region")
-    return blocks
 
 
 class PageSize(StrEnum):
@@ -54,6 +40,21 @@ class PhotoShape(StrEnum):
 
     SQUARE = "square"
     """Square corners"""
+
+
+class Placement(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, use_attribute_docstrings=True
+    )
+
+    template: TemplateId
+    """The template this placement applies to"""
+
+    region: Region
+    """Where in that template the blocks go"""
+
+    blocks: list[BlockId]
+    """The blocks the user put there, in order"""
 
 
 class Design(BaseModel):
@@ -94,16 +95,20 @@ class Design(BaseModel):
     photo_size: Size = Size.MEDIUM
     """Size of the photo"""
 
-    layouts: dict[
-        TemplateId, dict[Region, Annotated[list[BlockId], AfterValidator(_no_repeats)]]
-    ] = Field(default_factory=dict)
+    layouts: list[Placement] = Field(default_factory=list)
     """Blocks the user placed, per template; the rest go where the template puts them"""
 
     @model_validator(mode="after")
-    def _one_region_per_block(self) -> Self:
-        """Rejects a block placed in two regions of one template"""
-        for template, regions in self.layouts.items():
-            placed = [block for blocks in regions.values() for block in blocks]
-            if len(placed) != len(set(placed)):
-                raise ValueError(f"a block sits in two regions of {template}")
+    def _placed_once(self) -> Self:
+        """Rejects a region listed twice, or a block placed twice, in one template"""
+        regions = [(placement.template, placement.region) for placement in self.layouts]
+        if len(regions) != len(set(regions)):
+            raise ValueError("a template lists one region twice")
+        blocks = [
+            (placement.template, block)
+            for placement in self.layouts
+            for block in placement.blocks
+        ]
+        if len(blocks) != len(set(blocks)):
+            raise ValueError("a block is placed twice in one template")
         return self

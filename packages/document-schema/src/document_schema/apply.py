@@ -71,7 +71,8 @@ def _apply(data: dict[str, Any], edit: AnyEdit) -> None:
         case InsertItem(parent=parent, after=after):
             items = _items(content, parent)
             items.insert(
-                _position(items, after, parent), edit.model_dump(mode="json")["item"]
+                _position(items, after, parent),
+                edit.item.model_dump(mode="json", exclude_defaults=True),
             )
         case Move(path=path, after=after):
             items = _items(content, path.rpartition("/")[0])

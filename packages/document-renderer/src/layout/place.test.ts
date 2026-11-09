@@ -21,7 +21,11 @@ describe("place", () => {
 
   test("the user's layout comes first and the rest follow the template layout", () => {
     const document = resume({
-      design: { layouts: { "sidebar-band": { main: ["sk", "exp"] } } },
+      design: {
+        layouts: [
+          { template: "sidebar-band", region: "main", blocks: ["sk", "exp"] },
+        ],
+      },
     });
 
     expect(regionsOf(document, templates["sidebar-band"])).toEqual({
@@ -32,7 +36,9 @@ describe("place", () => {
 
   test("blocks placed in a region the template lacks follow the template layout", () => {
     const document = resume({
-      design: { layouts: { classic: { side: ["sk"] } } },
+      design: {
+        layouts: [{ template: "classic", region: "side", blocks: ["sk"] }],
+      },
     });
 
     expect(regionsOf(document, templates.classic).main).toEqual([
@@ -40,6 +46,16 @@ describe("place", () => {
       "exp",
       "sk",
     ]);
+  });
+
+  test("blocks placed for another template follow this template's layout", () => {
+    const document = resume({
+      design: {
+        layouts: [{ template: "classic", region: "main", blocks: ["sk"] }],
+      },
+    });
+
+    expect(regionsOf(document, templates["sidebar-band"]).side).toContain("sk");
   });
 
   test("hidden blocks are left off", () => {

@@ -88,7 +88,9 @@ def test_a_long_document_runs_onto_more_pages(
 def test_a_side_column_past_the_first_page_is_reported(
     client: TestClient, body: dict[str, Any]
 ) -> None:
-    body["document"]["design"]["layouts"] = {"sidebar-band": {"side": ["exp"]}}
+    body["document"]["design"]["layouts"] = [
+        {"template": "sidebar-band", "region": "side", "blocks": ["exp"]}
+    ]
     body["document"]["content"]["blocks"][2]["items"] = [job(i) for i in range(12)]
 
     warnings = client.post(URL, json=body).json()["report"]["warnings"]
