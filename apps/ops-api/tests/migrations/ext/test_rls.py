@@ -50,8 +50,8 @@ async def test_autogenerate_enables_rls_where_it_is_off():
     from alembic.runtime.migration import MigrationContext
 
     from migrations.ext import rls
-    from src.app import models  # noqa: F401  (registers the tables)
-    from src.core.db.base import Base
+    from src.db import models  # noqa: F401  (registers the tables)
+    from src.db.base import Base
 
     plugin = Plugin(rls.PLUGIN_NAME)
     rls.setup(plugin)

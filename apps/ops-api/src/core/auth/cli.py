@@ -4,11 +4,10 @@ import argparse
 import asyncio
 from getpass import getpass
 
-from src.core.auth.repository import AuthRepository
 from src.core.auth.service import AuthService
 from src.core.config import get_settings
-from src.core.db.session import create_engine, create_session_factory, session_scope
 from src.core.exceptions import InvalidInput
+from src.db.session import create_engine, create_session_factory, session_scope
 
 
 async def _set_password(email: str, password: str) -> None:
@@ -16,7 +15,7 @@ async def _set_password(email: str, password: str) -> None:
     engine = create_engine(settings.database)
     try:
         async for session in session_scope(create_session_factory(engine)):
-            service = AuthService(AuthRepository(session), settings.auth)
+            service = AuthService(session, settings.auth)
             await service.set_password(email, password)
     finally:
         await engine.dispose()

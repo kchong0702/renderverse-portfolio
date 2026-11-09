@@ -1,16 +1,18 @@
 import asyncio
 from logging.config import fileConfig
+from typing import Literal
 
 from alembic import context
+from alembic.autogenerate.api import AutogenContext
 from alembic.runtime.plugins import Plugin
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from migrations.ext import rls
-from src.app import models  # noqa: F401
 from src.core.config import get_settings
-from src.core.db.base import Base
+from src.db import models  # noqa: F401
+from src.db.base import Base, EnumString
 
 config = context.config
 
@@ -29,6 +31,15 @@ def _include_name(name, type_, parent_names) -> bool:
     return True
 
 
+def _render_item(
+    type_: str, obj: object, autogen_context: AutogenContext
+) -> str | Literal[False]:
+    """Write an EnumString column as the plain string it stores"""
+    if type_ == "type" and isinstance(obj, EnumString):
+        return "sa.String()"
+    return False
+
+
 def _database_url() -> str:
     return get_settings().database.url.get_secret_value()
 
@@ -39,6 +50,7 @@ def run_migrations_offline() -> None:
         url=_database_url(),
         target_metadata=target_metadata,
         include_name=_include_name,
+        render_item=_render_item,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -52,6 +64,7 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         include_name=_include_name,
+        render_item=_render_item,
         autogenerate_plugins=["alembic.autogenerate.*", rls.PLUGIN_NAME],
     )
 

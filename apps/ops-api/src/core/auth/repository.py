@@ -5,15 +5,12 @@ from uuid import UUID
 
 from sqlalchemy import case, delete, select
 from sqlalchemy.dialects import postgresql, sqlite
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.auth.models import AuthIdentity, AuthSession, SignInAttempts, User
+from src.db.repository import Repository
 
 
-class AuthRepository:
-    def __init__(self, session: AsyncSession):
-        self._session = session
-
+class AuthRepository(Repository):
     async def user(self, user_id: UUID) -> User | None:
         return await self._session.get(User, user_id)
 
@@ -83,13 +80,6 @@ class AuthRepository:
         await self._session.execute(
             delete(SignInAttempts).where(SignInAttempts.window_ends_at <= now)
         )
-
-    async def commit(self) -> None:
-        await self._session.commit()
-
-    async def add(self, row: User | AuthIdentity | AuthSession) -> None:
-        self._session.add(row)
-        await self._session.flush()
 
 
 __all__ = ["AuthRepository"]
