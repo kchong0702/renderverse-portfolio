@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from src.integrations.ezcareer import ModelFamily
+from src.integrations.ezcareer import ModelChoice
 
 ConnectionId = Literal["google", "jsearch", "portfolio_site"]
 """An outside service Ops connects to"""
@@ -56,14 +56,6 @@ class Connection(BaseModel):
 
     status: ConnectionStatus
     """Whether it is connected"""
-
-
-class ModelChoice(BaseModel):
-    family: ModelFamily
-    """The model's provider"""
-
-    model: str = Field(min_length=1, max_length=100)
-    """A model ezcareer-harness offers for that provider"""
 
 
 class SettingsRead(BaseModel):
@@ -139,7 +131,6 @@ __all__ = [
     "Automation",
     "Connection",
     "JobAgent",
-    "ModelChoice",
     "Scheduling",
     "SettingsRead",
     "SettingsUpdate",

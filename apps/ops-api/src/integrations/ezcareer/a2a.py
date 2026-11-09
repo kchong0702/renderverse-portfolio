@@ -5,6 +5,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, SerializeAsAny
 from pydantic.alias_generators import to_camel
 
+from src.integrations.ezcareer.schemas import RunMetadata
+
 
 class TextPart(BaseModel):
     text: str
@@ -40,6 +42,9 @@ class Message(BaseModel):
 class SendMessageParams(BaseModel):
     message: Message
     """The message to send"""
+
+    metadata: RunMetadata | None = Field(default=None, exclude_if=lambda v: v is None)
+    """The user's model; on the request, which the task never keeps"""
 
 
 class SendMessageRequest(BaseModel):

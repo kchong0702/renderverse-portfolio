@@ -11,12 +11,16 @@ from src.features.settings.schemas import (
     Automation,
     Connection,
     JobAgent,
-    ModelChoice,
     Scheduling,
     SettingsRead,
     SettingsUpdate,
 )
-from src.integrations.ezcareer import EzcareerClient, ModelCatalog
+from src.integrations.ezcareer import (
+    EzcareerClient,
+    ModelCatalog,
+    ModelChoice,
+    RunMetadata,
+)
 
 _JOB_AGENT_COLUMNS = {
     "query": "job_query",
@@ -102,6 +106,15 @@ class SettingsService:
     async def models(self) -> ModelCatalog:
         """The models a user can pick from, as ezcareer-harness lists them"""
         return await self._ezcareer.models()
+
+    async def run_metadata(self, user_id: UUID) -> RunMetadata | None:
+        """The user's chosen model for a harness run; None when they picked none"""
+        settings = await self._repository.get(user_id)
+        if settings is None or settings.ai_family is None or settings.ai_model is None:
+            return None
+        return RunMetadata(
+            model=ModelChoice(family=settings.ai_family, model=settings.ai_model)
+        )
 
     async def _load(self, user_id: UUID) -> UserSettings:
         settings = await self._repository.get(user_id)

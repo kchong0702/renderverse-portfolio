@@ -7,16 +7,17 @@ from src.core.auth import CurrentUserDep
 from src.features.assistant.schemas import ChatMessage
 from src.features.assistant.service import AssistantService
 from src.features.profile import ProfileServiceDep
+from src.features.settings import SettingsServiceDep
 from src.integrations.ezcareer import Answer, Run
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 
 
 def get_assistant_service(
-    profile: ProfileServiceDep, request: Request
+    profile: ProfileServiceDep, settings: SettingsServiceDep, request: Request
 ) -> AssistantService:
-    """The assistant service on the request's profile service"""
-    return AssistantService(profile, request.app.state.ezcareer)
+    """The assistant service on the request's profile and settings services"""
+    return AssistantService(profile, settings, request.app.state.ezcareer)
 
 
 AssistantServiceDep = Annotated[AssistantService, Depends(get_assistant_service)]
