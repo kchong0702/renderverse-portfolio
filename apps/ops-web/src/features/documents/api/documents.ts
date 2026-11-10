@@ -85,13 +85,6 @@ export interface ChangesetRecord {
   created_at: string;
 }
 
-export interface TemplateSpec {
-  id: string;
-  name: string;
-  description: string;
-  accent: string;
-}
-
 interface Render {
   artifact: string;
 }
@@ -154,9 +147,6 @@ export const undoChangesetEdit = ({
   changesetId: string;
   index: number;
 }) => http.delete(`${URL}/${id}/changesets/${changesetId}/edits/${index}`);
-
-export const fetchTemplates = (kind: DocumentKind, signal?: AbortSignal) =>
-  http.get<TemplateSpec[]>(`${URL}/templates?kind=${kind}`, signal);
 
 export const fetchImports = (signal?: AbortSignal) =>
   http.get<DocumentImport[]>(`${URL}/imports`, signal);
