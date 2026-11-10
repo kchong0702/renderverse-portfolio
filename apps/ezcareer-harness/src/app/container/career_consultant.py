@@ -2,6 +2,7 @@ from dependency_injector import containers, providers
 
 from src.agents import build_agent
 from src.agents.career_consultant import CareerConsultantState
+from src.agents.career_consultant.middlewares import document_prompt
 from src.agents.career_consultant.tools import (
     list_design_options_tool,
     propose_changeset,
@@ -32,6 +33,7 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
             propose_changeset,
             providers.Callable(list_design_options_tool, artifact_service),
         ),
+        middleware=(document_prompt,),
         state_schema=CareerConsultantState,
     )
     """The career-consultant agent, built once"""

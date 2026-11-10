@@ -166,9 +166,9 @@ async def test_a_free_reply_goes_out_without_a_changeset_or_a_print():
         "changeset": None,
     }
     assert sent == []
-    [_, briefed] = model.requests[0]
-    assert "<document>" in briefed.text
-    assert briefed.text.endswith("The user says: Mention my Kubernetes work")
+    [system, asked] = model.requests[0]
+    assert "<document>" in system.text
+    assert asked.text == "Mention my Kubernetes work"
 
 
 async def test_a_passing_changeset_goes_out_with_a_fresh_id_and_the_reply():

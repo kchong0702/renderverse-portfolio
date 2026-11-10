@@ -137,7 +137,8 @@ async def test_a_single_match_is_edited_by_id_and_the_changeset_is_an_artifact()
     assert report.artifact["data"]["changeset"]["edits"] == [
         career_consultant.GOOD_EDIT.model_dump(mode="json")
     ]
-    assert consultant.requests[0][-1].text.endswith(f"The user says: {REQUEST}")
+    assert "<document>" in consultant.requests[0][0].text
+    assert consultant.requests[0][-1].text == REQUEST
     assert result["messages"][-1].text == "I proposed one edit."
     assert len(director.requests) == 3
 

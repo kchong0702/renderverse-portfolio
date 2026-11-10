@@ -13,6 +13,7 @@ from pydantic import TypeAdapter
 
 from src.agents import build_agent, load_agents
 from src.agents.career_consultant import CareerConsultantState
+from src.agents.career_consultant.middlewares import document_prompt
 from src.agents.career_consultant.tools import (
     list_design_options_tool,
     propose_changeset,
@@ -141,6 +142,7 @@ def _agent(model: ScriptedChatModel) -> CompiledStateGraph:
     return build_agent(
         AGENT,
         tools=TOOLS,
+        middleware=(document_prompt,),
         state_schema=CareerConsultantState,
         model=model,
     )

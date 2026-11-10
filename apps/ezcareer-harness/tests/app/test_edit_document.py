@@ -113,9 +113,8 @@ def test_a_message_fetches_the_document_then_returns_the_reply_and_changeset():
     assert output["changeset"]["agent"] == "career-consultant"
     assert output["changeset"]["status"] == "pending"
     assert output["changeset"]["edits"] == [GOOD_EDIT.model_dump(mode="json")]
-    assert model.requests[0][1].text.endswith(
-        "The user says: Mention my Kubernetes work"
-    )
+    assert "<document>" in model.requests[0][0].text
+    assert model.requests[0][1].text == "Mention my Kubernetes work"
 
 
 def test_a_fetch_the_client_cannot_answer_fails_the_task_with_its_reason():

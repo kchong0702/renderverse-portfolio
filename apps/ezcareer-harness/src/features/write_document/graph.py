@@ -7,7 +7,7 @@ from langgraph.types import Checkpointer
 from src.clients.artifact_service import ArtifactServiceClient
 from src.core.config import get_settings
 from src.features.write_document.configurations import WriteDocumentConfigurations
-from src.features.write_document.nodes import brief, load, output, page_fit
+from src.features.write_document.nodes import load, output, page_fit
 from src.features.write_document.state import EditGraphState
 from src.features.write_document.types import EditInput, EditOutput
 
@@ -24,7 +24,6 @@ def build_graph(
     )
     graph = StateGraph(EditGraphState, input_schema=EditInput, output_schema=EditOutput)
     graph.add_node("load", load)
-    graph.add_node("brief", brief)
     graph.add_node("agent", agent)
     graph.add_node(
         "page_fit",
@@ -36,8 +35,7 @@ def build_graph(
     )
     graph.add_node("output", output)
     graph.add_edge(START, "load")
-    graph.add_edge("load", "brief")
-    graph.add_edge("brief", "agent")
+    graph.add_edge("load", "agent")
     graph.add_conditional_edges(
         "agent", lambda state: "page_fit" if state.get("changeset") else "output"
     )

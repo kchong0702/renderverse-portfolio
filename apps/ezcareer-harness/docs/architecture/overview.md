@@ -53,6 +53,12 @@ A tool that one agent uses lives in `src/agents/<agent>/tools/`. A tool that sev
 - Each name under `include_tools` is one of the agent's skill tools.
 - Each skill tool is listed by at least one skill, so the model can reach it.
 
+## An agent works on its own
+
+Called directly with its state in the A2A data part, an agent does its whole job. A workflow wraps it only to make a run deterministic: it fetches the data, runs fixed steps and checks the result. It never supplies something the agent needs to work.
+
+So whatever an agent's model must see comes from the agent itself. career-consultant's `document_prompt` middleware, LangChain's `@dynamic_prompt`, adds `state["document"]` to the system prompt on every model call. The document reaches the model the same way whether a direct caller sent it or edit-document's `load` node fetched it.
+
 ## Workflows own no tools
 
 A workflow is a LangGraph graph that runs an agent as one of its nodes. It doesn't define, build or add tools, and `src/features/<feature>/` has no `tools/` folder. `tests/test_architecture.py` fails if one appears.

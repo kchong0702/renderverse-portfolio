@@ -64,5 +64,6 @@ def test_a_proposal_to_the_served_agent_comes_back_as_a_changeset_artifact():
     [changeset] = [a for a in task["artifacts"] if a["name"] == "changeset"]
     [part] = changeset["parts"]
     assert part["data"]["changeset"]["edits"] == [GOOD_EDIT.model_dump(mode="json")]
+    assert state["document"].model_dump_json() in model.requests[0][0].text
     assert "propose_changeset" not in model.offered_tools[0]
     assert "propose_changeset" in model.offered_tools[1]
