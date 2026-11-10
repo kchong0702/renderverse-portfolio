@@ -188,6 +188,9 @@ class EventList(BaseModel):
 
 
 class NewEvent(BaseModel):
+    id: str | None = None
+    """The event's id, base32hex; None lets Google pick one"""
+
     summary: str
     """The title"""
 

@@ -1,6 +1,7 @@
 import asyncio
 from base64 import urlsafe_b64encode
 from collections.abc import AsyncIterator
+from unittest.mock import ANY
 from uuid import uuid4
 
 import httpx2
@@ -209,6 +210,7 @@ async def test_an_interview_a_thread_confirms_is_added_to_the_calendar_once(
 
     assert google.created == [
         {
+            "id": ANY,
             "summary": "Final round",
             "start": {"dateTime": "2030-11-12T02:00:00Z"},
             "end": {"dateTime": "2030-11-12T03:00:00Z"},
@@ -272,18 +274,38 @@ class _OverlappingHarness(FakeHarness):
         return super().__call__(request)
 
 
+class _OverlappingGoogle(FakeGoogle):
+    def __init__(self):
+        """Hold each new event until a second one is sent, so two syncs overlap"""
+        super().__init__()
+        self.adding = asyncio.Barrier(2)
+
+    async def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        """Answer as FakeGoogle once two events are being added"""
+        if request.method == "POST" and request.url.path.endswith("/events"):
+            await asyncio.wait_for(self.adding.wait(), 5)
+        return super().__call__(request)
+
+
 @pytest.fixture
 def overlapping() -> _OverlappingHarness:
     return _OverlappingHarness()
 
 
 @pytest.fixture
+def overlapping_google() -> _OverlappingGoogle:
+    return _OverlappingGoogle()
+
+
+@pytest.fixture
 async def postgres_client(
-    overlapping: _OverlappingHarness, artifact: FakeArtifact, google: FakeGoogle
+    overlapping: _OverlappingHarness,
+    artifact: FakeArtifact,
+    overlapping_google: _OverlappingGoogle,
 ) -> AsyncIterator[httpx2.AsyncClient]:
     """The app on the test Postgres database, its dev user deleted after the test"""
     engine = create_async_engine(DATABASE_URL)
-    async for app in _app(overlapping, artifact, google, engine=engine):
+    async for app in _app(overlapping, artifact, overlapping_google, engine=engine):
         async with _client(app) as http:
             yield http
         async with create_session_factory(engine)() as session, session.begin():
@@ -295,10 +317,10 @@ async def postgres_client(
 @pytest.mark.postgres
 @pytest.mark.skipif(not DATABASE_URL, reason="OPS_API_TEST_DATABASE_URL is not set")
 async def test_overlapping_first_syncs_of_a_thread_both_succeed(
-    postgres_client, overlapping, google
+    postgres_client, overlapping, overlapping_google
 ):
     await connect_google(postgres_client)
-    google.messages = {"m1": _message("m1", "t-1", "Final round", "Times?")}
+    overlapping_google.messages = {"m1": _message("m1", "t-1", "Final round", "Times?")}
     overlapping.outcomes = [_triaged("needs_reply")] * 2
 
     first, second = await asyncio.gather(
@@ -309,3 +331,23 @@ async def test_overlapping_first_syncs_of_a_thread_both_succeed(
     assert [first.status_code, second.status_code] == [200, 200]
     assert after.json()["needs_reply"] == 1
     assert len(overlapping.received) == 2
+
+
+@pytest.mark.postgres
+@pytest.mark.skipif(not DATABASE_URL, reason="OPS_API_TEST_DATABASE_URL is not set")
+async def test_overlapping_syncs_add_an_interview_to_the_calendar_once(
+    postgres_client, overlapping, overlapping_google
+):
+    await connect_google(postgres_client)
+    await postgres_client.get(f"{PREFIX}/settings")
+    overlapping_google.messages = {
+        "m1": _message("m1", "t-1", "Final round", "See you then.")
+    }
+    overlapping.outcomes = [_triaged("interview", interview=INTERVIEW)] * 2
+
+    first, second = await asyncio.gather(
+        postgres_client.get(INBOX), postgres_client.get(INBOX)
+    )
+
+    assert [first.status_code, second.status_code] == [200, 200]
+    assert [e["summary"] for e in overlapping_google.created] == ["Final round"]

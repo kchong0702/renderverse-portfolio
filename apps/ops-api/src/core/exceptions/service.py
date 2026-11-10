@@ -36,6 +36,10 @@ class Conflict(ServiceException):
     """The request clashes with what is already stored"""
 
 
+class AlreadyExists(Conflict):
+    """Something with the id the request gives exists already"""
+
+
 class InvalidInput(ServiceException):
     status_code = 422
     """Well-formed input that breaks a rule the schema cannot express"""
@@ -47,6 +51,7 @@ class ServiceUnavailable(ServiceException):
 
 
 __all__ = [
+    "AlreadyExists",
     "Conflict",
     "Forbidden",
     "InvalidInput",
