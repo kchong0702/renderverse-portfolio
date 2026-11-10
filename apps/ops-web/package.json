@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@radix-ui/react-tabs": "^1.2.1",
+    "@renderverse/document-renderer": "workspace:*",
     "@tanstack/react-query": "^5.104.5",
     "@tiptap/core": "3.32.0",
     "@tiptap/extension-bold": "3.32.0",

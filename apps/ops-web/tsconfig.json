@@ -17,8 +17,14 @@
     "noFallthroughCasesInSwitch": true,
 
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "react-dom/*": ["./node_modules/@types/react-dom/*"]
     }
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "../../packages/document-renderer/src/pagination/pagedjs.d.ts"
+  ]
 }
