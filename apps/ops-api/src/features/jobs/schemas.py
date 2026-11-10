@@ -1,12 +1,44 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
-from src.features.jobs.enums import JobStatus
-from src.features.jobs.models import FitAnalysis
+from src.features.jobs.enums import Importance, JobStatus, Match
+
+
+class Requirement(BaseModel):
+    text: str = Field(min_length=1)
+    """The requirement as the posting states it"""
+
+    importance: Importance = Importance.REQUIRED
+    """Whether the posting requires it or calls it nice to have"""
+
+    match: Match
+    """How well the profile meets it"""
+
+    reason: str = ""
+    """Why it is met, partly met or not met, in one sentence"""
+
+
+class FitAnalysis(BaseModel):
+    fit: int = Field(ge=0, le=100)
+    """Fit score from 0 to 100, as analyse-job computes it"""
+
+    requirements: list[Requirement] = Field(min_length=1)
+    """Every requirement the posting states, mapped to the profile"""
+
+    @computed_field
+    @property
+    def band(self) -> Literal["excellent", "good", "possible", "poor"]:
+        """The fit score as a band, so the label always agrees with the score"""
+        if self.fit >= 85:
+            return "excellent"
+        if self.fit >= 70:
+            return "good"
+        return "possible" if self.fit >= 50 else "poor"
 
 
 class JobCreate(BaseModel):
@@ -51,4 +83,4 @@ class JobUpdate(BaseModel):
     """Save, dismiss or return the job to the agent's picks"""
 
 
-__all__ = ["JobCreate", "JobRead", "JobUpdate"]
+__all__ = ["FitAnalysis", "JobCreate", "JobRead", "JobUpdate", "Requirement"]

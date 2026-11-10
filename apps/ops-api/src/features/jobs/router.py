@@ -5,8 +5,7 @@ from fastapi import APIRouter, Depends, status
 
 from src.core.auth import CurrentUserDep
 from src.db.session import SessionDep
-from src.features.jobs.models import FitAnalysis
-from src.features.jobs.schemas import JobCreate, JobRead, JobUpdate
+from src.features.jobs.schemas import FitAnalysis, JobCreate, JobRead, JobUpdate
 from src.features.jobs.service import JobService
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
