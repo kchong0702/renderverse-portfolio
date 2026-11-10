@@ -7,10 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 
-class GoogleJson(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
-
-
 class Tokens(BaseModel):
     access_token: str
     """Short-lived token for the Gmail and Calendar APIs"""
@@ -22,7 +18,9 @@ class Tokens(BaseModel):
     """Space-separated scopes the user granted"""
 
 
-class GmailHeader(GoogleJson):
+class GmailHeader(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+
     name: str
     """Header name, such as From"""
 
@@ -30,12 +28,16 @@ class GmailHeader(GoogleJson):
     """Header value, already decoded by Gmail"""
 
 
-class GmailBody(GoogleJson):
+class GmailBody(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+
     data: str = ""
     """The part's content, base64url encoded; empty for containers and attachments"""
 
 
-class GmailPart(GoogleJson):
+class GmailPart(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+
     mime_type: str = ""
     """Content type, such as text/plain or multipart/alternative"""
 
@@ -65,7 +67,9 @@ class GmailPart(GoogleJson):
         return next((text for p in self.parts if (text := p.find(mime_type))), "")
 
 
-class GmailMessage(GoogleJson):
+class GmailMessage(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+
     id: str
     """Gmail's message id"""
 
@@ -85,22 +89,30 @@ class GmailMessage(GoogleJson):
     """Headers and the MIME tree"""
 
 
-class GmailProfile(GoogleJson):
+class GmailProfile(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+
     email_address: str
     """The mailbox's address"""
 
 
-class GmailRef(GoogleJson):
+class GmailRef(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+
     id: str
     """Gmail's message id"""
 
 
-class GmailList(GoogleJson):
+class GmailList(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+
     messages: list[GmailRef] = []
     """Matching messages, newest first; Gmail omits the key when there are none"""
 
 
-class EventTime(GoogleJson):
+class EventTime(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+
     date_time: datetime | None = None
     """Start or end of a timed event"""
 
@@ -108,7 +120,9 @@ class EventTime(GoogleJson):
     """Start or end of an all-day event; the end day is exclusive"""
 
 
-class GoogleEvent(GoogleJson):
+class GoogleEvent(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+
     id: str
     """Calendar's event id"""
 
@@ -131,7 +145,9 @@ class GoogleEvent(GoogleJson):
     """When it ends"""
 
 
-class EventList(GoogleJson):
+class EventList(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+
     items: list[GoogleEvent] = []
     """Events in the range, earliest first"""
 
