@@ -4,6 +4,7 @@ import { config } from "@/shared/config";
 export type WorkMode = "onsite" | "hybrid" | "remote";
 export type SalaryPeriod = "hour" | "month" | "year";
 export type EntryKind = "role" | "education" | "project";
+export type YearMonth = `${number}-${number}`;
 
 export interface Salary {
   amount: number;
@@ -35,8 +36,8 @@ export interface EntryWrite {
   title: string;
   organisation: string;
   location: string;
-  start: string | null;
-  end: string | null;
+  start: YearMonth | null;
+  end: YearMonth | "present" | null;
   summary: string;
   highlights: string[];
   archived: boolean;
