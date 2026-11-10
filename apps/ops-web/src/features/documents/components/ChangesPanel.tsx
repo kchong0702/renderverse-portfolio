@@ -6,6 +6,9 @@ import type { ChangesetStatus, DocumentRecord, Edit } from "../api/documents";
 import { useChangesets, useDecideChangeset } from "../hooks/useDocuments";
 import { blockKind, fieldKey, newText, nodeAt } from "../lib/fields";
 
+const plain = (html: string) =>
+  new DOMParser().parseFromString(html, "text/html").body.textContent ?? "";
+
 const STATUS_TONE = {
   pending: "warn",
   accepted: "ok",
@@ -38,7 +41,7 @@ export default function ChangesPanel({
       case "update_field":
         return t("documents.changes.update", {
           field: fieldLabel(edit.path),
-          text: newText(edit.value),
+          text: plain(newText(edit.value)),
         });
       case "insert_block":
         return t("documents.changes.insertBlock", {
@@ -51,12 +54,12 @@ export default function ChangesPanel({
       case "move":
         return t("documents.changes.move", {
           item: fieldLabel(edit.path),
-          text: newText(nodeAt(blocks, edit.path)),
+          text: plain(newText(nodeAt(blocks, edit.path))),
         });
       case "delete":
         return t("documents.changes.delete", {
           item: fieldLabel(edit.path),
-          text: newText(nodeAt(blocks, edit.path)),
+          text: plain(newText(nodeAt(blocks, edit.path))),
         });
       case "update_visibility":
         return t(

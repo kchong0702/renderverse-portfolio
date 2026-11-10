@@ -87,7 +87,7 @@ export interface DocumentSummary {
   kind: DocumentKind;
   title: string;
   master: boolean;
-  pending_edits: number;
+  pending_changesets: number;
   updated_at: string;
 }
 

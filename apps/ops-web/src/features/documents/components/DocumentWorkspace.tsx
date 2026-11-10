@@ -101,8 +101,10 @@ export default function DocumentWorkspace({ id }: { id: string }) {
             ? t("documents.save.failed", { reason: failure.message })
             : edit.isPending
               ? t("documents.save.saving")
-              : record.pending_edits > 0
-                ? t("documents.pendingEdits", { count: record.pending_edits })
+              : record.pending_changesets > 0
+                ? t("documents.pendingChanges", {
+                    count: record.pending_changesets,
+                  })
                 : t("documents.updated", {
                     date: new Date(record.updated_at).toLocaleString(),
                   })}
@@ -126,9 +128,9 @@ export default function DocumentWorkspace({ id }: { id: string }) {
           <TabList aria-label={t("documents.tools")} className="px-5">
             {PANELS.map((name) => (
               <Tab key={name} value={name}>
-                {name === "changes" && record.pending_edits > 0
+                {name === "changes" && record.pending_changesets > 0
                   ? t("documents.panels.changesCount", {
-                      count: record.pending_edits,
+                      count: record.pending_changesets,
                     })
                   : t(`documents.panels.${name}`)}
               </Tab>

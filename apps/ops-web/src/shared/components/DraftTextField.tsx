@@ -7,7 +7,6 @@ interface DraftTextFieldProps {
   placeholder?: string;
   maxLength?: number;
   multiline?: boolean;
-  type?: "text" | "email" | "tel";
   onSave: (value: string) => void;
 }
 
