@@ -70,3 +70,13 @@ async def test_resume_skips_what_the_client_saw_and_refuses_another_runs_id():
         await runner.resume("chat-1", "not-an-id")
     with pytest.raises(NotFound):
         await runner.resume("chat-2", None)
+
+
+async def test_closing_marks_each_running_turn_finished():
+    runner = Runner(InMemoryRunStore(SETTINGS), retry_ms=2000)
+    await runner.start_task(uuid4(), "chat-1", _until(asyncio.Event()))
+    await asyncio.sleep(0)
+
+    await runner.aclose()
+
+    await runner.start_task(uuid4(), "chat-1", _events(1))

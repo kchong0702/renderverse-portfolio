@@ -66,5 +66,11 @@ class Runner:
             raise NotFound("There is no reply to resume")
         return self._read(run_id, min(int(seq), count))
 
+    async def aclose(self) -> None:
+        """Cancel every run still writing and wait until each is marked finished"""
+        for task in self._tasks:
+            task.cancel()
+        await asyncio.gather(*self._tasks, return_exceptions=True)
+
 
 __all__ = ["Runner"]
