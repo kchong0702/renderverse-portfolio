@@ -54,6 +54,11 @@ class GoogleService:
         account = await self._repository.get(user_id)
         return account.email if account is not None else None
 
+    async def has_scopes(self, user_id: UUID) -> bool:
+        """Whether the stored grant allows every scope Ops now asks Google for"""
+        account = await self._repository.get(user_id)
+        return account is not None and set(SCOPES) <= set(account.scopes.split())
+
     def authorize_url(self, state: str) -> str:
         """Google's consent page, carrying the state the callback must echo"""
         if not self.configured:
@@ -77,11 +82,17 @@ class GoogleService:
         account = await self._repository.get(user_id)
         if account is None:
             await self._repository.add(
-                GoogleAccount(user_id=user_id, email=email, ciphertext=ciphertext)
+                GoogleAccount(
+                    user_id=user_id,
+                    email=email,
+                    ciphertext=ciphertext,
+                    scopes=tokens.scope,
+                )
             )
         else:
             account.email = email
             account.ciphertext = ciphertext
+            account.scopes = tokens.scope
 
     async def disconnect(self, user_id: UUID) -> None:
         """Revoke Ops's access at Google when the token is readable, then forget it; a

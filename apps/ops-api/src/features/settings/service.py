@@ -89,11 +89,17 @@ class SettingsService:
         return Fernet(self._jsearch.encryption_key.get_secret_value())
 
     async def _connections(self, settings: UserSettings) -> list[Connection]:
-        """Google from its stored account, JSearch from the stored key and its last
+        """Google from its stored grant, JSearch from the stored key and its last
         quota; the portfolio site waits for its integration"""
         email = await self._google.email(settings.user_id)
         google = (
-            Connection(id="google", status="connected", account=email)
+            Connection(
+                id="google",
+                status="connected"
+                if await self._google.has_scopes(settings.user_id)
+                else "needs_reconnect",
+                account=email,
+            )
             if email is not None
             else Connection(
                 id="google",
