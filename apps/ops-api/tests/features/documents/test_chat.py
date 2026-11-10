@@ -109,6 +109,27 @@ async def test_a_chat_turn_stores_the_edits_it_proposes_before_its_reply(
     assert fetched["parts"] == [{"data": {"document": document["body"], "lines": []}}]
 
 
+async def test_a_second_turns_edits_join_the_pending_changeset(client, harness):
+    document = await _document(client)
+    chat = f"{DOCUMENTS}/{document['id']}/chat"
+    harness.outcomes = [
+        _fetches(document["id"]),
+        _replies("I added your years.", TAILOR),
+        _fetches(document["id"]),
+        _replies("I tightened it.", TAILOR),
+    ]
+
+    first = await client.post(f"{chat}/messages", json={"text": "Add my years"})
+    second = await client.post(f"{chat}/messages", json={"text": "Tighten it"})
+
+    [one] = [e for e in sse_events(first) if e["status"] == "changeset"]
+    [two] = [e for e in sse_events(second) if e["status"] == "changeset"]
+    assert two["changeset_id"] == one["changeset_id"]
+    assert (one["edits"], two["edits"]) == (1, 2)
+    [stored] = (await client.get(f"{DOCUMENTS}/{document['id']}/changesets")).json()
+    assert len(stored["changeset"]["edits"]) == 2
+
+
 async def test_a_chat_turn_asks_back_and_the_answer_replies_without_edits(
     client, harness
 ):
