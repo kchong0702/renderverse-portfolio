@@ -127,6 +127,7 @@ interface AssistantState {
   reconnect: (chat: Chat, attempt: number) => void;
   restore: (chat: Chat, entries: ChatEntry[]) => void;
   newChat: (chat: Chat) => void;
+  reset: () => void;
 }
 
 const withEntries = (
@@ -194,6 +195,13 @@ export const useAssistantStore = create<AssistantState>()(
               }
             : { chats: withEntries(chats, chat, () => []) },
         ),
+      reset: () =>
+        set({
+          open: false,
+          chatId: crypto.randomUUID(),
+          document: null,
+          chats: { assistant: {}, document: {} },
+        }),
     }),
     {
       name: "ops:assistant",
