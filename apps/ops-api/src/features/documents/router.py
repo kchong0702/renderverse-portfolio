@@ -80,11 +80,11 @@ async def start_import(
 
 
 @router.delete("/imports/{import_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def cancel_import(
+async def delete_import(
     import_id: UUID, user: CurrentUserDep, service: DocumentServiceDep
 ) -> None:
     """Remove an import and its file"""
-    await service.cancel_import(user.id, import_id)
+    await service.delete_import(user.id, import_id)
 
 
 @router.get("/{document_id}")

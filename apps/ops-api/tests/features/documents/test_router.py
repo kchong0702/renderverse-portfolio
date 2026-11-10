@@ -179,7 +179,11 @@ async def test_keep_and_restore_a_version(client):
     assert restored.status_code == 200
     assert _block(restored.json(), "sum")["text"]["html"] == "Backend engineer."
     versions = (await client.get(f"{url}/versions")).json()
-    assert [v["label"] for v in versions] == ["Sent to Lumen Pay", "Created"]
+    assert [v["label"] for v in versions] == [
+        "Before restoring version 2",
+        "Sent to Lumen Pay",
+        "Created",
+    ]
 
 
 async def test_accepting_a_changeset_applies_every_edit_and_can_be_undone(client):
@@ -226,6 +230,30 @@ async def test_rejecting_a_changeset_leaves_the_draft_as_it_was(client):
     assert (await client.get(url)).json()["body"] == document["body"]
     assert len((await client.get(f"{url}/versions")).json()) == 1
     assert (await client.get(url)).json()["pending_changesets"] == 0
+
+
+async def test_a_new_changeset_closes_the_one_still_pending(client):
+    document = await _create(client)
+    url = f"{DOCUMENTS}/{document['id']}/changesets"
+    first = (await client.post(url, json=TAILOR)).json()
+    second = (await client.post(url, json={**TAILOR, "id": "tailor-2"})).json()
+
+    listed = {c["id"]: c["changeset"]["status"] for c in (await client.get(url)).json()}
+
+    assert listed == {first["id"]: "rejected", second["id"]: "pending"}
+    assert (await client.get(DOCUMENTS)).json()[0]["pending_changesets"] == 1
+
+
+async def test_answering_a_changeset_the_same_way_again_is_a_no_op(client):
+    document = await _create(client)
+    url = f"{DOCUMENTS}/{document['id']}/changesets"
+    changeset = (await client.post(url, json=TAILOR)).json()
+    await client.put(f"{url}/{changeset['id']}", json={"status": "rejected"})
+
+    again = await client.put(f"{url}/{changeset['id']}", json={"status": "rejected"})
+
+    assert again.status_code == 200
+    assert again.json()["changeset"]["status"] == "rejected"
 
 
 async def test_a_changeset_must_fit_the_draft_and_cite_sources(client):
