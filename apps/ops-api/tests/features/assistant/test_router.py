@@ -378,7 +378,7 @@ async def test_nothing_resumes_from_another_run_or_an_idle_chat(client, harness)
 
 async def test_a_chat_takes_no_new_message_while_its_turn_runs(app, client, harness):
     me = (await client.get(f"{PREFIX}/me")).json()
-    await app.state.run_store.start(UUID(me["id"]), f"{me['id']}:{CHAT_ID}")
+    await app.state.container.store().start(UUID(me["id"]), f"{me['id']}:{CHAT_ID}")
 
     response = await client.post(f"{CHAT}/messages", json={"text": "Again"})
 

@@ -12,10 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.core.config import DatabaseSettings, EzcareerSettings
 from src.core.exceptions import Conflict, NotFound
-from src.core.run_store.models import StreamedEvent, StreamedRun
+from src.core.stores.models import AgentEvent, AgentRun
 from src.db.base import utcnow
 
-_CHANNEL = "streamed_runs"
+_CHANNEL = "agent_runs"
 
 
 class PostgresRunStore:
@@ -68,16 +68,16 @@ class PostgresRunStore:
         last run is still going and was active within run_timeout_seconds"""
         async with self._factory() as session, session.begin():
             running = await session.scalar(
-                select(StreamedRun.id).where(
-                    StreamedRun.key == key,
-                    StreamedRun.finished_at.is_(None),
-                    StreamedRun.active_at > self._alive_since(),
+                select(AgentRun.id).where(
+                    AgentRun.key == key,
+                    AgentRun.finished_at.is_(None),
+                    AgentRun.active_at > self._alive_since(),
                 )
             )
             if running:
                 raise Conflict("Wait for the current reply to finish")
-            await session.execute(delete(StreamedRun).where(StreamedRun.key == key))
-            run = StreamedRun(id=secrets.token_hex(8), user_id=user_id, key=key)
+            await session.execute(delete(AgentRun).where(AgentRun.key == key))
+            run = AgentRun(id=secrets.token_hex(8), user_id=user_id, key=key)
             session.add(run)
         return run.id
 
@@ -85,20 +85,18 @@ class PostgresRunStore:
         """Keep the run's event and notify every process reading it"""
         async with self._factory() as session, session.begin():
             await session.execute(
-                insert(StreamedEvent).from_select(
+                insert(AgentEvent).from_select(
                     ["user_id", "run_id", "seq", "data"],
                     select(
-                        StreamedRun.user_id,
+                        AgentRun.user_id,
                         literal(run_id),
                         literal(seq),
                         literal(data),
-                    ).where(StreamedRun.id == run_id),
+                    ).where(AgentRun.id == run_id),
                 )
             )
             await session.execute(
-                update(StreamedRun)
-                .where(StreamedRun.id == run_id)
-                .values(active_at=utcnow())
+                update(AgentRun).where(AgentRun.id == run_id).values(active_at=utcnow())
             )
             await session.execute(
                 text("SELECT pg_notify(:channel, :run_id)"),
@@ -109,8 +107,8 @@ class PostgresRunStore:
         """Mark the run ended and notify every process reading it"""
         async with self._factory() as session, session.begin():
             await session.execute(
-                update(StreamedRun)
-                .where(StreamedRun.id == run_id)
+                update(AgentRun)
+                .where(AgentRun.id == run_id)
                 .values(finished_at=utcnow())
             )
             await session.execute(
@@ -123,12 +121,10 @@ class PostgresRunStore:
         once it ended over replay_ttl_seconds ago, went silent past
         run_timeout_seconds, or for another run's event id"""
         async with self._factory() as session:
-            run = await session.scalar(
-                select(StreamedRun).where(StreamedRun.key == key)
-            )
+            run = await session.scalar(select(AgentRun).where(AgentRun.key == key))
             count = (
                 await session.scalar(
-                    select(func.count()).where(StreamedEvent.run_id == run.id)
+                    select(func.count()).where(AgentEvent.run_id == run.id)
                 )
                 if run
                 else 0
@@ -157,12 +153,12 @@ class PostgresRunStore:
             async with self._factory() as session:
                 events = (
                     await session.scalars(
-                        select(StreamedEvent)
-                        .where(StreamedEvent.run_id == run_id, StreamedEvent.seq > sent)
-                        .order_by(StreamedEvent.seq)
+                        select(AgentEvent)
+                        .where(AgentEvent.run_id == run_id, AgentEvent.seq > sent)
+                        .order_by(AgentEvent.seq)
                     )
                 ).all()
-                run = await session.get(StreamedRun, run_id)
+                run = await session.get(AgentRun, run_id)
             for event in events:
                 sent = event.seq
                 yield ServerSentEvent(

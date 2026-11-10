@@ -199,8 +199,8 @@ class EzcareerSettings(BaseModel):
     replay_ttl_seconds: float = Field(default=60, gt=0)
     """How long a finished run can still be resumed"""
 
-    run_store: Literal["memory", "postgres"] = "memory"
-    """Where streamed runs are kept: memory serves one ops-api process, postgres
+    stores: Literal["memory", "postgres"] = "memory"
+    """Where agent runs are kept: memory serves one ops-api process, postgres
     lets any process replay and follow them"""
 
 

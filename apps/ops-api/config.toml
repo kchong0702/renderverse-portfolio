@@ -37,7 +37,7 @@ timeout_seconds = 10
 run_timeout_seconds = 300
 stream_retry_ms = 2000
 replay_ttl_seconds = 60
-run_store = "postgres"
+stores = "postgres"
 
 [observability]
 service_name = "ops-api"
