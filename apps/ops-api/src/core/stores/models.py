@@ -7,11 +7,11 @@ from src.db.base import Base, utcnow
 from src.db.mixins import UserScopedMixin
 
 
-class StreamedRun(UserScopedMixin, Base):
-    """One streamed run, such as an assistant turn, that any ops-api process can
+class AgentRun(UserScopedMixin, Base):
+    """One agent run, such as an assistant turn, that any ops-api process can
     replay and follow"""
 
-    __tablename__ = "streamed_runs"
+    __tablename__ = "agent_runs"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     """The run's id, the first half of each event id"""
@@ -31,11 +31,11 @@ class StreamedRun(UserScopedMixin, Base):
     """When the run ended; None while it runs"""
 
 
-class StreamedEvent(UserScopedMixin, Base):
-    __tablename__ = "streamed_events"
+class AgentEvent(UserScopedMixin, Base):
+    __tablename__ = "agent_events"
 
     run_id: Mapped[str] = mapped_column(
-        ForeignKey("streamed_runs.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("agent_runs.id", ondelete="CASCADE"), primary_key=True
     )
     """The run the event belongs to"""
 

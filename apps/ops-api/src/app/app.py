@@ -60,7 +60,7 @@ def create_app(container: Container | None = None) -> FastAPI:
         yield
         await container.engine().dispose()
         await container.ezcareer().aclose()
-        await container.run_store().aclose()
+        await container.store().aclose()
 
     app = FastAPI(
         title=settings.app.name.upper(),
@@ -74,7 +74,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     app.state.session_factory = container.session_factory()
     app.state.oauth_providers = container.oauth_providers()
     app.state.ezcareer = container.ezcareer()
-    app.state.run_store = container.run_store()
+    app.state.runner = container.runner()
 
     _add_middleware(app, settings)
 

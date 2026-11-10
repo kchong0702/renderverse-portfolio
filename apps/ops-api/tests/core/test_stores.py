@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from src.core.auth.models import User
 from src.core.config import DatabaseSettings, EzcareerSettings
 from src.core.exceptions import Conflict, NotFound
-from src.core.run_store import InMemoryRunStore, PostgresRunStore, RunStore
+from src.core.stores import InMemoryRunStore, PostgresRunStore, RunStore
 from src.db.session import create_session_factory
 
 DATABASE_URL = os.environ.get("OPS_API_TEST_DATABASE_URL", "")
