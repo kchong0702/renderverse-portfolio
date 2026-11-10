@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { fitTone } from "@/features/jobs";
-import Badge from "@/shared/components/Badge";
+import { FIT_INK, fitTone } from "@/features/jobs";
+import { cn } from "@/shared/lib/cn";
 import type { Application } from "../api/applications";
 import { STAGES } from "../lib/stages";
 import NextStep from "./NextStep";
@@ -41,12 +41,17 @@ export default function ApplicationBoard({
                   onClick={() => onEdit(application.id)}
                   className="bg-panel border-hair shadow-card text-ink flex cursor-pointer flex-col gap-1 rounded-xl border p-4 text-left"
                 >
-                  <span className="flex w-full items-start justify-between gap-2">
+                  <span className="flex w-full justify-between gap-2">
                     <span className="font-semibold">{application.company}</span>
                     {application.fit !== null && (
-                      <Badge tone={fitTone(application.fit)}>
+                      <span
+                        className={cn(
+                          "text-[12px]",
+                          FIT_INK[fitTone(application.fit)],
+                        )}
+                      >
                         {application.fit}
-                      </Badge>
+                      </span>
                     )}
                   </span>
                   <span className="text-ink-2 text-[13px]">
@@ -54,7 +59,7 @@ export default function ApplicationBoard({
                   </span>
                   <NextStep
                     application={application}
-                    className="mt-2 text-xs"
+                    className="mt-2 text-[12px]"
                   />
                 </button>
               ))}

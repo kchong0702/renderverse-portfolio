@@ -1,9 +1,14 @@
 import { useTranslation } from "react-i18next";
-import Badge from "@/shared/components/Badge";
 import { cn } from "@/shared/lib/cn";
 import { relativeDay } from "@/shared/lib/dates";
 import type { Job } from "../api/jobs";
-import { BAND_TONES } from "../lib/fit";
+import { BAND_TONES, type FitTone } from "../lib/fit";
+
+const FIT_CHIP: Record<FitTone, string> = {
+  ok: "bg-ok-bg text-ok",
+  warn: "bg-warn-bg text-warn",
+  neutral: "bg-chip text-ink-3",
+};
 
 interface JobListProps {
   jobs: Job[];
@@ -43,13 +48,16 @@ export default function JobList({ jobs, selectedId, onSelect }: JobListProps) {
                 </span>
               )}
             </span>
-            {job.analysis ? (
-              <Badge tone={BAND_TONES[job.analysis.band]}>
-                {job.analysis.fit}
-              </Badge>
-            ) : (
-              <Badge>{t("jobs.notScored")}</Badge>
-            )}
+            <span
+              className={cn(
+                "rounded-md px-2 py-0.5 text-[13px] whitespace-nowrap",
+                FIT_CHIP[
+                  job.analysis ? BAND_TONES[job.analysis.band] : "neutral"
+                ],
+              )}
+            >
+              {job.analysis ? job.analysis.fit : t("jobs.notScored")}
+            </span>
           </button>
         </li>
       ))}

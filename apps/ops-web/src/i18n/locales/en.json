@@ -48,8 +48,8 @@
     "loadFailed": "Jobs could not be loaded: {{reason}}",
     "tabs": {
       "label": "Job lists",
-      "picked": "Agent picks · {{count}}",
-      "saved": "Saved · {{count}}"
+      "picked": "Agent picks",
+      "saved": "Saved"
     },
     "empty": {
       "picked": "No agent picks yet. The daily job agent adds postings here.",
@@ -66,11 +66,9 @@
       "possible": "Possible fit",
       "poor": "Poor fit"
     },
-    "track": "Track application",
     "save": "Save",
     "saved": "Saved",
     "dismiss": "Dismiss",
-    "openPosting": "Open posting",
     "updateFailed": "Not saved: {{reason}}",
     "requirements": "Requirements",
     "matchCount": {
@@ -83,18 +81,20 @@
       "partly": "Partial",
       "not_met": "Gap"
     },
-    "niceToHave": "Nice to have",
     "notAnalysed": "Not analysed yet. The fit and requirements appear once the job is analysed."
   },
   "applications": {
     "title": "Applications",
-    "subtitle": "{{active}} active · {{due}} due",
+    "subtitle_one": "{{active}} active · {{count}} follow-up due",
+    "subtitle_other": "{{active}} active · {{count}} follow-ups due",
     "track": "Track application",
     "loadFailed": "Applications could not be loaded: {{reason}}",
     "empty": "No applications yet. Track one to see it on the board.",
     "edit": "Edit {{name}}",
     "confirmDelete": "Stop tracking {{name}}?",
     "applied": "Applied {{when}}",
+    "followUp": "Follow up · {{count}} days",
+    "decideBy": "Decide by {{when}}",
     "views": {
       "label": "View",
       "board": "Board",
@@ -303,16 +303,16 @@
         "Why did my response rate drop?",
         "Plan my week around the interviews"
       ],
-      "jobs": [
-        "Find jobs that fit my preferences",
-        "What would raise my fit for a Platform Engineer role?",
-        "Find similar roles in Penang"
-      ],
-      "applications": [
-        "Draft a follow-up for my oldest application",
-        "Which offers should I prioritise?",
-        "Summarise where each application stands"
-      ],
+      "jobs": {
+        "compare": "Compare {{first}} and {{second}}",
+        "raiseFit": "What would raise my fit for {{title}}?",
+        "similar": "Find similar roles in Penang"
+      },
+      "applications": {
+        "followUp": "Draft a follow-up for {{company}}",
+        "offers": "Which offers should I prioritise?",
+        "summary": "Summarise where each application stands"
+      },
       "documents": [
         "Shorten my résumé to one page",
         "Write a cover letter",
