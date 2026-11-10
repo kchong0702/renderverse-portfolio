@@ -8,6 +8,7 @@ export interface CalendarEvent {
   all_day: boolean;
   location: string;
   url: string;
+  interview: boolean;
 }
 
 export const fetchEvents = (from: string, to: string, signal?: AbortSignal) =>
