@@ -1,4 +1,4 @@
-import { http } from "@/shared/api/http";
+import { http, stream } from "@/shared/api/http";
 
 export interface Widget {
   label: string | null;
@@ -13,10 +13,25 @@ export interface Answer {
   accept?: boolean;
 }
 
-export type AssistantReply =
+export interface Step {
+  id: string;
+  parent: string | null;
+  name: string;
+  status: "running" | "done" | "failed" | "waiting";
+}
+
+export type Outcome =
   | { status: "completed"; reply: string }
   | { status: "input_required"; task_id: string; widget: Widget }
-  | { status: "failed"; reason: string };
+  | { status: "failed"; reason: string }
+  | { status: "cancelled" };
+
+export type RunEvent =
+  | { status: "started"; task_id: string }
+  | { status: "thinking"; turn: string; text: string }
+  | { status: "text"; turn: string; text: string }
+  | { status: "step"; step: Step }
+  | Outcome;
 
 export interface ChatMessage {
   chatId: string;
@@ -31,13 +46,29 @@ export interface TaskAnswer {
   shown: string;
 }
 
+export interface Task {
+  chatId: string;
+  taskId: string;
+}
+
+type OnEvent = (event: RunEvent) => void;
+
 const URL = "/ops-api/v1/assistant";
 
-export const sendMessage = ({ chatId, ...message }: ChatMessage) =>
-  http.post<AssistantReply>(`${URL}/chats/${chatId}/messages`, message);
+const taskUrl = ({ chatId, taskId }: Task) =>
+  `${URL}/chats/${chatId}/tasks/${encodeURIComponent(taskId)}`;
 
-export const answerTask = ({ chatId, taskId, answer }: TaskAnswer) =>
-  http.post<AssistantReply>(
-    `${URL}/chats/${chatId}/tasks/${encodeURIComponent(taskId)}/answer`,
-    answer,
-  );
+export const sendMessage = (
+  { chatId, ...message }: ChatMessage,
+  signal: AbortSignal,
+  onEvent: OnEvent,
+) => stream(`${URL}/chats/${chatId}/messages`, message, signal, onEvent);
+
+export const answerTask = (
+  { answer, ...task }: TaskAnswer,
+  signal: AbortSignal,
+  onEvent: OnEvent,
+) => stream(`${taskUrl(task)}/answer`, answer, signal, onEvent);
+
+export const cancelTask = (task: Task) =>
+  http.post<void>(`${taskUrl(task)}/cancel`);
