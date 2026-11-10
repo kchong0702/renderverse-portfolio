@@ -29,7 +29,22 @@ export const fetchApplications = (signal?: AbortSignal) =>
 export const addApplication = (application: ApplicationCreate) =>
   http.post<Application>(URL, application);
 
-export const saveApplication = ({ id, ...application }: Application) =>
-  http.put<Application>(`${URL}/${id}`, application);
+export const saveApplication = ({
+  id,
+  company,
+  role,
+  stage,
+  applied_on,
+  next_step,
+  next_step_at,
+}: { id: string } & ApplicationWrite) =>
+  http.put<Application>(`${URL}/${id}`, {
+    company,
+    role,
+    stage,
+    applied_on,
+    next_step,
+    next_step_at,
+  });
 
 export const deleteApplication = (id: string) => http.delete(`${URL}/${id}`);
