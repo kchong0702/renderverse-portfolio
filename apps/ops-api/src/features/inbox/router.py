@@ -4,21 +4,39 @@ from fastapi import APIRouter, Depends, Path, Request, status
 
 from src.core.auth import CurrentUserDep
 from src.core.config import get_settings
+from src.db.session import SessionDep
+from src.features.calendar import CalendarServiceDep
 from src.features.google import GoogleServiceDep
 from src.features.inbox.schemas import (
     EmailCreate,
-    InboxMessage,
+    InboxList,
     InboxMessageDetail,
     ReplyCreate,
 )
 from src.features.inbox.service import InboxService
+from src.features.settings import SettingsServiceDep
 
 router = APIRouter(prefix="/inbox", tags=["inbox"])
 
 
-def get_inbox_service(google: GoogleServiceDep, request: Request) -> InboxService:
-    """The inbox service, reading Gmail with the configured job-search query"""
-    return InboxService(google, request.app.state.google, get_settings().google)
+def get_inbox_service(
+    session: SessionDep,
+    google: GoogleServiceDep,
+    settings: SettingsServiceDep,
+    calendar: CalendarServiceDep,
+    request: Request,
+) -> InboxService:
+    """The inbox service on the request's database session, with Gmail, Calendar,
+    the user's settings and the harness"""
+    return InboxService(
+        session,
+        google,
+        settings,
+        calendar,
+        request.app.state.google,
+        request.app.state.ezcareer,
+        get_settings().google,
+    )
 
 
 InboxServiceDep = Annotated[InboxService, Depends(get_inbox_service)]
@@ -28,10 +46,9 @@ GmailId = Annotated[str, Path(pattern=r"^[A-Za-z0-9_-]{1,64}$")]
 
 
 @router.get("")
-async def list_messages(
-    user: CurrentUserDep, service: InboxServiceDep
-) -> list[InboxMessage]:
-    """Recent job-search emails from the user's Gmail, newest first"""
+async def list_messages(user: CurrentUserDep, service: InboxServiceDep) -> InboxList:
+    """Recent job-search emails from the user's Gmail, newest first, with what each
+    thread needs; new or changed threads are triaged first"""
     return await service.messages(user.id)
 
 

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+from src.features.inbox.enums import ThreadState
 
 
 class InboxMessage(BaseModel):
@@ -30,6 +34,15 @@ class InboxMessage(BaseModel):
     unread: bool
     """Whether it is still unread in Gmail"""
 
+    state: ThreadState | None
+    """What its thread needs, as triage-email read it; None until triaged"""
+
+    decide_by: date | None
+    """The deadline of an offer in its thread"""
+
+    application_id: UUID | None
+    """The application its thread is about"""
+
 
 class InboxMessageDetail(InboxMessage):
     to: str
@@ -37,6 +50,80 @@ class InboxMessageDetail(InboxMessage):
 
     body: str
     """The body as plain text; HTML-only mail is reduced to its text"""
+
+
+class InboxList(BaseModel):
+    messages: list[InboxMessage]
+    """The newest job-search emails, newest first"""
+
+    needs_reply: int
+    """How many of their threads wait on the user"""
+
+
+class ThreadMessage(BaseModel):
+    sender: str
+    """Who sent it, as the From header names them"""
+
+    sent_at: datetime
+    """When Gmail received it"""
+
+    text: str
+    """The body as plain text"""
+
+
+class ThreadContent(BaseModel):
+    subject: str
+    """The first message's subject line"""
+
+    messages: list[ThreadMessage]
+    """Every message, oldest first"""
+
+
+class TriageApplication(BaseModel):
+    id: UUID
+    """The application's id, which triage-email names back"""
+
+    company: str
+    """Employer applied to"""
+
+    role: str
+    """Job title applied for"""
+
+
+class TriageEmailInput(BaseModel):
+    thread: ThreadContent
+    """The thread to read"""
+
+    applications: list[TriageApplication]
+    """The user's applications the thread may be about"""
+
+
+class Interview(BaseModel):
+    start: datetime
+    """When it starts"""
+
+    end: datetime | None
+    """When it ends, if the email says"""
+
+    format: Literal["video", "phone", "on_site"] | None
+    """How it takes place, if the email says"""
+
+    location: str | None
+    """Where, such as an address or a video link"""
+
+
+class TriageEmailOutput(BaseModel):
+    state: ThreadState
+    """What the thread needs"""
+
+    application_id: UUID | None
+    """Which of the applications sent it is about"""
+
+    decide_by: date | None
+    """An offer's deadline"""
+
+    interview: Interview | None
+    """The interview the thread confirms"""
 
 
 class ReplyCreate(BaseModel):
@@ -52,4 +139,15 @@ class EmailCreate(ReplyCreate):
     """The subject line"""
 
 
-__all__ = ["EmailCreate", "InboxMessage", "InboxMessageDetail", "ReplyCreate"]
+__all__ = [
+    "EmailCreate",
+    "InboxList",
+    "InboxMessage",
+    "InboxMessageDetail",
+    "ReplyCreate",
+    "ThreadContent",
+    "ThreadMessage",
+    "TriageApplication",
+    "TriageEmailInput",
+    "TriageEmailOutput",
+]
