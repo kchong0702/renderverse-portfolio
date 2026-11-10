@@ -1,5 +1,6 @@
 job_sources = ["jsearch"]
 harness_profiles = "harness_profiles.yaml"
+reasoning_effort = "low"
 
 [app]
 name = "ezcareer-harness"
