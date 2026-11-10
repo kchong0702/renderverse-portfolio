@@ -1,15 +1,12 @@
 import asyncio
-from collections.abc import AsyncIterator
 
 import pytest
-from fastapi import FastAPI
-from sqlalchemy import delete, text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import text
 
 from src.core.auth.models import User
 from src.core.config import get_settings
 from src.features.settings.models import UserSettings
-from tests.conftest import PREFIX, FakeArtifact, FakeGoogle, FakeHarness, _app, _client
+from tests.conftest import PREFIX, _client
 from tests.core.conftest import DATABASE_URL
 
 
@@ -92,20 +89,6 @@ async def test_rows_record_who_created_and_changed_them(app, client):
     assert row is not None
     assert row.created_by == "system"
     assert row.updated_by == f"user:{user.id}"
-
-
-@pytest.fixture
-async def postgres_app(
-    harness: FakeHarness, artifact: FakeArtifact, google: FakeGoogle
-) -> AsyncIterator[FastAPI]:
-    """The app on the test Postgres database, its dev user deleted after the test"""
-    engine = create_async_engine(DATABASE_URL)
-    async for app in _app(harness, artifact, google, engine=engine):
-        yield app
-        async with app.state.session_factory() as session, session.begin():
-            await session.execute(
-                delete(User).where(User.email == get_settings().auth.dev_email)
-            )
 
 
 @pytest.mark.postgres

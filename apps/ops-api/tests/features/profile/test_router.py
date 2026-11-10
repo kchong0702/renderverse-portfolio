@@ -1,9 +1,15 @@
+import asyncio
 from uuid import uuid4
 
+import pytest
+from sqlalchemy import text
+
 from src.core.auth.models import User
+from src.core.config import get_settings
 from src.features.profile.enums import EntryKind
-from src.features.profile.models import ProfileEntry
-from tests.conftest import PREFIX
+from src.features.profile.models import Profile, ProfileEntry
+from tests.conftest import PREFIX, _client
+from tests.core.conftest import DATABASE_URL
 
 PROFILE = f"{PREFIX}/profile"
 
@@ -204,3 +210,28 @@ async def test_agent_profile_has_the_harness_shape(client):
             "min_salary": None,
         },
     }
+
+
+@pytest.mark.postgres
+@pytest.mark.skipif(not DATABASE_URL, reason="OPS_API_TEST_DATABASE_URL is not set")
+async def test_a_first_read_that_overlaps_another_gets_the_profile(postgres_app):
+    async with (
+        postgres_app.state.session_factory() as other,
+        _client(postgres_app) as client,
+    ):
+        user = User(email=get_settings().auth.dev_email)
+        other.add(user)
+        await other.commit()
+        other.add(Profile(user_id=user.id, name="Kelvin Chong"))
+        await other.flush()
+        reading = asyncio.create_task(client.get(PROFILE))
+        async with asyncio.timeout(5):
+            while not await other.scalar(
+                text("SELECT count(*) FROM pg_locks WHERE NOT granted")
+            ):
+                await asyncio.sleep(0.01)
+        await other.commit()
+        response = await reading
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Kelvin Chong"

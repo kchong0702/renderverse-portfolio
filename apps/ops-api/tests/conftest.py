@@ -11,6 +11,7 @@ import pytest
 from dependency_injector import providers
 from fastapi import FastAPI
 from pydantic import JsonValue
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
@@ -454,6 +455,25 @@ async def app(
 async def client(app: FastAPI) -> AsyncIterator[httpx2.AsyncClient]:
     async with _client(app) as http:
         yield http
+
+
+@pytest.fixture
+async def postgres_app(
+    harness: FakeHarness, artifact: FakeArtifact, google: FakeGoogle
+) -> AsyncIterator[FastAPI]:
+    """The app on the test Postgres database, its dev user deleted after the test"""
+    from src.core.auth.models import User
+    from src.core.config import get_settings
+    from tests.core.conftest import DATABASE_URL
+
+    async for app in _app(
+        harness, artifact, google, engine=create_async_engine(DATABASE_URL)
+    ):
+        yield app
+        async with app.state.session_factory() as session, session.begin():
+            await session.execute(
+                delete(User).where(User.email == get_settings().auth.dev_email)
+            )
 
 
 @pytest.fixture
