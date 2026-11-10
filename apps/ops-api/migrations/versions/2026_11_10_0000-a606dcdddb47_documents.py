@@ -49,6 +49,14 @@ def upgrade() -> None:
     op.create_index(
         op.f("ix_documents_user_id"), "documents", ["user_id"], unique=False
     )
+    op.create_index(
+        "uq_documents_master",
+        "documents",
+        ["user_id", "kind"],
+        unique=True,
+        postgresql_where=sa.text("master"),
+        sqlite_where=sa.text("master"),
+    )
     op.create_table(
         "document_changesets",
         sa.Column("document_id", sa.Uuid(), nullable=False),
@@ -157,6 +165,9 @@ def upgrade() -> None:
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_document_versions")),
+        sa.UniqueConstraint(
+            "document_id", "number", name=op.f("uq_document_versions_document_id")
+        ),
     )
     op.create_index(
         op.f("ix_document_versions_document_id"),
@@ -196,5 +207,11 @@ def downgrade() -> None:
         op.f("ix_document_changesets_document_id"), table_name="document_changesets"
     )
     op.drop_table("document_changesets")
+    op.drop_index(
+        "uq_documents_master",
+        table_name="documents",
+        postgresql_where=sa.text("master"),
+        sqlite_where=sa.text("master"),
+    )
     op.drop_index(op.f("ix_documents_user_id"), table_name="documents")
     op.drop_table("documents")

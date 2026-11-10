@@ -4,7 +4,15 @@ from uuid import UUID
 
 from document_schema import AnyDocument, Changeset, DocumentKind
 from pydantic import TypeAdapter
-from sqlalchemy import ForeignKey, LargeBinary, String, Text
+from sqlalchemy import (
+    ForeignKey,
+    Index,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base, EnumString, PydanticJson
@@ -14,6 +22,16 @@ from src.features.documents.enums import ImportStatus
 
 class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
     __tablename__ = "documents"
+    __table_args__ = (
+        Index(
+            "uq_documents_master",
+            "user_id",
+            "kind",
+            unique=True,
+            postgresql_where=text("master"),
+            sqlite_where=text("master"),
+        ),
+    )
 
     kind: Mapped[DocumentKind] = mapped_column(EnumString(DocumentKind))
     """Résumé, CV or cover letter; the same as body's kind"""
@@ -32,6 +50,7 @@ class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
 
 class DocumentVersion(IdMixin, UserScopedMixin, AuditMixin, Base):
     __tablename__ = "document_versions"
+    __table_args__ = (UniqueConstraint("document_id", "number"),)
 
     document_id: Mapped[UUID] = mapped_column(
         ForeignKey("documents.id", ondelete="CASCADE"), index=True
