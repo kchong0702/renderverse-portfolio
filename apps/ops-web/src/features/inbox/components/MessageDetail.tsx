@@ -5,50 +5,60 @@ import { GoogleNotice } from "@/features/settings";
 import { ApiError } from "@/shared/api/http";
 import { buttonClass } from "@/shared/components/button";
 import StateMessage from "@/shared/components/StateMessage";
-import type { InboxMessage } from "../api/inbox";
 import { useMessage } from "../hooks/useInbox";
+import { daysAgo } from "../lib/dates";
+import type { Thread } from "../lib/threads";
 
 interface MessageDetailProps {
-  message: InboxMessage;
+  thread: Thread;
   account: string;
 }
 
-export default function MessageDetail({
-  message,
-  account,
-}: MessageDetailProps) {
+export default function MessageDetail({ thread, account }: MessageDetailProps) {
   const { t, i18n } = useTranslation();
   const headingId = useId();
-  const detail = useMessage(message.id);
+  const detail = useMessage(thread.id);
+  const received = new Date(thread.received_at);
+  const time = received.toLocaleTimeString(i18n.language, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
 
   return (
     <article
       aria-labelledby={headingId}
-      className="bg-panel border-hair shadow-card flex min-w-0 flex-[999_1_420px] flex-col gap-5 rounded-xl border px-[30px] py-7"
+      className="bg-panel border-hair shadow-card flex min-w-0 flex-[999_1_460px] flex-col gap-5 rounded-xl border px-[30px] py-[26px]"
     >
       <div className="flex flex-col gap-1">
-        <h2
-          id={headingId}
-          className="m-0 text-[22px] leading-tight font-semibold"
-        >
-          {message.subject || t("inbox.noSubject")}
+        <h2 id={headingId} className="m-0 text-[20px] font-semibold">
+          {thread.subject || t("inbox.noSubject")}
         </h2>
-        <span className="text-ink-3 text-sm break-words">
+        <span className="text-ink-3 text-[14px] break-words">
           {[
-            `${message.from_name} <${message.from_email}>`,
-            new Date(message.received_at).toLocaleString(i18n.language, {
-              dateStyle: "medium",
-              timeStyle: "short",
-              hourCycle: "h23",
-            }),
-            detail.data?.to && t("inbox.to", { to: detail.data.to }),
+            thread.from_name,
+            daysAgo(received) === 0
+              ? t("inbox.today", { time })
+              : received.toLocaleString(i18n.language, {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hourCycle: "h23",
+                }),
+            thread.application &&
+              t("inbox.linked", {
+                role: thread.application.role,
+                stage: t(`applications.stages.${thread.application.stage}`),
+              }),
           ]
             .filter(Boolean)
             .join(" · ")}
         </span>
       </div>
       {detail.isPending ? (
-        <p className="text-ink-3 m-0 text-sm">{t("common.loading")}</p>
+        <p className="text-ink-3 m-0 text-[14px]">{t("common.loading")}</p>
       ) : detail.isError ? (
         detail.error instanceof ApiError && detail.error.status === 409 ? (
           <GoogleNotice problem="expired" next="/inbox" />
@@ -59,12 +69,12 @@ export default function MessageDetail({
         )
       ) : (
         <p className="text-ink-2 m-0 max-w-[72ch] break-words whitespace-pre-line">
-          {detail.data.body || message.snippet}
+          {detail.data.body || thread.snippet}
         </p>
       )}
       <div>
         <a
-          href={`https://mail.google.com/mail/u/${account}/#all/${message.thread_id}`}
+          href={`https://mail.google.com/mail/u/${account}/#all/${thread.thread_id}`}
           target="_blank"
           rel="noreferrer"
           className={buttonClass()}

@@ -750,12 +750,15 @@
   },
   "inbox": {
     "title": "Inbox",
-    "subtitle": "Gmail · {{account}}",
-    "refresh": "Refresh",
-    "messages": "Emails",
-    "unread": "Unread",
+    "subtitle": "Gmail connected",
+    "sync": "Sync now",
+    "threads": "Threads",
+    "followUps": "Follow-ups due",
+    "noReply": "Applied {{days}} days ago, no reply",
     "noSubject": "(No subject)",
-    "to": "To {{to}}",
+    "yesterday": "Yesterday",
+    "today": "today {{time}}",
+    "linked": "linked to {{role}}, {{stage}}",
     "openInGmail": "Open in Gmail",
     "empty": "No job-search emails match the Gmail search yet.",
     "loadFailed": "Inbox could not be loaded: {{reason}}",
@@ -953,8 +956,8 @@
         "What changed since the last release?"
       ],
       "inbox": [
-        "Which emails need an answer today?",
         "Draft a reply to the latest employer email",
+        "Which emails need an answer today?",
         "Summarise my latest offer"
       ],
       "calendar": [
