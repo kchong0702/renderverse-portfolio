@@ -151,7 +151,7 @@ def test_career_director_finds_jobs_for_the_users_preferences_through_find_jobs(
 
     assert task["status"]["state"] == "TASK_STATE_COMPLETED"
     [report] = [m for m in director.requests[1] if isinstance(m, ToolMessage)]
-    assert json.loads(report.text) == {"jobs": []}
+    assert json.loads(report.text) == {"jobs": [], "quota": None}
     assert '"work_modes":["remote"]' in finder.requests[0][-1].text
 
 

@@ -43,6 +43,11 @@ def _truncate_longtext(_: Any, __: str, event_dict: EventDict) -> EventDict:
     return event_dict
 
 
+def _without_request_body(record: logging.LogRecord) -> bool:
+    """Drops the A2A server's request body line, which carries keys from metadata"""
+    return record.msg != "Request body: %s"
+
+
 def _build_shared_processors(obs: ObservabilitySettings, env: str) -> list[Processor]:
     """Build shared processors for structlog and stdlib"""
     return [
@@ -109,6 +114,9 @@ def configure_logging(settings: Settings | None = None, *, force: bool = False) 
         root.removeHandler(existing)
     root.addHandler(handler)
     root.setLevel(obs.log_level)
+    logging.getLogger("a2a.server.routes.jsonrpc_dispatcher").addFilter(
+        _without_request_body
+    )
 
     _configured = True
 

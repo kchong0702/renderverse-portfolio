@@ -4,6 +4,8 @@ from src.adapters.job_sources.jsearch.client import retryable, search
 from src.adapters.job_sources.jsearch.query import JSearchQuery
 from src.adapters.job_sources.protocol import SearchResult
 from src.core.config import get_settings
+from src.shared.jobs import JobSearch, PostedWithin
+from src.shared.run_context import RunContext
 
 
 class JSearchAdapter:
@@ -23,6 +25,33 @@ class JSearchAdapter:
         )
         """Opens after failed pages in a row so later pages fail at once"""
 
-    async def search(self, query: JSearchQuery) -> SearchResult:
-        """Searches Google for Jobs through JSearch"""
-        return await search(self._settings, self._circuit, query)
+    async def search(
+        self,
+        query: JSearchQuery,
+        user_search: JobSearch | None,
+        context: RunContext | None,
+    ) -> SearchResult:
+        """Searches Google for Jobs through JSearch, with the user's query, location
+        and posting age over the agent's, on the run's key when it has one"""
+        if user_search:
+            text = user_search.query or query.query
+            query = query.model_copy(
+                update={
+                    "query": f"{text} in {user_search.location}"
+                    if user_search.location
+                    else text,
+                    "date_posted": {
+                        PostedWithin.DAY: "today",
+                        PostedWithin.WEEK: "week",
+                        PostedWithin.MONTH: "month",
+                    }[user_search.posted_within]
+                    if user_search.posted_within
+                    else query.date_posted,
+                }
+            )
+        return await search(
+            self._settings,
+            self._circuit,
+            query,
+            (context and context.jsearch_api_key) or self._settings.api_key,
+        )

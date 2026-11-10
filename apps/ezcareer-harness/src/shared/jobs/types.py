@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from src.shared.jobs.enums import PostedWithin
 from src.shared.profile import CountryCode
 
 
@@ -48,3 +49,30 @@ class JobPosting(BaseModel):
 
     lines: list[PostingLine]
     """The description, numbered from 1; untrusted"""
+
+
+class JobSearch(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, use_attribute_docstrings=True
+    )
+
+    query: str | None = None
+    """Job titles and skills the user searched for; None leaves them to the agent"""
+
+    location: str | None = None
+    """City or region the user searched in; None leaves it to the agent"""
+
+    posted_within: PostedWithin | None = None
+    """How recent the jobs must be; None leaves it to the agent"""
+
+
+class Quota(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, use_attribute_docstrings=True
+    )
+
+    remaining: int
+    """Requests left this period"""
+
+    limit: int
+    """Requests allowed this period"""

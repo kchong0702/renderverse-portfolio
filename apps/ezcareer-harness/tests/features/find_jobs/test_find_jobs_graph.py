@@ -5,6 +5,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from src.app.container import Container
 from src.core.config import reload_settings
 from src.features.find_jobs import build_graph
+from src.shared.jobs import Quota
 from tests.agents.job_finder.test_search_jobs import RESPONSE
 from tests.conftest import ScriptedChatModel
 
@@ -82,3 +83,56 @@ async def test_unknown_jobs_go_back_and_the_ranking_comes_out_by_fit(jsearch):
     feedback = [m.text for m in model.requests[-1] if isinstance(m, HumanMessage)]
     assert '"GB"' in feedback[0]
     assert "unknown_job" in feedback[-1]
+
+
+@respx.mock
+async def test_the_users_search_reaches_jsearch_and_the_quota_comes_out(
+    isolate_env, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("EZCAREER_HARNESS_JSEARCH__API_KEY", "test-key")
+    reload_settings()
+    route = respx.get("https://jsearch.p.rapidapi.com/search-v2").respond(
+        200,
+        text=RESPONSE,
+        headers={
+            "x-ratelimit-requests-remaining": "41",
+            "x-ratelimit-requests-limit": "200",
+        },
+    )
+    model = ScriptedChatModel(
+        replies=[
+            _call("read_file", file_path="/search-jobs/SKILL.md"),
+            _call("search_jobs", query="backend engineer python", date_posted="week"),
+            _ranked(BACKEND),
+        ]
+    )
+
+    result = await build_graph(Container().job_finder.agent(model=model)).ainvoke(
+        INPUT
+        | {
+            "search": {
+                "query": "platform engineer",
+                "location": "Bristol",
+                "posted_within": "month",
+            }
+        }
+    )
+
+    params = route.calls.last.request.url.params
+    assert (params["query"], params["date_posted"]) == (
+        "platform engineer in Bristol",
+        "month",
+    )
+    assert result["quota"] == Quota(remaining=41, limit=200)
+    assert '"location":"Bristol"' in model.requests[0][1].text
+    monkeypatch.undo()
+    reload_settings()
+
+
+async def test_a_run_without_a_search_has_no_quota(jsearch):
+    model = ScriptedChatModel(replies=[_ranked()])
+
+    result = await build_graph(Container().job_finder.agent(model=model)).ainvoke(INPUT)
+
+    assert result == {"jobs": [], "quota": None}
+    assert "My search" not in model.requests[0][1].text

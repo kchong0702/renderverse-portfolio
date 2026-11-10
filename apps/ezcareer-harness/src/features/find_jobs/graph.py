@@ -7,13 +7,14 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.adapters.job_sources import SearchResult
 from src.agents import AgentOverride
 from src.core.config import get_settings
 from src.features.find_jobs.configurations import CHECKS, FindJobsConfigurations
 from src.features.find_jobs.ranking import matched_jobs
 from src.features.find_jobs.schemas import MatchedJob, RankedJobs
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
-from src.shared.jobs import JobPosting
+from src.shared.jobs import JobPosting, JobSearch, Quota
 from src.shared.profile import Preferences, Profile, ProfileFact
 
 
@@ -26,6 +27,9 @@ class FindJobsInput(BaseModel):
     preferences: Preferences = Field(default_factory=Preferences)
     """What the user wants from a job"""
 
+    search: JobSearch | None = None
+    """The user's own search, whose fields replace the agent's in each search"""
+
     messages: Annotated[list[AnyMessage], add_messages] = Field(default_factory=list)
     """The user's note, if any, then the agent's conversation across check rounds"""
 
@@ -35,6 +39,9 @@ class FindJobsOutput(BaseModel):
 
     jobs: list[MatchedJob] = Field(default_factory=list)
     """Ranked jobs with their computed fit, for ops"""
+
+    quota: Quota | None = None
+    """JSearch's requests left and allowed after the last search, if it said"""
 
 
 class FindJobsState(FindJobsInput, FindJobsOutput):
@@ -47,30 +54,47 @@ class FindJobsState(FindJobsInput, FindJobsOutput):
     """What the latest check found"""
 
 
-def _postings(messages: list[AnyMessage]) -> list[JobPosting]:
-    """Every posting search_jobs returned in the conversation"""
+def _searches(messages: list[AnyMessage]) -> list[SearchResult]:
+    """What each search_jobs call in the conversation returned"""
     return [
-        posting
+        message.artifact
         for message in messages
-        if isinstance(message, ToolMessage) and message.name == "search_jobs"
-        for posting in message.artifact or []
+        if isinstance(message, ToolMessage)
+        and message.name == "search_jobs"
+        and message.artifact
     ]
 
 
+def _postings(messages: list[AnyMessage]) -> list[JobPosting]:
+    """Every posting search_jobs returned in the conversation"""
+    return [posting for result in _searches(messages) for posting in result.postings]
+
+
 def _brief(state: FindJobsState) -> dict:
-    """Ask the agent for jobs, handing it the user's preferences"""
+    """Ask the agent for jobs, handing it the user's preferences and own search"""
     return {
         "messages": [
             HumanMessage(
-                f"Find jobs for me. My preferences: {state.preferences.model_dump_json()}"
+                f"Find jobs for me. My preferences: {state.preferences.model_dump_json()}."
+                + (
+                    f" My search: {state.search.model_dump_json(exclude_none=True)}."
+                    " search_jobs uses its fields over yours."
+                    if state.search
+                    else ""
+                )
             )
         ]
     }
 
 
 def _output(state: FindJobsState) -> dict:
-    """Join the ranked jobs with their postings, highest fit first"""
-    return {"jobs": matched_jobs(state.structured_response, _postings(state.messages))}
+    """Join the ranked jobs with their postings, highest fit first, and add the
+    quota the last search reported"""
+    quotas = [result.quota for result in _searches(state.messages) if result.quota]
+    return {
+        "jobs": matched_jobs(state.structured_response, _postings(state.messages)),
+        "quota": quotas[-1] if quotas else None,
+    }
 
 
 def build_graph(

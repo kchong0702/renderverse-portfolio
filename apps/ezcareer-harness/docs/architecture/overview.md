@@ -94,6 +94,15 @@ The A2A task becomes `input-required`, and its message carries the request as a 
 
 A question for the user, from `clarify` or `permission`, pauses the run in the same way, with a widget instead of `fetch`.
 
+## Run metadata
+
+A request's `params.metadata` sets up one run. `LanggraphExecutor` validates it as `RunMetadata` and hands it to the graph as the `RunContext` runtime context:
+
+- `model` picks the model every LLM call of the run uses. `dynamic_model_call` applies it. Without it, each agent keeps its own.
+- `jsearch.api_key` is the user's own RapidAPI key. `search_jobs` hands the run context to each job source, and JSearch searches on this key instead of `EZCAREER_HARNESS_JSEARCH__API_KEY`.
+
+A key in metadata stays out of the message, the task store and the logs. It is a `SecretStr`, `RunMetadata` hides its input in validation errors, and the logging setup drops the A2A server's debug line that dumps the request body.
+
 ## Streaming
 
 Clients call `SendStreamingMessage`. `LanggraphExecutor` streams the graph with `stream_mode=["values", "messages", "tasks"]` and turns it into A2A events:

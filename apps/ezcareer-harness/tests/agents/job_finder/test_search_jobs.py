@@ -8,14 +8,16 @@ from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 
 from src.adapters.job_sources import SearchResult, SourceUnavailable
 from src.adapters.job_sources.jsearch import JSearchAdapter
 from src.agents.job_finder.tools import search_jobs_tool
 from src.core.config import reload_settings
 from src.shared.factory import Factory
+from src.shared.jobs import JobSearch, PostedWithin, Quota
 from src.shared.profile import Preferences
+from src.shared.run_context import RunContext
 
 URL = "https://jsearch.p.rapidapi.com/search-v2"
 RESPONSE = (Path(__file__).parent / "fixtures" / "jsearch_search.json").read_text()
@@ -31,11 +33,15 @@ def _page(count: int, cursor: str | None, start: int = 0) -> httpx.Response:
 
 
 async def _search(
-    tool: BaseTool, preferences: Preferences | None = None, **args
+    tool: BaseTool,
+    preferences: Preferences | None = None,
+    search: JobSearch | None = None,
+    context: RunContext | None = None,
+    **args,
 ) -> ToolMessage:
     runtime = ToolRuntime(
-        state={"preferences": preferences or Preferences()},
-        context=None,
+        state={"preferences": preferences or Preferences(), "search": search},
+        context=context,
         config={},
         stream_writer=lambda _: None,
         tool_call_id="1",
@@ -60,7 +66,12 @@ class _DownSource:
     query = _OtherQuery
     """Its own arguments"""
 
-    async def search(self, query: _OtherQuery) -> SearchResult:
+    async def search(
+        self,
+        query: _OtherQuery,
+        user_search: JobSearch | None,
+        context: RunContext | None,
+    ) -> SearchResult:
         """Can't search"""
         raise SourceUnavailable("other is down")
 
@@ -109,7 +120,7 @@ async def test_returns_jobs_newest_first_with_duplicates_removed(search_jobs):
 
     message = await _search(search_jobs, query="backend engineer python")
 
-    assert [job.id for job in message.artifact] == [
+    assert [job.id for job in message.artifact.postings] == [
         "pQ7mN2_newest==",
         "aB3xK9_newer-copy==",
         "zZ1undated==",
@@ -122,7 +133,9 @@ async def test_returns_jobs_newest_first_with_duplicates_removed(search_jobs):
 async def test_numbers_description_lines_and_keeps_posting_details(search_jobs):
     respx.get(URL).respond(200, text=RESPONSE)
 
-    acme = (await _search(search_jobs, query="backend engineer python")).artifact[1]
+    acme = (
+        await _search(search_jobs, query="backend engineer python")
+    ).artifact.postings[1]
 
     assert (acme.title, acme.company, acme.location, acme.country, acme.remote) == (
         "Senior Backend Engineer",
@@ -151,7 +164,7 @@ async def test_leaves_out_jobs_that_break_the_users_preferences(search_jobs):
         query="backend engineer python",
     )
 
-    assert [job.id for job in message.artifact] == ["pQ7mN2_newest=="]
+    assert [job.id for job in message.artifact.postings] == ["pQ7mN2_newest=="]
     assert "London" not in message.content
 
 
@@ -194,7 +207,7 @@ async def test_pages_by_cursor_until_it_has_thirty_jobs(search_jobs):
     message = await _search(search_jobs, query="backend engineer")
 
     assert route.call_count == 3
-    assert len(message.artifact) == 30
+    assert len(message.artifact.postings) == 30
 
 
 @respx.mock
@@ -204,7 +217,7 @@ async def test_fetches_one_page_when_asked_for_ten_jobs(search_jobs):
     message = await _search(search_jobs, query="backend engineer", max_jobs=10)
 
     assert route.call_count == 1
-    assert len(message.artifact) == 10
+    assert len(message.artifact.postings) == 10
 
 
 @respx.mock
@@ -214,18 +227,102 @@ async def test_stops_when_jsearch_has_no_more_pages(search_jobs):
     message = await _search(search_jobs, query="backend engineer")
 
     assert route.call_count == 1
-    assert len(message.artifact) == 4
+    assert len(message.artifact.postings) == 4
 
 
 @respx.mock
-async def test_tells_the_agent_how_many_requests_are_left(search_jobs):
+async def test_reads_the_quota_from_jsearchs_rate_limit_headers(search_jobs):
     respx.get(URL).respond(
-        200, text=RESPONSE, headers={"x-ratelimit-requests-remaining": "42"}
+        200,
+        text=RESPONSE,
+        headers={
+            "x-ratelimit-requests-remaining": "42",
+            "x-ratelimit-requests-limit": "200",
+        },
     )
 
     message = await _search(search_jobs, query="backend engineer")
 
     assert json.loads(message.content)["requests_left"] == 42
+    assert message.artifact.quota == Quota(remaining=42, limit=200)
+
+
+@respx.mock
+async def test_has_no_quota_when_jsearch_sends_no_rate_limit_headers(search_jobs):
+    respx.get(URL).respond(200, text=RESPONSE)
+
+    message = await _search(search_jobs, query="backend engineer")
+
+    assert json.loads(message.content)["requests_left"] is None
+    assert message.artifact.quota is None
+
+
+@respx.mock
+async def test_the_users_search_replaces_the_agents_query_location_and_age(
+    search_jobs,
+):
+    route = respx.get(URL).respond(200, text=RESPONSE)
+
+    await _search(
+        search_jobs,
+        search=JobSearch(
+            query="staff engineer",
+            location="Manchester",
+            posted_within=PostedWithin.DAY,
+        ),
+        query="backend engineer python in London",
+        country="GB",
+        date_posted="month",
+    )
+
+    params = route.calls.last.request.url.params
+    assert params["query"] == "staff engineer in Manchester"
+    assert params["date_posted"] == "today"
+    assert params["country"] == "gb"
+
+
+@respx.mock
+async def test_fields_the_user_left_out_stay_the_agents(search_jobs):
+    route = respx.get(URL).respond(200, text=RESPONSE)
+
+    await _search(
+        search_jobs,
+        search=JobSearch(location="Leeds"),
+        query="backend engineer",
+        date_posted="month",
+    )
+
+    params = route.calls.last.request.url.params
+    assert params["query"] == "backend engineer in Leeds"
+    assert params["date_posted"] == "month"
+
+
+@respx.mock
+async def test_searches_on_the_runs_own_key_over_the_servers(search_jobs):
+    route = respx.get(URL).respond(200, text=RESPONSE)
+
+    await _search(
+        search_jobs,
+        context=RunContext(jsearch_api_key=SecretStr("user-key")),
+        query="backend engineer",
+    )
+
+    assert route.calls.last.request.headers["X-RapidAPI-Key"] == "user-key"
+
+
+@respx.mock
+async def test_a_run_key_searches_when_the_server_has_none(isolate_env):
+    reload_settings()
+    route = respx.get(URL).respond(200, text=RESPONSE)
+
+    message = await _search(
+        search_jobs_tool(Factory({"jsearch": JSearchAdapter}), ["jsearch"]),
+        context=RunContext(jsearch_api_key=SecretStr("user-key")),
+        query="backend engineer",
+    )
+
+    assert route.calls.last.request.headers["X-RapidAPI-Key"] == "user-key"
+    assert len(message.artifact.postings) == 3
 
 
 @respx.mock
@@ -240,7 +337,7 @@ async def test_retries_a_rate_limited_search(search_jobs):
     message = await _search(search_jobs, query="backend engineer python")
 
     assert route.call_count == 2
-    assert len(message.artifact) == 3
+    assert len(message.artifact.postings) == 3
 
 
 @respx.mock
@@ -314,7 +411,7 @@ async def test_one_unavailable_source_leaves_the_others_jobs(api_key):
 
     message = await _search(tool, query="backend engineer python")
 
-    assert len(message.artifact) == 3
+    assert len(message.artifact.postings) == 3
     assert json.loads(message.content)["failures"] == ["other is down"]
 
 

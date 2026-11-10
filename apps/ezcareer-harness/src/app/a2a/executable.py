@@ -14,7 +14,14 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.errors import GraphRecursionError
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command, TaskPayload, TaskResultPayload
-from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    SecretStr,
+    ValidationError,
+)
 from pydantic_core import to_jsonable_python
 
 from src.clients.llm_providers import llm_provider
@@ -40,13 +47,28 @@ class ModelChoice(BaseModel):
     """A model [models] offers for that family"""
 
 
-class RunMetadata(BaseModel):
+class JSearchKey(BaseModel):
     model_config = ConfigDict(
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    model: ModelChoice
-    """The model the user picked for the run"""
+    api_key: SecretStr
+    """The user's own RapidAPI key for JSearch"""
+
+
+class RunMetadata(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+        use_attribute_docstrings=True,
+    )
+
+    model: ModelChoice | None = None
+    """The model the user picked for the run; None keeps each agent's own"""
+
+    jsearch: JSearchKey | None = None
+    """The user's JSearch key; None searches on the server's"""
 
 
 class Step(BaseModel):
@@ -203,8 +225,10 @@ class LanggraphExecutor(AgentExecutor):
         except ValidationError as error:
             await updater.failed(_reason(updater, f"Invalid input: {error}"))
             return
-        if metadata and not get_settings().offers(
-            metadata.model.family, metadata.model.model
+        if (
+            metadata
+            and metadata.model
+            and not get_settings().offers(metadata.model.family, metadata.model.model)
         ):
             await updater.failed(
                 _reason(
@@ -228,6 +252,9 @@ class LanggraphExecutor(AgentExecutor):
                 },
                 context=RunContext(
                     model=llm_provider(metadata.model.family, metadata.model.model)
+                    if metadata.model
+                    else None,
+                    jsearch_api_key=metadata.jsearch and metadata.jsearch.api_key,
                 )
                 if metadata
                 else None,
