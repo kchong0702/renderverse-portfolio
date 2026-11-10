@@ -60,9 +60,20 @@ class DocumentSummary(DocumentMatch):
     """Agent changesets waiting for the user to accept or reject"""
 
 
+class LineRead(BaseModel):
+    id: str
+    """Page and line number, such as p1.s41, which the document's values cite"""
+
+    text: str
+    """The line's text"""
+
+
 class DocumentRead(DocumentSummary):
     body: AnyDocument
     """The current draft"""
+
+    lines: list[LineRead]
+    """The imported file's lines its values cite; empty for a document not imported"""
 
     pending_body: AnyDocument | None
     """The draft with the pending changeset's edits applied; None when none waits"""
@@ -252,6 +263,7 @@ __all__ = [
     "ImportRead",
     "ImportResumeInput",
     "ImportResumeOutput",
+    "LineRead",
     "VersionCreate",
     "VersionRead",
 ]

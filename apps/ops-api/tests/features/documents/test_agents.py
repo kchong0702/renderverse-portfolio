@@ -67,6 +67,7 @@ async def test_reading_an_import_makes_its_draft(client, harness):
     assert read.json()["status"] == "done"
     assert read.json()["error"] == ""
     document = (await client.get(f"{DOCUMENTS}/{read.json()['document_id']}")).json()
+    assert document["lines"] == [{"id": "p1.s1", "text": "Kelvin Chong"}]
     assert document["title"] == "kelvin-chong-resume"
     assert document["kind"] == "resume"
     assert document["body"]["content"]["blocks"][0]["name"]["src"] == ["p1.s1"]

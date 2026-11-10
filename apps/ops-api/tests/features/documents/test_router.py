@@ -91,6 +91,7 @@ async def test_create_read_rename_and_list(client):
     assert created["master"] is False
     assert created["pending_changesets"] == 0
     assert created["body"]["design"]["template"] == "classic"
+    assert created["lines"] == []
 
     renamed = await client.patch(
         f"{DOCUMENTS}/{created['id']}", json={"title": "Résumé for Lumen Pay"}
