@@ -1,3 +1,4 @@
+import { useMutationState } from "@tanstack/react-query";
 import { ScanSearch } from "lucide-react";
 import { useEffect, useId } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,6 +8,7 @@ import { relativeDay } from "@/shared/lib/dates";
 import type { Job, Match } from "../api/jobs";
 import { useAnalyseJob, useUpdateJob } from "../hooks/useJobs";
 import { BAND_TONES, FIT_INK } from "../lib/fit";
+import { analyseJobMutationOptions } from "../queries/jobs";
 
 const MATCH_CHIP: Record<Match, string> = {
   met: "bg-ok-bg text-ok",
@@ -21,15 +23,18 @@ export default function JobDetail({ job }: { job: Job }) {
   const update = useUpdateJob();
   const { mutate: markSeen } = useUpdateJob();
   const analyse = useAnalyseJob();
-  const analysing = analyse.isPending && analyse.variables === job.id;
-  const analyseFailed =
-    analyse.variables !== job.id
-      ? null
-      : analyse.isError
-        ? analyse.error.message
-        : analyse.data?.status === "failed"
-          ? analyse.data.reason
-          : null;
+  const analysing = useMutationState({
+    filters: {
+      mutationKey: analyseJobMutationOptions.mutationKey,
+      status: "pending",
+    },
+    select: (mutation) => mutation.state.variables,
+  }).includes(job.id);
+  const analyseFailed = analyse.isError
+    ? analyse.error.message
+    : analyse.data?.status === "failed"
+      ? analyse.data.reason
+      : null;
   const { analysis } = job;
   const saved = job.status === "saved";
 

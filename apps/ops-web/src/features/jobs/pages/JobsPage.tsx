@@ -1,3 +1,4 @@
+import { useIsMutating } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
@@ -9,6 +10,7 @@ import StateMessage from "@/shared/components/StateMessage";
 import JobDetail from "../components/JobDetail";
 import JobList from "../components/JobList";
 import { useFindJobs, useJobs } from "../hooks/useJobs";
+import { findJobsMutationOptions } from "../queries/jobs";
 
 const TABS = ["picked", "saved"] as const;
 type JobsTab = (typeof TABS)[number];
@@ -18,6 +20,8 @@ export default function JobsPage() {
   const [params, setParams] = useSearchParams();
   const jobs = useJobs();
   const find = useFindJobs();
+  const finding =
+    useIsMutating({ mutationKey: findJobsMutationOptions.mutationKey }) > 0;
   const tab: JobsTab =
     TABS.find((name) => name === params.get("tab")) ?? "picked";
   const shown = jobs.data?.jobs.filter((job) => job.status === tab) ?? [];
@@ -36,18 +40,18 @@ export default function JobsPage() {
             </Link>
             <button
               type="button"
-              disabled={find.isPending}
+              disabled={finding}
               onClick={() => find.mutate()}
               className={buttonClass("primary")}
             >
               <Sparkles size={16} className="text-amber-soft" />
-              {find.isPending ? t("jobs.runningAgent") : t("jobs.runAgent")}
+              {finding ? t("jobs.runningAgent") : t("jobs.runAgent")}
             </button>
           </>
         }
       />
       <PageBody>
-        {find.isPending ? (
+        {finding ? (
           <p role="status" className="text-ink-3 m-0 text-sm">
             {t("jobs.runningNote")}
           </p>
