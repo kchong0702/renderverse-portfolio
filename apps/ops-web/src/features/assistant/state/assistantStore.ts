@@ -25,7 +25,8 @@ export interface AssistantTurn {
   reconnecting: number;
 }
 
-export type ChatEntry = { role: "user"; text: string } | AssistantTurn;
+export type ChatEntry =
+  { role: "user"; text: string; answered?: boolean } | AssistantTurn;
 
 const upsert = (steps: Step[], step: Step) =>
   steps.some(({ id }) => id === step.id)
@@ -125,7 +126,7 @@ interface AssistantState {
   apply: (chat: Chat, event: RunEvent, id?: string) => void;
   reconnect: (chat: Chat, attempt: number) => void;
   restore: (chat: Chat, entries: ChatEntry[]) => void;
-  newChat: () => void;
+  newChat: (chat: Chat) => void;
 }
 
 const withEntries = (
@@ -184,11 +185,15 @@ export const useAssistantStore = create<AssistantState>()(
         set(({ chats }) => ({
           chats: withEntries(chats, chat, () => entries),
         })),
-      newChat: () =>
-        set(({ chats }) => ({
-          chatId: crypto.randomUUID(),
-          chats: { ...chats, assistant: {} },
-        })),
+      newChat: (chat) =>
+        set(({ chats }) =>
+          chat.kind === "assistant"
+            ? {
+                chatId: crypto.randomUUID(),
+                chats: { ...chats, assistant: {} },
+              }
+            : { chats: withEntries(chats, chat, () => []) },
+        ),
     }),
     {
       name: "ops:assistant",
