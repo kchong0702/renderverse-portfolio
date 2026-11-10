@@ -10,6 +10,7 @@ import {
   htmlToText,
   newText,
   nodeAt,
+  nodeText,
 } from "../lib/fields";
 
 const STATUS_TONE = {
@@ -49,10 +50,12 @@ export default function ChangesPanel({
       case "insert_block":
         return t("documents.changes.insertBlock", {
           kind: kindLabel(edit.block.kind),
+          text: nodeText(edit.block),
         });
       case "insert_item":
         return t("documents.changes.insertItem", {
           parent: fieldLabel(edit.parent),
+          text: nodeText(edit.item),
         });
       case "move":
         return t("documents.changes.move", {
