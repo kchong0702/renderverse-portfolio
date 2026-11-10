@@ -1,14 +1,28 @@
 from functools import partial, update_wrapper
 
 from langchain.tools import ToolRuntime
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AnyMessage, HumanMessage, ToolMessage
 from langchain_core.tools import BaseTool, StructuredTool, ToolException
 from langgraph.graph.state import CompiledStateGraph
-from pydantic import ConfigDict, Field, ValidationError, create_model
+from pydantic import ConfigDict, Field, TypeAdapter, ValidationError, create_model
 
 from src.agents.career_director.state import CareerDirectorState
+from src.agents.career_director.types import DocumentSummary
 from src.core.errors import ExecuteError
-from src.shared.tool_artifact import ToolArtifact
+from src.shared.tool_artifact import StepDetail, ToolArtifact
+
+
+def _title(messages: list[AnyMessage], document_id: str) -> StepDetail:
+    """The document's title as find_documents last listed it, when it did"""
+    titles = {
+        document.id: document.title
+        for message in messages
+        if isinstance(message, ToolMessage)
+        and message.name == "find_documents"
+        and message.status == "success"
+        for document in TypeAdapter(list[DocumentSummary]).validate_json(message.text)
+    }
+    return {"step_detail": titles[document_id]} if document_id in titles else {}
 
 
 async def _edit_document(
@@ -16,7 +30,7 @@ async def _edit_document(
     runtime: ToolRuntime[None, CareerDirectorState],
     document_id: str,
     request: str,
-) -> tuple[str, ToolArtifact | None]:
+) -> tuple[str, ToolArtifact | StepDetail]:
     """Hands the user's request about one résumé, CV or cover letter to the edit
     flow, which replies and may propose a checked changeset for the user"""
     try:
@@ -31,8 +45,9 @@ async def _edit_document(
         )
     except (ValidationError, ExecuteError) as error:
         raise ToolException(str(error)) from error
+    detail = _title(runtime.state["messages"], document_id)
     if output["changeset"] is None:
-        return output["reply"], None
+        return output["reply"], detail
     return (
         (
             f"{output['reply']}\n\nEdits proposed: {len(output['changeset'].edits)}."
@@ -44,6 +59,7 @@ async def _edit_document(
                 "document_id": document_id,
                 "changeset": output["changeset"].model_dump(mode="json"),
             },
+            **detail,
         },
     )
 

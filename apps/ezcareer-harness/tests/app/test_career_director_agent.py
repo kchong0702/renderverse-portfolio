@@ -45,10 +45,14 @@ def _send(
 
 
 def _stream(
-    client: TestClient, parts: list[dict[str, JsonValue]]
+    client: TestClient,
+    parts: list[dict[str, JsonValue]],
+    task: dict[str, JsonValue] | None = None,
 ) -> list[dict[str, JsonValue]]:
     """Every event SendStreamingMessage sends for one message"""
     message = {"messageId": f"m-{id(parts)}", "role": "ROLE_USER", "parts": parts}
+    if task:
+        message |= {"taskId": task["taskId"], "contextId": task["contextId"]}
     with client.stream(
         "POST",
         "/ezcareer/a2a/career-director",
@@ -342,3 +346,51 @@ def test_career_director_streams_its_thinking_steps_and_reply():
         ("career-director", "It fits 67%."),
     ]
     assert events[-1]["statusUpdate"]["status"]["state"] == "TASK_STATE_COMPLETED"
+
+
+def _steps(events: list[dict[str, JsonValue]]) -> list[dict[str, JsonValue]]:
+    return [
+        e["statusUpdate"]["status"]["message"]["parts"][0]["data"]["step"]
+        for e in events
+        if "step"
+        in e.get("statusUpdate", {})
+        .get("status", {})
+        .get("message", {"parts": [{}]})["parts"][0]
+        .get("data", {})
+    ]
+
+
+def test_finished_steps_carry_what_their_tools_found_and_worked_on():
+    consultant = career_consultant._model(
+        career_consultant.READ_SKILL,
+        career_consultant._propose(career_consultant.GOOD_EDIT),
+        career_consultant.DONE,
+    )
+    director = _model(
+        _find(name="backend résumé", kind="resume"),
+        _call("edit_document", document_id="doc-1", request=REQUEST),
+        AIMessage("I proposed one edit."),
+    )
+    client = TestClient(create_app(_container(_model(), consultant, director)))
+
+    finding = _stream(client, _director_request())
+    task = finding[-1]["statusUpdate"]
+    fetching = _stream(client, [{"data": {"documents": [BACKEND]}}], task=task)
+    done = _stream(client, [{"data": _fetched()}], task=task)
+
+    details = [
+        (s["name"], s["detail"])
+        for s in _steps(finding + fetching + done)
+        if s["status"] == "done"
+    ]
+    assert details == [
+        ("find_documents", "1 résumé"),
+        ("load", None),
+        (
+            "agent",
+            "citing Ran production workloads on Kubernetes at Lumen Pay since 2022",
+        ),
+        ("page_fit", None),
+        ("output", None),
+        ("edit_document", "Backend résumé"),
+    ]

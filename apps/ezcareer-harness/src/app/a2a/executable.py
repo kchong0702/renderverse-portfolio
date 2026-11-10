@@ -64,6 +64,19 @@ class Step(BaseModel):
     status: Literal["running", "done", "failed", "waiting"]
     """Where the step is"""
 
+    detail: str | None = None
+    """What the step found or worked on, in plain words, such as 1 cover letter"""
+
+
+def _details(task: TaskResultPayload) -> dict[str, str]:
+    """The step detail each tool call in the task's result returned, by call id"""
+    details: dict[str, str] = {}
+    for message in task["result"].get("messages", []):
+        match message:
+            case ToolMessage(artifact={"step_detail": str() as detail}):
+                details[message.tool_call_id] = detail
+    return details
+
 
 def _steps(
     kind: Literal["workflow", "agent"],
@@ -72,7 +85,7 @@ def _steps(
     calls: dict[str, list[tuple[str, str]]],
 ) -> list[Step]:
     """The steps a graph task starts or ends: an agent's tool calls and the nodes of
-    the workflows they run, or a workflow's own nodes"""
+    the workflows they run, or a workflow's own nodes, with the details tools set"""
     if "." in task["name"]:
         return []
     status: Literal["running", "done", "failed", "waiting"]
@@ -85,24 +98,46 @@ def _steps(
         status = "failed"
     else:
         status = "waiting" if task["interrupts"] else "done"
+    details = {} if "input" in task else _details(task)
+    detail = [*details.values()][-1] if details else None
     if kind == "workflow":
         return (
             []
             if namespace
-            else [Step(id=task["id"], parent=None, name=task["name"], status=status)]
+            else [
+                Step(
+                    id=task["id"],
+                    parent=None,
+                    name=task["name"],
+                    status=status,
+                    detail=detail,
+                )
+            ]
         )
     if not namespace and task["name"] == "tools":
         if "input" in task:
             calls[task["id"]] = [(call["id"], call["name"]) for call in task["input"]]
         return [
-            Step(id=call_id, parent=None, name=name, status=status)
+            Step(
+                id=call_id,
+                parent=None,
+                name=name,
+                status=status,
+                detail=details.get(call_id),
+            )
             for call_id, name in calls.get(task["id"], [])
         ]
     if len(namespace) == 1 and (
         parent := calls.get(namespace[0].removeprefix("tools:"))
     ):
         return [
-            Step(id=task["id"], parent=parent[0][0], name=task["name"], status=status)
+            Step(
+                id=task["id"],
+                parent=parent[0][0],
+                name=task["name"],
+                status=status,
+                detail=detail,
+            )
         ]
     return []
 

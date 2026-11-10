@@ -129,10 +129,12 @@ async def test_a_single_match_is_edited_by_id_and_the_changeset_is_an_artifact()
     ]
     [found] = _reports(result, "find_documents")
     assert json.loads(found.text) == [BACKEND]
+    assert found.artifact == {"step_detail": "1 résumé"}
     [report] = _reports(result, "edit_document")
     assert report.text.startswith(career_consultant.DONE.text)
     assert "Edits proposed: 1." in report.text
     assert report.artifact["name"] == "changeset"
+    assert report.artifact["step_detail"] == "Backend résumé"
     assert report.artifact["data"]["document_id"] == "doc-1"
     assert report.artifact["data"]["changeset"]["edits"] == [
         career_consultant.GOOD_EDIT.model_dump(mode="json")
@@ -171,11 +173,15 @@ async def test_several_matches_let_the_user_choose_then_the_choice_is_found():
         {"fetch": "documents", "name": "Backend résumé", "kind": None},
         {"fetch": "document", "id": "doc-1"},
     ]
+    assert [m.artifact for m in _reports(result, "find_documents")] == [
+        {"step_detail": "2 résumés"},
+        {"step_detail": "1 résumé"},
+    ]
     [chosen] = _reports(result, "choose_document")
     assert chosen.text == "Backend résumé"
     [report] = _reports(result, "edit_document")
     assert report.text == career_consultant.DONE.text
-    assert report.artifact is None
+    assert report.artifact == {"step_detail": "Backend résumé"}
 
 
 async def test_a_workflows_question_pauses_the_director_after_the_fetch_and_resumes():

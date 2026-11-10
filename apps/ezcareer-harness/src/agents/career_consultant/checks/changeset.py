@@ -6,7 +6,7 @@ from document_schema import AnyDocument, Changeset, RichValue, Value, apply_edit
 from src.shared.checks import CheckError
 
 
-def _values(node: object, at: str) -> Iterator[tuple[str, Value | RichValue]]:
+def cited_values(node: object, at: str) -> Iterator[tuple[str, Value | RichValue]]:
     """Every Value and RichValue in an edit's JSON, with where it is"""
     match node:
         case {"src": list(), "text": str()}:
@@ -15,10 +15,10 @@ def _values(node: object, at: str) -> Iterator[tuple[str, Value | RichValue]]:
             yield at, RichValue.model_validate(node)
         case dict():
             for key, child in node.items():
-                yield from _values(child, f"{at}/{key}")
+                yield from cited_values(child, f"{at}/{key}")
         case list():
             for index, child in enumerate(node):
-                yield from _values(child, f"{at}/{index}")
+                yield from cited_values(child, f"{at}/{index}")
 
 
 def _words(text: str) -> list[str]:
@@ -67,7 +67,7 @@ def check_changeset(
             )
         )
     for index, edit in enumerate(changeset.edits):
-        for at, value in _values(edit.model_dump(mode="json"), f"edits/{index}"):
+        for at, value in cited_values(edit.model_dump(mode="json"), f"edits/{index}"):
             if not value.src:
                 rule, message = "uncited", f"{value.text!r} cites nothing"
             elif unknown := [s for s in value.src if s not in sources]:

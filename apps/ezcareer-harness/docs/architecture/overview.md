@@ -99,6 +99,7 @@ A question for the user, from `clarify` or `permission`, pauses the run in the s
 Clients call `SendStreamingMessage`. `LanggraphExecutor` streams the graph with `stream_mode=["values", "messages", "tasks"]` and turns it into A2A events:
 
 - **Steps.** Each node, tool call and subgraph task is a working status update whose data part is `{"step": ...}`.
+- **Step details.** A finished step carries `detail`, a short result or target in plain words, such as `1 cover letter`. A tool sets it by returning `{"step_detail": ...}` in its ToolMessage artifact, beside `name` and `data` when it also publishes one. A tool call's step reads its own tool's detail. A node's step reads the last detail its tools set. `find_documents` sets the count by kind, `edit_document` the document's title, and `propose_changeset` the first fact its edits cite, such as `citing Acme Payments`.
 - **Thinking and text.** The model's reasoning and text stream as `thinking` and `text` artifacts, one per model turn. For a workflow, they come from the node that `Executable.reply_node` names.
 - **Tool artifacts.** A tool that returns an artifact `{"name": ..., "data": ...}` publishes it as an artifact of that name. `propose_changeset` publishes `changeset` this way.
 - **Reply.** The final answer is an artifact named after the executable. Then the task completes, fails, or asks for input.
