@@ -20,7 +20,7 @@ import {
   useUndoEdit,
 } from "../hooks/useDocuments";
 import { changedText } from "../lib/changes";
-import { sourceKey } from "../lib/sources";
+import { sourceName } from "../lib/sources";
 
 const NO_ENTRIES: ChatEntry[] = [];
 
@@ -53,9 +53,9 @@ function ChangeList({
               </span>
               <span className="text-ink-3 text-xs">
                 {t("documents.assistant.from", {
-                  source: t(
-                    `documents.sources.${origin ? sourceKey(origin) : "agent"}`,
-                  ),
+                  source: origin
+                    ? sourceName(t, origin, document.lines)
+                    : t("documents.sources.agent"),
                 })}
               </span>
             </span>
