@@ -30,10 +30,10 @@ Import rules:
 | job-finder        | `analyse-job`, `find-jobs`                       | yes                |
 | career-consultant | `edit-document` (`src/features/write_document`)  | yes                |
 | career-director   | none; it runs the others as its tools            | yes                |
-| email-assistant   | `triage-email`                                   | no                 |
+| email-assistant   | `triage-email`, `draft-reply`                    | no                 |
 | resume-importer   | `import-resume` (`src/features/import_document`) | no                 |
 
-email-assistant reads the emails of the user's job search. `triage-email` uses its model only to read a thread. Code matches the thread to an application by the company it names, narrowed by role, and keeps `decide_by` only for an offer and `interview` only for a confirmed interview.
+email-assistant reads the emails of the user's job search and drafts the user's replies. It never sends anything. `draft-reply` answers a thread, or writes a follow-up for an application when there is no thread, and offers free slots by id so code returns only slots the user has free. career-director runs it as its `draft_reply` tool. `triage-email` uses its model only to read a thread. Code matches the thread to an application by the company it names, narrowed by role, and keeps `decide_by` only for an offer and `interview` only for a confirmed interview.
 
 ## Agents own their tools and skills
 
@@ -99,10 +99,12 @@ The harness has no database. When a node or tool needs data that Ops owns, it pa
 interrupt({"fetch": "document", "id": document_id})
 ```
 
-The A2A task becomes `input-required`, and its message carries the request as a data part. ops-api answers with the data and resumes the task. Two requests exist today:
+The A2A task becomes `input-required`, and its message carries the request as a data part. ops-api answers with the data and resumes the task. These requests exist today:
 
 - `{"fetch": "document", "id": ...}`, from `write_document`'s `load` node.
 - `{"fetch": "documents", "name": ..., "kind": ...}`, from career-director's `find_documents` tool.
+- `{"fetch": "thread", "id": ...}`, from career-director's `draft_reply` tool. ops-api answers `{"thread": ...}`, or `{"error": ...}` when it can't.
+- `{"fetch": "free_slots", "days": ...}`, from `draft_reply` next. ops-api answers `{"free_slots": [...], "timezone": ...}`, with no slots when the user offers none.
 
 A question for the user, from `clarify` or `permission`, pauses the run in the same way, with a widget instead of `fetch`.
 

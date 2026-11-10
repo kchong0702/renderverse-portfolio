@@ -3,7 +3,7 @@ from dependency_injector import containers, providers
 from src.agents import build_agent
 from src.agents.state import ProfileState
 from src.app.a2a import Executable
-from src.features import triage_email
+from src.features import draft_reply, triage_email
 from src.tools import read_profile_facts
 
 
@@ -17,7 +17,7 @@ class EmailAssistantContainer(containers.DeclarativeContainer):
     agent = providers.Singleton(
         build_agent,
         agent=registry.provided["email-assistant"],
-        response_formats=(triage_email.EmailReading,),
+        response_formats=(draft_reply.DraftReply, triage_email.EmailReading),
         tools=(read_profile_facts,),
         state_schema=ProfileState,
     )
@@ -32,3 +32,13 @@ class EmailAssistantContainer(containers.DeclarativeContainer):
         ),
     )
     """The triage-email workflow served over A2A"""
+
+    draft_reply_executable = providers.Singleton(
+        Executable,
+        name="draft-reply",
+        description="Draft the user's reply to an email thread, or a follow-up for an application with no reply, offering free times when asked; it sends nothing",
+        graph=providers.Singleton(
+            draft_reply.build_graph, agent=agent, checkpointer=checkpointer
+        ),
+    )
+    """The draft-reply workflow served over A2A"""

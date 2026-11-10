@@ -3,7 +3,8 @@ from pydantic import TypeAdapter, ValidationError
 
 from src.core.errors import ExecuteError
 from src.features.write_document.state import EditGraphState
-from src.features.write_document.types import FetchedDocument, FetchFailed
+from src.features.write_document.types import FetchedDocument
+from src.shared.fetch_failed import FetchFailed
 
 
 def load(state: EditGraphState) -> EditGraphState:

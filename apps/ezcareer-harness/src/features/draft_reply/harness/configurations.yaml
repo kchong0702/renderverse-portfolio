@@ -1,0 +1,2 @@
+checks: [slots]
+recursion_limit: 16

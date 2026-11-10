@@ -82,3 +82,7 @@ path = "src/features/import_document/harness/configurations.yaml"
 [[graph_profiles]]
 name = "triage-email"
 path = "src/features/triage_email/harness/configurations.yaml"
+
+[[graph_profiles]]
+name = "draft-reply"
+path = "src/features/draft_reply/harness/configurations.yaml"

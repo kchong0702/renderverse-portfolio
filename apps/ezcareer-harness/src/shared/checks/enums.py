@@ -38,6 +38,9 @@ class CheckRule(StrEnum):
     UNSUPPORTED = "unsupported"
     """An edited value claims something its sources don't say"""
 
+    UNKNOWN_SLOT = "unknown_slot"
+    """A draft offers a time that isn't one of the user's free slots"""
+
     NO_ANSWER = "no_answer"
     """The agent ended without a reply in its response format"""
 

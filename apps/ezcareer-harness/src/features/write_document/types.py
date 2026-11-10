@@ -34,13 +34,6 @@ class FetchedDocument(BaseModel):
     """The bytes of every file the document uses, which printing needs"""
 
 
-class FetchFailed(BaseModel):
-    model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
-
-    error: str
-    """Why the client couldn't send the document"""
-
-
 class EditOutput(TypedDict):
     reply: str
     """The agent's answer to the user's message"""

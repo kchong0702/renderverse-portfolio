@@ -57,6 +57,7 @@ class Container(containers.DeclarativeContainer):
         checkpointer=checkpointer,
         job_finder=job_finder,
         career_consultant=career_consultant,
+        email_assistant=email_assistant,
     )
     """career-director, which runs the workflows as its tools"""
 
@@ -76,6 +77,7 @@ class Container(containers.DeclarativeContainer):
         career_consultant.edit_document_executable,
         career_director.agent_executable,
         email_assistant.triage_email_executable,
+        email_assistant.draft_reply_executable,
         import_document.import_resume_executable,
     )
     """Agents and workflows served over A2A; add an agent's container above and
