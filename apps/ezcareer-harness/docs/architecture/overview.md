@@ -112,5 +112,6 @@ Clients call `SendStreamingMessage`. `LanggraphExecutor` streams the graph with 
 - **Thinking and text.** The model's reasoning and text stream as `thinking` and `text` artifacts, one per model turn. For a workflow, they come from the node that `Executable.reply_node` names.
 - **Tool artifacts.** A tool that returns an artifact `{"name": ..., "data": ...}` publishes it as an artifact of that name. `propose_changeset` publishes `changeset` this way.
 - **Reply.** The final answer is an artifact named after the executable. Then the task completes, fails, or asks for input.
+- **Failure.** A failed task's status message carries the reason as text. When the user must add something before the run can work, it also carries a data part `{"next": {"label": ..., "screen": ...}}`, where `screen` is `portfolio`, `documents`, `jobs` or `settings`. Raise `ExecuteError(reason, NextStep(...))` to set it. `require_facts` fails analyse-job and find-jobs this way when the profile has no facts, and JSearch fails a search this way when neither the run nor the server has a key.
 
 `CancelTask` stops a run.

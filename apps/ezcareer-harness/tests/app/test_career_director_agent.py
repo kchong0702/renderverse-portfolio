@@ -145,7 +145,12 @@ def test_career_director_finds_jobs_for_the_users_preferences_through_find_jobs(
         TestClient(create_app(container)),
         [
             {"text": "Find me remote jobs"},
-            {"data": {"facts": [], "preferences": {"work_modes": ["remote"]}}},
+            {
+                "data": {
+                    "facts": analyse_job.INPUT["facts"],
+                    "preferences": {"work_modes": ["remote"]},
+                }
+            },
         ],
     )
 

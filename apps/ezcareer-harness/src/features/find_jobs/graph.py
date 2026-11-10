@@ -15,7 +15,7 @@ from src.features.find_jobs.ranking import matched_jobs
 from src.features.find_jobs.schemas import MatchedJob, RankedJobs
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
 from src.shared.jobs import JobPosting, JobSearch, Quota
-from src.shared.profile import Preferences, Profile, ProfileFact
+from src.shared.profile import Preferences, Profile, ProfileFact, require_facts
 
 
 class FindJobsInput(BaseModel):
@@ -72,6 +72,7 @@ def _postings(messages: list[AnyMessage]) -> list[JobPosting]:
 
 def _brief(state: FindJobsState) -> dict:
     """Ask the agent for jobs, handing it the user's preferences and own search"""
+    require_facts(state.facts)
     return {
         "messages": [
             HumanMessage(

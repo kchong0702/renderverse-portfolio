@@ -27,12 +27,21 @@ from pydantic_core import to_jsonable_python
 from src.clients.llm_providers import llm_provider
 from src.core.config import Family, get_settings
 from src.core.errors import ExecuteError
+from src.core.types import NextStep
 from src.shared.run_context import RunContext
 
 
-def _reason(updater: TaskUpdater, text: str) -> Message:
-    """An agent message carrying the reason a run stopped"""
-    return updater.new_agent_message([new_text_part(text)])
+def _reason(
+    updater: TaskUpdater, text: str, next_step: NextStep | None = None
+) -> Message:
+    """An agent message carrying the reason a run stopped, and what the user must
+    do first when there is something"""
+    return updater.new_agent_message(
+        [
+            new_text_part(text),
+            *([new_data_part({"next": next_step.model_dump()})] if next_step else []),
+        ]
+    )
 
 
 class ModelChoice(BaseModel):
@@ -316,7 +325,7 @@ class LanggraphExecutor(AgentExecutor):
             await updater.failed(_reason(updater, "Ran out of steps before finishing"))
             return
         except ExecuteError as error:
-            await updater.failed(_reason(updater, str(error)))
+            await updater.failed(_reason(updater, str(error), error.next_step))
             return
         if interrupts := result.pop("__interrupt__", None):
             await updater.requires_input(

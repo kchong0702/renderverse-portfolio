@@ -14,6 +14,9 @@ from src.adapters.job_sources import SearchResult, SourceUnavailable
 from src.adapters.job_sources.jsearch import JSearchAdapter
 from src.agents.job_finder.tools import search_jobs_tool
 from src.core.config import reload_settings
+from src.core.enums import Screen
+from src.core.errors import ExecuteError
+from src.core.types import NextStep
 from src.shared.factory import Factory
 from src.shared.jobs import JobSearch, PostedWithin, Quota
 from src.shared.profile import Preferences
@@ -378,15 +381,18 @@ async def test_a_bad_search_tells_the_agent_why_and_keeps_the_circuit_closed(
     assert "Invalid date posted value." in messages[-1].text
 
 
-async def test_tells_the_agent_a_source_has_no_key(isolate_env):
+async def test_no_key_anywhere_fails_the_run_with_a_way_to_settings(isolate_env):
     reload_settings()
 
-    message = await _search(
-        search_jobs_tool(Factory({"jsearch": JSearchAdapter}), ["jsearch"]),
-        query="anything",
-    )
+    with pytest.raises(ExecuteError) as raised:
+        await _search(
+            search_jobs_tool(Factory({"jsearch": JSearchAdapter}), ["jsearch"]),
+            query="anything",
+        )
 
-    assert "JSEARCH__API_KEY is not set" in message.text
+    assert raised.value.next_step == NextStep(
+        label="Add a JSearch key", screen=Screen.SETTINGS
+    )
 
 
 def test_the_model_reads_the_description_and_each_argument_once():

@@ -18,7 +18,9 @@ from src.app.a2a import Executable, add_executable_routes
 from src.app.app import create_app
 from src.app.container import Container
 from src.core.config import AppSettings
+from src.core.enums import Screen
 from src.core.errors import ExecuteError
+from src.core.types import NextStep
 from tests.conftest import ScriptedChatModel
 
 PATH = "/ezcareer/a2a/greet"
@@ -35,6 +37,11 @@ class GreetState(GreetInput):
 def _greet(state: GreetState) -> dict:
     if state.name == "nobody":
         raise ExecuteError("Nobody to greet")
+    if state.name == "stranger":
+        raise ExecuteError(
+            "Add your name first",
+            NextStep(label="Add your name", screen=Screen.PORTFOLIO),
+        )
     if state.name == "loop":
         return {}
     title = interrupt("Which title?") if state.name == "ask" else "Dr"
@@ -116,6 +123,24 @@ def test_execute_error_fails_the_task_with_its_reason(client: TestClient):
 
     assert task["status"]["state"] == "TASK_STATE_FAILED"
     assert _status_text(task) == "Nobody to greet"
+
+
+def test_a_failure_the_user_can_fix_carries_its_next_step(client: TestClient):
+    task = _send(client, {"name": "stranger"})
+
+    assert task["status"]["state"] == "TASK_STATE_FAILED"
+    assert task["status"]["message"]["parts"] == [
+        {"text": "Add your name first"},
+        {"data": {"next": {"label": "Add your name", "screen": "portfolio"}}},
+    ]
+
+
+def test_an_execute_error_without_a_next_step_sends_only_its_reason(
+    client: TestClient,
+):
+    task = _send(client, {"name": "nobody"})
+
+    assert task["status"]["message"]["parts"] == [{"text": "Nobody to greet"}]
 
 
 def test_recursion_limit_fails_the_task(client: TestClient):

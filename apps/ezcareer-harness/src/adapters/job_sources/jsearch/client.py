@@ -14,6 +14,9 @@ from src.adapters.job_sources.exceptions import SourceUnavailable
 from src.adapters.job_sources.jsearch.query import JSearchQuery
 from src.adapters.job_sources.protocol import SearchResult
 from src.core.config import JSearchSettings
+from src.core.enums import Screen
+from src.core.errors import ExecuteError
+from src.core.types import NextStep
 from src.shared.jobs import JobPosting, PostingLine, Quota
 
 
@@ -107,7 +110,10 @@ async def search(
     """Up to query.max_jobs JSearch results on api_key, following JSearch's cursor
     until it has enough or runs out, each page through the circuit"""
     if api_key is None:
-        raise SourceUnavailable("EZCAREER_HARNESS_JSEARCH__API_KEY is not set")
+        raise ExecuteError(
+            "Job search needs a JSearch key. Add yours in Settings.",
+            NextStep(label="Add a JSearch key", screen=Screen.SETTINGS),
+        )
     params: dict[str, str | int | bool] = {
         "query": query.query,
         "date_posted": query.date_posted,

@@ -3,6 +3,9 @@ from typing import Literal
 from document_schema.types import Id
 from pydantic import BaseModel, ConfigDict
 
+from src.core.enums import Screen
+from src.core.errors import ExecuteError
+from src.core.types import NextStep
 from src.shared.profile.types import YearMonth
 
 
@@ -22,3 +25,12 @@ class ProfileFact(BaseModel):
 
     end: YearMonth | Literal["present"] | None = None
     """When the job ended, or present"""
+
+
+def require_facts(facts: list[ProfileFact]) -> None:
+    """Fails the run with a way to Portfolio when the user has no profile facts"""
+    if not facts:
+        raise ExecuteError(
+            "Your profile has no facts yet. Add your experience in Portfolio first.",
+            NextStep(label="Add your experience", screen=Screen.PORTFOLIO),
+        )

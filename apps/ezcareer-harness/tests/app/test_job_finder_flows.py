@@ -131,7 +131,9 @@ def test_a_posting_that_cannot_be_fetched_fails_the_task_with_the_reason():
     client = TestClient(create_app())
 
     task = _send(
-        client, "/ezcareer/a2a/analyse-job", [{"data": {"url": URL, "facts": []}}]
+        client,
+        "/ezcareer/a2a/analyse-job",
+        [{"data": {"url": URL, "facts": analyse_job.INPUT["facts"]}}],
     )
 
     assert task["status"]["state"] == "TASK_STATE_FAILED"
@@ -201,10 +203,48 @@ async def test_both_workflows_run_on_the_containers_one_job_finder():
         analyse_job.INPUT, {"configurable": {"thread_id": "analyse"}}
     )
     found = await graphs["find-jobs"].ainvoke(
-        {"facts": []}, {"configurable": {"thread_id": "find"}}
+        {"facts": analyse_job.INPUT["facts"]}, {"configurable": {"thread_id": "find"}}
     )
 
     assert analysed["analysis"].fit == 67
     assert found["jobs"] == []
     assert "<posting untrusted>" in model.requests[0][1].text
     assert "Find jobs for me" in model.requests[1][1].text
+
+
+def test_a_run_without_profile_facts_fails_with_a_way_to_portfolio():
+    task = _send(
+        TestClient(create_app()), "/ezcareer/a2a/find-jobs", [{"data": {"facts": []}}]
+    )
+
+    assert task["status"]["state"] == "TASK_STATE_FAILED"
+    assert task["status"]["message"]["parts"] == [
+        {
+            "text": "Your profile has no facts yet. Add your experience in Portfolio first."
+        },
+        {"data": {"next": {"label": "Add your experience", "screen": "portfolio"}}},
+    ]
+
+
+def test_a_search_without_any_jsearch_key_fails_with_a_way_to_settings(isolate_env):
+    reload_settings()
+    container = Container()
+    container.job_finder.agent(
+        model=ScriptedChatModel(
+            replies=[
+                _call("read_file", file_path="/search-jobs/SKILL.md"),
+                _call("search_jobs", query="backend engineer"),
+            ]
+        )
+    )
+
+    task = _send(
+        TestClient(create_app(container)),
+        "/ezcareer/a2a/find-jobs",
+        [{"data": {"facts": analyse_job.INPUT["facts"]}}],
+    )
+
+    assert task["status"]["state"] == "TASK_STATE_FAILED"
+    assert task["status"]["message"]["parts"][1] == {
+        "data": {"next": {"label": "Add a JSearch key", "screen": "settings"}}
+    }
