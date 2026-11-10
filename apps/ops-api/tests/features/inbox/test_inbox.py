@@ -1,7 +1,21 @@
 from base64 import urlsafe_b64encode
 
 from src.core.config import get_settings
-from tests.conftest import PREFIX, connect_google
+from tests.conftest import PREFIX, a2a_task, connect_google
+
+INFO = a2a_task(
+    "COMPLETED",
+    artifact_parts=[
+        {
+            "data": {
+                "state": "info",
+                "application_id": None,
+                "decide_by": None,
+                "interview": None,
+            }
+        }
+    ],
+)
 
 
 def _data(text: str) -> dict[str, str]:
@@ -31,17 +45,19 @@ def _message(
     }
 
 
-async def test_inbox_lists_the_job_search_emails(client, google):
+async def test_inbox_lists_the_job_search_emails(client, google, harness):
     await connect_google(client)
     google.messages = {
         "m1": _message("m1", "Final round with Lumen Pay", []),
         "m2": _message("m2", "Your offer letter", []),
     }
+    harness.outcomes = [INFO, INFO]
 
     response = await client.get(f"{PREFIX}/inbox")
 
     assert response.status_code == 200
-    assert response.json() == [
+    assert response.json()["needs_reply"] == 0
+    assert response.json()["messages"] == [
         {
             "id": "m1",
             "thread_id": "t-m1",
@@ -51,6 +67,9 @@ async def test_inbox_lists_the_job_search_emails(client, google):
             "snippet": "Hi Kelvin, thanks for the technical round & more",
             "received_at": "2025-11-09T01:12:00Z",
             "unread": True,
+            "state": "info",
+            "decide_by": None,
+            "application_id": None,
         },
         {
             "id": "m2",
@@ -61,21 +80,25 @@ async def test_inbox_lists_the_job_search_emails(client, google):
             "snippet": "Hi Kelvin, thanks for the technical round & more",
             "received_at": "2025-11-09T01:12:00Z",
             "unread": False,
+            "state": "info",
+            "decide_by": None,
+            "application_id": None,
         },
     ]
     assert google.gmail_queries == [get_settings().google.inbox_query]
     assert google.refreshed_with == ["refresh-1"]
 
 
-async def test_a_message_deleted_after_the_search_is_left_out(client, google):
+async def test_a_message_deleted_after_the_search_is_left_out(client, google, harness):
     await connect_google(client)
     google.messages = {"m1": _message("m1", "Final round with Lumen Pay", [])}
     google.deleted = ["gone"]
+    harness.outcomes = [INFO]
 
     response = await client.get(f"{PREFIX}/inbox")
 
     assert response.status_code == 200
-    assert [message["id"] for message in response.json()] == ["m1"]
+    assert [message["id"] for message in response.json()["messages"]] == ["m1"]
 
 
 async def test_a_message_has_its_plain_text_body(client, google):

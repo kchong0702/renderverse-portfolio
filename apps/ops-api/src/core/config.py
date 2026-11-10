@@ -318,6 +318,9 @@ class GoogleSettings(BaseModel):
     calendar_max_events: int = Field(default=250, gt=0)
     """The most events Calendar asks Google for in one request"""
 
+    interview_minutes: int = Field(default=60, gt=0)
+    """How long an interview lasts when its email gives no end"""
+
     timeout_seconds: float = Field(default=10, gt=0)
     """How long a request to Google may take"""
 

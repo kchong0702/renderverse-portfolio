@@ -24,6 +24,11 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+def aware(moment: datetime) -> datetime:
+    """SQLite hands back naive datetimes; stored values are UTC"""
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+
+
 class EnumString[E: StrEnum](TypeDecorator[E]):
     impl = String
     """A plain string column, so a new member needs no migration"""
@@ -76,4 +81,4 @@ class Base(DeclarativeBase):
     type_annotation_map: ClassVar = {dict[str, Any]: JsonType, list[Any]: JsonType}
 
 
-__all__ = ["Base", "EnumString", "JsonType", "PydanticJson", "utcnow"]
+__all__ = ["Base", "EnumString", "JsonType", "PydanticJson", "aware", "utcnow"]

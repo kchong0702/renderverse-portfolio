@@ -1,7 +1,7 @@
 import json
 import os
 from base64 import b64encode, urlsafe_b64encode
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from tempfile import TemporaryDirectory
 from urllib.parse import parse_qs, urlsplit
 
@@ -70,12 +70,13 @@ class FakeHarness:
         }
         self.down = False
         self.failing = False
-        self.outcomes: list[dict | list[dict]] = []
+        self.outcomes: list[dict | list[dict] | Callable[[dict], dict]] = []
         self.received: list[httpx2.Request] = []
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         """Serve the model catalog and answer each A2A POST with the next outcome, a
-        list streaming as SSE, or refuse to connect when down"""
+        list streaming as SSE and a function of the request computing it, or refuse
+        to connect when down"""
         if self.down:
             raise httpx2.ConnectError("connection refused", request=request)
         if request.method == "GET" and request.url.path == "/ezcareer/models":
@@ -84,6 +85,8 @@ class FakeHarness:
             self.received.append(request)
             rpc_id = json.loads(request.content)["id"]
             outcome = self.outcomes.pop(0)
+            if callable(outcome):
+                outcome = outcome(json.loads(request.content))
             if isinstance(outcome, list):
                 return httpx2.Response(
                     200,
