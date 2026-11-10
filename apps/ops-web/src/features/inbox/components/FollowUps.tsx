@@ -1,6 +1,6 @@
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { Application } from "@/features/applications";
 import { GoogleNotice } from "@/features/settings";
 import { ApiError } from "@/shared/api/http";
@@ -24,6 +24,30 @@ export default function FollowUps({
   const { t } = useTranslation();
   const headingId = useId();
   const draft = useDraftFollowUp();
+  const [params, setParams] = useSearchParams();
+  const asked = useRef(params.get("followUp"));
+  const start = (application: Application) =>
+    draft.mutate(application.id, {
+      onSuccess: (result) => {
+        if ("body" in result)
+          onDrafted({
+            to:
+              threads.find(
+                ({ application_id }) => application_id === application.id,
+              )?.from_email ?? "",
+            subject: t("inbox.followUp.subject", { role: application.role }),
+            body: result.body,
+          });
+      },
+    });
+
+  useEffect(() => {
+    const application = applications.find(({ id }) => id === asked.current);
+    asked.current = null;
+    if (!application) return;
+    setParams({}, { replace: true });
+    start(application);
+  });
   const due = applications
     .flatMap((application) =>
       application.stage === "applied" && application.applied_on
@@ -61,24 +85,7 @@ export default function FollowUps({
               type="button"
               className={buttonClass()}
               disabled={draft.isPending}
-              onClick={() =>
-                draft.mutate(application.id, {
-                  onSuccess: (result) => {
-                    if ("body" in result)
-                      onDrafted({
-                        to:
-                          threads.find(
-                            ({ application_id }) =>
-                              application_id === application.id,
-                          )?.from_email ?? "",
-                        subject: t("inbox.followUp.subject", {
-                          role: application.role,
-                        }),
-                        body: result.body,
-                      });
-                  },
-                })
-              }
+              onClick={() => start(application)}
             >
               {t("inbox.followUp.draft")}
             </button>
