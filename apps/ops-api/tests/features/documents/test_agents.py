@@ -49,10 +49,10 @@ async def _import(client, harness, outcome):
     return await client.post(f"{DOCUMENTS}/imports/{uploaded.json()['id']}/read")
 
 
-def _imported() -> dict:
+def _imported(document: dict = IMPORTED) -> dict:
     """import-resume's reply for the upload"""
     reply = {
-        "document": IMPORTED,
+        "document": document,
         "pdf": "JVBERi0=",
         "report": {"render_id": "0" * 64, "pages": 1, "last_page_fill": 0.4},
         "lines": LINES,
@@ -86,6 +86,17 @@ async def test_reading_an_import_makes_its_draft(client, harness):
     assert message["contextId"].startswith(f"{me['id']}:")
     [part] = message["parts"]
     assert b64decode(part["data"]["file"], validate=True) == PDF
+
+
+async def test_an_import_keeps_the_blocks_its_design_places(client, harness):
+    layouts = [{"template": "serif", "region": "top", "blocks": ["profile"]}]
+    design = {"template": "serif", "layouts": layouts}
+
+    read = await _import(client, harness, _imported({**IMPORTED, "design": design}))
+
+    assert read.json()["status"] == "done"
+    document = (await client.get(f"{DOCUMENTS}/{read.json()['document_id']}")).json()
+    assert document["body"]["design"]["layouts"] == layouts
 
 
 async def test_a_failed_import_keeps_the_reason_and_can_be_read_again(client, harness):
