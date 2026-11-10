@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from uuid import UUID
 
 from src.clients.google import GoogleClient, GoogleEvent
+from src.core.config import GoogleSettings
 from src.core.exceptions import InvalidInput
 from src.features.calendar.schemas import CalendarEvent
 from src.features.google import GoogleService
@@ -23,17 +24,23 @@ def _event(event: GoogleEvent) -> CalendarEvent:
 
 
 class CalendarService:
-    def __init__(self, google: GoogleService, client: GoogleClient):
-        """Read Google Calendar with the user's token"""
+    def __init__(
+        self, google: GoogleService, client: GoogleClient, settings: GoogleSettings
+    ):
+        """Read Google Calendar with the user's token, within the configured range"""
         self._google = google
         self._client = client
+        self._settings = settings
 
     async def events(
         self, user_id: UUID, start: datetime, end: datetime
     ) -> list[CalendarEvent]:
         """Events on the primary calendar that overlap the range, earliest first"""
-        if not start < end <= start + timedelta(days=62):
-            raise InvalidInput("The range must end after it starts, within 62 days")
+        days = self._settings.calendar_max_days
+        if not start < end <= start + timedelta(days=days):
+            raise InvalidInput(
+                f"The range must end after it starts, within {days} days"
+            )
         token = await self._google.access_token(user_id)
         found = await self._client.events(token, start, end)
         return [_event(event) for event in found if event.status != "cancelled"]

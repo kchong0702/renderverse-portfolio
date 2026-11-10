@@ -206,7 +206,7 @@ class GoogleClient:
                 ("timeMax", end.isoformat()),
                 ("singleEvents", "true"),
                 ("orderBy", "startTime"),
-                ("maxResults", "250"),
+                ("maxResults", str(self._settings.calendar_max_events)),
             ],
         )
         return found.items

@@ -29,14 +29,6 @@ Env = Literal["dev", "staging", "prod"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 LogFormat = Literal["json", "console"]
 
-_INBOX_QUERY = (
-    "newer_than:90d -category:promotions -category:social "
-    "(subject:(application OR applying OR interview OR offer OR recruiter "
-    'OR candidate OR "next steps") '
-    "OR from:(greenhouse.io OR lever.co OR ashbyhq.com OR myworkday.com "
-    "OR workablemail.com OR smartrecruiters.com))"
-)
-
 
 def _split_csv(v: object) -> object:
     if isinstance(v, str):
@@ -308,8 +300,23 @@ class GoogleSettings(BaseModel):
     encryption_key: SecretStr = SecretStr("")
     """Fernet key that encrypts stored Google refresh tokens; connecting needs it"""
 
-    inbox_query: str = _INBOX_QUERY
+    inbox_query: str = (
+        "newer_than:90d -category:promotions -category:social "
+        "(subject:(application OR applying OR interview OR offer OR recruiter "
+        'OR candidate OR "next steps") '
+        "OR from:(greenhouse.io OR lever.co OR ashbyhq.com OR myworkday.com "
+        "OR workablemail.com OR smartrecruiters.com))"
+    )
     """Gmail search that picks the job-search emails Inbox lists"""
+
+    inbox_limit: int = Field(default=25, gt=0)
+    """How many of the newest matching emails Inbox lists"""
+
+    calendar_max_days: int = Field(default=62, gt=0)
+    """The longest range Calendar reads in one request"""
+
+    calendar_max_events: int = Field(default=250, gt=0)
+    """The most events Calendar asks Google for in one request"""
 
     timeout_seconds: float = Field(default=10, gt=0)
     """How long a request to Google may take"""
