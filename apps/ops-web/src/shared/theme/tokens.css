@@ -1,6 +1,11 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 
+  --text-xs--line-height: 1.6;
+  --text-sm--line-height: 1.6;
+  --text-base--line-height: 1.6;
+  --text-xl--line-height: 1.6;
+
   --color-ground: #faf9f6;
   --color-panel: #ffffff;
   --color-header: #ffffff;
