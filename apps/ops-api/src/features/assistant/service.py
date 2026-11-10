@@ -6,11 +6,18 @@ from uuid import UUID
 
 from pydantic import BaseModel, ValidationError
 
-from src.clients.ezcareer import Answer, EzcareerClient, Published, RunEvent
+from src.clients.ezcareer import (
+    Answer,
+    DataRequest,
+    EzcareerClient,
+    Published,
+    RunEvent,
+)
 from src.core.logging import get_logger
 from src.core.runner import Runner
 from src.features.assistant.schemas import ChatMessage
 from src.features.documents import ChangesetArtifact, DocumentService
+from src.features.inbox import InboxService
 from src.features.profile import ProfileService
 from src.features.settings import SettingsService
 
@@ -25,14 +32,16 @@ class AssistantService:
         profile: ProfileService,
         settings: SettingsService,
         documents: DocumentService,
+        inbox: InboxService,
         ezcareer: EzcareerClient,
         runner: Runner,
     ):
-        """Hold the profile, settings, documents and harness a turn uses, and the
-        runner it runs on"""
+        """Hold the profile, settings, documents, inbox and harness a turn uses, and
+        the runner it runs on"""
         self._profile = profile
         self._settings = settings
         self._documents = documents
+        self._inbox = inbox
         self._ezcareer = ezcareer
         self._runner = runner
 
@@ -54,6 +63,12 @@ class AssistantService:
                     user_id, artifact.document_id, artifact.changeset
                 ):
                     yield proposed
+
+    async def _answer(self, user_id: UUID, request: DataRequest) -> BaseModel:
+        """Answer a paused turn's data request from the inbox or the documents"""
+        if request.fetch in ("thread", "free_slots"):
+            return await self._inbox.answer_data_request(user_id, request)
+        return await self._documents.answer_data_request(user_id, request)
 
     async def send(
         self, user_id: UUID, chat_id: UUID, message: ChatMessage
@@ -77,9 +92,7 @@ class AssistantService:
                     text=message.text,
                     data=data,
                     metadata=metadata,
-                    answer_data_request=partial(
-                        self._documents.answer_data_request, user_id
-                    ),
+                    answer_data_request=partial(self._answer, user_id),
                 ),
             ),
         )
@@ -105,9 +118,7 @@ class AssistantService:
                     task_id=task_id,
                     answer=answer,
                     metadata=metadata,
-                    answer_data_request=partial(
-                        self._documents.answer_data_request, user_id
-                    ),
+                    answer_data_request=partial(self._answer, user_id),
                 ),
             ),
         )

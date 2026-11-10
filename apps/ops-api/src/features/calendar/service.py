@@ -65,10 +65,11 @@ class CalendarService:
         )
         return _event(created)
 
-    async def free_slots(self, user_id: UUID, scheduling: Scheduling) -> FreeSlots:
+    async def free_slots(
+        self, user_id: UUID, scheduling: Scheduling, days: int
+    ) -> FreeSlots:
         """Free time in the work hours of the weekdays from tomorrow, kept the
         meeting gap clear of events and at least an interview long"""
-        days = self._settings.free_slot_days
         now = utcnow()
         token = await self._google.access_token(user_id)
         found = await self._client.events(token, now, now + timedelta(days=days + 1))

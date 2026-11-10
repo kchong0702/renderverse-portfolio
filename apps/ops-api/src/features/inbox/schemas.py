@@ -82,6 +82,27 @@ class ThreadContent(BaseModel):
     """Every message, oldest first"""
 
 
+class ThreadRequest(BaseModel):
+    fetch: Literal["thread"]
+    """A paused run asks for one of the user's email threads"""
+
+    id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    """The Gmail thread"""
+
+
+class FreeSlotsRequest(BaseModel):
+    fetch: Literal["free_slots"]
+    """A paused run asks for the times the user is free"""
+
+    days: int = Field(ge=1, le=30)
+    """How many days from tomorrow to look in"""
+
+
+class ThreadAnswer(BaseModel):
+    thread: ThreadContent
+    """The thread the run asked for"""
+
+
 class TriageApplication(BaseModel):
     id: UUID
     """The application's id, which triage-email names back"""
@@ -192,12 +213,15 @@ __all__ = [
     "DraftReplyOutput",
     "EmailCreate",
     "FollowUpDraft",
+    "FreeSlotsRequest",
     "InboxList",
     "InboxMessage",
     "InboxMessageDetail",
     "ReplyCreate",
+    "ThreadAnswer",
     "ThreadContent",
     "ThreadMessage",
+    "ThreadRequest",
     "TriageApplication",
     "TriageEmailInput",
     "TriageEmailOutput",
