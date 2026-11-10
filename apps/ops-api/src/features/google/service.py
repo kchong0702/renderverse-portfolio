@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from uuid import UUID
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -81,11 +82,14 @@ class GoogleService:
             account.ciphertext = ciphertext
 
     async def disconnect(self, user_id: UUID) -> None:
-        """Revoke Ops's access at Google and forget the token; a no-op if not connected"""
+        """Revoke Ops's access at Google when the token is readable, then forget it; a
+        no-op if not connected"""
         account = await self._repository.get(user_id)
         if account is None:
             return
-        await self._client.revoke(self._refresh_token(account))
+        if self.configured:
+            with suppress(Conflict):
+                await self._client.revoke(self._refresh_token(account))
         await self._repository.delete(account)
 
     async def access_token(self, user_id: UUID) -> str:
