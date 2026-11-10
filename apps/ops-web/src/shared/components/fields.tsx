@@ -2,9 +2,7 @@ import type {
   InputHTMLAttributes,
   ReactNode,
   SelectHTMLAttributes,
-  TextareaHTMLAttributes,
 } from "react";
-import { cn } from "@/shared/lib/cn";
 
 const control =
   "border-hair bg-ground text-ink min-h-10 rounded-lg border px-3 text-sm disabled:opacity-60";
@@ -32,22 +30,6 @@ export function TextField({ label, ...input }: TextFieldProps) {
   return (
     <FieldLabel label={label}>
       <input type="text" className={control} {...input} />
-    </FieldLabel>
-  );
-}
-
-interface TextAreaFieldProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
-  label: string;
-}
-
-export function TextAreaField({ label, ...textarea }: TextAreaFieldProps) {
-  return (
-    <FieldLabel label={label}>
-      <textarea
-        rows={3}
-        className={cn(control, "resize-y py-2 leading-normal")}
-        {...textarea}
-      />
     </FieldLabel>
   );
 }

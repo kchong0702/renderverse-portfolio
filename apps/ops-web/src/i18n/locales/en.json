@@ -292,6 +292,9 @@
     },
     "content": {
       "hint": "Edit any line; it saves when you leave the field. The eye hides a section from the page without deleting it.",
+      "bold": "Bold",
+      "italic": "Italic",
+      "underline": "Underline",
       "show": "Show {{block}} on the page",
       "hide": "Hide {{block}} from the page"
     },
