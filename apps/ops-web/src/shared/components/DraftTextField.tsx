@@ -1,19 +1,17 @@
 import { useEffect, useState } from "react";
-import { TextAreaField, TextField } from "@/shared/components/fields";
+import { TextField } from "@/shared/components/fields";
 
 interface DraftTextFieldProps {
   label: string;
   value: string;
   placeholder?: string;
   maxLength?: number;
-  multiline?: boolean;
   onSave: (value: string) => void;
 }
 
 export default function DraftTextField({
   value,
   onSave,
-  multiline,
   ...field
 }: DraftTextFieldProps) {
   const [draft, setDraft] = useState(value);
@@ -25,14 +23,7 @@ export default function DraftTextField({
     if (next !== value) onSave(next);
   };
 
-  return multiline ? (
-    <TextAreaField
-      {...field}
-      value={draft}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={save}
-    />
-  ) : (
+  return (
     <TextField
       {...field}
       value={draft}

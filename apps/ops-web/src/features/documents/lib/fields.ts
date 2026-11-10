@@ -136,15 +136,8 @@ export function textEntries(block: Block): TextEntry[] {
 
 export function htmlToText(html: string): string {
   return (
-    new DOMParser().parseFromString(
-      html.replace(/<br\s*\/?>/gi, "\n"),
-      "text/html",
-    ).body.textContent ?? ""
+    new DOMParser().parseFromString(html, "text/html").body.textContent ?? ""
   );
-}
-
-export function plainText(value: Value | RichValue): string {
-  return "html" in value ? htmlToText(value.html) : value.text;
 }
 
 export function newText(value: Json): string {
