@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import {
   answerTaskMutationOptions,
   sendMessageMutationOptions,
+  stopMutationOptions,
 } from "../queries/assistant";
 
 export function useSendMessage() {
@@ -10,4 +11,8 @@ export function useSendMessage() {
 
 export function useAnswerTask() {
   return useMutation(answerTaskMutationOptions);
+}
+
+export function useStop() {
+  return useMutation(stopMutationOptions);
 }

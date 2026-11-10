@@ -139,9 +139,49 @@
     "message": "Message the assistant",
     "placeholder": "Ask anything",
     "send": "Send",
+    "stop": "Stop",
     "newChat": "New chat",
     "conversation": "Conversation with the assistant",
     "thinking": "Thinking…",
+    "thought": "Thought",
+    "stopped": "Stopped",
+    "interrupted": "The connection closed before the assistant finished",
+    "stepStatus": {
+      "running": "Running",
+      "done": "Done",
+      "failed": "Failed",
+      "waiting": "Waiting for you",
+      "stopped": "Stopped"
+    },
+    "tools": {
+      "analyse_job": {
+        "label": "Analysing the job posting",
+        "steps": {
+          "fetch": "Reading the posting",
+          "agent": "Weighing it against your profile",
+          "check": "Checking the analysis",
+          "output": "Writing up the analysis"
+        }
+      },
+      "find_jobs": {
+        "label": "Finding jobs",
+        "steps": {
+          "brief": "Reading your preferences",
+          "agent": "Searching job boards",
+          "check": "Checking the matches",
+          "output": "Ranking the jobs"
+        }
+      },
+      "edit_document": {
+        "label": "Editing your document",
+        "steps": {
+          "brief": "Reading the document",
+          "agent": "Drafting the changes",
+          "validate": "Checking the changes",
+          "page_fit": "Fitting it to the page"
+        }
+      }
+    },
     "failed": "That did not work: {{reason}}",
     "answerFailed": "Your answer was not sent: {{reason}}",
     "suggestions": {

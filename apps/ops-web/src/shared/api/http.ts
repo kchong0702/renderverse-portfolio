@@ -1,3 +1,4 @@
+import { EventSourceParserStream } from "eventsource-parser/stream";
 import i18n from "@/i18n";
 
 export class ApiError extends Error {
@@ -39,6 +40,35 @@ export async function request<T>(
     throw new ApiError(response.status, await errorMessage(response));
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+export async function stream<T>(
+  url: string,
+  body: unknown,
+  signal: AbortSignal,
+  onEvent: (event: T) => void,
+): Promise<void> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "text/event-stream",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!response.ok || !response.body)
+    throw new ApiError(response.status, await errorMessage(response));
+
+  const reader = response.body
+    .pipeThrough(new TextDecoderStream())
+    .pipeThrough(new EventSourceParserStream())
+    .getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return;
+    onEvent(JSON.parse(value.data) as T);
+  }
 }
 
 export const http = {
