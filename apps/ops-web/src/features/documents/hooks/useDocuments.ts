@@ -1,23 +1,17 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import type { DocumentKind } from "../api/documents";
+import { useMutation, useMutationState, useQuery } from "@tanstack/react-query";
+import type { DocumentKind, Edit } from "../api/documents";
 import {
   cancelImportMutationOptions,
-  changesetsQueryOptions,
   createDocumentMutationOptions,
-  decideChangesetMutationOptions,
-  deleteDocumentMutationOptions,
+  designDocumentMutationOptions,
   documentQueryOptions,
   documentsQueryOptions,
   editDocumentMutationOptions,
+  exportPdfMutationOptions,
   importsQueryOptions,
-  keepVersionMutationOptions,
-  renameDocumentMutationOptions,
-  renderQueryOptions,
-  restoreVersionMutationOptions,
   setMasterMutationOptions,
   startImportMutationOptions,
   templatesQueryOptions,
-  versionsQueryOptions,
 } from "../queries/documents";
 
 export function useDocuments() {
@@ -26,18 +20,6 @@ export function useDocuments() {
 
 export function useDocument(id: string) {
   return useQuery(documentQueryOptions(id));
-}
-
-export function useRender(id: string, updatedAt: string) {
-  return useQuery(renderQueryOptions(id, updatedAt));
-}
-
-export function useVersions(id: string) {
-  return useQuery(versionsQueryOptions(id));
-}
-
-export function useChangesets(id: string) {
-  return useQuery(changesetsQueryOptions(id));
 }
 
 export function useTemplates(kind: DocumentKind) {
@@ -52,32 +34,31 @@ export function useCreateDocument() {
   return useMutation(createDocumentMutationOptions);
 }
 
-export function useRenameDocument() {
-  return useMutation(renameDocumentMutationOptions);
-}
-
 export function useEditDocument() {
   return useMutation(editDocumentMutationOptions);
+}
+
+export function useDesignDocument() {
+  return useMutation(designDocumentMutationOptions);
+}
+
+export function useSaves(id: string) {
+  return useMutationState({
+    filters: {
+      mutationKey: editDocumentMutationOptions.mutationKey,
+      predicate: ({ state }) =>
+        (state.variables as { id: string; edits: Edit[] }).id === id,
+    },
+    select: ({ state }) => ({ status: state.status, error: state.error }),
+  });
 }
 
 export function useSetMaster() {
   return useMutation(setMasterMutationOptions);
 }
 
-export function useDeleteDocument() {
-  return useMutation(deleteDocumentMutationOptions);
-}
-
-export function useKeepVersion() {
-  return useMutation(keepVersionMutationOptions);
-}
-
-export function useRestoreVersion() {
-  return useMutation(restoreVersionMutationOptions);
-}
-
-export function useDecideChangeset() {
-  return useMutation(decideChangesetMutationOptions);
+export function useExportPdf() {
+  return useMutation(exportPdfMutationOptions);
 }
 
 export function useStartImport() {
