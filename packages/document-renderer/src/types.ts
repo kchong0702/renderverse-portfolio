@@ -49,3 +49,16 @@ export interface EntryView {
   links?: Link[];
   tags?: string[];
 }
+
+export interface EntryFields {
+  title: string;
+  subtitle: string;
+  dates: string;
+  place?: string;
+}
+
+export interface EntryProps {
+  entry: EntryView;
+  path: string;
+  fields: EntryFields;
+}

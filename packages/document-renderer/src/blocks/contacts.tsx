@@ -10,6 +10,7 @@ import {
   FaLocationDot,
   FaPhone,
 } from "react-icons/fa6";
+import { BlockElement, Text } from "../editing/context";
 import type { Contact, ContactKind } from "../generated/document";
 import type { ContactsStyle } from "../generated/template";
 import type { BlockProps } from "../types";
@@ -35,41 +36,46 @@ const contactHref = ({ kind, value: { text } }: Contact) =>
     other: text.startsWith("http") ? text : undefined,
   })[kind];
 
-const ContactValue = ({ contact }: { contact: Contact }) => {
+const ContactValue = ({
+  contact,
+  path,
+}: {
+  contact: Contact;
+  path: string;
+}) => {
   const href = contactHref(contact);
-  return href ? (
-    <a href={href}>{contact.value.text}</a>
-  ) : (
-    <span>{contact.value.text}</span>
+  const text = (
+    <Text path={`${path}/${contact.id}/value`} text={contact.value.text} />
   );
+  return href ? <a href={href}>{text}</a> : <span>{text}</span>;
 };
 
 const contactStyles: Record<
   ContactsStyle,
-  (props: { items: Contact[]; t: TFunction }) => ReactNode
+  (props: { items: Contact[]; path: string; t: TFunction }) => ReactNode
 > = {
-  line: ({ items }) => (
+  line: ({ items, path }) => (
     <ul className="dr-contacts-line">
       {items.map((contact) => (
         <li key={contact.id}>
-          <ContactValue contact={contact} />
+          <ContactValue contact={contact} path={path} />
         </li>
       ))}
     </ul>
   ),
-  labelled: ({ items, t }) => (
+  labelled: ({ items, path, t }) => (
     <dl className="dr-contacts-labelled">
       {items.map((contact) => (
         <div key={contact.id}>
           <dt>{contact.label?.text ?? t(`contacts.${contact.kind}`)}</dt>
           <dd>
-            <ContactValue contact={contact} />
+            <ContactValue contact={contact} path={path} />
           </dd>
         </div>
       ))}
     </dl>
   ),
-  "icon-tiles": ({ items }) => (
+  "icon-tiles": ({ items, path }) => (
     <ul className="dr-contacts-tiles">
       {items.map((contact) => {
         const Icon = contactIcons[contact.kind];
@@ -78,7 +84,7 @@ const contactStyles: Record<
             <span className="dr-tile">
               <Icon aria-hidden />
             </span>
-            <ContactValue contact={contact} />
+            <ContactValue contact={contact} path={path} />
           </li>
         );
       })}
@@ -89,8 +95,8 @@ const contactStyles: Record<
 export const ContactsBlock = ({ block, ctx }: BlockProps<"contacts">) => {
   const Style = contactStyles[ctx.spec.contacts];
   return (
-    <div className="dr-block dr-contacts" data-block={block.id}>
-      <Style items={block.items} t={ctx.t} />
-    </div>
+    <BlockElement as="div" block={block} className="dr-block dr-contacts">
+      <Style items={block.items} path={`blocks/${block.id}/items`} t={ctx.t} />
+    </BlockElement>
   );
 };
