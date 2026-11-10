@@ -6,9 +6,9 @@ from uuid import UUID
 from sqlalchemy import ForeignKey, String, Time
 from sqlalchemy.orm import Mapped, mapped_column
 
+from src.clients.ezcareer import ModelFamily
 from src.db.base import Base
 from src.db.mixins import AuditMixin
-from src.integrations.ezcareer import ModelFamily
 
 
 class UserSettings(AuditMixin, Base):

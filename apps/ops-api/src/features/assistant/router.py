@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Request, status
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 
+from src.clients.ezcareer import Answer, RunStream
 from src.core.auth import CurrentUserDep
 from src.core.config import get_settings
 from src.db.session import SessionDep
@@ -12,7 +13,6 @@ from src.features.assistant.schemas import ChatMessage
 from src.features.assistant.service import AssistantService
 from src.features.profile import ProfileServiceDep
 from src.features.settings import SettingsServiceDep
-from src.integrations.ezcareer import Answer, RunStream
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 

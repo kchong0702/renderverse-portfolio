@@ -4,9 +4,9 @@ import json
 import httpx2
 from pydantic import BaseModel
 
+from src.clients.ezcareer import Answer, EzcareerClient, RunStream
+from src.clients.ezcareer.schemas import Completed, DataRequest, Started
 from src.core.config import get_settings
-from src.integrations.ezcareer import Answer, EzcareerClient, RunStream
-from src.integrations.ezcareer.schemas import Completed, FetchRequest, Started
 from tests.conftest import PREFIX
 
 ASSISTANT = f"{PREFIX}/assistant"
@@ -399,9 +399,9 @@ class _Documents(BaseModel):
 
 
 async def test_a_stream_answers_the_data_requests_its_run_pauses_with(harness):
-    asked: list[FetchRequest] = []
+    asked: list[DataRequest] = []
 
-    async def fetch(request: FetchRequest) -> _Documents:
+    async def answer(request: DataRequest) -> _Documents:
         asked.append(request)
         return _Documents(documents=["Résumé for Northwind"])
 
@@ -426,7 +426,7 @@ async def test_a_stream_answers_the_data_requests_its_run_pauses_with(harness):
             context_id="u:c",
             data=Answer(),
             metadata=None,
-            fetch=fetch,
+            answer_data_request=answer,
         )
     ]
 
@@ -439,7 +439,7 @@ async def test_a_stream_answers_the_data_requests_its_run_pauses_with(harness):
 
 
 async def test_a_blocking_run_answers_its_data_requests_too(harness):
-    async def fetch(request: FetchRequest) -> _Documents:
+    async def answer(request: DataRequest) -> _Documents:
         return _Documents(documents=[request.model_dump()["name"]])
 
     paused = {
@@ -481,7 +481,7 @@ async def test_a_blocking_run_answers_its_data_requests_too(harness):
         context_id="u:c",
         data=Answer(),
         metadata=None,
-        fetch=fetch,
+        answer_data_request=answer,
     )
 
     assert run == Completed(reply="ok")

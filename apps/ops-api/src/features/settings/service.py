@@ -4,6 +4,12 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.clients.ezcareer import (
+    EzcareerClient,
+    ModelCatalog,
+    ModelChoice,
+    RunMetadata,
+)
 from src.core.exceptions import InvalidInput
 from src.features.settings.models import UserSettings
 from src.features.settings.repository import SettingsRepository
@@ -14,12 +20,6 @@ from src.features.settings.schemas import (
     Scheduling,
     SettingsRead,
     SettingsUpdate,
-)
-from src.integrations.ezcareer import (
-    EzcareerClient,
-    ModelCatalog,
-    ModelChoice,
-    RunMetadata,
 )
 
 _JOB_AGENT_COLUMNS = {
