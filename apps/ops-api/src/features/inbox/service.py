@@ -274,6 +274,8 @@ class InboxService:
             if start <= utcnow():
                 continue
             event_id = sha256(f"{user_id}:{message.thread_id}".encode()).hexdigest()
+            if not await self._repository.claim_event(thread, event_id):
+                continue
             with suppress(AlreadyExists):
                 await self._calendar.create(
                     user_id,
@@ -287,7 +289,6 @@ class InboxService:
                     ),
                     event_id,
                 )
-            thread.event_id = event_id
 
     async def messages(self, user_id: UUID) -> InboxList:
         """The newest emails that match the job-search query with their threads'

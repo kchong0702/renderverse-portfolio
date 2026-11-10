@@ -6,8 +6,9 @@ from uuid import uuid4
 
 import httpx2
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.pool import NullPool
 
 from src.clients.google.client import MISSING_SCOPE
 from src.core.auth.models import User
@@ -276,14 +277,24 @@ class _OverlappingHarness(FakeHarness):
 
 class _OverlappingGoogle(FakeGoogle):
     def __init__(self):
-        """Hold each new event until a second one is sent, so two syncs overlap"""
+        """Hold the first new event until another sync sends one or waits on a row"""
         super().__init__()
-        self.adding = asyncio.Barrier(2)
+        self.inserts = 0
 
     async def __call__(self, request: httpx2.Request) -> httpx2.Response:
-        """Answer as FakeGoogle once two events are being added"""
+        """Answer as FakeGoogle once a second sync has caught up with the first"""
         if request.method == "POST" and request.url.path.endswith("/events"):
-            await asyncio.wait_for(self.adding.wait(), 5)
+            self.inserts += 1
+            engine = create_async_engine(DATABASE_URL, poolclass=NullPool)
+            async with asyncio.timeout(5), engine.connect() as db:
+                while self.inserts < 2 and not await db.scalar(
+                    text(
+                        "SELECT count(*) FROM pg_stat_activity"
+                        " WHERE datname = current_database()"
+                        " AND wait_event_type = 'Lock'"
+                    )
+                ):
+                    await asyncio.sleep(0.01)
         return super().__call__(request)
 
 
@@ -350,4 +361,5 @@ async def test_overlapping_syncs_add_an_interview_to_the_calendar_once(
     )
 
     assert [first.status_code, second.status_code] == [200, 200]
+    assert overlapping_google.inserts == 1
     assert [e["summary"] for e in overlapping_google.created] == ["Final round"]

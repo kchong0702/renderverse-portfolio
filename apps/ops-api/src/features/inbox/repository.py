@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects import postgresql, sqlite
 
 from src.app.actor import current_actor
@@ -41,6 +41,18 @@ class InboxRepository(Repository):
                 set_={**triage, "updated_at": utcnow(), "updated_by": current_actor()},
             ).returning(EmailThread),
             execution_options={"populate_existing": True},
+        )
+
+    async def claim_event(self, thread: EmailThread, event_id: str) -> bool:
+        """Give the thread this event unless a sync already has; True if this one did"""
+        return (
+            await self._session.scalar(
+                update(EmailThread)
+                .where(EmailThread.id == thread.id, EmailThread.event_id.is_(None))
+                .values(event_id=event_id)
+                .returning(EmailThread.id)
+            )
+            is not None
         )
 
 
