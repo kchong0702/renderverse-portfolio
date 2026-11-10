@@ -62,11 +62,13 @@ class GoogleService:
 
     async def connect(self, user_id: UUID, code: str) -> None:
         """Exchange the callback's code and store the refresh token, encrypted;
-        InvalidInput when the user did not allow both Gmail and Calendar"""
+        InvalidInput when the user did not allow every scope Ops asks for"""
         fernet = self._fernet()
         tokens = await self._client.exchange_code(code)
         if not set(SCOPES) <= set(tokens.scope.split()):
-            raise InvalidInput("Allow both Gmail and Calendar access to connect")
+            raise InvalidInput(
+                "Allow every Gmail and Calendar permission Google asks for to connect"
+            )
         if tokens.refresh_token is None:
             raise ServiceUnavailable("Google sent no refresh token; connect again")
 

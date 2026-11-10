@@ -2,14 +2,22 @@ from __future__ import annotations
 
 import html
 import re
+from base64 import urlsafe_b64encode
+from email.message import EmailMessage
 from email.utils import parseaddr
 from html.parser import HTMLParser
 from uuid import UUID
 
-from src.clients.google import GmailMessage, GoogleClient
+from src.clients.google import GmailMessage, GmailPart, GmailSend, GoogleClient
 from src.core.config import GoogleSettings
+from src.core.exceptions import InvalidInput
 from src.features.google import GoogleService
-from src.features.inbox.schemas import InboxMessage, InboxMessageDetail
+from src.features.inbox.schemas import (
+    EmailCreate,
+    InboxMessage,
+    InboxMessageDetail,
+    ReplyCreate,
+)
 
 
 def _summary(message: GmailMessage) -> InboxMessage:
@@ -62,6 +70,20 @@ def _html_text(markup: str) -> str:
     return re.sub(r"\n\s*\n+", "\n\n", "".join(parser.parts)).strip()
 
 
+def _mime(to: str, subject: str, body: str, answers: GmailPart | None = None) -> str:
+    """An email as Gmail's send takes it, RFC 2822 and base64url encoded; a reply
+    names the message it answers so mail clients thread it"""
+    message = EmailMessage()
+    message["To"] = to
+    message["Subject"] = subject
+    if answers is not None:
+        message_id = answers.header("Message-ID")
+        message["In-Reply-To"] = message_id
+        message["References"] = f"{answers.header('References')} {message_id}".strip()
+    message.set_content(body)
+    return urlsafe_b64encode(message.as_bytes()).decode()
+
+
 class InboxService:
     def __init__(
         self, google: GoogleService, client: GoogleClient, settings: GoogleSettings
@@ -89,6 +111,41 @@ class InboxService:
             to=payload.header("To"),
             body=payload.find("text/plain").strip()
             or _html_text(payload.find("text/html")),
+        )
+
+    async def reply(self, user_id: UUID, thread_id: str, reply: ReplyCreate) -> None:
+        """Answer the newest email in the thread that someone else sent, in the thread"""
+        token = await self._google.access_token(user_id)
+        thread = await self._client.thread(token, thread_id)
+        me = (await self._google.email(user_id) or "").lower()
+        theirs = [
+            m.payload
+            for m in thread.messages
+            if parseaddr(m.payload.header("From"))[1].lower() != me
+        ]
+        if not theirs:
+            raise InvalidInput(
+                "Nobody else wrote in this thread, so there is no one to reply to"
+            )
+        subject = thread.messages[0].payload.header("Subject")
+        await self._client.send(
+            token,
+            GmailSend(
+                raw=_mime(
+                    theirs[-1].header("Reply-To") or theirs[-1].header("From"),
+                    subject if subject.lower().startswith("re:") else f"Re: {subject}",
+                    reply.body,
+                    theirs[-1],
+                ),
+                thread_id=thread_id,
+            ),
+        )
+
+    async def send(self, user_id: UUID, email: EmailCreate) -> None:
+        """Send a new email from the user's Gmail"""
+        token = await self._google.access_token(user_id)
+        await self._client.send(
+            token, GmailSend(raw=_mime(email.to, email.subject, email.body))
         )
 
 

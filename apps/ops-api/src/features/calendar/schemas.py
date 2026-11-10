@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import AwareDatetime, BaseModel, Field
 
 
 class CalendarEvent(BaseModel):
@@ -28,4 +28,21 @@ class CalendarEvent(BaseModel):
     """The event in Google Calendar"""
 
 
-__all__ = ["CalendarEvent"]
+class EventCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=500)
+    """The event's title, such as Lumen Pay technical interview"""
+
+    start: AwareDatetime
+    """When it starts"""
+
+    end: AwareDatetime
+    """When it ends; must be after start"""
+
+    description: str | None = Field(default=None, max_length=8000)
+    """Notes on the event, such as who to meet"""
+
+    location: str | None = Field(default=None, max_length=500)
+    """Where it takes place, such as a video link"""
+
+
+__all__ = ["CalendarEvent", "EventCreate"]

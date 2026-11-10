@@ -20,7 +20,9 @@ JSEARCH_ENCRYPTION_KEY = "pcmpLWT8lLZJmPF7IsUqBimTLFLTgPGcQmjx82jBz9M="
 ENCRYPTION_KEY = urlsafe_b64encode(b"e" * 32).decode()
 GOOGLE_SCOPES = (
     "https://www.googleapis.com/auth/gmail.readonly "
-    "https://www.googleapis.com/auth/calendar.readonly"
+    "https://www.googleapis.com/auth/gmail.send "
+    "https://www.googleapis.com/auth/calendar.readonly "
+    "https://www.googleapis.com/auth/calendar.events"
 )
 
 
@@ -239,6 +241,10 @@ class FakeGoogle:
         self.messages: dict[str, dict[str, object]] = {}
         self.deleted: list[str] = []
         self.events: list[dict[str, object]] = []
+        self.time_zone = "Asia/Kuala_Lumpur"
+        self.read_only = False
+        self.sent: list[dict[str, str]] = []
+        self.created: list[dict[str, object]] = []
 
     def _token(self, form: dict[str, list[str]]) -> httpx2.Response:
         """A code always works; a refresh works until the grant is revoked"""
@@ -256,10 +262,28 @@ class FakeGoogle:
         self.refreshed_with += form["refresh_token"]
         return httpx2.Response(200, json={"access_token": "access-2"})
 
+    def _write(self, request: httpx2.Request) -> httpx2.Response:
+        """Send an email or add an event, unless the grant is read-only"""
+        if self.read_only:
+            return httpx2.Response(
+                403, json={"error": {"errors": [{"reason": "insufficientPermissions"}]}}
+            )
+        body = json.loads(request.content)
+        if request.url.path == "/gmail/v1/users/me/messages/send":
+            self.sent.append(body)
+            return httpx2.Response(200, json={"id": f"sent-{len(self.sent)}"})
+        self.created.append(body)
+        return httpx2.Response(
+            200,
+            json={"id": f"event-{len(self.created)}", "status": "confirmed", **body},
+        )
+
     def _api(self, request: httpx2.Request) -> httpx2.Response:
         """Gmail and Calendar for a request that carries an access token"""
         if self.failing:
             return httpx2.Response(500, text="backend detail for Google's engineers")
+        if request.method == "POST":
+            return self._write(request)
         path = request.url.path
         query = parse_qs(urlsplit(str(request.url)).query)
         if path == "/gmail/v1/users/me/profile":
@@ -271,6 +295,14 @@ class FakeGoogle:
                 for key in [*self.messages, *self.deleted]
             ]
             return httpx2.Response(200, json={"messages": refs} if refs else {})
+        if path.startswith("/gmail/v1/users/me/threads/"):
+            thread_id = path.rsplit("/", 1)[1]
+            messages = [m for m in self.messages.values() if m["threadId"] == thread_id]
+            return (
+                httpx2.Response(200, json={"id": thread_id, "messages": messages[::-1]})
+                if messages
+                else httpx2.Response(404)
+            )
         if path.startswith("/gmail/v1/users/me/messages/"):
             message = self.messages.get(path.rsplit("/", 1)[1])
             return (
@@ -278,7 +310,9 @@ class FakeGoogle:
             )
         if path == "/calendar/v3/calendars/primary/events":
             self.calendar_params.append(query)
-            return httpx2.Response(200, json={"items": self.events})
+            return httpx2.Response(
+                200, json={"timeZone": self.time_zone, "items": self.events}
+            )
         return httpx2.Response(404)
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:

@@ -39,7 +39,8 @@ async def connect_google(
     service: GoogleServiceDep,
     next_path: Annotated[str, Query(alias="next")] = "/settings",
 ) -> RedirectResponse:
-    """Send the user to Google to allow read-only Gmail and Calendar access"""
+    """Send the user to Google to allow reading and sending Gmail and reading and
+    adding Calendar events"""
     state = secrets.token_urlsafe(32)
     url = service.authorize_url(state)
     request.session[_PENDING] = {

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from src.clients.google.client import MISSING_SCOPE
 from src.core.config import get_settings
 from tests.conftest import PREFIX, connect_google
 
@@ -90,3 +91,61 @@ async def test_an_expired_grant_asks_to_reconnect(client, google):
 
     assert response.status_code == 409
     assert "reconnect" in response.json()["detail"]
+
+
+INTERVIEW = {
+    "title": "Lumen Pay technical interview",
+    "start": "2026-11-12T10:00:00+08:00",
+    "end": "2026-11-12T11:00:00+08:00",
+    "location": "Google Meet",
+}
+
+
+async def test_creating_an_event_adds_it_to_google_calendar(client, google):
+    await connect_google(client)
+
+    response = await client.post(
+        f"{PREFIX}/calendar/events",
+        json=INTERVIEW | {"description": "With Aisha Rahman"},
+    )
+
+    assert response.status_code == 201
+    assert google.created == [
+        {
+            "summary": "Lumen Pay technical interview",
+            "start": {"dateTime": "2026-11-12T10:00:00+08:00"},
+            "end": {"dateTime": "2026-11-12T11:00:00+08:00"},
+            "description": "With Aisha Rahman",
+            "location": "Google Meet",
+        }
+    ]
+    assert response.json() == {
+        "id": "event-1",
+        "title": "Lumen Pay technical interview",
+        "start": "2026-11-12T10:00:00+08:00",
+        "end": "2026-11-12T11:00:00+08:00",
+        "all_day": False,
+        "location": "Google Meet",
+        "url": "",
+    }
+
+
+async def test_an_event_must_end_after_it_starts(client, google):
+    await connect_google(client)
+
+    response = await client.post(
+        f"{PREFIX}/calendar/events", json=INTERVIEW | {"end": INTERVIEW["start"]}
+    )
+
+    assert response.status_code == 422
+    assert google.created == []
+
+
+async def test_a_read_only_grant_asks_to_reconnect_for_events(client, google):
+    await connect_google(client)
+    google.read_only = True
+
+    response = await client.post(f"{PREFIX}/calendar/events", json=INTERVIEW)
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": MISSING_SCOPE}

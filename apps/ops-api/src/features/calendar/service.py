@@ -3,10 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from src.clients.google import GoogleClient, GoogleEvent
+from src.clients.google import EventTime, GoogleClient, GoogleEvent, NewEvent
 from src.core.config import GoogleSettings
 from src.core.exceptions import InvalidInput
-from src.features.calendar.schemas import CalendarEvent
+from src.features.calendar.schemas import CalendarEvent, EventCreate
 from src.features.google import GoogleService
 
 
@@ -43,7 +43,24 @@ class CalendarService:
             )
         token = await self._google.access_token(user_id)
         found = await self._client.events(token, start, end)
-        return [_event(event) for event in found if event.status != "cancelled"]
+        return [_event(event) for event in found.items if event.status != "cancelled"]
+
+    async def create(self, user_id: UUID, event: EventCreate) -> CalendarEvent:
+        """Add an event to the primary calendar"""
+        if event.end <= event.start:
+            raise InvalidInput("The event must end after it starts")
+        token = await self._google.access_token(user_id)
+        created = await self._client.create_event(
+            token,
+            NewEvent(
+                summary=event.title,
+                start=EventTime(date_time=event.start),
+                end=EventTime(date_time=event.end),
+                description=event.description,
+                location=event.location,
+            ),
+        )
+        return _event(created)
 
 
 __all__ = ["CalendarService"]

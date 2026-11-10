@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class InboxMessage(BaseModel):
@@ -39,4 +39,17 @@ class InboxMessageDetail(InboxMessage):
     """The body as plain text; HTML-only mail is reduced to its text"""
 
 
-__all__ = ["InboxMessage", "InboxMessageDetail"]
+class ReplyCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=20000)
+    """The reply as plain text"""
+
+
+class EmailCreate(ReplyCreate):
+    to: str = Field(pattern=r"^[^@\s<>]+@[^@\s<>]+$", max_length=320)
+    """The recipient's address"""
+
+    subject: str = Field(min_length=1, max_length=500)
+    """The subject line"""
+
+
+__all__ = ["EmailCreate", "InboxMessage", "InboxMessageDetail", "ReplyCreate"]
