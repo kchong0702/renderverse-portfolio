@@ -1,7 +1,6 @@
 import type { Application } from "@/features/applications";
 import type { CalendarEvent } from "../api/calendar";
 import { eventTime, isoDay } from "./dates";
-import { isInterview } from "./interview";
 
 export type ItemKind = "interview" | "task" | "busy";
 
@@ -28,8 +27,8 @@ export function itemsOf(
   return [
     ...events.map((event): CalendarItem => ({
       id: event.id,
-      kind: isInterview(event) ? "interview" : "busy",
-      title: isInterview(event) ? event.title : "",
+      kind: event.interview ? "interview" : "busy",
+      title: event.interview ? event.title : "",
       step: "",
       start: eventTime(event.start, event.all_day),
       end: eventTime(event.end, event.all_day),
