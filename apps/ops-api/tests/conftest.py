@@ -52,12 +52,12 @@ class FakeHarness:
             ]
         }
         self.down = False
-        self.outcomes: list[dict] = []
+        self.outcomes: list[dict | list[dict]] = []
         self.received: list[httpx2.Request] = []
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         """Serve the catalog at GET /ezcareer/models and answer each A2A POST with
-        the next of outcomes, or refuse to connect when down"""
+        the next of outcomes, a list streaming as SSE, or refuse to connect when down"""
         if self.down:
             raise httpx2.ConnectError("connection refused", request=request)
         if request.method == "GET" and request.url.path == "/ezcareer/models":
@@ -65,8 +65,18 @@ class FakeHarness:
         if request.method == "POST" and request.url.path.startswith("/ezcareer/a2a/"):
             self.received.append(request)
             rpc_id = json.loads(request.content)["id"]
+            outcome = self.outcomes.pop(0)
+            if isinstance(outcome, list):
+                return httpx2.Response(
+                    200,
+                    headers={"content-type": "text/event-stream"},
+                    content="".join(
+                        f"data: {json.dumps({'jsonrpc': '2.0', 'id': rpc_id, **e})}\n\n"
+                        for e in outcome
+                    ),
+                )
             return httpx2.Response(
-                200, json={"jsonrpc": "2.0", "id": rpc_id, **self.outcomes.pop(0)}
+                200, json={"jsonrpc": "2.0", "id": rpc_id, **outcome}
             )
         return httpx2.Response(404)
 

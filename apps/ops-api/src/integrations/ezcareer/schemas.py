@@ -89,8 +89,79 @@ type Run[R] = Completed[R] | InputRequired | Failed
 """How a run of a harness executable ended"""
 
 
+class Started(BaseModel):
+    status: Literal["started"] = "started"
+    """The run started"""
+
+    task_id: str
+    """The run's task, which Stop cancels"""
+
+
+class Thinking(BaseModel):
+    status: Literal["thinking"] = "thinking"
+    """The model reasoned"""
+
+    turn: str
+    """The model turn the reasoning belongs to"""
+
+    text: str
+    """The next piece of the reasoning's summary"""
+
+
+class Text(BaseModel):
+    status: Literal["text"] = "text"
+    """The model wrote"""
+
+    turn: str
+    """The model turn the text belongs to"""
+
+    text: str
+    """The next piece of the text"""
+
+
+class Step(BaseModel):
+    id: str
+    """The tool call or graph task the step is"""
+
+    parent: str | None
+    """The tool call whose workflow runs this step, if any"""
+
+    name: str
+    """The tool or graph node, such as analyse_job or fetch"""
+
+    status: Literal["running", "done", "failed", "waiting"]
+    """Where the step is"""
+
+
+class StepUpdate(BaseModel):
+    status: Literal["step"] = "step"
+    """A step started, finished, failed or paused"""
+
+    step: Step
+    """The step as it stands"""
+
+
+class Cancelled(BaseModel):
+    status: Literal["cancelled"] = "cancelled"
+    """The user stopped the run"""
+
+
+type RunEvent[R] = (
+    Started
+    | Thinking
+    | Text
+    | StepUpdate
+    | Completed[R]
+    | InputRequired
+    | Failed
+    | Cancelled
+)
+"""One event of a streamed run: its start, its progress, then how it ended"""
+
+
 __all__ = [
     "Answer",
+    "Cancelled",
     "Completed",
     "Failed",
     "FamilyModels",
@@ -98,6 +169,12 @@ __all__ = [
     "ModelCatalog",
     "ModelChoice",
     "Run",
+    "RunEvent",
     "RunMetadata",
+    "Started",
+    "Step",
+    "StepUpdate",
+    "Text",
+    "Thinking",
     "Widget",
 ]
