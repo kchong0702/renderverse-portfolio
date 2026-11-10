@@ -6,7 +6,7 @@ from fastapi.sse import ServerSentEvent
 
 
 class RunStore(Protocol):
-    async def start(self, user_id: UUID, key: str) -> str:
+    async def create(self, user_id: UUID, key: str) -> str:
         """Open a new run of the user's for key, such as their chat, and return its id;
         Conflict while key's last run is still going"""
         ...

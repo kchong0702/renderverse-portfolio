@@ -44,7 +44,7 @@ class InMemoryRunStore:
         changed, run.changed = run.changed, asyncio.Event()
         changed.set()
 
-    async def start(self, user_id: UUID, key: str) -> str:
+    async def create(self, user_id: UUID, key: str) -> str:
         """Open a new run for key and return its id, the key already naming the user;
         Conflict while key's last run is still going"""
         if (
