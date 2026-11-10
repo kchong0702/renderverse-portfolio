@@ -42,7 +42,7 @@ async def test_connect_without_credentials_says_what_to_set(client, monkeypatch)
     }
 
 
-async def test_connect_asks_google_for_offline_read_only_access(client):
+async def test_connect_asks_google_offline_to_read_and_send_mail_and_add_events(client):
     response = await client.get(CONNECT)
 
     assert response.status_code == 303
