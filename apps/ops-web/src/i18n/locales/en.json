@@ -679,7 +679,6 @@
       "google": {
         "connect": "Connect",
         "disconnect": "Disconnect",
-        "notConfigured": "Not configured",
         "disconnectFailed": "Not disconnected: {{reason}}"
       },
       "googleErrors": {
