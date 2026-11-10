@@ -589,7 +589,7 @@ export default function AssistantDock({
   suggestions,
 }: {
   topic?: string;
-  suggestions: string[];
+  suggestions: { label: string; text: string }[];
 }) {
   const { t, i18n } = useTranslation();
   const open = useAssistantStore((state) => state.open);
@@ -706,16 +706,18 @@ export default function AssistantDock({
           {empty ? (
             <div className="flex flex-col gap-2 px-[18px] py-4">
               {(document
-                ? t("assistant.documentSuggestions", { returnObjects: true })
+                ? t("assistant.documentSuggestions", {
+                    returnObjects: true,
+                  }).map((text) => ({ label: text, text }))
                 : suggestions
-              ).map((suggestion) => (
+              ).map(({ label, text }) => (
                 <button
-                  key={suggestion}
+                  key={label}
                   type="button"
-                  onClick={() => submit(suggestion)}
+                  onClick={() => submit(text)}
                   className="border-hair text-ink-2 min-h-9 cursor-pointer rounded-[10px] border bg-transparent px-3 py-2 text-left text-[13px]"
                 >
-                  {suggestion}
+                  {label}
                 </button>
               ))}
             </div>

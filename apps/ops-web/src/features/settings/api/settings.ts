@@ -15,6 +15,8 @@ export interface Automation {
   tailor_strong_matches: boolean;
   follow_up_reminders: boolean;
   suggest_replies: boolean;
+  add_interview_invites: boolean;
+  offer_free_slots: boolean;
 }
 
 export interface Scheduling {

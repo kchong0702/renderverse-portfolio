@@ -1,5 +1,12 @@
-import { queryOptions } from "@tanstack/react-query";
-import { fetchInbox, fetchMessage } from "../api/inbox";
+import { mutationOptions, queryOptions } from "@tanstack/react-query";
+import {
+  draftFollowUp,
+  draftReply,
+  fetchInbox,
+  fetchMessage,
+  sendEmail,
+  sendReply,
+} from "../api/inbox";
 
 export const inboxQueryOptions = queryOptions({
   queryKey: ["inbox"],
@@ -12,3 +19,26 @@ export const messageQueryOptions = (id: string) =>
     queryFn: ({ signal }) => fetchMessage(id, signal),
     staleTime: Infinity,
   });
+
+export const replyDraftQueryOptions = (threadId: string, messageId: string) =>
+  queryOptions({
+    queryKey: ["reply-draft", threadId, messageId],
+    queryFn: () => draftReply(threadId),
+    staleTime: Infinity,
+  });
+
+export const sendReplyMutationOptions = mutationOptions({
+  mutationFn: sendReply,
+  onSuccess: (_data, _variables, _result, { client }) =>
+    client.invalidateQueries({ queryKey: inboxQueryOptions.queryKey }),
+});
+
+export const sendEmailMutationOptions = mutationOptions({
+  mutationFn: sendEmail,
+  onSuccess: (_data, _variables, _result, { client }) =>
+    client.invalidateQueries({ queryKey: inboxQueryOptions.queryKey }),
+});
+
+export const draftFollowUpMutationOptions = mutationOptions({
+  mutationFn: draftFollowUp,
+});
