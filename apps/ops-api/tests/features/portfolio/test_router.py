@@ -1,0 +1,208 @@
+import json
+from pathlib import PurePosixPath
+from uuid import uuid4
+
+from src.core.config import reload_settings
+from tests.conftest import PREFIX
+
+PORTFOLIO = f"{PREFIX}/portfolio"
+PROFILE = f"{PREFIX}/profile"
+
+
+async def _project(client, title, **fields):
+    return (
+        await client.post(
+            f"{PROFILE}/entries", json={"kind": "project", "title": title, **fields}
+        )
+    ).json()
+
+
+async def _seed(client):
+    await client.patch(
+        PROFILE,
+        json={
+            "name": "Kelvin Chong",
+            "headline": "Senior Software Engineer",
+            "location": "Kuala Lumpur",
+            "email": "kelvin@example.com",
+            "phone": "+60 12 345 6789",
+            "links": ["https://github.com/kchong0702"],
+            "summary": "Builds platforms.",
+        },
+    )
+    python = (
+        await client.post(
+            f"{PROFILE}/skills", json={"name": "Python", "group": "Languages"}
+        )
+    ).json()
+    await client.post(f"{PROFILE}/skills", json={"name": "Perl", "archived": True})
+    renderverse = await _project(
+        client,
+        "Renderverse",
+        summary="3D portfolio you can walk through",
+        start="2025-01",
+        end="present",
+        highlights=["Built the 3D scene."],
+        on_site=True,
+    )
+    await _project(client, "Kubernetes migration")
+    await _project(client, "Capstone", on_site=True, archived=True)
+    await client.post(
+        f"{PROFILE}/entries",
+        json={"kind": "role", "title": "Senior Engineer", "on_site": True},
+    )
+    return python, renderverse
+
+
+def _current_file(storage) -> tuple[bytes, str, str]:
+    (key,) = storage.files
+    assert PurePosixPath(key).match("sites/*/release/current.json"), key
+    return storage.files[key]
+
+
+def _current(storage) -> dict:
+    return json.loads(_current_file(storage)[0])
+
+
+async def test_publish_writes_the_draft_as_the_live_release(client, storage):
+    python, renderverse = await _seed(client)
+
+    draft = (await client.get(f"{PORTFOLIO}/draft")).json()
+    assert draft["number"] == 1
+    assert draft["site_url"] is None
+    assert [(c["kind"], c["id"], c["change"]) for c in draft["changes"]] == [
+        ("about", None, "changed"),
+        ("skill", python["id"], "added"),
+        ("project", renderverse["id"], "added"),
+    ]
+
+    published = await client.post(f"{PORTFOLIO}/releases")
+
+    assert published.status_code == 201
+    assert published.json()["number"] == 1
+    assert published.json()["live"] is True
+    _, content_type, cache_control = _current_file(storage)
+    assert (content_type, cache_control) == ("application/json", "max-age=60")
+    current = _current(storage)
+    assert current["number"] == 1
+    assert current["about"] == {
+        "name": "Kelvin Chong",
+        "headline": "Senior Software Engineer",
+        "summary": "Builds platforms.",
+        "location": "Kuala Lumpur",
+        "links": ["https://github.com/kchong0702"],
+    }, "contact details stay off the site"
+    assert current["skills"] == [
+        {"id": python["id"], "name": "Python", "group": "Languages"}
+    ]
+    assert current["projects"] == [
+        {
+            "id": renderverse["id"],
+            "title": "Renderverse",
+            "organisation": "",
+            "start": "2025-01",
+            "end": "present",
+            "summary": "3D portfolio you can walk through",
+            "highlights": ["Built the 3D scene."],
+        }
+    ]
+    assert (await client.get(f"{PORTFOLIO}/draft")).json()["changes"] == []
+
+
+async def test_publish_needs_a_change_since_the_live_release(client):
+    _, renderverse = await _seed(client)
+    await client.post(f"{PORTFOLIO}/releases")
+
+    assert (await client.post(f"{PORTFOLIO}/releases")).status_code == 409
+
+    await client.put(
+        f"{PROFILE}/entries/{renderverse['id']}",
+        json={"title": "Renderverse", "on_site": False},
+    )
+    draft = (await client.get(f"{PORTFOLIO}/draft")).json()
+    assert draft["number"] == 2
+    assert draft["changes"] == [
+        {
+            "kind": "project",
+            "id": renderverse["id"],
+            "name": "Renderverse",
+            "change": "removed",
+        }
+    ]
+    assert (await client.post(f"{PORTFOLIO}/releases")).json()["number"] == 2
+
+
+async def test_rolling_back_serves_an_earlier_release_and_can_be_undone(
+    client, storage
+):
+    await _seed(client)
+    first = (await client.post(f"{PORTFOLIO}/releases")).json()
+    kotlin = (await client.post(f"{PROFILE}/skills", json={"name": "Kotlin"})).json()
+    second = (await client.post(f"{PORTFOLIO}/releases")).json()
+
+    rolled = await client.post(f"{PORTFOLIO}/releases/{first['id']}/live")
+
+    assert rolled.json()["live"] is True
+    assert _current(storage)["number"] == 1
+    assert [
+        (r["number"], r["live"])
+        for r in (await client.get(f"{PORTFOLIO}/releases")).json()
+    ] == [
+        (2, False),
+        (1, True),
+    ]
+    draft = (await client.get(f"{PORTFOLIO}/draft")).json()
+    assert draft["number"] == 3
+    assert [(c["id"], c["change"]) for c in draft["changes"]] == [
+        (kotlin["id"], "added")
+    ]
+
+    await client.post(f"{PORTFOLIO}/releases/{second['id']}/live")
+    assert _current(storage)["number"] == 2
+    assert (await client.get(f"{PORTFOLIO}/draft")).json()["changes"] == []
+
+
+async def test_nothing_is_published_when_storage_fails(client, storage):
+    await _seed(client)
+    first = (await client.post(f"{PORTFOLIO}/releases")).json()
+    await client.post(f"{PROFILE}/skills", json={"name": "Kotlin"})
+    storage.down = True
+
+    assert (await client.post(f"{PORTFOLIO}/releases")).status_code == 503
+
+    releases = (await client.get(f"{PORTFOLIO}/releases")).json()
+    assert [(r["number"], r["live"]) for r in releases] == [(1, True)]
+    assert _current(storage)["number"] == first["number"]
+
+
+async def test_rolling_back_needs_a_release_of_the_user(client):
+    response = await client.post(f"{PORTFOLIO}/releases/{uuid4()}/live")
+
+    assert response.status_code == 404
+
+
+async def test_every_portfolio_route_needs_a_session(auth_client):
+    for method, path in (
+        ("GET", "draft"),
+        ("GET", "releases"),
+        ("POST", "releases"),
+        ("POST", f"releases/{uuid4()}/live"),
+    ):
+        response = await auth_client.request(method, f"{PORTFOLIO}/{path}")
+        assert response.status_code == 401, path
+
+
+async def test_draft_names_the_site_once_its_url_is_set(client, monkeypatch):
+    monkeypatch.setenv("OPS_API_PORTFOLIO__SITE_URL", "https://portfolio.example")
+    reload_settings()
+
+    draft = (await client.get(f"{PORTFOLIO}/draft")).json()
+    settings = (await client.get(f"{PREFIX}/settings")).json()
+
+    assert draft["site_url"] == "https://portfolio.example"
+    assert {
+        "id": "portfolio_site",
+        "status": "connected",
+        "quota": None,
+        "account": None,
+    } in settings["connections"]

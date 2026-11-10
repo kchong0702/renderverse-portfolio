@@ -99,3 +99,6 @@ calendar_max_events = 250
 service_name = "ops-api"
 log_level = "INFO"
 log_format = "console"
+
+[portfolio]
+site_url = ""

@@ -412,10 +412,27 @@ async def connect_google(client: httpx2.AsyncClient, next_path: str = "/settings
     )
 
 
+class FakeStorage:
+    def __init__(self):
+        self.files: dict[str, tuple[bytes, str, str]] = {}
+        self.down = False
+
+    async def put(
+        self, key: str, body: bytes, content_type: str, cache_control: str
+    ) -> None:
+        """Keep the file with its headers, or fail as R2 would when down"""
+        from src.core.exceptions import ServiceUnavailable
+
+        if self.down:
+            raise ServiceUnavailable(f"{key} could not be written to R2")
+        self.files[key] = (body, content_type, cache_control)
+
+
 async def _app(
     harness: FakeHarness,
     artifact: FakeArtifact,
     google: FakeGoogle,
+    storage: FakeStorage,
     oauth_providers: dict | None = None,
     engine: AsyncEngine | None = None,
 ) -> AsyncIterator[FastAPI]:
@@ -447,6 +464,7 @@ async def _app(
             ArtifactClient(settings.artifact, httpx2.MockTransport(artifact))
         )
     )
+    container.storage.override(providers.Object(storage))
     container.ezcareer.override(
         providers.Object(
             EzcareerClient(
@@ -488,11 +506,19 @@ def google() -> FakeGoogle:
 
 
 @pytest.fixture
+def storage() -> FakeStorage:
+    return FakeStorage()
+
+
+@pytest.fixture
 async def app(
-    harness: FakeHarness, artifact: FakeArtifact, google: FakeGoogle
+    harness: FakeHarness,
+    artifact: FakeArtifact,
+    google: FakeGoogle,
+    storage: FakeStorage,
 ) -> AsyncIterator[FastAPI]:
     """Auth disabled: every request is auth.dev_email"""
-    async for app in _app(harness, artifact, google):
+    async for app in _app(harness, artifact, google, storage):
         yield app
 
 
@@ -504,7 +530,10 @@ async def client(app: FastAPI) -> AsyncIterator[httpx2.AsyncClient]:
 
 @pytest.fixture
 async def postgres_app(
-    harness: FakeHarness, artifact: FakeArtifact, google: FakeGoogle
+    harness: FakeHarness,
+    artifact: FakeArtifact,
+    google: FakeGoogle,
+    storage: FakeStorage,
 ) -> AsyncIterator[FastAPI]:
     """The app on the test Postgres database, its dev user deleted after the test"""
     from src.core.auth.models import User
@@ -512,7 +541,7 @@ async def postgres_app(
     from tests.core.conftest import DATABASE_URL
 
     async for app in _app(
-        harness, artifact, google, engine=create_async_engine(DATABASE_URL)
+        harness, artifact, google, storage, engine=create_async_engine(DATABASE_URL)
     ):
         yield app
         async with app.state.session_factory() as session, session.begin():
@@ -536,12 +565,13 @@ async def auth_app(
     harness: FakeHarness,
     artifact: FakeArtifact,
     google: FakeGoogle,
+    storage: FakeStorage,
 ) -> AsyncIterator[FastAPI]:
     """Auth enabled, OWNER allowlisted, fake Google and GitHub"""
     monkeypatch.setenv("OPS_API_AUTH__ENABLED", "true")
     monkeypatch.setenv("OPS_API_AUTH__ALLOWED_EMAILS", OWNER)
     monkeypatch.setenv("OPS_API_AUTH__SECRET_KEY", "k" * 32)
-    async for app in _app(harness, artifact, google, oauth_providers):
+    async for app in _app(harness, artifact, google, storage, oauth_providers):
         yield app
 
 

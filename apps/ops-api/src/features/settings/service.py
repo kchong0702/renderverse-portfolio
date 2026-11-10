@@ -13,7 +13,7 @@ from src.clients.ezcareer import (
     ModelChoice,
     RunMetadata,
 )
-from src.core.config import JSearchSettings
+from src.core.config import JSearchSettings, get_settings
 from src.core.exceptions import Conflict, InvalidInput, ServiceUnavailable
 from src.features.google import GoogleService
 from src.features.settings.models import UserSettings
@@ -90,7 +90,7 @@ class SettingsService:
 
     async def _connections(self, settings: UserSettings) -> list[Connection]:
         """Google from its stored grant, JSearch from the stored key and its last
-        quota; the portfolio site waits for its integration"""
+        quota; the portfolio site is connected once portfolio.site_url is set"""
         email = await self._google.email(settings.user_id)
         google = (
             Connection(
@@ -121,7 +121,12 @@ class SettingsService:
                 and settings.jsearch_quota_limit is not None
                 else None,
             ),
-            Connection(id="portfolio_site", status="not_connected"),
+            Connection(
+                id="portfolio_site",
+                status="connected"
+                if get_settings().portfolio.site_url
+                else "not_connected",
+            ),
         ]
 
     async def get(self, user_id: UUID) -> SettingsRead:
