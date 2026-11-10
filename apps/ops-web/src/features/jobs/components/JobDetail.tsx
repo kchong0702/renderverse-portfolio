@@ -1,5 +1,4 @@
 import { useMutationState } from "@tanstack/react-query";
-import { ScanSearch } from "lucide-react";
 import { useEffect, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { buttonClass } from "@/shared/components/button";
@@ -113,7 +112,6 @@ export default function JobDetail({ job }: { job: Job }) {
           onClick={() => analyse.mutate(job.id)}
           className={buttonClass()}
         >
-          <ScanSearch size={16} />
           {analysing
             ? t("jobs.analysing")
             : analysis

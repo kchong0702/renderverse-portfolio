@@ -1,5 +1,5 @@
 import { useIsMutating } from "@tanstack/react-query";
-import { Sparkles } from "lucide-react";
+import { Sparkle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { buttonClass } from "@/shared/components/button";
@@ -44,7 +44,7 @@ export default function JobsPage() {
               onClick={() => find.mutate()}
               className={buttonClass("primary")}
             >
-              <Sparkles size={16} className="text-amber-soft" />
+              <Sparkle size={14} className="text-amber-soft" />
               {finding ? t("jobs.runningAgent") : t("jobs.runAgent")}
             </button>
           </>
