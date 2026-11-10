@@ -1,11 +1,15 @@
 import { useMutationState } from "@tanstack/react-query";
+import { Sparkle } from "lucide-react";
 import { useEffect, useId } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
+import { useFollowTurn } from "@/features/assistant";
+import { useEditorStore } from "@/features/documents";
 import { buttonClass } from "@/shared/components/button";
 import { cn } from "@/shared/lib/cn";
 import { relativeDay } from "@/shared/lib/dates";
 import type { Job, Match } from "../api/jobs";
-import { useAnalyseJob, useUpdateJob } from "../hooks/useJobs";
+import { useAnalyseJob, useTailorJob, useUpdateJob } from "../hooks/useJobs";
 import { BAND_TONES, FIT_INK } from "../lib/fit";
 import { analyseJobMutationOptions } from "../queries/jobs";
 
@@ -22,6 +26,10 @@ export default function JobDetail({ job }: { job: Job }) {
   const update = useUpdateJob();
   const { mutate: markSeen } = useUpdateJob();
   const analyse = useAnalyseJob();
+  const tailor = useTailorJob();
+  const follow = useFollowTurn();
+  const showPanel = useEditorStore((state) => state.showPanel);
+  const navigate = useNavigate();
   const analysing = useMutationState({
     filters: {
       mutationKey: analyseJobMutationOptions.mutationKey,
@@ -90,6 +98,25 @@ export default function JobDetail({ job }: { job: Job }) {
       <div className="flex flex-wrap gap-2.5">
         <button
           type="button"
+          disabled={tailor.isPending}
+          onClick={() =>
+            tailor.mutate(job.id, {
+              onSuccess: ({ resume, cover_letter }) => {
+                for (const copy of [resume, cover_letter])
+                  if (copy?.tailoring)
+                    follow.mutate({ kind: "document", id: copy.document_id });
+                showPanel("assistant");
+                navigate(`/documents?doc=${resume.document_id}`);
+              },
+            })
+          }
+          className={buttonClass("primary")}
+        >
+          <Sparkle size={14} className="text-amber-soft" />
+          {tailor.isPending ? t("jobs.tailoring") : t("jobs.tailor")}
+        </button>
+        <button
+          type="button"
           aria-pressed={saved}
           onClick={() =>
             update.mutate({ id: job.id, status: saved ? "picked" : "saved" })
@@ -119,6 +146,11 @@ export default function JobDetail({ job }: { job: Job }) {
               : t("jobs.analyse")}
         </button>
       </div>
+      {tailor.isError && (
+        <p role="alert" className="text-crit m-0 text-sm">
+          {t("jobs.tailorFailed", { reason: tailor.error.message })}
+        </p>
+      )}
       {analyseFailed && (
         <p role="alert" className="text-crit m-0 text-sm">
           {t("jobs.analyseFailed", { reason: analyseFailed })}

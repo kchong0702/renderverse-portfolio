@@ -1,6 +1,7 @@
 export { default as AssistantDock } from "./components/AssistantDock";
 export {
   useAnswerTask,
+  useFollowTurn,
   useResumeTurns,
   useSendMessage,
   useStop,
