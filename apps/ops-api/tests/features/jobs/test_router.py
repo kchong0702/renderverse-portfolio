@@ -61,11 +61,13 @@ async def test_added_job_keeps_its_analysis_with_the_band(client):
 
 
 async def test_jobs_list_best_fit_first_and_unanalysed_last(client):
-    await client.post(JOBS, json={"title": "Not analysed yet"})
-    for fit in (58, 78):
+    for fit in (78, 58):
         await client.post(
             JOBS, json={"title": f"Fit {fit}", "analysis": {**ANALYSIS, "fit": fit}}
         )
+    await client.post(
+        JOBS, json={"title": "Not analysed yet", "posted_at": "2026-11-08T00:00:00Z"}
+    )
 
     jobs = (await client.get(JOBS)).json()
 

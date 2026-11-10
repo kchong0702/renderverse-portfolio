@@ -17,12 +17,10 @@ class JobService:
 
     async def jobs(self, user_id: UUID) -> list[JobRead]:
         """Every job, best fit first; unanalysed ones last, newest first"""
-        jobs = sorted(
-            await self._repository.jobs(user_id),
-            key=lambda job: job.analysis.fit if job.analysis else -1,
-            reverse=True,
-        )
-        return [JobRead.model_validate(job, from_attributes=True) for job in jobs]
+        return [
+            JobRead.model_validate(job, from_attributes=True)
+            for job in await self._repository.jobs(user_id)
+        ]
 
     async def job(self, user_id: UUID, job_id: UUID) -> JobRead:
         """One of the user's jobs; NotFound when it is not theirs"""
