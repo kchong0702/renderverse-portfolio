@@ -12,7 +12,11 @@ from src.clients.google.schemas import (
     GmailList,
     GmailMessage,
     GmailProfile,
+    GmailSend,
+    GmailSent,
+    GmailThread,
     GoogleEvent,
+    NewEvent,
     Tokens,
 )
 from src.core.config import GoogleSettings
@@ -21,12 +25,20 @@ from src.core.logging import get_logger
 
 SCOPES = (
     "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/calendar.events",
 )
-"""Read-only Gmail and Calendar, the only access Ops asks for"""
+"""Read and send Gmail, read Calendar and add events: the access Ops asks for"""
 
 RECONNECT = "Google access expired or was revoked; reconnect Google in Settings"
 """Why a request needs the user to connect Google again"""
+
+MISSING_SCOPE = (
+    "Ops now sends email and adds Calendar events, which your Google connection "
+    "does not allow yet; reconnect Google in Settings"
+)
+"""Why a write needs a connection made before Ops asked to send and add events"""
 
 _AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 _TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -70,6 +82,7 @@ class GoogleClient:
         data: dict[str, str] | None = None,
         params: list[tuple[str, str]] | None = None,
         token: str | None = None,
+        body: BaseModel | None = None,
     ) -> httpx2.Response:
         """One request to Google; ServiceUnavailable when Google cannot be reached"""
         try:
@@ -78,6 +91,9 @@ class GoogleClient:
                 url,
                 data=data,
                 params=params,
+                json=body.model_dump(mode="json", by_alias=True, exclude_none=True)
+                if body
+                else None,
                 headers={"Authorization": f"Bearer {token}"} if token else None,
             )
         except httpx2.HTTPError as error:
@@ -100,23 +116,30 @@ class GoogleClient:
             raise Conflict(RECONNECT)
         return _parse(response, Tokens)
 
-    async def _get[T: BaseModel](
+    async def _call[T: BaseModel](
         self,
+        method: str,
         url: str,
         token: str,
         model: type[T],
         params: list[tuple[str, str]] | None = None,
+        body: BaseModel | None = None,
     ) -> T:
-        """GET a Google API as the user and parse the JSON into model"""
-        response = await self._send("GET", url, params=params, token=token)
+        """Call a Google API as the user and parse the JSON into model"""
+        response = await self._send(method, url, params=params, token=token, body=body)
         if response.status_code == 401:
             raise Conflict(RECONNECT)
+        if (
+            response.status_code == 403
+            and b"insufficientPermissions" in response.content
+        ):
+            raise Conflict(MISSING_SCOPE)
         if response.status_code == 404:
             raise NotFound("Google has no such item")
         return _parse(response, model)
 
     def authorize_url(self, state: str) -> str:
-        """Google's consent page for read-only Gmail and Calendar, with offline access"""
+        """Google's consent page for Gmail and Calendar, with offline access"""
         query = urlencode(
             {
                 "client_id": self._settings.client_id,
@@ -156,7 +179,9 @@ class GoogleClient:
 
     async def email(self, access_token: str) -> str:
         """The Gmail address the token reads"""
-        profile = await self._get(f"{_GMAIL_URL}/profile", access_token, GmailProfile)
+        profile = await self._call(
+            "GET", f"{_GMAIL_URL}/profile", access_token, GmailProfile
+        )
         return profile.email_address
 
     async def messages(
@@ -164,7 +189,8 @@ class GoogleClient:
     ) -> list[GmailMessage]:
         """The newest messages matching a Gmail search, with headers but no body;
         leaves out any deleted between the search and the fetch"""
-        found = await self._get(
+        found = await self._call(
+            "GET",
             f"{_GMAIL_URL}/messages",
             access_token,
             GmailList,
@@ -177,7 +203,8 @@ class GoogleClient:
         ]
         messages = await asyncio.gather(
             *(
-                self._get(
+                self._call(
+                    "GET",
                     f"{_GMAIL_URL}/messages/{ref.id}",
                     access_token,
                     GmailMessage,
@@ -194,18 +221,41 @@ class GoogleClient:
 
     async def message(self, access_token: str, message_id: str) -> GmailMessage:
         """One message with its whole MIME tree"""
-        return await self._get(
+        return await self._call(
+            "GET",
             f"{_GMAIL_URL}/messages/{message_id}",
             access_token,
             GmailMessage,
             [("format", "full")],
         )
 
+    async def thread(self, access_token: str, thread_id: str) -> GmailThread:
+        """One conversation with every message's MIME tree, oldest first"""
+        return await self._call(
+            "GET",
+            f"{_GMAIL_URL}/threads/{thread_id}",
+            access_token,
+            GmailThread,
+            [("format", "full")],
+        )
+
+    async def send(self, access_token: str, message: GmailSend) -> None:
+        """Send an email from the user's Gmail, in a thread when it names one"""
+        await self._call(
+            "POST",
+            f"{_GMAIL_URL}/messages/send",
+            access_token,
+            GmailSent,
+            body=message,
+        )
+
     async def events(
         self, access_token: str, start: datetime, end: datetime
-    ) -> list[GoogleEvent]:
-        """Events on the primary calendar that overlap the range, repeats expanded"""
-        found = await self._get(
+    ) -> EventList:
+        """Events on the primary calendar that overlap the range, repeats expanded,
+        with the calendar's time zone"""
+        return await self._call(
+            "GET",
             _CALENDAR_URL,
             access_token,
             EventList,
@@ -217,11 +267,16 @@ class GoogleClient:
                 ("maxResults", str(self._settings.calendar_max_events)),
             ],
         )
-        return found.items
+
+    async def create_event(self, access_token: str, event: NewEvent) -> GoogleEvent:
+        """Add an event to the primary calendar"""
+        return await self._call(
+            "POST", _CALENDAR_URL, access_token, GoogleEvent, body=event
+        )
 
     async def aclose(self) -> None:
         """Close the HTTP client's connections"""
         await self._http.aclose()
 
 
-__all__ = ["RECONNECT", "SCOPES", "GoogleClient"]
+__all__ = ["MISSING_SCOPE", "RECONNECT", "SCOPES", "GoogleClient"]

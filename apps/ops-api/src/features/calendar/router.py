@@ -1,11 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, status
 from pydantic import AwareDatetime
 
 from src.core.auth import CurrentUserDep
 from src.core.config import get_settings
-from src.features.calendar.schemas import CalendarEvent
+from src.features.calendar.schemas import CalendarEvent, EventCreate
 from src.features.calendar.service import CalendarService
 from src.features.google import GoogleServiceDep
 
@@ -29,3 +29,11 @@ async def list_events(
 ) -> list[CalendarEvent]:
     """Events on the user's primary Google Calendar between from and to"""
     return await service.events(user.id, start, end)
+
+
+@router.post("/events", status_code=status.HTTP_201_CREATED)
+async def create_event(
+    event: EventCreate, user: CurrentUserDep, service: CalendarServiceDep
+) -> CalendarEvent:
+    """Add an event to the user's primary Google Calendar, such as an interview"""
+    return await service.create(user.id, event)

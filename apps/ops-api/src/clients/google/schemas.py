@@ -89,6 +89,33 @@ class GmailMessage(BaseModel):
     """Headers and the MIME tree"""
 
 
+class GmailThread(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+
+    id: str
+    """Gmail's thread id"""
+
+    messages: list[GmailMessage]
+    """The conversation's messages with their MIME trees, oldest first"""
+
+
+class GmailSend(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True)
+
+    raw: str
+    """The RFC 2822 message, base64url encoded"""
+
+    thread_id: str | None = None
+    """The conversation a reply joins; None starts a new one"""
+
+
+class GmailSent(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+
+    id: str
+    """The sent message's id"""
+
+
 class GmailProfile(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
 
@@ -111,7 +138,9 @@ class GmailList(BaseModel):
 
 
 class EventTime(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="ignore", validate_by_name=True
+    )
 
     date_time: datetime | None = None
     """Start or end of a timed event"""
@@ -128,6 +157,9 @@ class GoogleEvent(BaseModel):
 
     status: str = "confirmed"
     """confirmed, tentative or cancelled"""
+
+    transparency: str = "opaque"
+    """opaque blocks the time; transparent shows the user as free"""
 
     summary: str = ""
     """The title; absent on events the user cannot see the details of"""
@@ -148,8 +180,28 @@ class GoogleEvent(BaseModel):
 class EventList(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
 
+    time_zone: str = "UTC"
+    """The calendar's time zone, such as Asia/Kuala_Lumpur"""
+
     items: list[GoogleEvent] = []
     """Events in the range, earliest first"""
+
+
+class NewEvent(BaseModel):
+    summary: str
+    """The title"""
+
+    start: EventTime
+    """When it starts"""
+
+    end: EventTime
+    """When it ends"""
+
+    description: str | None = None
+    """Notes on the event; None leaves them empty"""
+
+    location: str | None = None
+    """Where it takes place; None leaves it empty"""
 
 
 __all__ = [
@@ -159,6 +211,10 @@ __all__ = [
     "GmailMessage",
     "GmailPart",
     "GmailProfile",
+    "GmailSend",
+    "GmailSent",
+    "GmailThread",
     "GoogleEvent",
+    "NewEvent",
     "Tokens",
 ]
