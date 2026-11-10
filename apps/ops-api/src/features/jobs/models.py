@@ -1,47 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
 
-from pydantic import BaseModel, Field, TypeAdapter, computed_field
+from pydantic import TypeAdapter
 from sqlalchemy import DateTime, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base, EnumString, PydanticJson
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
-from src.features.jobs.enums import Importance, JobStatus, Match
-
-
-class Requirement(BaseModel):
-    text: str = Field(min_length=1)
-    """The requirement as the posting states it"""
-
-    importance: Importance = Importance.REQUIRED
-    """Whether the posting requires it or calls it nice to have"""
-
-    match: Match
-    """How well the profile meets it"""
-
-    reason: str = ""
-    """Why it is met, partly met or not met, in one sentence"""
-
-
-class FitAnalysis(BaseModel):
-    fit: int = Field(ge=0, le=100)
-    """Fit score from 0 to 100, as analyse-job computes it"""
-
-    requirements: list[Requirement] = Field(min_length=1)
-    """Every requirement the posting states, mapped to the profile"""
-
-    @computed_field
-    @property
-    def band(self) -> Literal["excellent", "good", "possible", "poor"]:
-        """The fit score as a band, so the label always agrees with the score"""
-        if self.fit >= 85:
-            return "excellent"
-        if self.fit >= 70:
-            return "good"
-        return "possible" if self.fit >= 50 else "poor"
+from src.features.jobs.enums import JobStatus
+from src.features.jobs.schemas import FitAnalysis
 
 
 class Job(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -86,4 +54,4 @@ class Job(IdMixin, UserScopedMixin, AuditMixin, Base):
     """How the posting fits the profile; None until analysed"""
 
 
-__all__ = ["FitAnalysis", "Job", "Requirement"]
+__all__ = ["Job"]

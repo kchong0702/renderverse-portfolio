@@ -5,9 +5,9 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.exceptions import NotFound
-from src.features.jobs.models import FitAnalysis, Job
+from src.features.jobs.models import Job
 from src.features.jobs.repository import JobRepository
-from src.features.jobs.schemas import JobCreate, JobRead, JobUpdate
+from src.features.jobs.schemas import FitAnalysis, JobCreate, JobRead, JobUpdate
 
 
 class JobService:
