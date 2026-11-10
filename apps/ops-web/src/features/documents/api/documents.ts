@@ -90,31 +90,6 @@ export interface DocumentImport {
   created_at: string;
 }
 
-export interface Widget {
-  label: string | null;
-  input_value: string | null;
-  input_placeholder: string | null;
-  submit_btn: string | null;
-  cancel_btn: string | null;
-}
-
-export interface Answer {
-  input?: string;
-  accept?: boolean;
-}
-
-export type EditRun =
-  | { status: "completed"; reply: ChangesetRecord }
-  | { status: "input_required"; task_id: string; widget: Widget }
-  | { status: "failed"; reason: string };
-
-export interface EditAnswer {
-  id: string;
-  requestId: string;
-  taskId: string;
-  answer: Answer;
-}
-
 const URL = "/ops-api/v1/documents";
 
 export const fetchDocuments = (signal?: AbortSignal) =>
@@ -153,9 +128,3 @@ export const cancelImport = (id: string) => http.delete(`${URL}/imports/${id}`);
 
 export const readImport = (id: string) =>
   http.post<DocumentImport>(`${URL}/imports/${id}/read`);
-
-export const answerEdit = ({ id, requestId, taskId, answer }: EditAnswer) =>
-  http.post<EditRun>(
-    `${URL}/${id}/edit-requests/${requestId}/tasks/${encodeURIComponent(taskId)}/answer`,
-    answer,
-  );

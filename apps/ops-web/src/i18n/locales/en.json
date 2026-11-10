@@ -513,9 +513,6 @@
       "merriweather": "Merriweather",
       "eb-garamond": "EB Garamond"
     },
-    "request": {
-      "send": "Send"
-    },
     "entryPanel": {
       "experience": "Experience entry",
       "education": "Education entry",

@@ -4,7 +4,6 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import {
-  answerEdit,
   cancelImport,
   createDocument,
   deleteDocument,
@@ -19,7 +18,6 @@ import {
   startImport,
   type DocumentKind,
   type DocumentRecord,
-  type EditRun,
 } from "../api/documents";
 
 export const documentsQueryOptions = queryOptions({
@@ -51,21 +49,6 @@ function storeDocument(client: QueryClient, document: DocumentRecord) {
     queryKey: documentsQueryOptions.queryKey,
     exact: true,
   });
-}
-
-function storeProposal(client: QueryClient, id: string, run: EditRun) {
-  if (run.status !== "completed") return;
-  return Promise.all([
-    client.invalidateQueries({ queryKey: changesetsQueryOptions(id).queryKey }),
-    client.invalidateQueries({
-      queryKey: documentQueryOptions(id).queryKey,
-      exact: true,
-    }),
-    client.invalidateQueries({
-      queryKey: documentsQueryOptions.queryKey,
-      exact: true,
-    }),
-  ]);
 }
 
 export const createDocumentMutationOptions = mutationOptions({
@@ -129,11 +112,4 @@ export const readImportMutationOptions = mutationOptions({
         exact: true,
       }),
     ]),
-});
-
-export const answerEditMutationOptions = mutationOptions({
-  mutationKey: ["documents", "edit-request"],
-  mutationFn: answerEdit,
-  onSuccess: (run, { id }, _result, { client }) =>
-    storeProposal(client, id, run),
 });

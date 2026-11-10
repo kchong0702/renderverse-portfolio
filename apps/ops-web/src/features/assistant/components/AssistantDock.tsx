@@ -546,6 +546,9 @@ export default function AssistantDock({
   const stop = useStop();
   useResumeTurns();
   const current = entries.at(-1);
+  const asked = entries.at(-2);
+  const retryable =
+    asked?.role === "user" && !asked.answered ? asked : undefined;
   const running = openTurn(entries);
   const [draft, setDraft] = useState("");
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -589,10 +592,10 @@ export default function AssistantDock({
                 <Sparkle size={16} />
               </span>
               {t("assistant.title")}
-              {!document && entries.length > 0 && (
+              {entries.length > 0 && (
                 <button
                   type="button"
-                  onClick={newChat}
+                  onClick={() => newChat(chat)}
                   disabled={running !== undefined}
                   aria-label={t("assistant.newChat")}
                   title={t("assistant.newChat")}
@@ -652,11 +655,8 @@ export default function AssistantDock({
                       turn={entry}
                       last={entry === current}
                       onRetry={
-                        entry === current && entries.at(-2)?.role === "user"
-                          ? () => {
-                              const asked = entries.at(-2);
-                              if (asked?.role === "user") ask(asked.text);
-                            }
+                        entry === current && retryable?.role === "user"
+                          ? () => ask(retryable.text)
                           : undefined
                       }
                     />

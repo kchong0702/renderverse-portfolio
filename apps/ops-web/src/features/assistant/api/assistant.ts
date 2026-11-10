@@ -195,8 +195,7 @@ export const sendMessage = (
   streamTurn(
     chat,
     {
-      url:
-        chat.kind === "document" ? chatUrl(chat) : `${chatUrl(chat)}/messages`,
+      url: `${chatUrl(chat)}/messages`,
       body: { text },
     },
     null,

@@ -88,7 +88,7 @@ export const answerTaskMutationOptions = mutationOptions({
   onMutate: ({ chat, shown }) => {
     const previous =
       useAssistantStore.getState().chats[chat.kind][chat.id] ?? [];
-    add(chat, { role: "user", text: shown });
+    add(chat, { role: "user", text: shown, answered: true });
     return { previous };
   },
   onError: (error, answer, result) =>
