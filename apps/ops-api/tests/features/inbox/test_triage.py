@@ -19,6 +19,7 @@ from tests.conftest import (
     FakeArtifact,
     FakeGoogle,
     FakeHarness,
+    FakeStorage,
     _app,
     _client,
     a2a_sent,
@@ -319,10 +320,13 @@ async def postgres_client(
     overlapping: _OverlappingHarness,
     artifact: FakeArtifact,
     overlapping_google: _OverlappingGoogle,
+    storage: FakeStorage,
 ) -> AsyncIterator[httpx2.AsyncClient]:
     """The app on the test Postgres database, its dev user deleted after the test"""
     engine = create_async_engine(DATABASE_URL)
-    async for app in _app(overlapping, artifact, overlapping_google, engine=engine):
+    async for app in _app(
+        overlapping, artifact, overlapping_google, storage, engine=engine
+    ):
         async with _client(app) as http:
             yield http
         async with create_session_factory(engine)() as session, session.begin():

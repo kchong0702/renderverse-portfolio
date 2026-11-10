@@ -359,6 +359,48 @@ class GoogleSettings(BaseModel):
         )
 
 
+class R2Settings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    account_id: str = ""
+    """Cloudflare account that owns the bucket"""
+
+    bucket: str = ""
+    """The public bucket the portfolio site reads"""
+
+    access_key_id: SecretStr = SecretStr("")
+    """R2 API token's access key id"""
+
+    secret_access_key: SecretStr = SecretStr("")
+    """R2 API token's secret"""
+
+    @property
+    def configured(self) -> bool:
+        return bool(
+            self.account_id
+            and self.bucket
+            and self.access_key_id.get_secret_value()
+            and self.secret_access_key.get_secret_value()
+        )
+
+
+class StorageSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    local_dir: Path = _ROOT_PATH / ".data" / "storage"
+    """Where public files are written while R2 is not set up"""
+
+    r2: R2Settings = Field(default_factory=R2Settings)
+    """Cloudflare R2; used once every field is set"""
+
+
+class PortfolioSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    site_url: str = ""
+    """Where the portfolio site is served; empty when there is none"""
+
+
 class ObservabilitySettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
@@ -412,6 +454,12 @@ class Settings(BaseSettings):
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     """Logging settings"""
 
+    portfolio: PortfolioSettings = Field(default_factory=PortfolioSettings)
+    """The portfolio site"""
+
+    storage: StorageSettings = Field(default_factory=StorageSettings)
+    """Where published files are written"""
+
     @classmethod
     @override
     def settings_customise_sources(
@@ -453,7 +501,10 @@ __all__ = [
     "GoogleSettings",
     "JSearchSettings",
     "ObservabilitySettings",
+    "PortfolioSettings",
+    "R2Settings",
     "Settings",
+    "StorageSettings",
     "get_settings",
     "reload_settings",
 ]

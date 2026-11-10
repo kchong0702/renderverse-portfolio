@@ -80,6 +80,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     app.state.ezcareer = container.ezcareer()
     app.state.runner = container.runner()
     app.state.google = container.google()
+    app.state.storage = container.storage()
 
     _add_middleware(app, settings)
 
