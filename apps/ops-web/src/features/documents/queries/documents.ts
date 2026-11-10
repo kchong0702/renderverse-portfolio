@@ -15,7 +15,6 @@ import {
   fetchRender,
   fetchTemplates,
   readImport,
-  requestEdit,
   setMaster,
   startImport,
   type DocumentKind,
@@ -130,13 +129,6 @@ export const readImportMutationOptions = mutationOptions({
         exact: true,
       }),
     ]),
-});
-
-export const requestEditMutationOptions = mutationOptions({
-  mutationKey: ["documents", "edit-request"],
-  mutationFn: requestEdit,
-  onSuccess: (run, { id }, _result, { client }) =>
-    storeProposal(client, id, run),
 });
 
 export const answerEditMutationOptions = mutationOptions({

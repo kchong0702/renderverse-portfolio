@@ -86,10 +86,10 @@ export default function ImportPage() {
               {t("documents.importPage.reading")}
             </p>
           )}
-          {read.isError && (
+          {(read.isError || read.data?.status === "failed") && (
             <p role="alert" className="text-crit m-0 text-sm">
               {t("documents.importPage.readFailed", {
-                reason: read.error.message,
+                reason: read.error?.message ?? read.data?.error,
               })}
             </p>
           )}

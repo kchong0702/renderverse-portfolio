@@ -1,11 +1,18 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import type { Outcome, RunEvent, Step } from "../api/assistant";
+import type {
+  Changeset,
+  Chat,
+  Outcome,
+  RunEvent,
+  Step,
+} from "../api/assistant";
 
 export type Part =
   | { kind: "thinking"; turn: string; text: string }
   | { kind: "text"; turn: string; text: string }
-  | { kind: "step"; step: Step; substeps: Step[] };
+  | { kind: "step"; step: Step; substeps: Step[] }
+  | { kind: "changeset"; changeset: Changeset };
 
 export interface AssistantTurn {
   role: "assistant";
@@ -70,6 +77,11 @@ function applyEvent(turn: AssistantTurn, event: RunEvent): AssistantTurn {
             parts: [...turn.parts, { kind: "step", step, substeps: [] }],
           };
     }
+    case "changeset":
+      return {
+        ...turn,
+        parts: [...turn.parts, { kind: "changeset", changeset: event }],
+      };
     case "completed": {
       const written = turn.parts.filter((part) => part.kind === "text").at(-1);
       return {
@@ -91,16 +103,34 @@ function applyEvent(turn: AssistantTurn, event: RunEvent): AssistantTurn {
   }
 }
 
+export interface ShownDocument {
+  id: string;
+  title: string;
+}
+
+type Chats = Record<Chat["kind"], Partial<Record<string, ChatEntry[]>>>;
+
 interface AssistantState {
   open: boolean;
   setOpen: (open: boolean) => void;
   chatId: string;
-  entries: ChatEntry[];
-  add: (entry: ChatEntry) => void;
-  apply: (event: RunEvent, id?: string) => void;
-  restore: (entries: ChatEntry[]) => void;
+  document: ShownDocument | null;
+  setDocument: (document: ShownDocument | null) => void;
+  chats: Chats;
+  add: (chat: Chat, entry: ChatEntry) => void;
+  apply: (chat: Chat, event: RunEvent, id?: string) => void;
+  restore: (chat: Chat, entries: ChatEntry[]) => void;
   newChat: () => void;
 }
+
+const withEntries = (
+  chats: Chats,
+  { kind, id }: Chat,
+  update: (entries: ChatEntry[]) => ChatEntry[],
+): Chats => ({
+  ...chats,
+  [kind]: { ...chats[kind], [id]: update(chats[kind][id] ?? []) },
+});
 
 export const openTurn = (entries: ChatEntry[]) => {
   const last = entries.at(-1);
@@ -113,37 +143,43 @@ export const useAssistantStore = create<AssistantState>()(
       open: false,
       setOpen: (open) => set({ open }),
       chatId: crypto.randomUUID(),
-      entries: [],
-      add: (entry) => set((state) => ({ entries: [...state.entries, entry] })),
-      apply: (event, id) =>
-        set(({ entries }) => {
-          const last = openTurn(entries);
-          return last
-            ? {
-                entries: [
+      document: null,
+      setDocument: (document) => set({ document }),
+      chats: { assistant: {}, document: {} },
+      add: (chat, entry) =>
+        set(({ chats }) => ({
+          chats: withEntries(chats, chat, (entries) => [...entries, entry]),
+        })),
+      apply: (chat, event, id) =>
+        set(({ chats }) => ({
+          chats: withEntries(chats, chat, (entries) => {
+            const last = openTurn(entries);
+            return last
+              ? [
                   ...entries.slice(0, -1),
                   {
                     ...applyEvent(last, event),
                     lastEventId: id ?? last.lastEventId,
                   },
-                ],
-              }
-            : {};
-        }),
-      restore: (entries) => set({ entries }),
-      newChat: () => set({ chatId: crypto.randomUUID(), entries: [] }),
+                ]
+              : entries;
+          }),
+        })),
+      restore: (chat, entries) =>
+        set(({ chats }) => ({
+          chats: withEntries(chats, chat, () => entries),
+        })),
+      newChat: () =>
+        set(({ chats }) => ({
+          chatId: crypto.randomUUID(),
+          chats: { ...chats, assistant: {} },
+        })),
     }),
     {
       name: "ops:assistant",
+      version: 2,
       storage: createJSONStorage(() => sessionStorage),
-      partialize: ({ chatId, entries }) => ({
-        chatId,
-        entries: entries.map((entry) =>
-          entry.role === "assistant" && !entry.outcome && !entry.lastEventId
-            ? { ...entry, outcome: { status: "cancelled" as const } }
-            : entry,
-        ),
-      }),
+      partialize: ({ chatId, chats }) => ({ chatId, chats }),
     },
   ),
 );
