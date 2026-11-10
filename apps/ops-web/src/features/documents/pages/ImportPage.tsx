@@ -1,11 +1,9 @@
 import { FileUp } from "lucide-react";
+import { lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import Badge from "@/shared/components/Badge";
 import { buttonClass } from "@/shared/components/button";
 import PageBody from "@/shared/components/PageBody";
-import PageHeader from "@/shared/components/PageHeader";
-import Panel from "@/shared/components/Panel";
 import StateMessage from "@/shared/components/StateMessage";
 import ImportSteps from "../components/ImportSteps";
 import {
@@ -13,15 +11,9 @@ import {
   useImports,
   useReadImport,
   useStartImport,
-  useTemplates,
 } from "../hooks/useDocuments";
 
-const STATUS_TONE = {
-  pending: "warn",
-  running: "warn",
-  done: "ok",
-  failed: "crit",
-} as const;
+const ImportLook = lazy(() => import("../components/ImportLook"));
 
 export default function ImportPage() {
   const { t } = useTranslation();
@@ -29,72 +21,39 @@ export default function ImportPage() {
   const start = useStartImport();
   const read = useReadImport();
   const cancel = useCancelImport();
-  const templates = useTemplates("resume");
   const current = imports.data?.[0];
+  const reading = read.isPending || current?.status === "running";
+  const failure = start.isError
+    ? t("documents.importPage.upload.failed", { reason: start.error.message })
+    : read.isError
+      ? t("documents.importPage.readFailed", { reason: read.error.message })
+      : current?.status === "failed"
+        ? t("documents.importPage.readFailed", { reason: current.error })
+        : null;
 
   return (
     <>
-      <PageHeader
-        title={t("documents.importPage.title")}
-        subtitle={
-          <>
-            <Link to="/documents" className="text-ink-3">
-              {t("documents.pageTitle")}
-            </Link>
-            {current && ` · ${current.filename}`}
-          </>
-        }
-      />
+      <header className="bg-panel border-hair flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b px-10 py-3.5">
+        <div className="flex min-w-0 items-baseline gap-2.5">
+          <Link
+            to="/documents"
+            className="text-ink-3 text-sm/[1.6] no-underline"
+          >
+            {t("documents.pageTitle")}
+          </Link>
+          <span aria-hidden="true" className="text-ink-3">
+            /
+          </span>
+          <h1 className="m-0 text-xl/[1.6] font-semibold">
+            {t("documents.importPage.title")}
+          </h1>
+        </div>
+        {current && (
+          <span className="text-ink-3 text-sm/[1.6]">{current.filename}</span>
+        )}
+      </header>
       <PageBody>
-        <ImportSteps current={current} />
-
-        <Panel title={t("documents.importPage.upload.title")}>
-          <p className="text-ink-3 m-0 text-sm">
-            {t("documents.importPage.upload.hint")}
-          </p>
-          <label className={`${buttonClass("primary")} w-fit`}>
-            <FileUp size={16} />
-            {start.isPending
-              ? t("documents.importPage.upload.uploading")
-              : read.isPending
-                ? t("documents.importPage.upload.reading")
-                : t("documents.importPage.upload.choose")}
-            <input
-              type="file"
-              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              className="sr-only"
-              disabled={start.isPending || read.isPending}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file)
-                  start.mutate(file, {
-                    onSuccess: (row) => read.mutate(row.id),
-                  });
-                event.target.value = "";
-              }}
-            />
-          </label>
-          {start.isError && (
-            <p role="alert" className="text-crit m-0 text-sm">
-              {t("documents.importPage.upload.failed", {
-                reason: start.error.message,
-              })}
-            </p>
-          )}
-          {read.isPending && (
-            <p role="status" className="text-ink-3 m-0 text-sm">
-              {t("documents.importPage.reading")}
-            </p>
-          )}
-          {(read.isError || read.data?.status === "failed") && (
-            <p role="alert" className="text-crit m-0 text-sm">
-              {t("documents.importPage.readFailed", {
-                reason: read.error?.message ?? read.data?.error,
-              })}
-            </p>
-          )}
-        </Panel>
-
+        <ImportSteps read={!!current?.document_id} />
         {imports.isPending ? (
           <StateMessage>{t("common.loading")}</StateMessage>
         ) : imports.isError ? (
@@ -103,96 +62,84 @@ export default function ImportPage() {
               reason: imports.error.message,
             })}
           </StateMessage>
+        ) : current?.document_id ? (
+          <Suspense
+            fallback={<StateMessage>{t("common.loading")}</StateMessage>}
+          >
+            <ImportLook upload={current} documentId={current.document_id} />
+          </Suspense>
         ) : (
-          imports.data.length > 0 && (
-            <Panel title={t("documents.importPage.files")}>
-              <ul className="m-0 flex list-none flex-col p-0">
-                {imports.data.map((row) => (
-                  <li
-                    key={row.id}
-                    className="border-hair-soft flex flex-wrap items-center gap-3 border-b py-3 last:border-b-0"
+          <div className="bg-panel border-hair shadow-card flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-xl border px-5 py-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="bg-chip text-ink-3 flex size-8 flex-none items-center justify-center rounded-full">
+                <FileUp size={16} />
+              </span>
+              <span className="flex min-w-0 flex-col">
+                <span className="font-semibold">
+                  {t("documents.importPage.upload.title")}
+                </span>
+                {reading ? (
+                  <span role="status" className="text-ink-3 text-[13px]">
+                    {t("documents.importPage.reading")}
+                  </span>
+                ) : failure ? (
+                  <span role="alert" className="text-crit text-[13px]">
+                    {failure}
+                  </span>
+                ) : (
+                  <span className="text-ink-3 text-[13px]">
+                    {t("documents.importPage.upload.hint")}
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              {current && !reading && (
+                <>
+                  <button
+                    type="button"
+                    disabled={cancel.isPending}
+                    onClick={() => cancel.mutate(current.id)}
+                    className={buttonClass()}
                   >
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="flex flex-wrap items-center gap-2 font-semibold">
-                        {row.filename}
-                        <Badge tone={STATUS_TONE[row.status]}>
-                          {read.isPending && read.variables === row.id
-                            ? t("documents.importPage.status.running")
-                            : t(`documents.importPage.status.${row.status}`)}
-                        </Badge>
-                      </span>
-                      <span className="text-ink-3 text-xs">
-                        {t("documents.importPage.uploaded", {
-                          size: Math.max(1, Math.round(row.size / 1024)),
-                          date: new Date(row.created_at).toLocaleString(),
-                        })}
-                        {row.error && ` · ${row.error}`}
-                      </span>
-                    </span>
-                    {(row.status === "pending" || row.status === "failed") && (
-                      <button
-                        type="button"
-                        disabled={read.isPending}
-                        onClick={() => read.mutate(row.id)}
-                        className={buttonClass("primary")}
-                      >
-                        {row.status === "failed"
-                          ? t("documents.importPage.retry")
-                          : t("documents.importPage.read")}
-                      </button>
-                    )}
-                    {row.document_id && (
-                      <Link
-                        to={`/documents?doc=${row.document_id}`}
-                        className={buttonClass("primary")}
-                      >
-                        {t("documents.importPage.open")}
-                      </Link>
-                    )}
-                    <button
-                      type="button"
-                      disabled={cancel.isPending}
-                      onClick={() => cancel.mutate(row.id)}
-                      className={buttonClass()}
-                    >
-                      {t("documents.importPage.cancel")}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </Panel>
-          )
+                    {t("documents.importPage.cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => read.mutate(current.id)}
+                    className={buttonClass()}
+                  >
+                    {t("documents.importPage.retry")}
+                  </button>
+                </>
+              )}
+              <label className={buttonClass("primary")}>
+                {start.isPending
+                  ? t("documents.importPage.upload.uploading")
+                  : reading
+                    ? t("documents.importPage.upload.reading")
+                    : t("documents.importPage.upload.choose")}
+                <input
+                  type="file"
+                  accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  className="sr-only"
+                  disabled={start.isPending || reading}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file)
+                      start.mutate(file, {
+                        onSuccess: (row) => {
+                          if (current) cancel.mutate(current.id);
+                          read.mutate(row.id);
+                        },
+                      });
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+          </div>
         )}
-
-        <Panel title={t("documents.importPage.look.title")}>
-          <p className="text-ink-3 m-0 text-sm">
-            {t("documents.importPage.look.hint")}
-          </p>
-          {templates.isError ? (
-            <p role="alert" className="text-crit m-0 text-sm">
-              {t("documents.design.templatesFailed", {
-                reason: templates.error.message,
-              })}
-            </p>
-          ) : (
-            <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3 p-0">
-              {templates.data?.map((spec) => (
-                <li
-                  key={spec.id}
-                  className="border-hair flex flex-col gap-1.5 rounded-[10px] border p-3"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="h-1.5 w-1/2 rounded-sm"
-                    style={{ background: spec.accent }}
-                  />
-                  <span className="text-sm font-semibold">{spec.name}</span>
-                  <span className="text-ink-3 text-xs">{spec.description}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
       </PageBody>
     </>
   );

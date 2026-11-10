@@ -1,5 +1,5 @@
 import { useMutation, useMutationState, useQuery } from "@tanstack/react-query";
-import type { DocumentKind, Edit } from "../api/documents";
+import type { Edit } from "../api/documents";
 import { overlaps, pathOf } from "../lib/changes";
 import {
   cancelImportMutationOptions,
@@ -16,7 +16,6 @@ import {
   readImportMutationOptions,
   setMasterMutationOptions,
   startImportMutationOptions,
-  templatesQueryOptions,
   undoEditMutationOptions,
 } from "../queries/documents";
 
@@ -26,10 +25,6 @@ export function useDocuments() {
 
 export function useDocument(id: string) {
   return useQuery(documentQueryOptions(id));
-}
-
-export function useTemplates(kind: DocumentKind) {
-  return useQuery(templatesQueryOptions(kind));
 }
 
 export function useImports() {

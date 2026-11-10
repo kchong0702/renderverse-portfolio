@@ -14,12 +14,10 @@ import {
   fetchDocuments,
   fetchImports,
   fetchRender,
-  fetchTemplates,
   readImport,
   setMaster,
   startImport,
   undoChangesetEdit,
-  type DocumentKind,
   type DocumentRecord,
 } from "../api/documents";
 
@@ -40,16 +38,11 @@ export const changesetsQueryOptions = (id: string) =>
     queryFn: ({ signal }) => fetchChangesets(id, signal),
   });
 
-export const templatesQueryOptions = (kind: DocumentKind) =>
-  queryOptions({
-    queryKey: ["documents", "templates", kind],
-    queryFn: ({ signal }) => fetchTemplates(kind, signal),
-    staleTime: Infinity,
-  });
-
 export const importsQueryOptions = queryOptions({
   queryKey: ["documents", "imports"],
   queryFn: ({ signal }) => fetchImports(signal),
+  refetchInterval: ({ state }) =>
+    state.data?.[0]?.status === "running" ? 5000 : false,
 });
 
 function storeDocument(client: QueryClient, document: DocumentRecord) {

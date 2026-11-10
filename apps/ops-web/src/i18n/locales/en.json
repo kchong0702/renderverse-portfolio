@@ -436,7 +436,6 @@
       "templateChange": "Change",
       "templateDone": "Done",
       "templateHint": "Your words stay the same whichever you pick.",
-      "templatesFailed": "Templates come from artifact-service, which did not answer: {{reason}}",
       "accent": "Accent colour",
       "accents": {
         "template": "Template colour",
@@ -558,23 +557,35 @@
         "reading": "Reading…"
       },
       "loadFailed": "Imports could not load: {{reason}}",
-      "files": "Uploaded files",
       "reading": "Reading your résumé and checking every value against the line it came from. This can take a few minutes.",
       "readFailed": "Not read: {{reason}}",
-      "status": {
-        "pending": "Waiting to be read",
-        "running": "Reading…",
-        "done": "Draft ready",
-        "failed": "Could not read"
-      },
-      "uploaded": "{{size}} KB · uploaded {{date}}",
-      "read": "Read the file",
       "retry": "Try again",
-      "open": "Open the draft",
       "cancel": "Cancel import",
       "look": {
         "title": "Choose a look",
-        "hint": "Once the draft is ready you pick one of these, and you can switch any time from the document's Design tab."
+        "hint": "Each preview is your own résumé. You can switch any time from the document's Design tab.",
+        "picked": "{{name}} on {{size}}",
+        "note": "{{description}} Your facts and wording stay the same.",
+        "page": "Page 1 of your résumé in the {{name}} theme",
+        "use": "Use {{name}}"
+      },
+      "facts": {
+        "checked_one": "{{count}} fact checked: {{kinds}}",
+        "checked_other": "{{count}} facts checked: {{kinds}}",
+        "total_one": "{{count}} fact checked",
+        "total_other": "{{count}} facts checked",
+        "role_one": "{{count}} role",
+        "role_other": "{{count}} roles",
+        "achievement_one": "{{count}} achievement",
+        "achievement_other": "{{count}} achievements",
+        "skill_one": "{{count}} skill",
+        "skill_other": "{{count}} skills",
+        "degree_one": "{{count}} degree",
+        "degree_other": "{{count}} degrees",
+        "and": "{{items}} and {{last}}",
+        "pdf": "Every fact links back to the line it came from in your PDF.",
+        "word": "Every fact links back to the line it came from in your Word file.",
+        "review": "Review facts"
       }
     },
     "assistant": {
