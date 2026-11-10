@@ -10,6 +10,7 @@ export type Part =
 export interface AssistantTurn {
   role: "assistant";
   taskId: string | null;
+  lastEventId: string | null;
   parts: Part[];
   outcome: Outcome | null;
 }
@@ -22,7 +23,6 @@ const upsert = (steps: Step[], step: Step) =>
     : [...steps, step];
 
 function applyEvent(turn: AssistantTurn, event: RunEvent): AssistantTurn {
-  if (turn.outcome) return turn;
   switch (event.status) {
     case "started":
       return { ...turn, taskId: event.task_id };
@@ -97,7 +97,7 @@ interface AssistantState {
   chatId: string;
   entries: ChatEntry[];
   add: (entry: ChatEntry) => void;
-  apply: (event: RunEvent) => void;
+  apply: (event: RunEvent, id?: string) => void;
   restore: (entries: ChatEntry[]) => void;
   newChat: () => void;
 }
@@ -110,11 +110,19 @@ export const useAssistantStore = create<AssistantState>()(
       chatId: crypto.randomUUID(),
       entries: [],
       add: (entry) => set((state) => ({ entries: [...state.entries, entry] })),
-      apply: (event) =>
+      apply: (event, id) =>
         set(({ entries }) => {
           const last = entries.at(-1);
-          return last?.role === "assistant"
-            ? { entries: [...entries.slice(0, -1), applyEvent(last, event)] }
+          return last?.role === "assistant" && !last.outcome
+            ? {
+                entries: [
+                  ...entries.slice(0, -1),
+                  {
+                    ...applyEvent(last, event),
+                    lastEventId: id ?? last.lastEventId,
+                  },
+                ],
+              }
             : {};
         }),
       restore: (entries) => set({ entries }),
@@ -127,7 +135,7 @@ export const useAssistantStore = create<AssistantState>()(
       partialize: ({ chatId, entries }) => ({
         chatId,
         entries: entries.map((entry) =>
-          entry.role === "assistant" && !entry.outcome
+          entry.role === "assistant" && !entry.outcome && !entry.lastEventId
             ? { ...entry, outcome: { status: "cancelled" as const } }
             : entry,
         ),

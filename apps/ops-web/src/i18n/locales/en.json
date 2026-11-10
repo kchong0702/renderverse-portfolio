@@ -146,6 +146,7 @@
     "thought": "Thought",
     "stopped": "Stopped",
     "interrupted": "The connection closed before the assistant finished",
+    "connectionLost": "The connection to the assistant was lost",
     "stepStatus": {
       "running": "Running",
       "done": "Done",
@@ -184,6 +185,14 @@
     },
     "failed": "That did not work: {{reason}}",
     "answerFailed": "Your answer was not sent: {{reason}}",
+    "documents": {
+      "label": "Your documents",
+      "loading": "Loading your documents…",
+      "failed": "Your documents did not load: {{reason}}",
+      "empty": "You have no documents to pick from yet",
+      "master": "Master",
+      "typeTitle": "Or type the document's title"
+    },
     "suggestions": {
       "dashboard": [
         "Which applications need me this week?",

@@ -42,33 +42,26 @@ export async function request<T>(
   return response.json() as Promise<T>;
 }
 
-export async function stream<T>(
+export async function stream(
   url: string,
-  body: unknown,
-  signal: AbortSignal,
-  onEvent: (event: T) => void,
-): Promise<void> {
+  init: RequestInit,
+  onRetry: (ms: number) => void,
+) {
   const response = await fetch(url, {
-    method: "POST",
+    ...init,
     headers: {
       Accept: "text/event-stream",
-      "Content-Type": "application/json",
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      ...init.headers,
     },
-    body: JSON.stringify(body),
-    signal,
   });
   if (!response.ok || !response.body)
     throw new ApiError(response.status, await errorMessage(response));
 
-  const reader = response.body
+  return response.body
     .pipeThrough(new TextDecoderStream())
-    .pipeThrough(new EventSourceParserStream())
+    .pipeThrough(new EventSourceParserStream({ onRetry }))
     .getReader();
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) return;
-    onEvent(JSON.parse(value.data) as T);
-  }
 }
 
 export const http = {
