@@ -78,10 +78,54 @@ class JobRead(JobCreate):
     status: JobStatus
     """Picked by the agent, saved or dismissed"""
 
+    seen_at: datetime | None
+    """When the user first opened the job; None while it is new"""
+
+
+class JobList(BaseModel):
+    jobs: list[JobRead]
+    """Every job, best fit first"""
+
+    new_count: int
+    """How many picks the user has not opened yet"""
+
 
 class JobUpdate(BaseModel):
-    status: JobStatus
-    """Save, dismiss or return the job to the agent's picks"""
+    status: JobStatus | None = None
+    """Save, dismiss or return the job to the agent's picks; None leaves it"""
+
+    seen: Literal[True] | None = None
+    """Mark the job opened; one opened before keeps when it first was"""
+
+
+class JobSearch(BaseModel):
+    query: str | None = Field(default=None, max_length=200)
+    """What to search for in place of the job agent's query"""
+
+    location: str | None = Field(default=None, max_length=200)
+    """Where to search in place of the job agent's location"""
+
+    posted_within: Literal["day", "week", "month"] | None = None
+    """Only postings this recent"""
+
+
+class JobRunRead(BaseModel):
+    found: int
+    """How many jobs the find run returned"""
+
+    new: int
+    """How many of them were not stored before"""
+
+    scored_70: int
+    """How many of them fit 70 or more"""
+
+    finished_at: datetime
+    """When the run ended"""
+
+
+class FindJobsInput(AgentProfile):
+    search: JobSearch | None
+    """Filters that replace the ones find-jobs builds from preferences"""
 
 
 class AnalyseJobInput(AgentProfile):
@@ -136,10 +180,14 @@ class FindJobsOutput(BaseModel):
 __all__ = [
     "AnalyseJobInput",
     "AnalyseJobOutput",
+    "FindJobsInput",
     "FindJobsOutput",
     "FitAnalysis",
     "JobCreate",
+    "JobList",
     "JobRead",
+    "JobRunRead",
+    "JobSearch",
     "JobUpdate",
     "Requirement",
 ]
