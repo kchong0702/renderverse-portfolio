@@ -5,19 +5,18 @@ from uuid import UUID
 from fastapi.sse import format_sse_event
 from pydantic import BaseModel
 
-from src.core.config import EzcareerSettings
 from src.core.exceptions import NotFound
 from src.core.stores import RunStore
 
 
 class Runner:
-    def __init__(self, store: RunStore, settings: EzcareerSettings):
+    def __init__(self, store: RunStore, retry_ms: int):
         """Run agent turns in the background, writing their events to store, so any
         ops-api process can stream them"""
         self._store = store
         """Where each run's events are kept"""
 
-        self._settings = settings
+        self._retry_ms = retry_ms
         """The retry hint each stream starts with"""
 
         self._tasks: set[asyncio.Task[None]] = set()
@@ -42,7 +41,7 @@ class Runner:
             yield format_sse_event(
                 data_str=data,
                 id=f"{run_id}:{seq}",
-                retry=self._settings.stream_retry_ms if seq == 1 else None,
+                retry=self._retry_ms if seq == 1 else None,
             ).decode()
 
     async def start_task(

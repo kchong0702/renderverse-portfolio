@@ -35,5 +35,5 @@ class Container(containers.DeclarativeContainer):
     )
 
     runner = providers.Singleton(
-        Runner, store=store, settings=settings.provided.ezcareer
+        Runner, store=store, retry_ms=settings.provided.ezcareer.stream_retry_ms
     )
