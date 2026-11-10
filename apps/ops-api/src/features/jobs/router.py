@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 
 from src.core.auth import CurrentUserDep
 from src.db.session import SessionDep
@@ -27,10 +27,14 @@ async def list_jobs(user: CurrentUserDep, service: JobServiceDep) -> list[JobRea
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def add_job(
-    job: JobCreate, user: CurrentUserDep, service: JobServiceDep
+    job: JobCreate, user: CurrentUserDep, service: JobServiceDep, response: Response
 ) -> JobRead:
-    """Store a posting, or refresh the one stored under its external_id"""
-    return await service.add(user.id, job)
+    """Store a new posting with 201, or refresh the one stored under its external_id
+    with 200"""
+    added, created = await service.add(user.id, job)
+    if not created:
+        response.status_code = status.HTTP_200_OK
+    return added
 
 
 @router.patch("/{job_id}")
