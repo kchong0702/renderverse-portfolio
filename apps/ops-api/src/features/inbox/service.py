@@ -90,6 +90,7 @@ def _summary(message: GmailMessage, thread: EmailThread | None) -> InboxMessage:
         state=thread.state if thread else None,
         decide_by=thread.decide_by if thread else None,
         application_id=thread.application_id if thread else None,
+        on_calendar=thread is not None and thread.event_id is not None,
     )
 
 

@@ -46,6 +46,9 @@ class InboxMessage(BaseModel):
     application_id: UUID | None
     """The application its thread is about"""
 
+    on_calendar: bool
+    """Whether Ops added the interview its thread confirms to Google Calendar"""
+
 
 class InboxMessageDetail(InboxMessage):
     to: str

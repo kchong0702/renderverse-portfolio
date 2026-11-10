@@ -209,9 +209,10 @@ async def test_an_interview_a_thread_confirms_is_added_to_the_calendar_once(
         _triaged("interview", application_id=application, interview=INTERVIEW)
     ]
 
-    await client.get(INBOX)
+    first = await client.get(INBOX)
     await client.get(INBOX)
 
+    assert first.json()["messages"][0]["on_calendar"] is True
     assert google.created == [
         {
             "id": ANY,
@@ -235,6 +236,7 @@ async def test_interviews_are_not_added_with_the_rule_off(client, google, harnes
     response = await client.get(INBOX)
 
     assert response.json()["messages"][0]["state"] == "interview"
+    assert response.json()["messages"][0]["on_calendar"] is False
     assert google.created == []
 
 
