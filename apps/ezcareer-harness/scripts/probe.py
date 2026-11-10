@@ -8,11 +8,14 @@ from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
 
+from langchain_core.runnables import RunnableConfig
+from langgraph.types import Command
 from openinference.instrumentation.langchain import LangChainInstrumentor
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from pydantic import JsonValue, TypeAdapter
 from pydantic_core import to_jsonable_python
 
 from src.agents import register_harness_profiles
@@ -36,10 +39,23 @@ async def _run_graph(name: str, task: object) -> object:
     )
 
 
+async def _edit_document(task: object) -> object:
+    """Runs edit-document on the task, its input plus the document, lines and assets
+    that answer its document fetch, in a thread of its own"""
+    [graph] = [e.graph for e in CONTAINER.executables() if e.name == "edit-document"]
+    fields = TypeAdapter(dict[str, JsonValue]).validate_python(task)
+    fetched = {
+        key: fields.pop(key) for key in ("document", "lines", "assets") if key in fields
+    }
+    run: RunnableConfig = {"configurable": {"thread_id": str(uuid4())}}
+    await graph.ainvoke(graph.get_input_schema().model_validate(fields), run)
+    return await graph.ainvoke(Command(resume=fetched), run)
+
+
 WORKFLOWS: dict[str, RunWorkflow] = {
     "analyse-job": partial(_run_graph, "analyse-job"),
     "find-jobs": partial(_run_graph, "find-jobs"),
-    "edit-document": partial(_run_graph, "edit-document"),
+    "edit-document": _edit_document,
     "import-resume": partial(_run_graph, "import-resume"),
 }
 """Every workflow a probe can run, by name"""

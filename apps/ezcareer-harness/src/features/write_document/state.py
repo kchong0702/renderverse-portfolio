@@ -1,15 +1,14 @@
-from document_schema import Changeset, FileHash
+from document_schema import FileHash
 
 from src.agents.career_consultant import CareerConsultantState
-from src.shared.checks import CheckError
 
 
 class EditGraphState(CareerConsultantState, total=False):
+    document_id: str
+    """The document the run edits"""
+
     assets: dict[FileHash, bytes]
     """The bytes of every file the document uses"""
 
-    errors: list[CheckError]
-    """What the latest check found"""
-
-    changeset: Changeset
-    """The checked changeset with the page-fit deletes"""
+    reply: str
+    """The agent's answer to the user's message"""

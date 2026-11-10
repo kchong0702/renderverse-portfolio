@@ -13,12 +13,13 @@ from document_schema import (
     Job,
     RichValue,
 )
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.errors import GraphRecursionError
 from langgraph.graph.state import CompiledStateGraph
-from langgraph.types import Checkpointer, Command
-from pydantic import TypeAdapter
+from langgraph.types import Command
+from pydantic import JsonValue, TypeAdapter
+from pydantic_core import to_jsonable_python
 
 from src.clients.artifact_service import ArtifactServiceClient
 from src.core.errors import ExecuteError
@@ -28,15 +29,16 @@ from src.infrastructure.observability import tracing
 from src.infrastructure.observability.instrumentation import instrument
 from tests.agents.career_consultant.test_career_consultant import (
     AGENT,
+    BAD_EDIT,
+    DONE,
     GOOD_EDIT,
     _agent,
-    _answer,
     _model,
+    _propose,
     _state,
 )
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
-from tests.features.write_document.test_validate_changeset import BAD_EDIT
 
 NEW_BULLET = InsertItem(
     kind="insert_item",
@@ -104,9 +106,7 @@ def _fail(request: httpx.Request) -> httpx.Response:
 
 
 def _graph(
-    model: ScriptedChatModel,
-    sent: list[httpx.Request] | None = None,
-    checkpointer: Checkpointer = None,
+    model: ScriptedChatModel, sent: list[httpx.Request] | None = None
 ) -> CompiledStateGraph:
     return build_graph(
         _agent(model),
@@ -118,74 +118,104 @@ def _graph(
                 base_url="http://artifact-service",
             ),
         ),
-        checkpointer,
+        InMemorySaver(),
     )
 
 
-def _input(**update: object) -> EditInput:
-    state = _state()
+def _input() -> EditInput:
     return EditInput(
         messages=[HumanMessage("Mention my Kubernetes work")],
-        document=state["document"],
-        lines=state["lines"],
-        facts=state["facts"],
-    ).model_copy(update=update)
+        document_id="doc-1",
+        facts=_state()["facts"],
+    )
+
+
+def _fetched(**update: object) -> dict[str, JsonValue]:
+    """What the client answers the document fetch with"""
+    state = _state()
+    return to_jsonable_python(
+        {"document": state["document"], "lines": state["lines"]} | update
+    )
+
+
+async def _run(
+    graph: CompiledStateGraph, fetched: dict[str, JsonValue] | None = None
+) -> EditOutput:
+    """Runs the edit and answers its document fetch"""
+    run = {"configurable": {"thread_id": "t1"}}
+    paused = await graph.ainvoke(_input(), run)
+    assert [i.value for i in paused["__interrupt__"]] == [
+        {"fetch": "document", "id": "doc-1"}
+    ]
+    return await graph.ainvoke(Command(resume=fetched or _fetched()), run)
 
 
 async def _edit(*replies: AIMessage) -> tuple[EditOutput, ScriptedChatModel]:
     model = _model(*replies)
-    return await _graph(model).ainvoke(_input()), model
+    return await _run(_graph(model)), model
 
 
-async def test_a_passing_changeset_goes_out_with_a_fresh_id():
-    result, model = await _edit(
+async def test_a_free_reply_goes_out_without_a_changeset_or_a_print():
+    sent: list[httpx.Request] = []
+    model = _model(AIMessage("Your summary already leads with Kubernetes."))
+
+    result = await _run(_graph(model, sent))
+
+    assert result == {
+        "reply": "Your summary already leads with Kubernetes.",
+        "changeset": None,
+    }
+    assert sent == []
+    [_, briefed] = model.requests[0]
+    assert "<document>" in briefed.text
+    assert briefed.text.endswith("The user says: Mention my Kubernetes work")
+
+
+async def test_a_passing_changeset_goes_out_with_a_fresh_id_and_the_reply():
+    result, _ = await _edit(
         _call("read_pdf_lines"),
         _call("read_profile_facts"),
         _call("read_file", file_path="/modify-career-documents/SKILL.md"),
-        _answer(GOOD_EDIT),
+        _propose(GOOD_EDIT),
+        DONE,
     )
 
-    assert list(result) == ["changeset"]
+    assert result["reply"] == DONE.text
     assert result["changeset"].edits == [GOOD_EDIT]
     assert result["changeset"].id != "cs1"
-    [_, briefed] = model.requests[0]
-    assert "<document>" in briefed.text
-    assert briefed.text.endswith("The user asks: Mention my Kubernetes work")
 
 
-async def test_errors_go_back_to_the_agent_until_it_fixes_them():
-    result, model = await _edit(_answer(BAD_EDIT), _answer(GOOD_EDIT))
+async def test_errors_go_back_to_the_agent_and_only_the_fixed_changeset_is_kept():
+    result, model = await _edit(_propose(BAD_EDIT), _propose(GOOD_EDIT), DONE)
 
-    [fix_request] = [
-        m
+    first, second = [
+        m.text
         for m in model.requests[-1]
-        if isinstance(m, HumanMessage) and "The check found errors" in m.text
+        if isinstance(m, ToolMessage) and m.name == "propose_changeset"
     ]
-    assert "unsupported" in fix_request.text
+    assert [error["rule"] for error in json.loads(first)] == ["unsupported"]
+    assert second == "proposed"
     assert result["changeset"].edits == [GOOD_EDIT]
 
 
-async def test_an_agent_that_never_fixes_its_changeset_fails_the_edit():
+async def test_a_changeset_that_never_passes_is_never_kept():
+    result, _ = await _edit(_propose(BAD_EDIT), DONE)
+
+    assert result == {"reply": DONE.text, "changeset": None}
+
+
+async def test_an_agent_that_never_stops_proposing_fails_the_edit():
     with pytest.raises(GraphRecursionError):
-        await _edit(_answer(BAD_EDIT))
+        await _edit(_propose(BAD_EDIT))
 
 
-async def test_an_agent_that_ends_without_a_changeset_is_asked_for_one():
-    model = ScriptedChatModel(
-        replies=[AIMessage("I've checked the edit and it passes."), _answer(GOOD_EDIT)]
-    )
-
-    result = await _graph(model).ainvoke(_input())
-
-    assert any(
-        isinstance(m, HumanMessage) and "no_changeset" in m.text
-        for m in model.requests[-1]
-    )
-    assert result["changeset"].edits == [GOOD_EDIT]
+async def test_a_fetch_the_client_cannot_answer_fails_the_edit_with_its_reason():
+    with pytest.raises(ExecuteError, match="No document doc-1"):
+        await _run(_graph(_model(DONE)), {"error": "No document doc-1"})
 
 
 async def test_page_fit_deletes_untouched_bullets_until_the_page_count_holds():
-    result, _ = await _edit(_answer(NEW_BULLET))
+    result, _ = await _edit(_propose(NEW_BULLET), DONE)
 
     edits: list[AnyEdit] = result["changeset"].edits
     assert [edit.kind for edit in edits] == ["insert_item", "delete"]
@@ -211,7 +241,7 @@ async def test_page_fit_deletes_untouched_bullets_until_the_page_count_holds():
 async def test_page_fit_spares_the_bullets_the_changeset_inserted(
     insert: InsertItem | InsertBlock,
 ):
-    result, _ = await _edit(_answer(insert))
+    result, _ = await _edit(_propose(insert), DONE)
 
     edits: list[AnyEdit] = result["changeset"].edits
     assert [edit.kind for edit in edits] == [insert.kind, "delete"]
@@ -220,58 +250,48 @@ async def test_page_fit_spares_the_bullets_the_changeset_inserted(
 
 async def test_clarify_pauses_the_edit_until_the_user_answers():
     graph = _graph(
-        _model(_call("clarify", question="Which job?"), _answer(GOOD_EDIT)),
-        checkpointer=InMemorySaver(),
+        _model(_call("clarify", question="Which job?"), _propose(GOOD_EDIT), DONE)
     )
     run = {"configurable": {"thread_id": "t1"}}
 
-    paused = await graph.ainvoke(_input(), run)
+    await graph.ainvoke(_input(), run)
+    paused = await graph.ainvoke(Command(resume=_fetched()), run)
     done = await graph.ainvoke(Command(resume={"input": "Lumen Pay"}), run)
 
     assert [i.value["label"] for i in paused["__interrupt__"]] == ["Which job?"]
     assert done["changeset"].edits == [GOOD_EDIT]
 
 
-async def test_page_fit_prints_with_the_files_from_the_input():
+async def test_page_fit_prints_the_document_first_with_the_fetched_files():
     sent: list[httpx.Request] = []
-    graph = _graph(_model(_answer(GOOD_EDIT)), sent)
 
-    await graph.ainvoke(_input(assets={"a" * 64: b"photo"}))
+    await _run(
+        _graph(_model(_propose(GOOD_EDIT), DONE), sent),
+        _fetched(assets={"a" * 64: "cGhvdG8="}),
+    )
 
-    assert sent
+    assert len(sent) == 2
+    assert json.loads(sent[0].content)["document"] == _fetched()["document"]
     assert all(
         json.loads(request.content)["assets"] == {"a" * 64: "cGhvdG8="}
         for request in sent
     )
 
 
-async def test_a_document_never_printed_is_printed_first_for_its_page_count():
-    sent: list[httpx.Request] = []
-    graph = _graph(_model(_answer(GOOD_EDIT)), sent)
-    printed = _input()
-
-    result = await graph.ainvoke(printed)
-
-    assert result["changeset"].edits == [GOOD_EDIT]
-    assert len(sent) == 2
-    assert json.loads(sent[0].content)["document"] == printed.document.model_dump(
-        mode="json"
-    )
-
-
 async def test_a_failed_print_fails_the_edit_with_the_reason():
     graph = build_graph(
-        _agent(_model(_answer(GOOD_EDIT))),
+        _agent(_model(_propose(GOOD_EDIT), DONE)),
         ArtifactServiceClient(
             httpx.AsyncClient(
                 transport=httpx.MockTransport(_fail),
                 base_url="http://artifact-service",
             ),
         ),
+        InMemorySaver(),
     )
 
     with pytest.raises(ExecuteError, match="Couldn't print the edited document"):
-        await graph.ainvoke(_input())
+        await _run(graph)
 
 
 async def test_trace_records_each_check_round_and_the_agent_hash(
@@ -285,7 +305,7 @@ async def test_trace_records_each_check_round_and_the_agent_hash(
         )
     )
 
-    await _edit(_answer(BAD_EDIT), _answer(GOOD_EDIT))
+    await _edit(_propose(BAD_EDIT), _propose(GOOD_EDIT), DONE)
     tracing.shutdown_tracing()
 
     [exporter] = span_exporters

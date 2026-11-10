@@ -1,3 +1,3 @@
-from src.features.write_document.tools.validate_changeset import validate_changeset
+from src.features.write_document.tools.propose_changeset import propose_changeset
 
-__all__ = ["validate_changeset"]
+__all__ = ["propose_changeset"]

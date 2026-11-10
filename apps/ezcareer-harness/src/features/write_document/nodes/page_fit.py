@@ -28,7 +28,7 @@ async def page_fit(
     """Adds bullet deletes to the changeset until it prints on no more pages than before,
     from the entry with the most, never an entry's last bullet or one the edits wrote"""
     document, assets = state["document"], state.get("assets", {})
-    changeset = state["structured_response"]
+    changeset = state["changeset"]
     edits = list(changeset.edits)
     touched = (
         [edit.path for edit in edits if isinstance(edit, UpdateField | Move | Delete)]
@@ -40,10 +40,7 @@ async def page_fit(
         + [f"blocks/{edit.block.id}" for edit in edits if isinstance(edit, InsertBlock)]
     )
     try:
-        pages = (
-            state.get("report")
-            or (await artifact_service.render(document, assets)).report
-        ).pages
+        pages = (await artifact_service.render(document, assets)).report.pages
         for _ in range(trims):
             edited = apply_edits(document, edits)
             if (await artifact_service.render(edited, assets)).report.pages <= pages:

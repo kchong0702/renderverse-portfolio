@@ -41,9 +41,6 @@ class CheckRule(StrEnum):
     NO_ANSWER = "no_answer"
     """The agent ended without a reply in its response format"""
 
-    NO_CHANGESET = "no_changeset"
-    """The agent ended without answering with a changeset"""
-
     SCHEMA = "schema"
     """An imported document doesn't fit the schema"""
 

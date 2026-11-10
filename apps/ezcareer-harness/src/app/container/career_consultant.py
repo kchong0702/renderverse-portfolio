@@ -1,5 +1,4 @@
 from dependency_injector import containers, providers
-from document_schema import Changeset
 
 from src.agents import build_agent
 from src.agents.career_consultant import CareerConsultantState
@@ -23,7 +22,6 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
     agent = providers.Singleton(
         build_agent,
         agent=registry.provided["career-consultant"],
-        response_formats=(Changeset,),
         tools=providers.List(
             read_pdf_lines,
             read_profile_facts,
@@ -49,7 +47,8 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
     edit_document_executable = providers.Singleton(
         Executable,
         name="edit-document",
-        description="Propose a checked changeset for a chat request to change a résumé or cover letter",
+        description="Answer the user's message about one résumé, CV or cover letter, by its id, proposing a checked changeset when an edit helps",
+        reply_node="agent",
         graph=providers.Singleton(
             write_document.build_graph,
             agent=agent,

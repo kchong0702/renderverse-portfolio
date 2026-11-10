@@ -85,7 +85,3 @@ def check_changeset(
                 continue
             errors.append(CheckError(rule=rule, at=at, message=message))
     return errors
-
-
-CHECKS = {"changeset": check_changeset}
-"""Every check the write-document configurations.yaml may turn on, by name"""

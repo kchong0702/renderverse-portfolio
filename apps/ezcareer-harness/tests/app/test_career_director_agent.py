@@ -11,11 +11,16 @@ from pydantic_core import to_jsonable_python
 from src.app.app import create_app
 from src.app.container import Container
 from tests.agents.career_consultant import test_career_consultant as career_consultant
-from tests.agents.career_director.test_career_director import REQUEST, _model
+from tests.agents.career_director.test_career_director import (
+    BACKEND,
+    REQUEST,
+    _find,
+    _model,
+)
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.analyse_job import test_analyse_job_graph as analyse_job
-from tests.features.write_document.test_write_document_graph import _print
+from tests.features.write_document.test_write_document_graph import _fetched, _print
 
 
 def _send(
@@ -146,31 +151,102 @@ def test_career_director_finds_jobs_for_the_users_preferences_through_find_jobs(
     assert '"work_modes":["remote"]' in finder.requests[0][-1].text
 
 
+def _director_request() -> list[dict[str, JsonValue]]:
+    return [
+        {"text": REQUEST},
+        {
+            "data": {
+                "facts": to_jsonable_python(career_consultant._state()["facts"]),
+                "preferences": {},
+            }
+        },
+    ]
+
+
+def test_a_found_document_is_edited_and_its_changeset_is_published_as_an_artifact():
+    consultant = career_consultant._model(
+        career_consultant._propose(career_consultant.GOOD_EDIT),
+        career_consultant.DONE,
+    )
+    director = _model(
+        _find(name="backend résumé", kind="resume"),
+        _call("edit_document", document_id="doc-1", request=REQUEST),
+        AIMessage("I proposed one edit."),
+    )
+    client = TestClient(create_app(_container(_model(), consultant, director)))
+
+    finding = _send(client, _director_request())
+    fetching = _send(client, [{"data": {"documents": [BACKEND]}}], task=finding)
+    done = _send(client, [{"data": _fetched()}], task=fetching)
+
+    assert [
+        (task["status"]["state"], task["status"]["message"]["parts"])
+        for task in (finding, fetching)
+    ] == [
+        (
+            "TASK_STATE_INPUT_REQUIRED",
+            [
+                {
+                    "data": {
+                        "fetch": "documents",
+                        "name": "backend résumé",
+                        "kind": "resume",
+                    }
+                }
+            ],
+        ),
+        (
+            "TASK_STATE_INPUT_REQUIRED",
+            [{"data": {"fetch": "document", "id": "doc-1"}}],
+        ),
+    ]
+    assert done["status"]["state"] == "TASK_STATE_COMPLETED"
+    [changeset] = [a for a in done["artifacts"] if a["name"] == "changeset"]
+    [part] = changeset["parts"]
+    assert part["data"]["document_id"] == "doc-1"
+    assert part["data"]["changeset"]["edits"] == [
+        career_consultant.GOOD_EDIT.model_dump(mode="json")
+    ]
+    [reply] = [a for a in done["artifacts"] if a["name"] == "career-director"]
+    assert reply["parts"][0]["text"] == "I proposed one edit."
+
+
+def test_an_unclear_document_shows_the_user_a_document_picker():
+    director = _model(
+        _call("choose_document", question="Which résumé?", kind="resume"),
+        AIMessage("Which one?"),
+    )
+    client = TestClient(create_app(_container(_model(), _model(), director)))
+
+    asked = _send(client, _director_request())
+
+    assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
+    assert asked["status"]["message"]["parts"] == [
+        {
+            "data": {
+                "label": "Which résumé?",
+                "choose": "document",
+                "kind": "resume",
+                "submit_btn": "Send",
+            }
+        }
+    ]
+
+
 def test_a_workflows_question_reaches_the_user_and_their_answer_finishes_the_turn():
     consultant = career_consultant._model(
         _call("clarify", question="Which bullet?"),
-        career_consultant._answer(career_consultant.GOOD_EDIT),
+        career_consultant._propose(career_consultant.GOOD_EDIT),
+        career_consultant.DONE,
     )
     director = _model(
-        _call("edit_document", request=REQUEST), AIMessage("I proposed one edit.")
+        _call("edit_document", document_id="doc-1", request=REQUEST),
+        AIMessage("I proposed one edit."),
     )
     client = TestClient(create_app(_container(_model(), consultant, director)))
-    state = to_jsonable_python(career_consultant._state())
 
-    asked = _send(
-        client,
-        [
-            {"text": REQUEST},
-            {
-                "data": {
-                    "facts": state["facts"],
-                    "preferences": {},
-                    "document": state["document"],
-                    "lines": state["lines"],
-                }
-            },
-        ],
-    )
+    fetching = _send(client, _director_request())
+    asked = _send(client, [{"data": _fetched()}], task=fetching)
     done = _send(client, [{"data": {"input": "The queue one"}}], task=asked)
 
     assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
@@ -182,12 +258,14 @@ def test_a_workflows_question_reaches_the_user_and_their_answer_finishes_the_tur
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
     [reply] = [a for a in done["artifacts"] if a["name"] == "career-director"]
     assert reply["parts"][0]["text"] == "I proposed one edit."
-    [answer] = [m.text for m in consultant.requests[-1] if isinstance(m, ToolMessage)]
+    [answer] = [
+        m.text
+        for m in consultant.requests[-1]
+        if isinstance(m, ToolMessage) and m.name == "clarify"
+    ]
     assert answer == "The queue one"
     [report] = [m for m in director.requests[-1] if isinstance(m, ToolMessage)]
-    assert json.loads(report.text)["changeset"]["edits"] == [
-        career_consultant.GOOD_EDIT.model_dump(mode="json")
-    ]
+    assert report.text.startswith(career_consultant.DONE.text)
     assert len(director.requests) == 2
 
 
