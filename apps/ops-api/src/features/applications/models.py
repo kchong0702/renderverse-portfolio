@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base, EnumString
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
-from src.features.applications.enums import ApplicationStage
+from src.features.applications.enums import ApplicationStage, NextStepFormat
 
 
 class Application(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -41,6 +41,17 @@ class Application(IdMixin, UserScopedMixin, AuditMixin, Base):
         DateTime(timezone=True), default=None
     )
     """When the next step is due or booked"""
+
+    next_step_due: Mapped[date | None] = mapped_column(default=None)
+    """The day the next step must be done by, such as a take-home's deadline"""
+
+    next_step_format: Mapped[NextStepFormat | None] = mapped_column(
+        EnumString(NextStepFormat), default=None
+    )
+    """Whether the next step is a video call, a phone call or on site"""
+
+    next_step_location: Mapped[str | None] = mapped_column(String(200), default=None)
+    """Where the next step happens, such as an address or a meeting link"""
 
 
 __all__ = ["Application"]
