@@ -4,6 +4,8 @@ from collections.abc import Sequence
 from uuid import UUID
 
 from document_schema import (
+    AnyDocument,
+    AnyEdit,
     Changeset,
     ChangesetStatus,
     DocumentKind,
@@ -39,6 +41,22 @@ from src.features.documents.schemas import (
 def _pending(changesets: Sequence[DocumentChangeset]) -> int:
     """How many of these changesets wait for the user's answer"""
     return sum(row.changeset.status is ChangesetStatus.PENDING for row in changesets)
+
+
+def _waiting(changesets: Sequence[DocumentChangeset]) -> DocumentChangeset | None:
+    """The changeset still waiting for the user's answer, if any"""
+    return next(
+        (row for row in changesets if row.changeset.status is ChangesetStatus.PENDING),
+        None,
+    )
+
+
+def _applied(body: AnyDocument, edits: Sequence[AnyEdit]) -> AnyDocument | None:
+    """The body with the edits applied; None when they no longer fit it"""
+    try:
+        return apply_edits(body, edits)
+    except ValueError:
+        return None
 
 
 def _summary(document: Document, pending_changesets: int) -> DocumentSummary:
@@ -184,20 +202,23 @@ class DocumentService:
     async def propose(
         self, user_id: UUID, document_id: UUID, changeset: Changeset
     ) -> ChangesetRead:
-        """Store an agent's changeset for the user to accept or reject, closing any
-        older one still pending; it must apply to the current draft"""
+        """Store an agent's changeset for the user to accept or reject, adding its edits
+        to the one still pending; the edits must apply to the current draft"""
         document = await self._load(user_id, document_id)
         if changeset.status is not ChangesetStatus.PENDING:
             raise InvalidInput("A new changeset must be pending")
+        pending = _waiting(await self._repository.changesets([document.id]))
+        edits = [*(pending.changeset.edits if pending else []), *changeset.edits]
         try:
-            apply_edits(document.body, changeset.edits)
+            apply_edits(document.body, edits)
         except ValueError as error:
             raise InvalidInput(str(error)) from error
-        for older in await self._repository.changesets([document.id]):
-            if older.changeset.status is ChangesetStatus.PENDING:
-                older.changeset = older.changeset.model_copy(
-                    update={"status": ChangesetStatus.REJECTED}
-                )
+        if pending:
+            pending.changeset = pending.changeset.model_copy(
+                update={"edits": edits, "reason": changeset.reason}
+            )
+            await self._repository.flush()
+            return ChangesetRead.model_validate(pending, from_attributes=True)
         row = await self._repository.add(
             DocumentChangeset(
                 user_id=user_id,
@@ -205,6 +226,32 @@ class DocumentService:
                 changeset=changeset,
             )
         )
+        return ChangesetRead.model_validate(row, from_attributes=True)
+
+    async def undo_edit(
+        self, user_id: UUID, document_id: UUID, changeset_id: UUID, index: int
+    ) -> ChangesetRead:
+        """Take one edit out of a pending changeset, closing it as rejected when none
+        is left; Conflict when the edits left no longer fit the draft"""
+        document = await self._load(user_id, document_id)
+        row = await self._repository.changeset(document.id, changeset_id)
+        if row is None or not 0 <= index < len(row.changeset.edits):
+            raise NotFound("No such edit")
+        if row.changeset.status is not ChangesetStatus.PENDING:
+            raise Conflict("This changeset is already answered")
+        edits = [e for i, e in enumerate(row.changeset.edits) if i != index]
+        if not edits:
+            row.changeset = row.changeset.model_copy(
+                update={"status": ChangesetStatus.REJECTED}
+            )
+        else:
+            try:
+                apply_edits(document.body, edits)
+            except ValueError as error:
+                raise Conflict(
+                    f"The other edits need this one to fit the document: {error}"
+                ) from error
+            row.changeset = row.changeset.model_copy(update={"edits": edits})
         return ChangesetRead.model_validate(row, from_attributes=True)
 
     async def decide(
@@ -284,9 +331,13 @@ class DocumentService:
         """The document as the API returns it, flushed so updated_at is current"""
         await self._repository.flush()
         changesets = await self._repository.changesets([document.id])
+        pending = _waiting(changesets)
         return DocumentRead(
             **_summary(document, _pending(changesets)).model_dump(),
             body=document.body,
+            pending_body=_applied(document.body, pending.changeset.edits)
+            if pending
+            else None,
         )
 
     async def _keep(self, document: Document, label: str) -> DocumentVersion:

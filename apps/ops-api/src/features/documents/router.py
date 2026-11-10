@@ -191,6 +191,18 @@ async def propose_changeset(
     return await service.propose(user.id, document_id, changeset)
 
 
+@router.delete("/{document_id}/changesets/{changeset_id}/edits/{index}")
+async def undo_edit(
+    document_id: UUID,
+    changeset_id: UUID,
+    index: int,
+    user: CurrentUserDep,
+    service: DocumentServiceDep,
+) -> ChangesetRead:
+    """Take one edit out of the pending changeset; the last one closes it"""
+    return await service.undo_edit(user.id, document_id, changeset_id, index)
+
+
 @router.put("/{document_id}/changesets/{changeset_id}")
 async def decide_changeset(
     document_id: UUID,

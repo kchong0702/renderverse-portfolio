@@ -234,16 +234,56 @@ async def test_rejecting_a_changeset_leaves_the_draft_as_it_was(client):
     assert (await client.get(url)).json()["pending_changesets"] == 0
 
 
-async def test_a_new_changeset_closes_the_one_still_pending(client):
+async def test_a_new_changeset_joins_the_one_still_pending(client):
     document = await _create(client)
-    url = f"{DOCUMENTS}/{document['id']}/changesets"
-    first = (await client.post(url, json=TAILOR)).json()
-    second = (await client.post(url, json={**TAILOR, "id": "tailor-2"})).json()
+    url = f"{DOCUMENTS}/{document['id']}"
+    [summary, bullet] = TAILOR["edits"]
+    first = (
+        await client.post(f"{url}/changesets", json={**TAILOR, "edits": [summary]})
+    ).json()
 
-    listed = {c["id"]: c["changeset"]["status"] for c in (await client.get(url)).json()}
+    second = (
+        await client.post(
+            f"{url}/changesets", json={**TAILOR, "id": "tailor-2", "edits": [bullet]}
+        )
+    ).json()
 
-    assert listed == {first["id"]: "rejected", second["id"]: "pending"}
-    assert (await client.get(DOCUMENTS)).json()[0]["pending_changesets"] == 1
+    assert second["id"] == first["id"]
+    assert [e["path"] for e in second["changeset"]["edits"]] == [
+        summary["path"],
+        bullet["path"],
+    ]
+    draft = (await client.get(url)).json()
+    assert draft["pending_changesets"] == 1
+    assert _block(draft, "sum")["text"]["html"] == "Backend engineer."
+    assert _block({"body": draft["pending_body"]}, "sum")["text"]["html"] == (
+        "Backend engineer, 7 years."
+    )
+
+
+async def test_undo_takes_one_edit_out_and_the_last_closes_the_changeset(client):
+    document = await _create(client)
+    url = f"{DOCUMENTS}/{document['id']}"
+    changeset = (await client.post(f"{url}/changesets", json=TAILOR)).json()
+    edits = f"{url}/changesets/{changeset['id']}/edits"
+
+    undone = await client.delete(f"{edits}/0")
+
+    assert [e["path"] for e in undone.json()["changeset"]["edits"]] == [
+        TAILOR["edits"][1]["path"]
+    ]
+    pending = {"body": (await client.get(url)).json()["pending_body"]}
+    assert _block(pending, "sum")["text"]["html"] == "Backend engineer."
+    bullet = _block(pending, "exp")["items"][0]["bullets"][0]
+    assert bullet["text"]["html"] == "Moved 30 services to Kubernetes."
+    assert (await client.delete(f"{edits}/5")).status_code == 404
+
+    last = await client.delete(f"{edits}/0")
+
+    assert last.json()["changeset"]["status"] == "rejected"
+    draft = (await client.get(url)).json()
+    assert draft["pending_body"] is None
+    assert draft["body"] == document["body"]
 
 
 async def test_answering_a_changeset_the_same_way_again_is_a_no_op(client):
