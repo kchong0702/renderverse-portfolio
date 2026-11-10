@@ -149,6 +149,11 @@ class EventTime(BaseModel):
     """Start or end of an all-day event; the end day is exclusive"""
 
 
+class ExtendedProperties(BaseModel):
+    private: dict[str, str] = {}
+    """Keys and values only the calendar that holds the event sees"""
+
+
 class GoogleEvent(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
 
@@ -170,6 +175,9 @@ class GoogleEvent(BaseModel):
     html_link: str = ""
     """The event in Google Calendar"""
 
+    extended_properties: ExtendedProperties = ExtendedProperties()
+    """What the app that added the event stored on it"""
+
     start: EventTime
     """When it starts"""
 
@@ -188,6 +196,8 @@ class EventList(BaseModel):
 
 
 class NewEvent(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True)
+
     id: str | None = None
     """The event's id, base32hex; None lets Google pick one"""
 
@@ -206,10 +216,14 @@ class NewEvent(BaseModel):
     location: str | None = None
     """Where it takes place; None leaves it empty"""
 
+    extended_properties: ExtendedProperties | None = None
+    """What Ops stores on the event; None stores nothing"""
+
 
 __all__ = [
     "EventList",
     "EventTime",
+    "ExtendedProperties",
     "GmailList",
     "GmailMessage",
     "GmailPart",

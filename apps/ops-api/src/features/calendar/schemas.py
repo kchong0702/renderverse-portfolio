@@ -27,6 +27,9 @@ class CalendarEvent(BaseModel):
     url: str
     """The event in Google Calendar"""
 
+    interview: bool
+    """Whether Ops added it as an interview"""
+
 
 class EventCreate(BaseModel):
     title: str = Field(min_length=1, max_length=500)
