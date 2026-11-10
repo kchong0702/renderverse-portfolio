@@ -155,6 +155,7 @@ class JobService:
                         scored_70=sum(job.fit >= 70 for job in reply.jobs),
                     )
                 )
+                await self._settings.record_quota(user_id, reply.quota)
                 return Completed(reply=[job for job, _ in added])
             case InputRequired():
                 raise ServiceUnavailable("find-jobs asked for input ops cannot give")

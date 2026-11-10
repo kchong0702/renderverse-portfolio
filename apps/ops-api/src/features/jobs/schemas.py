@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, computed_field
 
 from src.features.jobs.enums import Importance, JobStatus, Match
 from src.features.profile import AgentProfile
+from src.features.settings import SearchQuota
 
 
 class Requirement(BaseModel):
@@ -175,6 +176,9 @@ class MatchedJob(BaseModel):
 class FindJobsOutput(BaseModel):
     jobs: list[MatchedJob]
     """Jobs that fit the profile and preferences, best first"""
+
+    quota: SearchQuota | None = None
+    """JSearch's searches left, from its rate-limit headers; None when not sent"""
 
 
 __all__ = [

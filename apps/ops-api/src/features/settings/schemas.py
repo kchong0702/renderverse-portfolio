@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import time
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
 from src.clients.ezcareer import ModelChoice
 
@@ -50,12 +50,28 @@ class Scheduling(BaseModel):
     """Free minutes kept between meetings"""
 
 
+class SearchQuota(BaseModel):
+    remaining: int
+    """Searches left on the JSearch key this period"""
+
+    limit: int
+    """Searches the JSearch key allows each period"""
+
+
 class Connection(BaseModel):
     id: ConnectionId
     """Which service"""
 
     status: ConnectionStatus
     """Whether it is connected"""
+
+    quota: SearchQuota | None = None
+    """JSearch's searches left, from the last find run; None when not known"""
+
+
+class JSearchKey(BaseModel):
+    api_key: SecretStr = Field(min_length=1)
+    """The user's RapidAPI key for JSearch; unbounded, so a 422 never echoes it"""
 
 
 class SettingsRead(BaseModel):
@@ -130,8 +146,10 @@ class SettingsUpdate(BaseModel):
 __all__ = [
     "Automation",
     "Connection",
+    "JSearchKey",
     "JobAgent",
     "Scheduling",
+    "SearchQuota",
     "SettingsRead",
     "SettingsUpdate",
 ]

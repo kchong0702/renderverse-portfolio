@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.core.config import AuthSettings, Settings
+from src.core.config import AuthSettings, JSearchSettings, Settings
 
 
 def test_list_settings_take_comma_separated_env_vars(monkeypatch):
@@ -31,3 +31,8 @@ def test_enabled_auth_needs_an_allowlist_and_a_key(values, message):
 def test_cookies_are_secure_on_https():
     assert AuthSettings(web_url="https://ops.example.ts.net/").secure_cookies
     assert not AuthSettings(web_url="http://localhost:5174").secure_cookies
+
+
+def test_a_jsearch_encryption_key_fernet_cannot_use_fails_at_startup():
+    with pytest.raises(ValidationError, match="Fernet key"):
+        JSearchSettings(encryption_key="not-a-fernet-key")
