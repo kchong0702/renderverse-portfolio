@@ -27,11 +27,21 @@ export default function ProjectsTab({ entries }: { entries: Entry[] }) {
           options={[
             {
               value: "active",
-              label: t("portfolio.filters.active", { count: count(false) }),
+              label: (
+                <>
+                  {t("portfolio.filters.active")}{" "}
+                  <span className="text-ink-3 font-medium">{count(false)}</span>
+                </>
+              ),
             },
             {
               value: "archived",
-              label: t("portfolio.filters.archived", { count: count(true) }),
+              label: (
+                <>
+                  {t("portfolio.filters.archived")}{" "}
+                  <span className="text-ink-3 font-medium">{count(true)}</span>
+                </>
+              ),
             },
           ]}
           onChange={(next) =>

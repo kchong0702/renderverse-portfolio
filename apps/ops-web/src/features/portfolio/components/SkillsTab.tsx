@@ -1,7 +1,7 @@
-import { Trash2 } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import Badge from "@/shared/components/Badge";
+import TrashIcon from "@/shared/components/TrashIcon";
 import { buttonClass } from "@/shared/components/button";
 import { TextField } from "@/shared/components/fields";
 import type { Skill } from "../api/profile";
@@ -67,9 +67,9 @@ function SkillRow({ skill, deleteError, onDelete }: SkillRowProps) {
             )
               onDelete();
           }}
-          className="text-ink-3 hover:text-crit inline-flex size-10 cursor-pointer items-center justify-center rounded-lg"
+          className="text-ink-3 inline-flex size-10 cursor-pointer items-center justify-center rounded-lg"
         >
-          <Trash2 size={18} />
+          <TrashIcon />
         </button>
       </span>
     </div>
