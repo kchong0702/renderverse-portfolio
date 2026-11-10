@@ -1,10 +1,12 @@
+import asyncio
 import json
 
 import httpx2
+from pydantic import BaseModel
 
 from src.core.config import get_settings
-from src.integrations.ezcareer import Answer, EzcareerClient
-from src.integrations.ezcareer.schemas import Started
+from src.integrations.ezcareer import Answer, EzcareerClient, RunStream
+from src.integrations.ezcareer.schemas import Completed, FetchRequest, Started
 from tests.conftest import PREFIX
 
 ASSISTANT = f"{PREFIX}/assistant"
@@ -196,6 +198,8 @@ async def test_a_widget_is_shown_and_the_answer_streams_the_rest_of_the_turn(
             "input_placeholder": None,
             "submit_btn": "Confirm",
             "cancel_btn": "Cancel",
+            "choose": None,
+            "kind": None,
         },
     }
     assert _events(done) == [
@@ -316,4 +320,171 @@ async def test_a_stream_closed_before_the_turn_ends_cancels_its_task(harness):
     assert [(s["method"], s["params"].get("id")) for s in _sent(harness)] == [
         ("SendStreamingMessage", None),
         ("CancelTask", "task-1"),
+    ]
+
+
+def _ids(response) -> list[str]:
+    """The SSE event ids a response carried"""
+    return [
+        line.removeprefix("id: ")
+        for line in response.text.splitlines()
+        if line.startswith("id: ")
+    ]
+
+
+async def test_a_turn_sends_event_ids_and_a_retry_hint(client, harness):
+    harness.outcomes = [_replied("Hi.")]
+
+    response = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
+
+    run_id = _ids(response)[0].partition(":")[0]
+    assert _ids(response) == [f"{run_id}:1", f"{run_id}:2"]
+    assert "retry: 2000" in response.text.splitlines()
+
+
+async def test_a_broken_stream_resumes_after_the_last_event_it_got(client, harness):
+    harness.outcomes = [
+        [
+            _task(),
+            _chunk("text-1", "text", {"text": "Two "}),
+            _chunk("text-1", "text", {"text": "fit."}),
+            _chunk("a-1", "career-director", {"text": "Two fit."}),
+            _status("COMPLETED"),
+        ]
+    ]
+    first = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
+    second_id = _ids(first)[1]
+
+    resumed = await client.get(f"{CHAT}/stream", headers={"Last-Event-ID": second_id})
+    replayed = await client.get(f"{CHAT}/stream")
+
+    assert _events(resumed) == _events(first)[2:]
+    assert _ids(resumed) == _ids(first)[2:]
+    assert _events(replayed) == _events(first)
+
+
+async def test_nothing_resumes_from_another_run_or_an_idle_chat(client, harness):
+    harness.outcomes = [_replied("Hi.")]
+    await client.post(f"{CHAT}/messages", json={"text": "Hi"})
+
+    foreign = await client.get(
+        f"{CHAT}/stream", headers={"Last-Event-ID": "0123456789abcdef:1"}
+    )
+    idle = await client.get(f"{ASSISTANT}/chats/{OTHER_CHAT_ID}/stream")
+
+    assert foreign.status_code == 404
+    assert idle.status_code == 404
+
+
+async def test_a_chat_takes_no_new_message_while_its_turn_runs(app, client, harness):
+    me = (await client.get(f"{PREFIX}/me")).json()
+    blocked = asyncio.Event()
+
+    async def running():
+        """A turn that has not ended"""
+        await blocked.wait()
+        yield Started(task_id="task-1")
+
+    app.state.runs[f"{me['id']}:{CHAT_ID}"] = RunStream(running(), 2000)
+
+    response = await client.post(f"{CHAT}/messages", json={"text": "Again"})
+
+    assert response.status_code == 409
+    assert harness.received == []
+    blocked.set()
+
+
+class _Documents(BaseModel):
+    documents: list[str]
+
+
+async def test_a_stream_answers_the_data_requests_its_run_pauses_with(harness):
+    asked: list[FetchRequest] = []
+
+    async def fetch(request: FetchRequest) -> _Documents:
+        asked.append(request)
+        return _Documents(documents=["Résumé for Northwind"])
+
+    harness.outcomes = [
+        [
+            _task(),
+            _status("INPUT_REQUIRED", [{"data": {"fetch": "documents", "name": "nw"}}]),
+        ],
+        [
+            _status("WORKING"),
+            _chunk("a-1", "career-director", {"text": "Found it."}),
+            _status("COMPLETED"),
+        ],
+    ]
+    ezcareer = EzcareerClient(get_settings().ezcareer, httpx2.MockTransport(harness))
+
+    events = [
+        event
+        async for event in ezcareer.stream(
+            "career-director",
+            str,
+            context_id="u:c",
+            data=Answer(),
+            metadata=None,
+            fetch=fetch,
+        )
+    ]
+
+    assert events == [Started(task_id="task-1"), Completed(reply="Found it.")]
+    assert [r.model_dump() for r in asked] == [{"fetch": "documents", "name": "nw"}]
+    resume = _sent(harness)[1]["params"]["message"]
+    assert resume["taskId"] == "task-1"
+    assert resume["contextId"] == "u:c"
+    assert resume["parts"] == [{"data": {"documents": ["Résumé for Northwind"]}}]
+
+
+async def test_a_blocking_run_answers_its_data_requests_too(harness):
+    async def fetch(request: FetchRequest) -> _Documents:
+        return _Documents(documents=[request.model_dump()["name"]])
+
+    paused = {
+        "result": {
+            "task": {
+                "id": "task-1",
+                "status": {
+                    "state": "TASK_STATE_INPUT_REQUIRED",
+                    "message": {
+                        "messageId": "m",
+                        "role": "ROLE_AGENT",
+                        "parts": [{"data": {"fetch": "documents", "name": "nw"}}],
+                    },
+                },
+            }
+        }
+    }
+    done = {
+        "result": {
+            "task": {
+                "id": "task-1",
+                "status": {"state": "TASK_STATE_COMPLETED"},
+                "artifacts": [
+                    {
+                        "artifactId": "a",
+                        "name": "edit-document",
+                        "parts": [{"text": "ok"}],
+                    }
+                ],
+            }
+        }
+    }
+    harness.outcomes = [paused, done]
+    ezcareer = EzcareerClient(get_settings().ezcareer, httpx2.MockTransport(harness))
+
+    run = await ezcareer.send(
+        "edit-document",
+        str,
+        context_id="u:c",
+        data=Answer(),
+        metadata=None,
+        fetch=fetch,
+    )
+
+    assert run == Completed(reply="ok")
+    assert _sent(harness)[1]["params"]["message"]["parts"] == [
+        {"data": {"documents": ["nw"]}}
     ]

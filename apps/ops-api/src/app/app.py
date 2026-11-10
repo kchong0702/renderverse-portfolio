@@ -73,6 +73,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     app.state.session_factory = container.session_factory()
     app.state.oauth_providers = container.oauth_providers()
     app.state.ezcareer = container.ezcareer()
+    app.state.runs = {}
 
     _add_middleware(app, settings)
 

@@ -1,4 +1,5 @@
 from src.integrations.ezcareer.client import EzcareerClient
+from src.integrations.ezcareer.run_stream import RunStream
 from src.integrations.ezcareer.schemas import (
     Answer,
     Completed,
@@ -27,5 +28,6 @@ __all__ = [
     "Run",
     "RunEvent",
     "RunMetadata",
+    "RunStream",
     "Widget",
 ]

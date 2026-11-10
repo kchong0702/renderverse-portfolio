@@ -35,6 +35,8 @@ echo = false
 url = "http://127.0.0.1:8200/ezcareer"
 timeout_seconds = 10
 run_timeout_seconds = 300
+stream_retry_ms = 2000
+replay_ttl_seconds = 60
 
 [observability]
 service_name = "ops-api"

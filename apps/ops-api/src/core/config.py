@@ -193,6 +193,12 @@ class EzcareerSettings(BaseModel):
     run_timeout_seconds: float = Field(default=300, gt=0)
     """How long an agent or workflow run may take before it pauses or ends"""
 
+    stream_retry_ms: int = Field(default=2000, gt=0)
+    """How long a client waits before it reconnects to a broken stream"""
+
+    replay_ttl_seconds: float = Field(default=60, gt=0)
+    """How long a finished run can still be resumed"""
+
 
 class ObservabilitySettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
