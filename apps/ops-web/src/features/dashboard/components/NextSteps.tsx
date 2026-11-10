@@ -10,8 +10,7 @@ import {
 import type { Job } from "@/features/jobs";
 import { buttonClass } from "@/shared/components/button";
 import { cn } from "@/shared/lib/cn";
-import { relativeDay } from "@/shared/lib/dates";
-import { daysLeftThisWeek } from "../lib/pipeline";
+import { daysLeftThisWeek, relativeDay } from "@/shared/lib/dates";
 
 interface Row {
   key: string;
@@ -65,6 +64,13 @@ export default function NextSteps({
           title: [a.company, a.next_step].filter(Boolean).join(" · "),
           detail: [
             a.role,
+            [
+              a.next_step_format &&
+                t(`dashboard.next.formats.${a.next_step_format}`),
+              a.next_step_location,
+            ]
+              .filter(Boolean)
+              .join(", "),
             interview && gaps > 0 && t("dashboard.next.gaps", { count: gaps }),
           ]
             .filter(Boolean)
