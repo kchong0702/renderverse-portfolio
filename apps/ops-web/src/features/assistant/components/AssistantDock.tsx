@@ -10,13 +10,82 @@ import {
 } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import Badge from "@/shared/components/Badge";
 import { buttonClass } from "@/shared/components/button";
-import type { Step, Widget } from "../api/assistant";
-import { useAnswerTask, useSendMessage, useStop } from "../hooks/useAssistant";
+import type { DocumentKind, Step, Widget } from "../api/assistant";
+import {
+  useAnswerTask,
+  useDocuments,
+  useSendMessage,
+  useStop,
+} from "../hooks/useAssistant";
 import { useAssistantStore, type AssistantTurn } from "../state/assistantStore";
 
 const fieldClass =
   "border-hair bg-ground text-ink min-h-10 rounded-lg border px-3 py-2 text-sm leading-normal disabled:opacity-60";
+
+function DocumentPills({
+  kind,
+  disabled,
+  onPick,
+}: {
+  kind: DocumentKind | null;
+  disabled: boolean;
+  onPick: (title: string) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const documents = useDocuments();
+
+  if (documents.isPending)
+    return (
+      <p role="status" className="text-ink-3 m-0 text-[13px]">
+        {t("assistant.documents.loading")}
+      </p>
+    );
+  if (documents.isError)
+    return (
+      <p role="alert" className="text-crit m-0 text-[13px]">
+        {t("assistant.documents.failed", { reason: documents.error.message })}
+      </p>
+    );
+
+  const choices = documents.data
+    .filter((document) => !kind || document.kind === kind)
+    .sort(
+      (a, b) =>
+        Number(b.master) - Number(a.master) ||
+        a.title.localeCompare(b.title, i18n.language),
+    );
+  if (!choices.length)
+    return (
+      <p className="text-ink-3 m-0 text-[13px]">
+        {t("assistant.documents.empty")}
+      </p>
+    );
+
+  return (
+    <ul
+      aria-label={t("assistant.documents.label")}
+      className="m-0 flex list-none flex-wrap gap-2 p-0"
+    >
+      {choices.map((document) => (
+        <li key={document.id}>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onPick(document.title)}
+            className="border-hair text-ink hover:bg-chip flex min-h-9 cursor-pointer items-center gap-2 rounded-full border bg-transparent px-3 text-[13px] disabled:cursor-default disabled:opacity-60"
+          >
+            {document.title}
+            {document.master && (
+              <Badge>{t("assistant.documents.master")}</Badge>
+            )}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function ChatWidget({
   taskId,
@@ -32,7 +101,8 @@ function ChatWidget({
   const chatId = useAssistantStore((state) => state.chatId);
   const [input, setInput] = useState("");
   const labelId = useId();
-  const asksInput = widget.input_placeholder !== null;
+  const choosesDocument = widget.choose === "document";
+  const asksInput = widget.input_placeholder !== null || choosesDocument;
 
   return (
     <form
@@ -60,11 +130,27 @@ function ChatWidget({
           className={fieldClass}
         />
       )}
+      {live && choosesDocument && (
+        <DocumentPills
+          kind={widget.kind}
+          disabled={answer.isPending}
+          onPick={(title) =>
+            answer.mutate({
+              chatId,
+              taskId,
+              answer: { input: title },
+              shown: title,
+            })
+          }
+        />
+      )}
       {live && asksInput && (
         <input
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder={widget.input_placeholder ?? undefined}
+          placeholder={
+            widget.input_placeholder ?? t("assistant.documents.typeTitle")
+          }
           aria-labelledby={labelId}
           disabled={answer.isPending}
           className={fieldClass}

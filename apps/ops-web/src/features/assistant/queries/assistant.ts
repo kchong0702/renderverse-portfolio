@@ -1,9 +1,16 @@
-import { mutationOptions } from "@tanstack/react-query";
+import {
+  MutationObserver,
+  mutationOptions,
+  queryOptions,
+} from "@tanstack/react-query";
 import i18n from "@/i18n";
 import { ApiError } from "@/shared/api/http";
+import { queryClient } from "@/shared/api/queryClient";
 import {
   answerTask,
   cancelTask,
+  fetchDocuments,
+  resumeTurn,
   sendMessage,
   type ChatMessage,
   type TaskAnswer,
@@ -14,18 +21,21 @@ const { add, apply, restore } = useAssistantStore.getState();
 
 let run = new AbortController();
 
-const start = () => {
+const follow = () => {
   run = new AbortController();
-  add({ role: "assistant", taskId: null, parts: [], outcome: null });
   return run.signal;
 };
 
-const halt = () => {
-  apply({ status: "cancelled" });
-  run.abort();
+const start = () => {
+  add({
+    role: "assistant",
+    taskId: null,
+    lastEventId: null,
+    parts: [],
+    outcome: null,
+  });
+  return follow();
 };
-
-addEventListener("pagehide", halt);
 
 const settle = (_data: unknown, error: Error | null) =>
   apply({
@@ -54,6 +64,23 @@ export const answerTaskMutationOptions = mutationOptions({
   onSettled: settle,
 });
 
+const resumeMutationOptions = mutationOptions({
+  mutationKey: ["assistant", "resume"],
+  mutationFn: (turn: { chatId: string; lastEventId: string }) =>
+    resumeTurn(turn, follow(), apply),
+  onSettled: (data, error) =>
+    error instanceof ApiError && error.status === 404
+      ? apply({ status: "cancelled" })
+      : settle(data, error),
+});
+
+const { chatId, entries } = useAssistantStore.getState();
+const pending = entries.at(-1);
+if (pending?.role === "assistant" && !pending.outcome && pending.lastEventId)
+  new MutationObserver(queryClient, resumeMutationOptions)
+    .mutate({ chatId, lastEventId: pending.lastEventId })
+    .catch(() => {});
+
 export const stopMutationOptions = mutationOptions({
   mutationKey: ["assistant", "stop"],
   mutationFn: async ({
@@ -65,5 +92,13 @@ export const stopMutationOptions = mutationOptions({
   }) => {
     if (taskId) await cancelTask({ chatId, taskId });
   },
-  onSettled: halt,
+  onSettled: () => {
+    apply({ status: "cancelled" });
+    run.abort();
+  },
+});
+
+export const documentsQueryOptions = queryOptions({
+  queryKey: ["documents"],
+  queryFn: ({ signal }) => fetchDocuments(signal),
 });
