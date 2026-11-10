@@ -1,9 +1,10 @@
+import type { ReactNode } from "react";
 import { cn } from "@/shared/lib/cn";
 import { pillItem, pillTrack } from "./pill";
 
 export interface SegmentedOption<T extends string> {
   value: T;
-  label: string;
+  label: ReactNode;
 }
 
 interface SegmentedProps<T extends string> {

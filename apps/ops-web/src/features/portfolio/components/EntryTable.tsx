@@ -1,7 +1,7 @@
-import { Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import Badge from "@/shared/components/Badge";
+import TrashIcon from "@/shared/components/TrashIcon";
 import type { Entry, EntryKind, EntryWrite } from "../api/profile";
 import { useAddEntry, useDeleteEntry, useSaveEntry } from "../hooks/useProfile";
 import EntryForm from "./EntryForm";
@@ -48,7 +48,7 @@ function EntryRow({ entry, deleteError, onEdit, onDelete }: EntryRowProps) {
             type="button"
             aria-label={t("portfolio.table.edit", { name: entry.title })}
             onClick={onEdit}
-            className="text-ink cursor-pointer text-left font-semibold hover:underline"
+            className="text-ink cursor-pointer text-left font-semibold"
           >
             {entry.title}
           </button>
@@ -60,7 +60,9 @@ function EntryRow({ entry, deleteError, onEdit, onDelete }: EntryRowProps) {
           {entry.archived && <Badge>{t("portfolio.table.archived")}</Badge>}
         </span>
         <span className="text-ink-2 text-sm">
-          {[entry.organisation, entry.summary].filter(Boolean).join(" · ")}
+          {entry.kind === "project"
+            ? entry.summary
+            : [entry.organisation, entry.summary].filter(Boolean).join(" · ")}
         </span>
         {toggle.isError && (
           <span role="alert" className="text-crit text-sm">
@@ -94,9 +96,9 @@ function EntryRow({ entry, deleteError, onEdit, onDelete }: EntryRowProps) {
             )
               onDelete();
           }}
-          className="text-ink-3 hover:text-crit inline-flex size-10 cursor-pointer items-center justify-center rounded-lg"
+          className="text-ink-3 inline-flex size-10 cursor-pointer items-center justify-center rounded-lg"
         >
-          <Trash2 size={18} />
+          <TrashIcon />
         </button>
       </span>
     </div>

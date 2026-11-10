@@ -1,3 +1,4 @@
+import { Sparkle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { buttonClass } from "@/shared/components/button";
@@ -28,7 +29,7 @@ export default function PortfolioPage() {
   const skills = useSkills();
   const update = useUpdateProfile();
   const tab: PortfolioTab =
-    TABS.find((name) => name === params.get("tab")) ?? "profile";
+    TABS.find((name) => name === params.get("tab")) ?? "projects";
 
   const saveStatus = update.isPending
     ? t("portfolio.save.saving")
@@ -45,29 +46,14 @@ export default function PortfolioPage() {
         title={t("portfolio.title")}
         subtitle={t("portfolio.subtitle")}
         actions={
-          <>
-            {saveStatus && (
-              <span
-                role="status"
-                className={
-                  update.isError
-                    ? "text-crit self-center text-sm"
-                    : "text-ink-3 self-center text-sm"
-                }
-              >
-                {saveStatus}
-              </span>
-            )}
-            <button
-              type="button"
-              className={buttonClass("primary")}
-              onClick={() =>
-                setParams({ tab: "projects", edit: "new-project" })
-              }
-            >
-              {t("portfolio.addProject")}
-            </button>
-          </>
+          <button
+            type="button"
+            className={buttonClass("primary")}
+            onClick={() => setParams({ tab: "projects", edit: "new-project" })}
+          >
+            <Sparkle size={14} className="text-amber-soft" />
+            {t("portfolio.addProject")}
+          </button>
         }
       />
       <PageBody>
@@ -91,6 +77,16 @@ export default function PortfolioPage() {
               ))}
             </TabList>
             <TabPanel value="profile" className="flex flex-col gap-7">
+              {saveStatus && (
+                <span
+                  role="status"
+                  className={
+                    update.isError ? "text-crit text-sm" : "text-ink-3 text-sm"
+                  }
+                >
+                  {saveStatus}
+                </span>
+              )}
               <div className="grid grid-cols-[repeat(auto-fit,minmax(min(420px,100%),1fr))] items-start gap-6">
                 <AboutPanel profile={profile.data} onChange={update.mutate} />
                 <PreferencesPanel

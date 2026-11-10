@@ -1052,7 +1052,7 @@
   },
   "portfolio": {
     "title": "Portfolio",
-    "subtitle": "The facts your agents use",
+    "subtitle": "The facts your agents use, and your portfolio site",
     "loadFailed": "The profile could not be loaded: {{reason}}",
     "addProject": "Add project",
     "save": {
@@ -1068,8 +1068,8 @@
     },
     "filters": {
       "label": "Show",
-      "active": "Active {{count}}",
-      "archived": "Archived {{count}}"
+      "active": "Active",
+      "archived": "Archived"
     },
     "period": {
       "range": "{{from}} to {{to}}",
