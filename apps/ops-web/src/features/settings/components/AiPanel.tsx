@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { SelectField } from "@/shared/components/fields";
 import Panel from "@/shared/components/Panel";
 import type { ModelChoice, ModelFamily, SettingsPatch } from "../api/settings";
@@ -10,17 +11,18 @@ interface AiPanelProps {
   onChange: (patch: SettingsPatch) => void;
 }
 
+const option = ({ family, model }: ModelChoice) => ({
+  value: `${family}:${model}`,
+  label: i18n.t("settings.ai.modelOption", {
+    family: i18n.t(`settings.ai.providers.${family}`),
+    model,
+  }),
+});
+
 export default function AiPanel({ aiModel, onChange }: AiPanelProps) {
   const { t } = useTranslation();
   const models = useModels();
 
-  const option = ({ family, model }: ModelChoice) => ({
-    value: `${family}:${model}`,
-    label: t("settings.ai.modelOption", {
-      family: t(`settings.ai.providers.${family}`),
-      model,
-    }),
-  });
   const offered = (models.data?.families ?? []).flatMap(({ family, models }) =>
     models.map((model) => option({ family, model })),
   );
