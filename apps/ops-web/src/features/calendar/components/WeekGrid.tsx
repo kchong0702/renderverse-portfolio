@@ -1,19 +1,15 @@
 import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/cn";
-import type { CalendarEvent } from "../api/calendar";
-import { addDays, eventTime, isoDay } from "../lib/dates";
-import { isInterview } from "../lib/interview";
+import { isoDay } from "../lib/dates";
+import { itemTone, onDay, type CalendarItem } from "../lib/items";
 
-const HOUR_PX = 56;
+const HOUR_PX = 60;
+
+const MIN_EVENT_PX = 50;
 
 const hourOf = (time: Date) => time.getHours() + time.getMinutes() / 60;
 
 const clockHour = (time: string) => Number(time.slice(0, 2));
-
-const toneClass = (event: CalendarEvent) =>
-  isInterview(event)
-    ? "bg-warn-bg border-amber text-ink"
-    : "bg-chip border-hair text-ink-3";
 
 function sideBySide<T extends { from: number; to: number }>(slots: T[]) {
   const placed: (T & { column: number; columns: number })[] = [];
@@ -36,39 +32,45 @@ function sideBySide<T extends { from: number; to: number }>(slots: T[]) {
 }
 
 interface WeekGridProps {
-  monday: Date;
-  events: CalendarEvent[];
+  days: Date[];
+  items: CalendarItem[];
   workDayStart: string;
   workDayEnd: string;
 }
 
 export default function WeekGrid({
-  monday,
-  events,
+  days,
+  items,
   workDayStart,
   workDayEnd,
 }: WeekGridProps) {
   const { t, i18n } = useTranslation();
-  const days = Array.from({ length: 7 }, (_, index) => addDays(monday, index));
   const today = isoDay(new Date());
-  const timed = events
-    .filter((event) => !event.all_day)
-    .map((event) => {
-      const start = eventTime(event.start, false);
-      const end = eventTime(event.end, false);
+  const timed = items
+    .filter((item) => !item.allDay)
+    .map((item) => {
+      const from = hourOf(item.start);
       return {
-        event,
-        day: isoDay(start),
-        from: hourOf(start),
-        to: isoDay(end) === isoDay(start) ? hourOf(end) : 24,
-        label: start.toLocaleTimeString(i18n.language, {
-          hour: "2-digit",
-          minute: "2-digit",
-          hourCycle: "h23",
-        }),
+        item,
+        day: isoDay(item.start),
+        from,
+        to: Math.max(
+          isoDay(item.end) === isoDay(item.start) ? hourOf(item.end) : 24,
+          from + MIN_EVENT_PX / HOUR_PX,
+        ),
+        label: [
+          item.start.toLocaleTimeString(i18n.language, {
+            hour: "2-digit",
+            minute: "2-digit",
+            hourCycle: "h23",
+          }),
+          item.step.toLocaleLowerCase(i18n.language),
+        ]
+          .filter(Boolean)
+          .join(" "),
       };
     });
-  const allDay = events.filter((event) => event.all_day);
+  const allDay = items.filter((item) => item.allDay);
   const first = Math.floor(
     Math.min(clockHour(workDayStart), ...timed.map(({ from }) => from)),
   );
@@ -82,13 +84,13 @@ export default function WeekGrid({
 
   return (
     <div className="overflow-x-auto">
-      <div className="grid min-w-[720px] grid-cols-[52px_repeat(7,minmax(0,1fr))] gap-y-2">
+      <div className="grid min-w-[680px] grid-cols-[52px_repeat(7,minmax(0,1fr))]">
         <span />
         {days.map((day) => (
           <span
             key={day.getTime()}
             className={cn(
-              "text-center text-sm",
+              "pb-2.5 text-center text-[13px]",
               isoDay(day) === today
                 ? "text-ink font-bold"
                 : "text-ink-3 font-medium",
@@ -102,38 +104,36 @@ export default function WeekGrid({
         ))}
         {allDay.length > 0 && (
           <>
-            <span className="text-ink-3 text-xs">{t("calendar.allDay")}</span>
+            <span className="text-ink-3 text-[12px]">
+              {t("calendar.allDay")}
+            </span>
             {days.map((day) => (
-              <span key={day.getTime()} className="flex flex-col gap-1 px-1">
+              <span
+                key={day.getTime()}
+                className="flex flex-col gap-1 px-1 pb-2.5"
+              >
                 {allDay
-                  .filter(
-                    (event) =>
-                      event.start <= isoDay(day) && isoDay(day) < event.end,
-                  )
-                  .map((event) => (
-                    <a
-                      key={event.id}
-                      href={event.url}
-                      target="_blank"
-                      rel="noreferrer"
+                  .filter((item) => onDay(item, day))
+                  .map((item) => (
+                    <span
+                      key={item.id}
                       className={cn(
-                        "truncate rounded-md border-l-[3px] px-2 py-0.5 text-xs font-semibold no-underline",
-                        toneClass(event),
+                        "truncate rounded-lg border px-2 py-0.5 text-[12px] font-semibold",
+                        itemTone[item.kind],
                       )}
                     >
-                      {event.title || t("calendar.untitled")}
-                    </a>
+                      {item.title || t("calendar.busy")}
+                    </span>
                   ))}
               </span>
             ))}
           </>
         )}
-        <div className="relative" style={{ height: hours.length * HOUR_PX }}>
+        <div className="flex flex-col">
           {hours.map((hour) => (
             <span
               key={hour}
-              className="text-ink-3 absolute text-xs"
-              style={{ top: (hour - first) * HOUR_PX }}
+              className="text-ink-3 h-[60px] -translate-y-2 text-[12px]"
             >
               {`${String(hour).padStart(2, "0")}:00`}
             </span>
@@ -151,28 +151,25 @@ export default function WeekGrid({
             }}
           >
             {sideBySide(timed.filter((slot) => slot.day === isoDay(day))).map(
-              ({ event, from, to, label, column, columns }) => (
-                <a
-                  key={event.id}
-                  href={event.url}
-                  target="_blank"
-                  rel="noreferrer"
+              ({ item, from, to, label, column, columns }) => (
+                <div
+                  key={item.id}
                   className={cn(
-                    "absolute flex flex-col overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-xs no-underline",
-                    toneClass(event),
+                    "absolute overflow-hidden rounded-lg border px-2 py-1.5 text-[12px] leading-[1.35]",
+                    itemTone[item.kind],
                   )}
                   style={{
                     top: (from - first) * HOUR_PX,
-                    height: Math.max(36, (to - from) * HOUR_PX - 4),
+                    height: (to - from) * HOUR_PX - 4,
                     left: `calc(${(100 * column) / columns}% + 4px)`,
                     width: `calc(${100 / columns}% - 8px)`,
                   }}
                 >
-                  <span className="truncate font-semibold">
-                    {event.title || t("calendar.untitled")}
-                  </span>
-                  <span className="truncate">{label}</span>
-                </a>
+                  <div className="truncate font-semibold">
+                    {item.title || t("calendar.busy")}
+                  </div>
+                  <div className="truncate">{label}</div>
+                </div>
               ),
             )}
           </div>

@@ -1,36 +1,50 @@
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
-import Panel from "@/shared/components/Panel";
 import { cn } from "@/shared/lib/cn";
-import type { CalendarEvent } from "../api/calendar";
-import { eventTime } from "../lib/dates";
-import { isInterview } from "../lib/interview";
+import { addDays, startOfDay } from "../lib/dates";
+import type { CalendarItem } from "../lib/items";
 
-export default function ComingUp({ events }: { events: CalendarEvent[] }) {
+export default function ComingUp({ items }: { items: CalendarItem[] }) {
   const { t, i18n } = useTranslation();
+  const headingId = useId();
   const now = new Date();
-  const next = events
-    .filter((event) => eventTime(event.end, event.all_day) > now)
+  const until = addDays(startOfDay(now), 14);
+  const next = items
+    .filter(
+      (item) => item.kind !== "busy" && item.end >= now && item.start < until,
+    )
     .slice(0, 6);
 
   return (
-    <Panel title={t("calendar.comingUp")} className="gap-3">
+    <section
+      aria-labelledby={headingId}
+      className="bg-panel border-hair shadow-card flex flex-col rounded-xl border px-5 py-[18px]"
+    >
+      <h2
+        id={headingId}
+        className="text-ink m-0 pb-2 text-[15px] font-semibold"
+      >
+        {t("calendar.comingUp")}
+      </h2>
       {next.length === 0 && (
-        <p className="text-ink-3 m-0 text-sm">
+        <p className="text-ink-3 m-0 text-[14px]">
           {t("calendar.nothingComingUp")}
         </p>
       )}
-      {next.map((event) => (
-        <a
-          key={event.id}
-          href={event.url}
-          target="_blank"
-          rel="noreferrer"
-          className="border-hair-soft flex flex-col border-t pt-3 no-underline first-of-type:border-t-0 first-of-type:pt-0"
+      {next.map((item) => (
+        <div
+          key={item.id}
+          className="border-hair-soft flex flex-col border-t py-2.5"
         >
-          <span className="text-ink-3 text-[13px]">
-            {eventTime(event.start, event.all_day).toLocaleString(
+          <span
+            className={cn(
+              "text-[13px] font-semibold",
+              item.kind === "interview" ? "text-amber" : "text-ok",
+            )}
+          >
+            {item.start.toLocaleString(
               i18n.language,
-              event.all_day
+              item.allDay
                 ? { weekday: "short", day: "numeric", month: "short" }
                 : {
                     weekday: "short",
@@ -42,16 +56,13 @@ export default function ComingUp({ events }: { events: CalendarEvent[] }) {
                   },
             )}
           </span>
-          <span
-            className={cn(
-              "font-medium",
-              isInterview(event) ? "text-amber" : "text-ink",
-            )}
-          >
-            {event.title || t("calendar.untitled")}
+          <span className="font-medium">
+            {item.step
+              ? t("calendar.task", { step: item.step, company: item.title })
+              : item.title}
           </span>
-        </a>
+        </div>
       ))}
-    </Panel>
+    </section>
   );
 }
