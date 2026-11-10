@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, SerializeAsAny
 from pydantic.alias_generators import to_camel
 
-from src.integrations.ezcareer.schemas import RunMetadata
+from src.integrations.ezcareer.schemas import RunMetadata, Step
 
 
 class TextPart(BaseModel):
@@ -54,7 +54,7 @@ class SendMessageRequest(BaseModel):
     id: str
     """Request id the response echoes"""
 
-    method: Literal["SendMessage"] = "SendMessage"
+    method: Literal["SendMessage", "SendStreamingMessage"] = "SendMessage"
     """A2A 1.0's blocking send; it answers once the task ends or pauses"""
 
     params: SendMessageParams
@@ -83,13 +83,26 @@ class TaskStatus(BaseModel):
 
 
 class Artifact(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True)
+
+    artifact_id: str = ""
+    """Which artifact a streamed chunk appends to, such as text-<turn>"""
+
+    name: str = ""
+    """The executable's name on its reply; thinking or text on a streamed turn"""
+
     parts: list[Part]
-    """The reply, as one text or data part"""
+    """The reply as one text or data part, or a streamed chunk's text"""
 
 
 class Task(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True)
+
     id: str
     """The task's id, which a resume sends back"""
+
+    context_id: str = ""
+    """The context the task runs in, which names its user"""
 
     status: TaskStatus
     """Where the task stands"""
@@ -106,6 +119,73 @@ class SendMessageResult(BaseModel):
 class SendMessageSuccess(BaseModel):
     result: SendMessageResult
     """The task the message ran"""
+
+
+class StepData(BaseModel):
+    step: Step
+    """A step of the run, which a working status carries"""
+
+
+class StatusUpdate(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True)
+
+    task_id: str
+    """The task the update is about"""
+
+    status: TaskStatus
+    """Where the task stands now; a working status may carry a step"""
+
+
+class ArtifactUpdate(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True)
+
+    task_id: str
+    """The task the chunk belongs to"""
+
+    artifact: Artifact
+    """The chunk, appended to the artifact with its id"""
+
+
+class StreamResult(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True)
+
+    task: Task | None = None
+    """The task, sent first when a new task starts"""
+
+    status_update: StatusUpdate | None = None
+    """A change of the task's status"""
+
+    artifact_update: ArtifactUpdate | None = None
+    """A chunk of an artifact"""
+
+
+class StreamSuccess(BaseModel):
+    result: StreamResult
+    """One event of a SendStreamingMessage stream"""
+
+
+class TaskIdParams(BaseModel):
+    id: str
+    """The task to read or cancel"""
+
+
+class TaskRequest(BaseModel):
+    jsonrpc: Literal["2.0"] = "2.0"
+    """JSON-RPC version"""
+
+    id: str
+    """Request id, echoed in the response"""
+
+    method: Literal["GetTask", "CancelTask"]
+    """Read the task, or cancel it"""
+
+    params: TaskIdParams
+    """The task"""
+
+
+class TaskSuccess(BaseModel):
+    result: Task
+    """The task as it stands"""
 
 
 class RpcError(BaseModel):
@@ -128,5 +208,10 @@ __all__ = [
     "SendMessageParams",
     "SendMessageRequest",
     "SendMessageSuccess",
+    "StepData",
+    "StreamSuccess",
+    "TaskIdParams",
+    "TaskRequest",
+    "TaskSuccess",
     "TextPart",
 ]

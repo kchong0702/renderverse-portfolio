@@ -8,6 +8,7 @@ from src.integrations.ezcareer.schemas import (
     ModelCatalog,
     ModelChoice,
     Run,
+    RunEvent,
     RunMetadata,
     Widget,
 )
@@ -24,6 +25,7 @@ __all__ = [
     "ModelChoice",
     "ModelFamily",
     "Run",
+    "RunEvent",
     "RunMetadata",
     "Widget",
 ]
