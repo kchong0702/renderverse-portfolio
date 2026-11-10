@@ -331,19 +331,23 @@ class DocumentService:
 
     async def propose_from_run(
         self, user_id: UUID, document_id: UUID, changeset: Changeset
-    ) -> ChangesetProposed:
-        """Store a changeset a run proposed, as propose does, on a session of its own
-        since the run outlives the request's"""
-        async for session in session_scope(self._factory):
-            repository = DocumentRepository(session)
-            document = await _load(repository, user_id, document_id)
-            row = await _propose(repository, document, changeset)
-            proposed = ChangesetProposed(
-                document_id=document.id,
-                title=document.title,
-                changeset_id=row.id,
-                edits=len(row.changeset.edits),
-            )
+    ) -> ChangesetProposed | None:
+        """Store a changeset a run proposed on a session of its own, since the run
+        outlives the request's; None, logged, when it doesn't fit or has no document"""
+        try:
+            async for session in session_scope(self._factory):
+                repository = DocumentRepository(session)
+                document = await _load(repository, user_id, document_id)
+                row = await _propose(repository, document, changeset)
+                proposed = ChangesetProposed(
+                    document_id=document.id,
+                    title=document.title,
+                    changeset_id=row.id,
+                    edits=len(row.changeset.edits),
+                )
+        except (NotFound, InvalidInput) as error:
+            logger.warning("changeset_skipped", reason=error.message)
+            return None
         return proposed
 
     async def answer_data_request(
@@ -384,7 +388,7 @@ class DocumentService:
                                 ],
                                 scorer=fuzz.partial_token_sort_ratio,
                                 processor=utils.default_process,
-                                score_cutoff=70,
+                                score_cutoff=self._limits.match_cutoff,
                                 limit=None,
                             )
                         ]
@@ -435,15 +439,12 @@ class DocumentService:
         proposes is stored and announced before its reply, which ends the turn"""
         async for event in events:
             if isinstance(event, Completed):
-                if event.reply.changeset:
-                    try:
-                        proposed = await self.propose_from_run(
-                            user_id, document_id, event.reply.changeset
-                        )
-                    except (NotFound, InvalidInput) as error:
-                        logger.warning("changeset_skipped", reason=error.message)
-                    else:
-                        yield proposed
+                if event.reply.changeset and (
+                    proposed := await self.propose_from_run(
+                        user_id, document_id, event.reply.changeset
+                    )
+                ):
+                    yield proposed
                 yield Completed(reply=event.reply.reply)
             elif not isinstance(event, Published):
                 yield event
