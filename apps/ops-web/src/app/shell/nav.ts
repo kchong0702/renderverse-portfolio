@@ -1,7 +1,9 @@
 import { createLucideIcon, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useApplications } from "@/features/applications";
+import { useInbox } from "@/features/inbox";
 import { useJobs } from "@/features/jobs";
+import { useGoogleAccount } from "@/features/settings";
 
 export type NavKey =
   | "dashboard"
@@ -165,8 +167,11 @@ export function useNavBadges(): Partial<Record<NavKey, string>> {
   const { t } = useTranslation();
   const newJobs = useJobs().data?.new_count;
   const active = useApplications().data?.filter((a) => a.stage !== "closed");
+  const { account } = useGoogleAccount();
+  const inbox = useInbox(account !== null);
   return {
     jobs: newJobs ? t("nav.badges.newJobs", { count: newJobs }) : undefined,
     applications: active?.length ? String(active.length) : undefined,
+    inbox: inbox.data?.needs_reply ? String(inbox.data.needs_reply) : undefined,
   };
 }

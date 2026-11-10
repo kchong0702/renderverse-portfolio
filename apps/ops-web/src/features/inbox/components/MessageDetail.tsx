@@ -8,13 +8,19 @@ import StateMessage from "@/shared/components/StateMessage";
 import { useMessage } from "../hooks/useInbox";
 import { daysAgo } from "../lib/dates";
 import type { Thread } from "../lib/threads";
+import SuggestedReply from "./SuggestedReply";
 
 interface MessageDetailProps {
   thread: Thread;
   account: string;
+  suggestsReplies: boolean;
 }
 
-export default function MessageDetail({ thread, account }: MessageDetailProps) {
+export default function MessageDetail({
+  thread,
+  account,
+  suggestsReplies,
+}: MessageDetailProps) {
   const { t, i18n } = useTranslation();
   const headingId = useId();
   const detail = useMessage(thread.id);
@@ -61,7 +67,11 @@ export default function MessageDetail({ thread, account }: MessageDetailProps) {
         <p className="text-ink-3 m-0 text-[14px]">{t("common.loading")}</p>
       ) : detail.isError ? (
         detail.error instanceof ApiError && detail.error.status === 409 ? (
-          <GoogleNotice problem="expired" next="/inbox" />
+          <GoogleNotice
+            problem="reconnect"
+            reason={detail.error.message}
+            next="/inbox"
+          />
         ) : (
           <StateMessage tone="error">
             {t("inbox.messageFailed", { reason: detail.error.message })}
@@ -72,17 +82,21 @@ export default function MessageDetail({ thread, account }: MessageDetailProps) {
           {detail.data.body || thread.snippet}
         </p>
       )}
-      <div>
-        <a
-          href={`https://mail.google.com/mail/u/${account}/#all/${thread.thread_id}`}
-          target="_blank"
-          rel="noreferrer"
-          className={buttonClass()}
-        >
-          <ExternalLink aria-hidden size={16} />
-          {t("inbox.openInGmail")}
-        </a>
-      </div>
+      {suggestsReplies && thread.state === "needs_reply" ? (
+        <SuggestedReply key={thread.id} thread={thread} />
+      ) : (
+        <div>
+          <a
+            href={`https://mail.google.com/mail/u/${account}/#all/${thread.thread_id}`}
+            target="_blank"
+            rel="noreferrer"
+            className={buttonClass()}
+          >
+            <ExternalLink aria-hidden size={16} />
+            {t("inbox.openInGmail")}
+          </a>
+        </div>
+      )}
     </article>
   );
 }

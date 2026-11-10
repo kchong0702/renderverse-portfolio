@@ -151,7 +151,11 @@ export default function CalendarPage() {
         ) : account === null ? (
           <GoogleNotice problem={problem} next="/calendar" />
         ) : failed instanceof ApiError && failed.status === 409 ? (
-          <GoogleNotice problem="expired" next="/calendar" />
+          <GoogleNotice
+            problem="reconnect"
+            reason={failed.message}
+            next="/calendar"
+          />
         ) : (
           <div className="flex flex-wrap items-start gap-6">
             <section

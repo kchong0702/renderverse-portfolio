@@ -27,12 +27,14 @@ function receivedLabel(
 interface ThreadListProps {
   threads: Thread[];
   selectedId: string;
+  addsInterviews: boolean;
   onSelect: (threadId: string) => void;
 }
 
 export default function ThreadList({
   threads,
   selectedId,
+  addsInterviews,
   onSelect,
 }: ThreadListProps) {
   const { t, i18n } = useTranslation();
@@ -70,6 +72,37 @@ export default function ThreadList({
             <span className="text-ink-2 text-[14px]">
               {thread.subject || t("inbox.noSubject")}
             </span>
+            {thread.state && thread.state !== "info" && (
+              <span
+                className={cn(
+                  "text-[12px] font-semibold",
+                  {
+                    needs_reply: "text-warn",
+                    interview: "text-ok",
+                    offer: "text-ink-3",
+                  }[thread.state],
+                )}
+              >
+                {thread.state === "needs_reply"
+                  ? t("inbox.state.needsReply")
+                  : thread.state === "interview"
+                    ? t(
+                        addsInterviews
+                          ? "inbox.state.added"
+                          : "inbox.state.interview",
+                      )
+                    : thread.decide_by
+                      ? t("inbox.state.decideBy", {
+                          date: new Date(
+                            `${thread.decide_by}T00:00`,
+                          ).toLocaleDateString(i18n.language, {
+                            day: "numeric",
+                            month: "short",
+                          }),
+                        })
+                      : t("inbox.state.offer")}
+              </span>
+            )}
           </button>
         </li>
       ))}
