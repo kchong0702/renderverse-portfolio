@@ -1,19 +1,28 @@
 import {
-  CircleCheck,
-  CirclePause,
-  CircleStop,
-  CircleX,
-  FilePen,
+  ArrowUp,
+  Check,
+  ChevronRight,
+  CircleAlert,
+  FileCheck,
+  FileText,
   LoaderCircle,
+  Pause,
   Sparkle,
+  Square,
   SquarePen,
+  X,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import Badge from "@/shared/components/Badge";
 import { buttonClass } from "@/shared/components/button";
-import type { DocumentKind, Step, Widget } from "../api/assistant";
+import {
+  MAX_RECONNECTS,
+  type DocumentKind,
+  type Step,
+  type Widget,
+} from "../api/assistant";
 import {
   useAnswerTask,
   useChat,
@@ -27,6 +36,7 @@ import {
   useAssistantStore,
   type AssistantTurn,
   type ChatEntry,
+  type Part,
 } from "../state/assistantStore";
 
 const NO_ENTRIES: ChatEntry[] = [];
@@ -76,7 +86,7 @@ function DocumentPills({
   return (
     <ul
       aria-label={t("assistant.documents.label")}
-      className="m-0 flex list-none flex-wrap gap-2 p-0"
+      className="m-0 flex list-none flex-col gap-2 p-0"
     >
       {choices.map((document) => (
         <li key={document.id}>
@@ -84,9 +94,10 @@ function DocumentPills({
             type="button"
             disabled={disabled}
             onClick={() => onPick(document.title)}
-            className="border-hair text-ink hover:bg-chip flex min-h-9 cursor-pointer items-center gap-2 rounded-full border bg-transparent px-3 text-[13px] disabled:cursor-default disabled:opacity-60"
+            className="border-hair bg-panel text-ink hover:bg-chip flex min-h-12 w-full cursor-pointer items-center gap-2.5 rounded-xl border px-3.5 text-left text-sm disabled:cursor-default disabled:opacity-60"
           >
-            {document.title}
+            <FileText size={16} className="text-ink-3 shrink-0" />
+            <span className="flex-1 font-medium">{document.title}</span>
             {document.master && (
               <Badge>{t("assistant.documents.master")}</Badge>
             )}
@@ -203,13 +214,30 @@ function ChatWidget({
   );
 }
 
+type Activity = Extract<Part, { kind: "thinking" | "step" }>;
+
+type Labels = Partial<Record<string, string>>;
+
 const stepIcons = {
-  running: <LoaderCircle size={14} className="text-ink-3 animate-spin" />,
-  done: <CircleCheck size={14} className="text-ok" />,
-  failed: <CircleX size={14} className="text-crit" />,
-  waiting: <CirclePause size={14} className="text-amber" />,
-  stopped: <CircleStop size={14} className="text-ink-3" />,
+  running: <LoaderCircle size={13} className="animate-spin" />,
+  done: <Check size={13} className="text-ok" />,
+  failed: <X size={13} className="text-crit" />,
+  waiting: <Pause size={13} className="text-amber" />,
+  stopped: <Square size={11} className="text-ink-3" />,
 } satisfies Record<Step["status"] | "stopped", ReactNode>;
+
+const isActivity = (part: Part): part is Activity =>
+  part.kind === "thinking" || part.kind === "step";
+
+function duration({ startedAt, endedAt }: AssistantTurn) {
+  const seconds = Math.max(
+    1,
+    Math.round(((endedAt ?? startedAt) - startedAt) / 1000),
+  );
+  return seconds < 60
+    ? `${seconds}s`
+    : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
 
 function StepRow({
   step,
@@ -228,7 +256,7 @@ function StepRow({
       <span
         role="img"
         aria-label={t(`assistant.stepStatus.${status}`)}
-        className="flex"
+        className="flex w-[13px] justify-center"
       >
         {stepIcons[status]}
       </span>
@@ -237,81 +265,228 @@ function StepRow({
   );
 }
 
-function Turn({ turn, last }: { turn: AssistantTurn; last: boolean }) {
+function Timeline({
+  activity,
+  steps,
+  substeps,
+  ended,
+}: {
+  activity: Activity[];
+  steps: Labels;
+  substeps: Partial<Record<string, Labels>>;
+  ended: boolean;
+}) {
+  return (
+    <ol className="border-hair text-ink-3 m-0 ml-1.5 flex list-none flex-col gap-2 border-l py-0.5 pl-4 text-[13px]">
+      {activity.map((part, index) => {
+        if (part.kind === "thinking")
+          return (
+            <li key={index} className="whitespace-pre-wrap">
+              {part.text}
+            </li>
+          );
+        const label = steps[part.step.name];
+        return (
+          label && (
+            <li key={part.step.id} className="flex flex-col gap-1">
+              <span className="text-ink-2">
+                <StepRow step={part.step} label={label} ended={ended} />
+              </span>
+              {part.substeps.map((substep) => {
+                const sublabel = substeps[part.step.name]?.[substep.name];
+                return (
+                  sublabel && (
+                    <span key={substep.id} className="pl-[21px]">
+                      <StepRow step={substep} label={sublabel} ended={ended} />
+                    </span>
+                  )
+                );
+              })}
+            </li>
+          )
+        );
+      })}
+    </ol>
+  );
+}
+
+function Working({
+  turn,
+  steps,
+  substeps,
+}: {
+  turn: AssistantTurn;
+  steps: Labels;
+  substeps: Partial<Record<string, Labels>>;
+}) {
   const { t } = useTranslation();
-  const tools: Partial<
-    Record<string, { label: string; steps: Partial<Record<string, string>> }>
-  > = t("assistant.tools", { returnObjects: true });
-  const running = turn.outcome === null;
-  const end = turn.parts.at(-1);
+  const shown = turn.parts.filter(
+    (part): part is Extract<Part, { kind: "step" }> =>
+      part.kind === "step" && Boolean(steps[part.step.name]),
+  );
+  const current = shown.filter((part) => part.step.status === "running").at(-1);
+  const sub = current?.substeps
+    .filter(
+      (substep) =>
+        substep.status === "running" &&
+        substeps[current.step.name]?.[substep.name],
+    )
+    .at(-1);
+  const thought = turn.parts.filter((part) => part.kind === "thinking").at(-1);
+  const rows = shown.filter((part) => part !== current);
 
   return (
     <div className="flex flex-col gap-2">
-      {turn.parts.map((part, index) =>
-        part.kind === "thinking" ? (
-          <details key={index} className="text-ink-3 text-[13px]">
-            <summary className="cursor-pointer">
-              {running && part === end
-                ? t("assistant.thinking")
-                : t("assistant.thought")}
-            </summary>
-            <p className="border-hair m-0 mt-1 border-l pl-3 whitespace-pre-wrap">
+      <p role="status" className="m-0 flex items-center gap-2 text-sm">
+        <LoaderCircle size={14} className="text-ink-3 animate-spin" />
+        <span className="shimmer font-medium">
+          {current
+            ? (steps[current.step.name] ?? t("assistant.thinking"))
+            : t("assistant.thinking")}
+        </span>
+      </p>
+      {(rows.length > 0 || current) && (
+        <div className="border-hair text-ink-3 ml-1.5 flex flex-col gap-1.5 border-l pl-4 text-[13px]">
+          {rows.map((part) => (
+            <StepRow
+              key={part.step.id}
+              step={part.step}
+              label={steps[part.step.name] ?? part.step.name}
+              ended={false}
+            />
+          ))}
+          {current?.substeps.map((substep) => {
+            const label = substeps[current.step.name]?.[substep.name];
+            return (
+              label && (
+                <span
+                  key={substep.id}
+                  className={substep === sub ? "text-ink-2" : undefined}
+                >
+                  <StepRow step={substep} label={label} ended={false} />
+                </span>
+              )
+            );
+          })}
+        </div>
+      )}
+      {thought && (
+        <p className="text-ink-3 m-0 line-clamp-2 text-[13px] italic">
+          {thought.text.trim()}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Turn({
+  turn,
+  last,
+  onRetry,
+}: {
+  turn: AssistantTurn;
+  last: boolean;
+  onRetry?: () => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const steps: Labels = t("assistant.steps", { returnObjects: true });
+  const substeps: Partial<Record<string, Labels>> = t("assistant.substeps", {
+    returnObjects: true,
+  });
+  const running = turn.outcome === null;
+  const activity = turn.parts.filter(isActivity);
+  const thoughtOrStep = activity.some((part) =>
+    part.kind === "thinking"
+      ? part.text.trim()
+      : Boolean(steps[part.step.name]),
+  );
+  const timelineId = useId();
+
+  return (
+    <div className="flex flex-col gap-3">
+      {running ? (
+        <Working turn={turn} steps={steps} substeps={substeps} />
+      ) : (
+        thoughtOrStep && (
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={timelineId}
+              onClick={() => setOpen(!open)}
+              className="text-ink-3 hover:text-ink-2 flex cursor-pointer items-center gap-1 self-start border-0 bg-transparent p-0 text-[13px] font-medium"
+            >
+              {t("assistant.thoughtFor", { duration: duration(turn) })}
+              <ChevronRight
+                size={14}
+                className={
+                  open
+                    ? "rotate-90 transition-transform"
+                    : "transition-transform"
+                }
+              />
+            </button>
+            {open && (
+              <div id={timelineId}>
+                <Timeline
+                  activity={activity}
+                  steps={steps}
+                  substeps={substeps}
+                  ended
+                />
+              </div>
+            )}
+          </div>
+        )
+      )}
+      {turn.parts.map(
+        (part, index) =>
+          part.kind === "text" && (
+            <p key={index} className="text-ink m-0 text-sm whitespace-pre-wrap">
               {part.text}
             </p>
-          </details>
-        ) : part.kind === "text" ? (
-          <p
-            key={index}
-            className="text-ink m-0 max-w-[85%] text-sm whitespace-pre-wrap"
-          >
-            {part.text}
-          </p>
-        ) : part.kind === "changeset" ? (
-          <p
-            key={index}
-            className="border-hair text-ink-2 m-0 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border px-3 py-2 text-[13px]"
-          >
-            <FilePen size={14} className="text-amber" />
-            {t("assistant.changeset", {
-              count: part.changeset.edits,
-              title: part.changeset.title,
-            })}
-            <Link
-              to={`/documents?doc=${part.changeset.document_id}&panel=changes`}
-              className="text-ink font-medium underline"
-            >
-              {t("assistant.review")}
-            </Link>
-          </p>
-        ) : (
-          <div
-            key={index}
-            className="text-ink-2 flex flex-col gap-1 text-[13px]"
-          >
-            <StepRow
-              step={part.step}
-              ended={!running}
-              label={tools[part.step.name]?.label ?? part.step.name}
-            />
-            {part.substeps.map((substep) => {
-              const label = tools[part.step.name]?.steps[substep.name];
-              return (
-                label && (
-                  <span key={substep.id} className="text-ink-3 pl-[22px]">
-                    <StepRow step={substep} label={label} ended={!running} />
-                  </span>
-                )
-              );
-            })}
-          </div>
-        ),
+          ),
       )}
-      {running &&
-        (!end || (end.kind === "step" && end.step.status !== "running")) && (
-          <p role="status" className="text-ink-3 m-0 text-[13px]">
-            {t("assistant.thinking")}
-          </p>
-        )}
+      {turn.parts.map(
+        (part, index) =>
+          part.kind === "changeset" && (
+            <div
+              key={index}
+              className="border-hair bg-well flex items-center gap-2.5 rounded-xl border px-3 py-2.5"
+            >
+              <FileCheck size={16} className="text-amber shrink-0" />
+              <span className="flex flex-1 flex-col leading-tight">
+                <span className="text-ink text-sm font-semibold">
+                  {t("assistant.editsToReview", {
+                    count: part.changeset.edits,
+                  })}
+                </span>
+                <span className="text-ink-3 text-xs">
+                  {part.changeset.title}
+                </span>
+              </span>
+              <Link
+                to={`/documents?doc=${part.changeset.document_id}&panel=changes`}
+                className="bg-primary text-on-primary flex min-h-9 items-center rounded-full px-3.5 text-[13px] font-semibold no-underline"
+              >
+                {t("assistant.review")}
+              </Link>
+            </div>
+          ),
+      )}
+      {running && turn.reconnecting > 0 && (
+        <div role="status" className="flex flex-col gap-1 text-[13px]">
+          <span className="text-ink-2 flex items-center gap-2">
+            <LoaderCircle size={14} className="text-warn animate-spin" />
+            {t("assistant.reconnecting", {
+              attempt: turn.reconnecting,
+              max: MAX_RECONNECTS,
+            })}
+          </span>
+          <span className="text-ink-3">{t("assistant.keepsRunning")}</span>
+        </div>
+      )}
       {turn.outcome?.status === "input_required" ? (
         <ChatWidget
           taskId={turn.outcome.task_id}
@@ -319,12 +494,32 @@ function Turn({ turn, last }: { turn: AssistantTurn; last: boolean }) {
           live={last}
         />
       ) : turn.outcome?.status === "failed" ? (
-        <p className="text-crit m-0 text-[13px]">
-          {t("assistant.failed", { reason: turn.outcome.reason })}
-        </p>
+        <div
+          role="alert"
+          className="bg-crit-bg flex items-start gap-2.5 rounded-xl px-3 py-2.5"
+        >
+          <CircleAlert size={15} className="text-crit mt-0.5 shrink-0" />
+          <span className="flex flex-1 flex-col gap-2">
+            <span className="text-ink text-[13px]">
+              {t("assistant.failed", { reason: turn.outcome.reason })}
+            </span>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="border-hair bg-panel text-ink min-h-8 cursor-pointer self-start rounded-full border px-3 text-[13px] font-semibold"
+              >
+                {t("assistant.tryAgain")}
+              </button>
+            )}
+          </span>
+        </div>
       ) : (
         turn.outcome?.status === "cancelled" && (
-          <p className="text-ink-3 m-0 text-[13px]">{t("assistant.stopped")}</p>
+          <span className="border-hair text-ink-3 flex items-center gap-1.5 self-start rounded-full border px-2.5 py-0.5 text-xs font-medium">
+            <Square size={9} className="fill-current" />
+            {t("assistant.youStopped")}
+          </span>
         )
       )}
     </div>
@@ -444,16 +639,27 @@ export default function AssistantDock({
                   event.currentTarget;
                 pinned.current = scrollHeight - scrollTop - clientHeight < 32;
               }}
-              className="m-0 flex max-h-[min(420px,50vh)] list-none flex-col gap-3 overflow-y-auto px-[18px] py-4"
+              className="m-0 flex max-h-[min(480px,55vh)] list-none flex-col gap-4 overflow-y-auto px-[18px] py-4"
             >
               {entries.map((entry, index) => (
                 <li key={index} className="flex flex-col">
                   {entry.role === "user" ? (
-                    <p className="bg-chip text-ink m-0 max-w-[85%] self-end rounded-xl px-3 py-2 text-sm whitespace-pre-wrap">
+                    <p className="bg-chip text-ink m-0 max-w-[85%] self-end rounded-2xl rounded-br-sm px-3.5 py-2 text-sm whitespace-pre-wrap">
                       {entry.text}
                     </p>
                   ) : (
-                    <Turn turn={entry} last={entry === current} />
+                    <Turn
+                      turn={entry}
+                      last={entry === current}
+                      onRetry={
+                        entry === current && entries.at(-2)?.role === "user"
+                          ? () => {
+                              const asked = entries.at(-2);
+                              if (asked?.role === "user") ask(asked.text);
+                            }
+                          : undefined
+                      }
+                    />
                   )}
                 </li>
               ))}
@@ -464,12 +670,12 @@ export default function AssistantDock({
               event.preventDefault();
               ask(draft);
             }}
-            className="flex items-end gap-2 px-[18px] pb-[18px]"
+            className="border-hair-soft flex items-end gap-2 border-t p-3"
           >
             <label className="flex flex-1">
               <span className="sr-only">{t("assistant.message")}</span>
               <textarea
-                rows={2}
+                rows={1}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {
@@ -483,28 +689,32 @@ export default function AssistantDock({
                     ? t("assistant.documentPlaceholder")
                     : t("assistant.placeholder")
                 }
-                className="border-hair bg-ground text-ink min-h-10 flex-1 resize-none rounded-lg border px-3 py-2 text-sm leading-normal"
+                className="border-hair bg-ground text-ink min-h-11 flex-1 resize-none rounded-[22px] border px-4 py-2.5 text-sm leading-normal"
               />
             </label>
             {running ? (
               <button
                 type="button"
+                aria-label={t("assistant.stop")}
+                title={t("assistant.stop")}
                 disabled={stop.isPending || !running.taskId}
                 onClick={() =>
                   running.taskId &&
                   stop.mutate({ chat, taskId: running.taskId })
                 }
-                className={buttonClass()}
+                className="bg-primary text-on-primary flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 disabled:opacity-60"
               >
-                {t("assistant.stop")}
+                <Square size={14} className="fill-current" />
               </button>
             ) : (
               <button
                 type="submit"
+                aria-label={t("assistant.send")}
+                title={t("assistant.send")}
                 disabled={!draft.trim()}
-                className={buttonClass("primary")}
+                className="bg-primary text-on-primary flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 disabled:cursor-default disabled:opacity-40"
               >
-                {t("assistant.send")}
+                <ArrowUp size={18} />
               </button>
             )}
           </form>

@@ -707,9 +707,12 @@
     "newChat": "New chat",
     "conversation": "Conversation with the assistant",
     "thinking": "Thinking…",
-    "thought": "Thought",
-    "stopped": "Stopped",
+    "thoughtFor": "Thought for {{duration}}",
+    "reconnecting": "Connection dropped. Reconnecting, try {{attempt}} of {{max}}…",
+    "keepsRunning": "The reply keeps running, and nothing you've seen is lost.",
+    "youStopped": "You stopped this reply",
     "ended": "This reply ended while the page was closed",
+    "tryAgain": "Try again",
     "connectionLost": "The connection to the assistant was lost",
     "stepStatus": {
       "running": "Running",
@@ -718,39 +721,42 @@
       "waiting": "Waiting for you",
       "stopped": "Stopped"
     },
-    "tools": {
+    "steps": {
+      "find_documents": "Searching your documents",
+      "edit_document": "Editing your document",
+      "analyse_job": "Analysing the job posting",
+      "find_jobs": "Finding jobs",
+      "search_jobs": "Searching job boards",
+      "read_profile_facts": "Reading your profile",
+      "read_pdf_lines": "Reading your PDF",
+      "propose_changeset": "Drafting the edits",
+      "list_design_options": "Looking at templates",
+      "load": "Reading the document",
+      "agent": "Drafting the changes",
+      "page_fit": "Fitting it to the page"
+    },
+    "substeps": {
       "analyse_job": {
-        "label": "Analysing the job posting",
-        "steps": {
-          "fetch": "Reading the posting",
-          "agent": "Weighing it against your profile",
-          "check": "Checking the analysis",
-          "output": "Writing up the analysis"
-        }
+        "fetch": "Reading the posting",
+        "agent": "Weighing it against your profile",
+        "check": "Checking the analysis"
       },
       "find_jobs": {
-        "label": "Finding jobs",
-        "steps": {
-          "brief": "Reading your preferences",
-          "agent": "Searching job boards",
-          "check": "Checking the matches",
-          "output": "Ranking the jobs"
-        }
+        "brief": "Reading your preferences",
+        "agent": "Searching job boards",
+        "check": "Checking the matches",
+        "output": "Ranking the jobs"
       },
       "edit_document": {
-        "label": "Editing your document",
-        "steps": {
-          "brief": "Reading the document",
-          "agent": "Drafting the changes",
-          "validate": "Checking the changes",
-          "page_fit": "Fitting it to the page"
-        }
+        "load": "Reading the document",
+        "agent": "Drafting the changes",
+        "page_fit": "Fitting it to the page"
       }
     },
     "failed": "That did not work: {{reason}}",
+    "editsToReview_one": "{{count}} edit to review",
+    "editsToReview_other": "{{count}} edits to review",
     "answerFailed": "Your answer was not sent: {{reason}}",
-    "changeset_one": "{{count}} edit proposed in {{title}}",
-    "changeset_other": "{{count}} edits proposed in {{title}}",
     "review": "Review",
     "documentSuggestions": [
       "Shorten this to one page",

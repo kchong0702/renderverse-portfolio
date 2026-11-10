@@ -82,9 +82,11 @@ export interface Task {
 
 type OnEvent = (event: RunEvent, id: string | undefined) => void;
 
+type OnReconnect = (attempt: number) => void;
+
 const URL = "/ops-api/v1";
 
-const MAX_RECONNECTS = 5;
+export const MAX_RECONNECTS = 5;
 
 const DEFAULT_RETRY_MS = 2000;
 
@@ -139,6 +141,7 @@ async function streamTurn(
   lastEventId: string | null,
   signal: AbortSignal,
   onEvent: OnEvent,
+  onReconnect: OnReconnect,
 ): Promise<void> {
   let retryMs = DEFAULT_RETRY_MS;
   let reconnects = 0;
@@ -172,6 +175,7 @@ async function streamTurn(
 
     if (++reconnects > MAX_RECONNECTS)
       throw new Error(i18n.t("assistant.connectionLost"));
+    onReconnect(reconnects);
     await wait(Math.min(retryMs * 2 ** (reconnects - 1), MAX_RETRY_MS), signal);
     reader = await openChatStream(chat, lastEventId, signal, onRetry).catch(
       (error: unknown) => {
@@ -186,6 +190,7 @@ export const sendMessage = (
   { chat, text }: ChatMessage,
   signal: AbortSignal,
   onEvent: OnEvent,
+  onReconnect: OnReconnect,
 ) =>
   streamTurn(
     chat,
@@ -197,12 +202,14 @@ export const sendMessage = (
     null,
     signal,
     onEvent,
+    onReconnect,
   );
 
 export const answerTask = (
   { answer, ...task }: TaskAnswer,
   signal: AbortSignal,
   onEvent: OnEvent,
+  onReconnect: OnReconnect,
 ) =>
   streamTurn(
     task.chat,
@@ -210,13 +217,15 @@ export const answerTask = (
     null,
     signal,
     onEvent,
+    onReconnect,
   );
 
 export const resumeTurn = (
   { chat, lastEventId }: TurnCursor,
   signal: AbortSignal,
   onEvent: OnEvent,
-) => streamTurn(chat, null, lastEventId, signal, onEvent);
+  onReconnect: OnReconnect,
+) => streamTurn(chat, null, lastEventId, signal, onEvent, onReconnect);
 
 export const cancelTask = (task: Task) =>
   http.post<void>(`${taskUrl(task)}/cancel`);

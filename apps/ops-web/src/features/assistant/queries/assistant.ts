@@ -22,7 +22,7 @@ export const documentsQueryOptions = queryOptions({
   queryFn: ({ signal }) => fetchDocuments(signal),
 });
 
-const { add, apply, restore } = useAssistantStore.getState();
+const { add, apply, reconnect, restore } = useAssistantStore.getState();
 
 const streamControllers = new Map<string, AbortController>();
 
@@ -39,6 +39,9 @@ const startTurn = (chat: Chat) => {
     lastEventId: null,
     parts: [],
     outcome: null,
+    startedAt: Date.now(),
+    endedAt: null,
+    reconnecting: 0,
   });
   return newStreamSignal(chat);
 };
@@ -63,7 +66,12 @@ const failTurn = (error: Error, { chat }: { chat: Chat }) =>
 export const sendMessageMutationOptions = mutationOptions({
   mutationKey: ["assistant", "send"],
   mutationFn: (message: ChatMessage) =>
-    sendMessage(message, startTurn(message.chat), receive(message.chat)),
+    sendMessage(
+      message,
+      startTurn(message.chat),
+      receive(message.chat),
+      (attempt) => reconnect(message.chat, attempt),
+    ),
   onMutate: ({ chat, text }) => add(chat, { role: "user", text }),
   onError: failTurn,
 });
@@ -71,7 +79,12 @@ export const sendMessageMutationOptions = mutationOptions({
 export const answerTaskMutationOptions = mutationOptions({
   mutationKey: ["assistant", "answer"],
   mutationFn: (answer: TaskAnswer) =>
-    answerTask(answer, startTurn(answer.chat), receive(answer.chat)),
+    answerTask(
+      answer,
+      startTurn(answer.chat),
+      receive(answer.chat),
+      (attempt) => reconnect(answer.chat, attempt),
+    ),
   onMutate: ({ chat, shown }) => {
     const previous =
       useAssistantStore.getState().chats[chat.kind][chat.id] ?? [];
@@ -87,7 +100,12 @@ export const answerTaskMutationOptions = mutationOptions({
 export const resumeTurnMutationOptions = mutationOptions({
   mutationKey: ["assistant", "resume"],
   mutationFn: (turn: TurnCursor) =>
-    resumeTurn(turn, newStreamSignal(turn.chat), receive(turn.chat)),
+    resumeTurn(
+      turn,
+      newStreamSignal(turn.chat),
+      receive(turn.chat),
+      (attempt) => reconnect(turn.chat, attempt),
+    ),
   onError: (error, turn) =>
     error instanceof ApiError && error.status === 404
       ? apply(turn.chat, {
