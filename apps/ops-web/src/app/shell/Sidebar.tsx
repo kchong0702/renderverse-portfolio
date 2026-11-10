@@ -33,10 +33,12 @@ export default function Sidebar() {
           <Sparkle size={16} />
         </span>
         <span className="flex flex-col">
-          <span className="text-[17px] leading-tight font-bold">
+          <span className="text-[17px] leading-[1.2] font-bold">
             {t("shell.product")}
           </span>
-          <span className="text-side-muted text-xs">{t("shell.space")}</span>
+          <span className="text-side-muted text-xs/[1.6]">
+            {t("shell.space")}
+          </span>
         </span>
       </div>
 
@@ -44,7 +46,7 @@ export default function Sidebar() {
         {navGroups.map((group, index) => (
           <Fragment key={group.heading ?? index}>
             {group.heading && (
-              <span className="text-side-muted px-3 pt-[18px] pb-1.5 text-xs font-medium">
+              <span className="text-side-muted px-3 pt-[18px] pb-1.5 text-xs/[1.6] font-medium">
                 {t(`nav.groups.${group.heading}`)}
               </span>
             )}
@@ -76,7 +78,7 @@ export default function Sidebar() {
                     {badges[key] && (
                       <span
                         className={cn(
-                          "rounded-full px-2 py-px text-xs font-medium",
+                          "rounded-full px-2 py-px text-xs/[1.6] font-medium",
                           isActive
                             ? "bg-side-badge-on text-side-on-ink"
                             : "bg-side-badge text-side-muted",
@@ -103,9 +105,9 @@ export default function Sidebar() {
           {name ? initials(name) : ""}
         </span>
         <span className="flex min-w-0 flex-col">
-          <span className="truncate text-[13px] font-semibold">{name}</span>
+          <span className="text-[13px] font-semibold">{name}</span>
           {profile?.headline && (
-            <span className="text-side-muted truncate text-xs">
+            <span className="text-side-muted text-xs/[1.6]">
               {profile.headline}
             </span>
           )}
