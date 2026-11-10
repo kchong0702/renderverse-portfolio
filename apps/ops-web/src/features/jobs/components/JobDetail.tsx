@@ -8,7 +8,7 @@ import { cn } from "@/shared/lib/cn";
 import { relativeDay } from "@/shared/lib/dates";
 import type { Job, Match } from "../api/jobs";
 import { useUpdateJob } from "../hooks/useJobs";
-import { fitTone } from "../lib/fit";
+import { BAND_TONES } from "../lib/fit";
 
 const MATCH_TONES: Record<Match, BadgeTone> = {
   met: "ok",
@@ -62,7 +62,9 @@ export default function JobDetail({ job }: { job: Job }) {
         </div>
         {analysis && (
           <div className="flex flex-col items-end">
-            <span className={cn("text-[30px]", FIT_INK[fitTone(analysis.fit)])}>
+            <span
+              className={cn("text-[30px]", FIT_INK[BAND_TONES[analysis.band]])}
+            >
               {analysis.fit}
             </span>
             <span className="text-ink-3 text-sm">

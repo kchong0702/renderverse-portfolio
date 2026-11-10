@@ -3,7 +3,7 @@ import Badge from "@/shared/components/Badge";
 import { cn } from "@/shared/lib/cn";
 import { relativeDay } from "@/shared/lib/dates";
 import type { Job } from "../api/jobs";
-import { fitTone } from "../lib/fit";
+import { BAND_TONES } from "../lib/fit";
 
 interface JobListProps {
   jobs: Job[];
@@ -44,7 +44,9 @@ export default function JobList({ jobs, selectedId, onSelect }: JobListProps) {
               )}
             </span>
             {job.analysis ? (
-              <Badge tone={fitTone(job.analysis.fit)}>{job.analysis.fit}</Badge>
+              <Badge tone={BAND_TONES[job.analysis.band]}>
+                {job.analysis.fit}
+              </Badge>
             ) : (
               <Badge>{t("jobs.notScored")}</Badge>
             )}
