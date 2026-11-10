@@ -6,10 +6,10 @@ export function localDateTime(at: Date): string {
     .slice(0, 16);
 }
 
-export function relativeDay(value: string, language: string): string {
+export function daysFromToday(value: string): number {
   const day = new Date(value.length === 10 ? `${value}T00:00` : value);
   const today = new Date();
-  const days = Math.round(
+  return Math.round(
     (new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime() -
       new Date(
         today.getFullYear(),
@@ -18,8 +18,15 @@ export function relativeDay(value: string, language: string): string {
       ).getTime()) /
       DAY_MS,
   );
+}
+
+export function relativeDay(value: string, language: string): string {
   return new Intl.RelativeTimeFormat(language, { numeric: "auto" }).format(
-    days,
+    daysFromToday(value),
     "day",
   );
+}
+
+export function dayMonth(at: Date, language: string): string {
+  return `${at.getDate()} ${new Intl.DateTimeFormat(language, { month: "short" }).format(at)}`;
 }

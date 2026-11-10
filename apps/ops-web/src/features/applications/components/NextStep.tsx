@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/cn";
-import { relativeDay } from "@/shared/lib/dates";
+import { dayMonth, relativeDay } from "@/shared/lib/dates";
 import type { Application } from "../api/applications";
-import { isDue } from "../lib/stages";
+import { followUpDays, isDue } from "../lib/stages";
 
 export default function NextStep({
   application,
@@ -12,24 +12,31 @@ export default function NextStep({
   className?: string;
 }) {
   const { t, i18n } = useTranslation();
-  const { next_step, next_step_at, applied_on } = application;
-  const when =
-    next_step_at &&
-    new Intl.DateTimeFormat(i18n.language, {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }).format(new Date(next_step_at));
-  const text = next_step
-    ? [next_step, when].filter(Boolean).join(" · ")
-    : applied_on
-      ? t("applications.applied", {
-          when: relativeDay(applied_on, i18n.language),
+  const { stage, next_step, next_step_at, applied_on } = application;
+  const followUp = followUpDays(application);
+  const text = next_step_at
+    ? stage === "offer"
+      ? t("applications.decideBy", {
+          when: dayMonth(new Date(next_step_at), i18n.language),
         })
-      : when;
+      : [
+          new Intl.DateTimeFormat(i18n.language, {
+            weekday: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+            hourCycle: "h23",
+          }).format(new Date(next_step_at)),
+          next_step,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+    : next_step ||
+      (followUp !== null
+        ? t("applications.followUp", { count: followUp })
+        : applied_on &&
+          t("applications.applied", {
+            when: relativeDay(applied_on, i18n.language),
+          }));
 
   return text ? (
     <span

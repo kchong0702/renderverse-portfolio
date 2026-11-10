@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Sparkle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { useJobs } from "@/features/jobs";
@@ -34,7 +34,6 @@ export default function ApplicationsPage() {
     VIEWS.find((name) => name === params.get("view")) ?? "board";
   const editing = params.get("edit");
   const edited = applications.data?.find((a) => a.id === editing);
-  const fromJob = jobs.data?.find((job) => job.id === params.get("job"));
   const active = applications.data?.filter((a) => a.stage !== "closed") ?? [];
 
   const setEditing = (id: string | null) =>
@@ -48,7 +47,7 @@ export default function ApplicationsPage() {
           applications.data &&
           t("applications.subtitle", {
             active: active.length,
-            due: active.filter(isDue).length,
+            count: active.filter(isDue).length,
           })
         }
         actions={
@@ -73,7 +72,7 @@ export default function ApplicationsPage() {
               className={buttonClass("primary")}
               onClick={() => setEditing("new")}
             >
-              <Plus size={14} className="text-amber-soft" />
+              <Sparkle size={14} className="text-amber-soft" />
               {t("applications.track")}
             </button>
           </>
@@ -93,11 +92,10 @@ export default function ApplicationsPage() {
             {editing === "new" && (
               <Panel title={t("applications.form.newTitle")}>
                 <ApplicationForm
-                  key={fromJob?.id ?? "blank"}
                   application={{
-                    job_id: fromJob?.id ?? null,
-                    company: fromJob?.company ?? "",
-                    role: fromJob?.title ?? "",
+                    job_id: null,
+                    company: "",
+                    role: "",
                     stage: "draft",
                     applied_on: null,
                     next_step: "",

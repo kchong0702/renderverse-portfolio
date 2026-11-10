@@ -47,9 +47,7 @@ export default function JobsPage() {
               value={tab}
               options={TABS.map((name) => ({
                 value: name,
-                label: t(`jobs.tabs.${name}`, {
-                  count: jobs.data.filter((job) => job.status === name).length,
-                }),
+                label: t(`jobs.tabs.${name}`),
               }))}
               onChange={(next) => setParams({ tab: next })}
             />
