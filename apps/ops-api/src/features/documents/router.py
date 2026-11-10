@@ -276,9 +276,8 @@ async def chat(
     user: CurrentUserDep,
     service: DocumentServiceDep,
 ) -> EventSourceResponse:
-    """Ask edit-document about the document and stream the turn: it starts, thinks,
-    writes and runs steps, announces any edits it stored for review, then replies,
-    asks back, fails or is stopped"""
+    """Ask edit-document about the document and stream the turn, with any changeset it
+    stored for review, until it replies, asks back, fails or is stopped"""
     return EventSourceResponse(await service.chat(user.id, document_id, message))
 
 
