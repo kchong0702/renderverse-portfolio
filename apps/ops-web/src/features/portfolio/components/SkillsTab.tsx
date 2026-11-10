@@ -106,38 +106,40 @@ export default function SkillsTab({ skills }: { skills: Skill[] }) {
         </span>
       </div>
       <div className="bg-panel border-hair shadow-card overflow-hidden rounded-xl border">
-        <div
-          role="row"
-          className={`${columns} border-hair text-ink-3 border-b px-5 py-3 text-[13px] font-semibold`}
-        >
-          <span role="columnheader">{t("portfolio.skills.name")}</span>
-          <span role="columnheader" className="hidden sm:block">
-            {t("portfolio.skills.group")}
-          </span>
-          <span role="columnheader" className="text-center">
-            {t("portfolio.table.agentContext")}
-          </span>
-          <span role="columnheader" className="sr-only">
-            {t("portfolio.table.deleteColumn")}
-          </span>
+        <div role="table" aria-labelledby="skills-heading">
+          <div
+            role="row"
+            className={`${columns} border-hair text-ink-3 border-b px-5 py-3 text-[13px] font-semibold`}
+          >
+            <span role="columnheader">{t("portfolio.skills.name")}</span>
+            <span role="columnheader" className="hidden sm:block">
+              {t("portfolio.skills.group")}
+            </span>
+            <span role="columnheader" className="text-center">
+              {t("portfolio.table.agentContext")}
+            </span>
+            <span role="columnheader" className="sr-only">
+              {t("portfolio.table.deleteColumn")}
+            </span>
+          </div>
+          {skills.map((skill) => (
+            <SkillRow
+              key={skill.id}
+              skill={skill}
+              deleteError={
+                remove.isError && remove.variables === skill.id
+                  ? remove.error.message
+                  : null
+              }
+              onDelete={() => remove.mutate(skill.id)}
+            />
+          ))}
         </div>
         {skills.length === 0 && (
           <p className="text-ink-3 border-hair-soft m-0 border-b px-5 py-4 text-sm">
             {t("portfolio.skills.empty")}
           </p>
         )}
-        {skills.map((skill) => (
-          <SkillRow
-            key={skill.id}
-            skill={skill}
-            deleteError={
-              remove.isError && remove.variables === skill.id
-                ? remove.error.message
-                : null
-            }
-            onDelete={() => remove.mutate(skill.id)}
-          />
-        ))}
         <form
           onSubmit={submit}
           className="flex flex-wrap items-end gap-3.5 px-5 py-4"
