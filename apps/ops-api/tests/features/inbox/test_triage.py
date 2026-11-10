@@ -298,7 +298,6 @@ async def test_overlapping_first_syncs_of_a_thread_both_succeed(
     postgres_client, overlapping, google
 ):
     await connect_google(postgres_client)
-    await postgres_client.get(f"{PREFIX}/settings")
     google.messages = {"m1": _message("m1", "t-1", "Final round", "Times?")}
     overlapping.outcomes = [_triaged("needs_reply")] * 2
 
