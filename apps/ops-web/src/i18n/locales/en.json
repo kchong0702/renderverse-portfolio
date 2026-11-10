@@ -64,9 +64,9 @@
       "replies_one": "{{count}} reply from {{sent}}",
       "replies_other": "{{count}} replies from {{sent}}",
       "interviews": "Interviews",
-      "soon": "{{count}} in the next 7 days",
+      "thisWeek": "{{count}} this week",
       "offers": "Offers",
-      "offerNext": "Next step {{when}}"
+      "decideBy": "Decide by {{when}}"
     },
     "pipeline": {
       "title": "Pipeline",
@@ -75,14 +75,19 @@
     "weeks": {
       "title": "By week",
       "applied": "Applied",
-      "chart": "Applications sent in each of the last 8 weeks: {{counts}}"
+      "replies": "Replies",
+      "chart": "Applications and replies for the last 8 weeks"
     },
     "next": {
       "title": "Next steps and interviews",
-      "count": "{{count}} in the next 7 days",
-      "empty": "Nothing due in the next 7 days, and no new agent picks with a good fit.",
+      "count": "{{count}} this week",
+      "empty": "Nothing due this week, and no new agent picks with a good fit.",
       "followUp": "Follow up with {{company}}",
       "noReply": "Applied, no reply yet",
+      "days": "{{count}} days",
+      "gaps_one": "{{count}} gap to prepare",
+      "gaps_other": "{{count}} gaps to prepare",
+      "prepare": "Prepare",
       "new": "New",
       "fromAgent": "From the agent · fit {{fit}}",
       "open": "Open",
@@ -90,12 +95,7 @@
     },
     "agent": {
       "title": "Job agent",
-      "daily": "Daily at {{time}}",
-      "picks_one": "{{count}} new pick, {{best}} with a good fit",
-      "picks_other": "{{count}} new picks, {{best}} with a good fit"
-    },
-    "portfolio": {
-      "notYet": "Releases and changes waiting to publish appear here once the site is connected."
+      "daily": "Daily at {{time}}"
     }
   },
   "jobs": {

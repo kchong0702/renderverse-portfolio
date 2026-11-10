@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Sparkle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { useApplications } from "@/features/applications";
@@ -59,7 +59,7 @@ export default function DashboardPage() {
               to="/applications?edit=new"
               className={buttonClass("primary")}
             >
-              <Plus size={14} className="text-amber-soft" />
+              <Sparkle size={14} className="text-amber-soft" />
               {t("dashboard.newApplication")}
             </Link>
           </>
@@ -82,12 +82,12 @@ export default function DashboardPage() {
               sent={sent}
               saved={jobs.data.filter((job) => job.status === "saved").length}
             />
-            <NextSteps applications={applications.data} picks={bestPicks} />
-            <ShortcutCards
-              picks={picks.length}
-              bestPicks={bestPicks.length}
-              settings={settings.data}
+            <NextSteps
+              applications={applications.data}
+              jobs={jobs.data}
+              picks={bestPicks}
             />
+            <ShortcutCards settings={settings.data} />
           </>
         )}
       </PageBody>

@@ -2,6 +2,7 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import type { Application } from "@/features/applications";
 import { cn } from "@/shared/lib/cn";
+import { dayMonth } from "@/shared/lib/dates";
 import { hasReached, lastEightWeeks } from "../lib/pipeline";
 
 interface PipelineProps {
@@ -23,7 +24,7 @@ export default function Pipeline({ applications, sent, saved }: PipelineProps) {
   ];
   const widest = Math.max(1, ...funnel.map((row) => row.count));
   const weeks = lastEightWeeks(applications);
-  const tallest = Math.max(1, ...weeks.map((week) => week.sent));
+  const unit = Math.min(30, 120 / Math.max(1, ...weeks.map((w) => w.sent)));
 
   return (
     <section
@@ -60,26 +61,34 @@ export default function Pipeline({ applications, sent, saved }: PipelineProps) {
           <h2 className="text-ink m-0 text-base font-semibold">
             {t("dashboard.weeks.title")}
           </h2>
-          <span className="text-ink-3 inline-flex items-center gap-1.5 text-sm">
-            <span className="bg-ink size-2 rounded-xs" />
-            {t("dashboard.weeks.applied")}
+          <span className="text-ink-3 flex gap-3.5 text-sm">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="bg-ink size-2 rounded-xs" />
+              {t("dashboard.weeks.applied")}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="bg-amber size-2 rounded-xs" />
+              {t("dashboard.weeks.replies")}
+            </span>
           </span>
         </div>
         <div
           role="img"
-          aria-label={t("dashboard.weeks.chart", {
-            counts: weeks.map((week) => week.sent).join(", "),
-          })}
+          aria-label={t("dashboard.weeks.chart")}
           className="border-hair flex h-[130px] items-end gap-2.5 border-b"
         >
           {weeks.map((week) => (
             <div
               key={week.start.toISOString()}
-              className="flex h-full flex-1 items-end justify-center"
+              className="flex h-full flex-1 items-end justify-center gap-[3px]"
             >
               <div
                 className="bg-ink w-[38%] rounded-t-xs"
-                style={{ height: `${(week.sent / tallest) * 100}%` }}
+                style={{ height: week.sent * unit }}
+              />
+              <div
+                className="bg-amber w-[38%] rounded-t-xs"
+                style={{ height: week.replied * unit || 2 }}
               />
             </div>
           ))}
@@ -87,12 +96,9 @@ export default function Pipeline({ applications, sent, saved }: PipelineProps) {
         <div className="text-ink-3 flex gap-2.5 text-sm">
           {weeks.map((week, index) => (
             <span key={week.start.toISOString()} className="flex-1 text-center">
-              {new Intl.DateTimeFormat(
-                i18n.language,
-                index === 0 || week.start.getDate() <= 7
-                  ? { day: "numeric", month: "short" }
-                  : { day: "numeric" },
-              ).format(week.start)}
+              {index === 0 || week.start.getDate() <= 7
+                ? dayMonth(week.start, i18n.language)
+                : week.start.getDate()}
             </span>
           ))}
         </div>

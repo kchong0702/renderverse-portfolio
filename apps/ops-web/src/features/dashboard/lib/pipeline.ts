@@ -20,6 +20,10 @@ export function daysAgo(days: number): string {
   return localDateTime(at).slice(0, 10);
 }
 
+export function daysLeftThisWeek(): number {
+  return (7 - new Date().getDay()) % 7;
+}
+
 export function sentSince(
   applications: Application[],
   since: string | null,
@@ -43,7 +47,7 @@ export function hasReached(
 
 export function lastEightWeeks(
   applications: Application[],
-): { start: Date; sent: number }[] {
+): { start: Date; sent: number; replied: number }[] {
   const monday = new Date();
   monday.setHours(0, 0, 0, 0);
   monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
@@ -56,15 +60,17 @@ export function lastEightWeeks(
       localDateTime(start).slice(0, 10),
       localDateTime(end).slice(0, 10),
     ];
+    const sent = applications.filter(
+      (a) =>
+        a.stage !== "draft" &&
+        a.applied_on !== null &&
+        a.applied_on >= from &&
+        a.applied_on < to,
+    );
     return {
       start,
-      sent: applications.filter(
-        (a) =>
-          a.stage !== "draft" &&
-          a.applied_on !== null &&
-          a.applied_on >= from &&
-          a.applied_on < to,
-      ).length,
+      sent: sent.length,
+      replied: sent.filter((a) => hasReached(a, "replied")).length,
     };
   });
 }

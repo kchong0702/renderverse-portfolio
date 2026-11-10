@@ -6,22 +6,13 @@ import type { Settings } from "@/features/settings";
 const card =
   "bg-panel border-hair shadow-card text-ink flex flex-col gap-1.5 rounded-xl border px-[26px] py-[22px] no-underline";
 
-interface ShortcutCardsProps {
-  picks: number;
-  bestPicks: number;
-  settings: Settings | undefined;
-}
-
 export default function ShortcutCards({
-  picks,
-  bestPicks,
   settings,
-}: ShortcutCardsProps) {
+}: {
+  settings: Settings | undefined;
+}) {
   const { t } = useTranslation();
   const agent = settings?.job_agent;
-  const portfolio = settings?.connections.find(
-    (connection) => connection.id === "portfolio_site",
-  );
 
   return (
     <div className="grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-5">
@@ -40,20 +31,11 @@ export default function ShortcutCards({
               .join(" · ")}
           </span>
         )}
-        <span className="mt-1.5">
-          {t("dashboard.agent.picks", { count: picks, best: bestPicks })}
-        </span>
       </Link>
-      <Link to="/settings" className={card}>
+      <Link to="/portfolio" className={card}>
         <span className="text-base font-semibold">
           {t("settings.connections.names.portfolio_site")}
         </span>
-        {portfolio && (
-          <span className="text-ink-3 text-sm">
-            {t(`settings.connections.status.${portfolio.status}`)}
-          </span>
-        )}
-        <span className="mt-1.5">{t("dashboard.portfolio.notYet")}</span>
       </Link>
     </div>
   );
