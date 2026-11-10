@@ -1,5 +1,3 @@
-import type { CalendarEvent } from "../api/calendar";
-
 export function addDays(day: Date, days: number): Date {
   const next = new Date(day);
   next.setDate(next.getDate() + days);
@@ -23,6 +21,3 @@ export function isoDay(day: Date): string {
 
 export const eventTime = (value: string, allDay: boolean) =>
   new Date(allDay ? `${value}T00:00` : value);
-
-export const isInterview = (event: CalendarEvent) =>
-  /interview|screen|hiring|recruit/i.test(event.title);

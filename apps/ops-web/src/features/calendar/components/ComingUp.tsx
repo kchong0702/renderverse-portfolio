@@ -2,7 +2,8 @@ import { useTranslation } from "react-i18next";
 import Panel from "@/shared/components/Panel";
 import { cn } from "@/shared/lib/cn";
 import type { CalendarEvent } from "../api/calendar";
-import { eventTime, isInterview } from "../lib/dates";
+import { eventTime } from "../lib/dates";
+import { isInterview } from "../lib/interview";
 
 export default function ComingUp({ events }: { events: CalendarEvent[] }) {
   const { t, i18n } = useTranslation();
