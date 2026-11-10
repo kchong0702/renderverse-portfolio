@@ -766,19 +766,36 @@
   },
   "calendar": {
     "title": "Calendar",
-    "subtitle": "Google Calendar · {{account}}",
-    "previousWeek": "Previous week",
-    "nextWeek": "Next week",
+    "subtitle": "Google Calendar synced {{when}}",
+    "justNow": "just now",
+    "view": {
+      "label": "View",
+      "week": "Week",
+      "month": "Month"
+    },
+    "previous": {
+      "week": "Previous week",
+      "month": "Previous month"
+    },
+    "next": {
+      "week": "Next week",
+      "month": "Next month"
+    },
     "today": "Today",
+    "range": "{{start}} to {{end}}",
     "workHours": "Work hours {{start}} to {{end}}",
     "allDay": "All day",
-    "untitled": "Busy",
+    "busy": "Busy",
+    "task": "{{step}} with {{company}}",
     "legend": {
       "interview": "Interview",
-      "other": "Other event"
+      "task": "Follow-up or task",
+      "busy": "Busy in Google Calendar"
     },
     "comingUp": "Coming up",
     "nothingComingUp": "Nothing in the next two weeks.",
+    "automation": "Automation",
+    "changeInSettings": "Change in Settings",
     "loadFailed": "Calendar could not be loaded: {{reason}}"
   },
   "auth": {
