@@ -10,7 +10,7 @@ from src.core.exceptions import Conflict, NotFound
 from src.core.runner import Runner
 from src.core.stores import InMemoryRunStore
 
-SETTINGS = EzcareerSettings(stream_retry_ms=2000, replay_ttl_seconds=60)
+SETTINGS = EzcareerSettings(replay_ttl_seconds=60)
 
 
 class Event(BaseModel):
@@ -32,7 +32,7 @@ def _id(event: str) -> str:
 
 
 async def test_a_run_streams_each_event_with_its_id_and_a_retry_hint_first():
-    runner = Runner(InMemoryRunStore(SETTINGS), SETTINGS)
+    runner = Runner(InMemoryRunStore(SETTINGS), retry_ms=2000)
 
     events = [
         e async for e in await runner.start_task(uuid4(), "chat-1", _events(1, 2))
@@ -46,7 +46,7 @@ async def test_a_run_streams_each_event_with_its_id_and_a_retry_hint_first():
 
 
 async def test_a_key_runs_one_turn_at_a_time():
-    runner = Runner(InMemoryRunStore(SETTINGS), SETTINGS)
+    runner = Runner(InMemoryRunStore(SETTINGS), retry_ms=2000)
     release = asyncio.Event()
     await runner.start_task(uuid4(), "chat-1", _until(release))
 
@@ -56,7 +56,7 @@ async def test_a_key_runs_one_turn_at_a_time():
 
 
 async def test_resume_skips_what_the_client_saw_and_refuses_another_runs_id():
-    runner = Runner(InMemoryRunStore(SETTINGS), SETTINGS)
+    runner = Runner(InMemoryRunStore(SETTINGS), retry_ms=2000)
     events = [
         e async for e in await runner.start_task(uuid4(), "chat-1", _events(1, 2, 3))
     ]
