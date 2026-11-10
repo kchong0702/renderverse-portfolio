@@ -70,6 +70,7 @@ async def test_inbox_lists_the_job_search_emails(client, google, harness):
             "state": "info",
             "decide_by": None,
             "application_id": None,
+            "on_calendar": False,
         },
         {
             "id": "m2",
@@ -83,6 +84,7 @@ async def test_inbox_lists_the_job_search_emails(client, google, harness):
             "state": "info",
             "decide_by": None,
             "application_id": None,
+            "on_calendar": False,
         },
     ]
     assert google.gmail_queries == [get_settings().google.inbox_query]
