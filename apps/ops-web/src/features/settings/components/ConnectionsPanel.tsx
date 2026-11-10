@@ -15,12 +15,7 @@ function GoogleAction({ connection }: { connection: Connection }) {
   const { t } = useTranslation();
   const disconnect = useDisconnectGoogle();
 
-  if (connection.status === "not_configured")
-    return (
-      <button type="button" className={buttonClass()} disabled>
-        {t("settings.connections.google.notConfigured")}
-      </button>
-    );
+  if (connection.status === "not_configured") return null;
   if (connection.status === "not_connected")
     return (
       <a href={googleConnectUrl("/settings")} className={buttonClass()}>
