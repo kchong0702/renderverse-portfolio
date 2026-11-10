@@ -60,9 +60,8 @@ class FakeHarness:
         self.received: list[httpx2.Request] = []
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
-        """Serve the catalog at GET /ezcareer/models and answer each A2A POST with
-        the next of outcomes, a list streaming as SSE and a reply named after its
-        executable as the harness names it, or refuse to connect when down"""
+        """Serve the model catalog and answer each A2A POST with the next outcome, a
+        list streaming as SSE, or refuse to connect when down"""
         if self.down:
             raise httpx2.ConnectError("connection refused", request=request)
         if request.method == "GET" and request.url.path == "/ezcareer/models":
