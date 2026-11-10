@@ -6,7 +6,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from src.features.applications.enums import ApplicationStage
+from src.features.calendar.schemas import Slot
 from src.features.inbox.enums import ThreadState
+from src.features.profile import ProfileFact
 
 
 class InboxMessage(BaseModel):
@@ -126,6 +129,50 @@ class TriageEmailOutput(BaseModel):
     """The interview the thread confirms"""
 
 
+class DraftApplication(BaseModel):
+    company: str
+    """Employer applied to"""
+
+    role: str
+    """Job title applied for"""
+
+    stage: ApplicationStage
+    """Where it stands in the pipeline"""
+
+    applied_at: date | None
+    """The day it was sent"""
+
+
+class DraftReplyInput(BaseModel):
+    thread: ThreadContent | None
+    """The email to answer; None writes a follow-up for the application"""
+
+    application: DraftApplication | None
+    """The application the email is about, or the one to follow up on"""
+
+    free_slots: list[Slot]
+    """Free time the draft may offer; empty offers none"""
+
+    timezone: str
+    """The time zone the slots are read in"""
+
+    facts: list[ProfileFact]
+    """What the user has done and knows"""
+
+
+class DraftReplyOutput(BaseModel):
+    body: str
+    """The plain-text email"""
+
+    slots: list[Slot]
+    """The free slots it offers, empty when the email does not ask for times"""
+
+
+class FollowUpDraft(BaseModel):
+    body: str
+    """The plain-text follow-up email"""
+
+
 class ReplyCreate(BaseModel):
     body: str = Field(min_length=1, max_length=20000)
     """The reply as plain text"""
@@ -140,7 +187,11 @@ class EmailCreate(ReplyCreate):
 
 
 __all__ = [
+    "DraftApplication",
+    "DraftReplyInput",
+    "DraftReplyOutput",
     "EmailCreate",
+    "FollowUpDraft",
     "InboxList",
     "InboxMessage",
     "InboxMessageDetail",

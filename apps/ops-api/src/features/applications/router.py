@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 
+from src.clients.ezcareer import Failed
 from src.core.auth import CurrentUserDep
 from src.db.session import SessionDep
 from src.features.applications.schemas import (
@@ -11,6 +12,8 @@ from src.features.applications.schemas import (
     ApplicationWrite,
 )
 from src.features.applications.service import ApplicationService
+from src.features.inbox import InboxServiceDep
+from src.features.inbox.schemas import FollowUpDraft
 from src.features.jobs import JobServiceDep
 
 router = APIRouter(prefix="/applications", tags=["applications"])
@@ -61,3 +64,12 @@ async def delete_application(
 ) -> None:
     """Stop tracking an application"""
     await service.delete(user.id, application_id)
+
+
+@router.post("/{application_id}/follow-up-draft")
+async def draft_follow_up(
+    application_id: UUID, user: CurrentUserDep, inbox: InboxServiceDep
+) -> FollowUpDraft | Failed:
+    """Draft a follow-up email for an application with no reply, or fail with the
+    agent's reason; nothing is sent"""
+    return await inbox.draft_follow_up(user.id, application_id)

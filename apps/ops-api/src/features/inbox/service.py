@@ -12,7 +12,13 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.clients.ezcareer import Completed, EzcareerClient, RunMetadata
+from src.clients.ezcareer import (
+    Completed,
+    EzcareerClient,
+    Failed,
+    InputRequired,
+    RunMetadata,
+)
 from src.clients.google import (
     GmailMessage,
     GmailPart,
@@ -24,6 +30,7 @@ from src.core.config import GoogleSettings
 from src.core.exceptions import InvalidInput, NotFound, ServiceUnavailable
 from src.core.logging import get_logger
 from src.db.base import aware, utcnow
+from src.features.applications.models import Application
 from src.features.applications.repository import ApplicationRepository
 from src.features.calendar import CalendarService
 from src.features.calendar.schemas import EventCreate
@@ -32,7 +39,11 @@ from src.features.inbox.enums import ThreadState
 from src.features.inbox.models import EmailThread
 from src.features.inbox.repository import InboxRepository
 from src.features.inbox.schemas import (
+    DraftApplication,
+    DraftReplyInput,
+    DraftReplyOutput,
     EmailCreate,
+    FollowUpDraft,
     InboxList,
     InboxMessage,
     InboxMessageDetail,
@@ -43,6 +54,7 @@ from src.features.inbox.schemas import (
     TriageEmailInput,
     TriageEmailOutput,
 )
+from src.features.profile import ProfileService
 from src.features.settings import SettingsService
 
 logger = get_logger(__name__)
@@ -142,18 +154,20 @@ class InboxService:
         google: GoogleService,
         settings: SettingsService,
         calendar: CalendarService,
+        profile: ProfileService,
         client: GoogleClient,
         ezcareer: EzcareerClient,
         config: GoogleSettings,
     ):
-        """Read and send Gmail with the user's token, triage threads with the harness
-        and keep the results through a repository on the session"""
+        """Read and send Gmail with the user's token, triage threads and draft emails
+        with the harness, and keep the triage through a repository on the session"""
         self._session = session
         self._repository = InboxRepository(session)
         self._applications = ApplicationRepository(session)
         self._google = google
         self._settings = settings
         self._calendar = calendar
+        self._profile = profile
         self._client = client
         self._ezcareer = ezcareer
         self._config = config
@@ -299,6 +313,81 @@ class InboxService:
             **_summary(message, thread).model_dump(),
             to=message.payload.header("To"),
             body=_text(message.payload),
+        )
+
+    async def _draft(
+        self,
+        user_id: UUID,
+        thread: GmailThread | None,
+        application: Application | None,
+    ) -> DraftReplyOutput | Failed:
+        """Run draft-reply on the thread or the application and the profile's facts,
+        offering free slots for a thread while the user lets it"""
+        settings = await self._settings.get(user_id)
+        free = await self._calendar.free_slots(user_id, settings.scheduling)
+        offered = (
+            free.free_slots if thread and settings.automation.offer_free_slots else []
+        )
+        facts = (await self._profile.agent_profile(user_id)).facts
+        metadata = await self._settings.run_metadata(user_id)
+        await self._session.commit()
+        run = await self._ezcareer.send(
+            "draft-reply",
+            DraftReplyOutput,
+            user_id=user_id,
+            context_id=f"{user_id}:{uuid4()}",
+            data=DraftReplyInput(
+                thread=_content(thread) if thread else None,
+                application=DraftApplication(
+                    company=application.company,
+                    role=application.role,
+                    stage=application.stage,
+                    applied_at=application.applied_on,
+                )
+                if application
+                else None,
+                free_slots=offered,
+                timezone=free.timezone,
+                facts=facts,
+            ),
+            metadata=metadata,
+        )
+        match run:
+            case Completed(reply=reply):
+                return reply.model_copy(
+                    update={"slots": [s for s in reply.slots if s in offered]}
+                )
+            case InputRequired():
+                raise ServiceUnavailable("draft-reply asked for input ops cannot give")
+            case Failed():
+                return run
+
+    async def draft_reply(
+        self, user_id: UUID, thread_id: str
+    ) -> DraftReplyOutput | Failed:
+        """A reply to the thread with the free slots it offers; nothing is sent"""
+        token = await self._google.access_token(user_id)
+        thread = await self._client.thread(token, thread_id)
+        stored = next(iter(await self._repository.threads(user_id, [thread_id])), None)
+        application = (
+            await self._applications.owned(Application, user_id, stored.application_id)
+            if stored and stored.application_id
+            else None
+        )
+        return await self._draft(user_id, thread, application)
+
+    async def draft_follow_up(
+        self, user_id: UUID, application_id: UUID
+    ) -> FollowUpDraft | Failed:
+        """A follow-up for an application with no reply; nothing is sent"""
+        application = await self._applications.owned(
+            Application, user_id, application_id
+        )
+        if application is None:
+            raise NotFound("No such application")
+        run = await self._draft(user_id, None, application)
+        return (
+            FollowUpDraft(body=run.body) if isinstance(run, DraftReplyOutput) else run
         )
 
     async def reply(self, user_id: UUID, thread_id: str, reply: ReplyCreate) -> None:

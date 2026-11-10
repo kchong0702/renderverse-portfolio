@@ -319,7 +319,11 @@ class GoogleSettings(BaseModel):
     """The most events Calendar asks Google for in one request"""
 
     interview_minutes: int = Field(default=60, gt=0)
-    """How long an interview lasts when its email gives no end"""
+    """How long an interview lasts when its email gives no end; the shortest free
+    slot a reply offers"""
+
+    free_slot_days: int = Field(default=7, gt=0)
+    """How many days from tomorrow a reply offers free slots in"""
 
     timeout_seconds: float = Field(default=10, gt=0)
     """How long a request to Google may take"""
