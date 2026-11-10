@@ -87,7 +87,7 @@ async def test_create_read_rename_and_list(client):
     created = await _create(client)
     assert created["kind"] == "resume"
     assert created["master"] is False
-    assert created["pending_edits"] == 0
+    assert created["pending_changesets"] == 0
     assert created["body"]["design"]["template"] == "classic"
 
     renamed = await client.patch(
@@ -182,14 +182,14 @@ async def test_keep_and_restore_a_version(client):
     assert [v["label"] for v in versions] == ["Sent to Lumen Pay", "Created"]
 
 
-async def test_accepting_a_changeset_applies_every_edit_and_keeps_a_version(client):
+async def test_accepting_a_changeset_applies_every_edit_and_can_be_undone(client):
     document = await _create(client)
     url = f"{DOCUMENTS}/{document['id']}"
     proposed = await client.post(f"{url}/changesets", json=TAILOR)
     assert proposed.status_code == 201
     changeset = proposed.json()
     assert changeset["changeset"]["status"] == "pending"
-    assert (await client.get(DOCUMENTS)).json()[0]["pending_edits"] == 2
+    assert (await client.get(DOCUMENTS)).json()[0]["pending_changesets"] == 1
 
     accepted = await client.put(
         f"{url}/changesets/{changeset['id']}", json={"status": "accepted"}
@@ -200,15 +200,17 @@ async def test_accepting_a_changeset_applies_every_edit_and_keeps_a_version(clie
     assert _block(draft, "sum")["text"]["html"] == "Backend engineer, 7 years."
     bullet = _block(draft, "exp")["items"][0]["bullets"][0]
     assert bullet["text"]["html"] == "Moved 30 services to Kubernetes."
-    assert draft["pending_edits"] == 0
+    assert draft["pending_changesets"] == 0
     versions = (await client.get(f"{url}/versions")).json()
-    assert versions[0]["label"] == "After career-consultant's edits"
+    assert versions[0]["label"] == "Before career-consultant's edits"
     again = await client.put(
         f"{url}/changesets/{changeset['id']}", json={"status": "rejected"}
     )
     assert again.status_code == 409
     listed = (await client.get(f"{url}/changesets")).json()
     assert [c["id"] for c in listed] == [changeset["id"]]
+    undone = await client.post(f"{url}/versions/{versions[0]['id']}/restore")
+    assert _block(undone.json(), "sum")["text"]["html"] == "Backend engineer."
 
 
 async def test_rejecting_a_changeset_leaves_the_draft_as_it_was(client):
@@ -223,7 +225,7 @@ async def test_rejecting_a_changeset_leaves_the_draft_as_it_was(client):
     assert response.json()["changeset"]["status"] == "rejected"
     assert (await client.get(url)).json()["body"] == document["body"]
     assert len((await client.get(f"{url}/versions")).json()) == 1
-    assert (await client.get(url)).json()["pending_edits"] == 0
+    assert (await client.get(url)).json()["pending_changesets"] == 0
 
 
 async def test_a_changeset_must_fit_the_draft_and_cite_sources(client):

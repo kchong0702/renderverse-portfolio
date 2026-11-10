@@ -37,22 +37,18 @@ from src.features.documents.schemas import (
 
 
 def _pending(changesets: Sequence[DocumentChangeset]) -> int:
-    """How many edits in these changesets wait for the user's answer"""
-    return sum(
-        len(row.changeset.edits)
-        for row in changesets
-        if row.changeset.status is ChangesetStatus.PENDING
-    )
+    """How many of these changesets wait for the user's answer"""
+    return sum(row.changeset.status is ChangesetStatus.PENDING for row in changesets)
 
 
-def _summary(document: Document, pending_edits: int) -> DocumentSummary:
+def _summary(document: Document, pending_changesets: int) -> DocumentSummary:
     """The document as the list shows it"""
     return DocumentSummary(
         id=document.id,
         kind=document.kind,
         title=document.title,
         master=document.master,
-        pending_edits=pending_edits,
+        pending_changesets=pending_changesets,
         updated_at=document.updated_at,
     )
 
@@ -186,7 +182,7 @@ class DocumentService:
     async def propose(
         self, user_id: UUID, document_id: UUID, changeset: Changeset
     ) -> ChangesetRead:
-        """Store an agent's changeset for the user to answer edit by edit;
+        """Store an agent's changeset for the user to accept or reject;
         it must apply to the current draft"""
         document = await self._load(user_id, document_id)
         if changeset.status is not ChangesetStatus.PENDING:
@@ -221,12 +217,13 @@ class DocumentService:
             raise Conflict("This changeset is already answered")
         if decision.status is ChangesetStatus.ACCEPTED:
             try:
-                document.body = apply_edits(document.body, row.changeset.edits)
+                edited = apply_edits(document.body, row.changeset.edits)
             except ValueError as error:
                 raise Conflict(
                     f"These edits no longer fit the document: {error}"
                 ) from error
-            await self._keep(document, f"After {row.changeset.agent}'s edits")
+            await self._keep(document, f"Before {row.changeset.agent}'s edits")
+            document.body = edited
         row.changeset = row.changeset.model_copy(update={"status": decision.status})
         return ChangesetRead.model_validate(row, from_attributes=True)
 

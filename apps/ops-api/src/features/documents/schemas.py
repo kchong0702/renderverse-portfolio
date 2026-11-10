@@ -47,8 +47,8 @@ class DocumentSummary(BaseModel):
     master: bool
     """The one of its kind that tailored copies start from"""
 
-    pending_edits: int
-    """Agent edits waiting for the user's answer"""
+    pending_changesets: int
+    """Agent changesets waiting for the user to accept or reject"""
 
     updated_at: datetime
     """When it last changed"""
