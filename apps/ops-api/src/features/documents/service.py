@@ -28,7 +28,6 @@ from src.clients.ezcareer import (
     Failed,
     InputRequired,
     Published,
-    Run,
     RunEvent,
 )
 from src.core.config import DocumentsSettings
@@ -58,6 +57,7 @@ from src.features.documents.schemas import (
     DocumentCreate,
     DocumentEdits,
     DocumentMatch,
+    DocumentMessage,
     DocumentRead,
     DocumentRequest,
     DocumentsAnswer,
@@ -66,8 +66,6 @@ from src.features.documents.schemas import (
     DocumentUpdate,
     EditDocumentInput,
     EditDocumentOutput,
-    EditReply,
-    EditRequest,
     FetchError,
     ImportRead,
     ImportResumeInput,
@@ -427,64 +425,6 @@ class DocumentService:
         row.changeset = row.changeset.model_copy(update={"status": decision.status})
         return ChangesetRead.model_validate(row, from_attributes=True)
 
-    async def request_edit(
-        self,
-        user_id: UUID,
-        document_id: UUID,
-        request_id: UUID,
-        request: EditRequest,
-    ) -> Run[EditReply]:
-        """Run edit-document on the user's request; it replies with any changeset it
-        proposes stored for the user to answer, or asks back with a widget, or fails"""
-        await _load(self._repository, user_id, document_id)
-        data = EditDocumentInput(
-            document_id=document_id,
-            facts=(await self._profile.agent_profile(user_id)).facts,
-        )
-        metadata = await self._settings.run_metadata(user_id)
-        await self._session.commit()
-        return await self._store_proposal(
-            user_id,
-            document_id,
-            await self._ezcareer.send(
-                "edit-document",
-                EditDocumentOutput,
-                user_id=user_id,
-                context_id=f"{user_id}:{request_id}",
-                text=request.text,
-                data=data,
-                metadata=metadata,
-                answer_data_request=partial(self.answer_data_request, user_id),
-            ),
-        )
-
-    async def answer_edit(
-        self,
-        user_id: UUID,
-        document_id: UUID,
-        request_id: UUID,
-        task_id: str,
-        answer: Answer,
-    ) -> Run[EditReply]:
-        """Answer the widget a paused edit-document run asked, and run it on"""
-        await _load(self._repository, user_id, document_id)
-        metadata = await self._settings.run_metadata(user_id)
-        await self._session.commit()
-        return await self._store_proposal(
-            user_id,
-            document_id,
-            await self._ezcareer.resume(
-                "edit-document",
-                EditDocumentOutput,
-                user_id=user_id,
-                context_id=f"{user_id}:{request_id}",
-                task_id=task_id,
-                answer=answer,
-                metadata=metadata,
-                answer_data_request=partial(self.answer_data_request, user_id),
-            ),
-        )
-
     async def _chat_events(
         self,
         user_id: UUID,
@@ -509,7 +449,7 @@ class DocumentService:
                 yield event
 
     async def chat(
-        self, user_id: UUID, document_id: UUID, message: EditRequest
+        self, user_id: UUID, document_id: UUID, message: DocumentMessage
     ) -> AsyncIterator[str]:
         """Start a turn of the document's chat and return its events as they come;
         Conflict while a turn runs"""
@@ -692,24 +632,6 @@ class DocumentService:
             if pending
             else None,
         )
-
-    async def _store_proposal(
-        self, user_id: UUID, document_id: UUID, run: Run[EditDocumentOutput]
-    ) -> Run[EditReply]:
-        """Store the changeset a finished edit-document run proposed, if any; a
-        widget or a failure goes back as it is"""
-        if isinstance(run, Completed):
-            return Completed(
-                reply=EditReply(
-                    reply=run.reply.reply,
-                    changeset=await self.propose(
-                        user_id, document_id, run.reply.changeset
-                    )
-                    if run.reply.changeset
-                    else None,
-                )
-            )
-        return run
 
     async def _keep(self, document: Document, label: str) -> DocumentVersion:
         """Copy the current draft into the next version"""

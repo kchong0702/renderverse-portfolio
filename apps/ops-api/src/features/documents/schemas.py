@@ -129,9 +129,9 @@ class ImportRead(BaseModel):
     """When the file was uploaded"""
 
 
-class EditRequest(BaseModel):
+class DocumentMessage(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
-    """The change the user asks for, such as Tailor it for the Northwind posting"""
+    """What the user asks edit-document about the document"""
 
 
 class EditDocumentInput(BaseModel):
@@ -148,14 +148,6 @@ class EditDocumentOutput(BaseModel):
 
     changeset: Changeset | None
     """The checked edits it proposes; None when it only answered"""
-
-
-class EditReply(BaseModel):
-    reply: str
-    """What career-consultant tells the user"""
-
-    changeset: ChangesetRead | None
-    """Its edits, stored for the user to review; None when it only answered"""
 
 
 class DocumentsRequest(BaseModel):
@@ -247,6 +239,7 @@ __all__ = [
     "DocumentCreate",
     "DocumentEdits",
     "DocumentMatch",
+    "DocumentMessage",
     "DocumentRead",
     "DocumentRequest",
     "DocumentSummary",
@@ -255,8 +248,6 @@ __all__ = [
     "DocumentsRequest",
     "EditDocumentInput",
     "EditDocumentOutput",
-    "EditReply",
-    "EditRequest",
     "FetchError",
     "ImportRead",
     "ImportResumeInput",

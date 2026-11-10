@@ -81,7 +81,7 @@ async def test_a_chat_turn_stores_the_edits_it_proposes_before_its_reply(
     ]
 
     response = await client.post(
-        f"{DOCUMENTS}/{document['id']}/chat", json={"text": "Mention my years"}
+        f"{DOCUMENTS}/{document['id']}/chat/messages", json={"text": "Mention my years"}
     )
 
     [stored] = (await client.get(f"{DOCUMENTS}/{document['id']}/changesets")).json()
@@ -120,7 +120,7 @@ async def test_a_chat_turn_asks_back_and_the_answer_replies_without_edits(
         _replies("Your summary already fits Northwind.", None),
     ]
 
-    asked = await client.post(chat, json={"text": "Tailor it"})
+    asked = await client.post(f"{chat}/messages", json={"text": "Tailor it"})
     done = await client.post(f"{chat}/tasks/task-1/answer", json={"input": "Northwind"})
 
     assert sse_events(asked)[-1]["status"] == "input_required"
@@ -140,7 +140,7 @@ async def test_a_broken_chat_stream_resumes_after_the_last_event_it_got(
     document = await _document(client)
     chat = f"{DOCUMENTS}/{document['id']}/chat"
     harness.outcomes = [_fetches(document["id"]), _replies("Done.", TAILOR)]
-    first = await client.post(chat, json={"text": "Tighten it"})
+    first = await client.post(f"{chat}/messages", json={"text": "Tighten it"})
 
     resumed = await client.get(
         f"{chat}/stream", headers={"Last-Event-ID": sse_ids(first)[1]}
@@ -158,7 +158,7 @@ async def test_a_chat_takes_no_new_message_while_its_turn_runs(app, client, harn
     )
 
     response = await client.post(
-        f"{DOCUMENTS}/{document['id']}/chat", json={"text": "Again"}
+        f"{DOCUMENTS}/{document['id']}/chat/messages", json={"text": "Again"}
     )
 
     assert response.status_code == 409
@@ -181,7 +181,7 @@ async def test_another_users_document_has_no_chat(app, client, harness):
         await session.commit()
 
     response = await client.post(
-        f"{DOCUMENTS}/{theirs.id}/chat", json={"text": "Tailor it"}
+        f"{DOCUMENTS}/{theirs.id}/chat/messages", json={"text": "Tailor it"}
     )
 
     assert response.status_code == 404
