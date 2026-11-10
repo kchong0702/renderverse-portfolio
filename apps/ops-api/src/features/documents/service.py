@@ -605,6 +605,7 @@ class DocumentService:
                     await self._keep(document, "Imported")
                     row.status = ImportStatus.DONE
                     row.document_id = document.id
+                    row.suggestion = reply.suggestion
                     row.error = ""
             case InputRequired():
                 row.status = ImportStatus.FAILED

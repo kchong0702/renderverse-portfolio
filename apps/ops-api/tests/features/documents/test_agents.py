@@ -34,6 +34,8 @@ IMPORTED = {
     },
 }
 
+SUGGESTION = {"template": "serif", "columns": 1, "traits": ["serif_font"]}
+
 PDF = b"%PDF-1.7 resume \xfb\xff"
 
 
@@ -54,6 +56,7 @@ def _imported() -> dict:
         "pdf": "JVBERi0=",
         "report": {"render_id": "0" * 64, "pages": 1, "last_page_fill": 0.4},
         "lines": LINES,
+        "suggestion": SUGGESTION,
     }
     return a2a_task("COMPLETED", artifact_parts=[{"data": reply}])
 
@@ -66,6 +69,10 @@ async def test_reading_an_import_makes_its_draft(client, harness):
     assert read.status_code == 200
     assert read.json()["status"] == "done"
     assert read.json()["error"] == ""
+    assert read.json()["suggestion"] == SUGGESTION
+    assert (await client.get(f"{DOCUMENTS}/imports")).json()[0][
+        "suggestion"
+    ] == SUGGESTION
     document = (await client.get(f"{DOCUMENTS}/{read.json()['document_id']}")).json()
     assert document["lines"] == [{"id": "p1.s1", "text": "Kelvin Chong"}]
     assert document["title"] == "kelvin-chong-resume"

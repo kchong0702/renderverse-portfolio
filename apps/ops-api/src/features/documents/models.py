@@ -17,7 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base, EnumString, PydanticJson
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
-from src.features.documents.enums import ImportStatus
+from src.features.documents.enums import ImportStatus, LookTrait
 
 
 class SourceLine(BaseModel):
@@ -41,6 +41,17 @@ class SourceLine(BaseModel):
 
     bottom: float
     """Bottom edge, in points from the page's top"""
+
+
+class LookSuggestion(BaseModel):
+    template: str = Field(pattern=r"^[a-z0-9-]{1,40}$")
+    """The document-renderer template closest to the file's layout"""
+
+    columns: int = Field(ge=1, le=2)
+    """How many columns the file's pages are set in"""
+
+    traits: list[LookTrait]
+    """What else the file's layout has, which the template was picked by"""
 
 
 class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -139,11 +150,17 @@ class DocumentImport(IdMixin, UserScopedMixin, AuditMixin, Base):
     error: Mapped[str] = mapped_column(Text(), default="")
     """Why the import failed; empty otherwise"""
 
+    suggestion: Mapped[LookSuggestion | None] = mapped_column(
+        PydanticJson(TypeAdapter(LookSuggestion)), default=None
+    )
+    """The look import-resume suggests from the file's layout, once it is done"""
+
 
 __all__ = [
     "Document",
     "DocumentChangeset",
     "DocumentImport",
     "DocumentVersion",
+    "LookSuggestion",
     "SourceLine",
 ]

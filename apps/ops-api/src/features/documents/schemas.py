@@ -16,7 +16,7 @@ from document_schema import (
 from pydantic import BaseModel, Field, PlainSerializer
 
 from src.features.documents.enums import ImportStatus
-from src.features.documents.models import SourceLine
+from src.features.documents.models import LookSuggestion, SourceLine
 from src.features.profile import ProfileFact
 
 
@@ -136,6 +136,9 @@ class ImportRead(BaseModel):
     error: str
     """Why the import failed; empty otherwise"""
 
+    suggestion: LookSuggestion | None
+    """The look the file's layout suggests, once the import is done"""
+
     created_at: datetime
     """When the file was uploaded"""
 
@@ -239,6 +242,9 @@ class ImportResumeOutput(BaseModel):
 
     lines: list[SourceLine]
     """The file's lines, which the draft's values cite"""
+
+    suggestion: LookSuggestion
+    """The look the file's layout suggests; the draft is in its template"""
 
 
 __all__ = [
