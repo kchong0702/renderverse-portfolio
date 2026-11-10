@@ -1,4 +1,3 @@
-import * as ToggleGroup from "@radix-ui/react-toggle-group";
 import { cn } from "@/shared/lib/cn";
 import { pillItem, pillTrack } from "./pill";
 
@@ -21,28 +20,21 @@ export default function Segmented<T extends string>({
   onChange,
 }: SegmentedProps<T>) {
   return (
-    <ToggleGroup.Root
-      type="single"
-      aria-label={label}
-      value={value}
-      onValueChange={(next) => {
-        const option = options.find((o) => o.value === next);
-        if (option) onChange(option.value);
-      }}
-      className={pillTrack}
-    >
+    <div role="group" aria-label={label} className={pillTrack}>
       {options.map((option) => (
-        <ToggleGroup.Item
+        <button
           key={option.value}
-          value={option.value}
+          type="button"
+          aria-pressed={option.value === value}
+          onClick={() => onChange(option.value)}
           className={cn(
             pillItem,
-            "data-[state=on]:bg-panel data-[state=on]:text-ink data-[state=on]:shadow-card data-[state=on]:font-semibold",
+            "aria-pressed:bg-panel aria-pressed:text-ink aria-pressed:shadow-card aria-pressed:font-semibold",
           )}
         >
           {option.label}
-        </ToggleGroup.Item>
+        </button>
       ))}
-    </ToggleGroup.Root>
+    </div>
   );
 }
