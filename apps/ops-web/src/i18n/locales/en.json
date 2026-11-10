@@ -834,7 +834,25 @@
     },
     "comingUp": "Coming up",
     "nothingComingUp": "Nothing in the next two weeks.",
-    "automation": "Automation",
+    "automation": {
+      "title": "Automation",
+      "rules": {
+        "add_interview_invites": "Add interview invites from Gmail to this calendar",
+        "follow_up_reminders": "Remind me to follow up after 7 days without a reply",
+        "offer_free_slots": "Offer free slots when an employer asks for times"
+      }
+    },
+    "schedule": {
+      "title": "Schedule interview",
+      "name": "Title",
+      "day": "Day",
+      "from": "Starts",
+      "to": "Ends",
+      "location": "Location",
+      "add": "Add to calendar",
+      "cancel": "Cancel",
+      "failed": "Not added: {{reason}}"
+    },
     "changeInSettings": "Change in Settings",
     "loadFailed": "Calendar could not be loaded: {{reason}}"
   },
