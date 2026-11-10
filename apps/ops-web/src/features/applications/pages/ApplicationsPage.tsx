@@ -100,6 +100,9 @@ export default function ApplicationsPage() {
                     applied_on: null,
                     next_step: "",
                     next_step_at: null,
+                    next_step_due: null,
+                    next_step_format: null,
+                    next_step_location: null,
                   }}
                   jobs={
                     jobs.data?.jobs.filter(

@@ -12,31 +12,33 @@ export default function NextStep({
   className?: string;
 }) {
   const { t, i18n } = useTranslation();
-  const { stage, next_step, next_step_at, applied_on } = application;
+  const { stage, next_step, next_step_at, next_step_due, applied_on } =
+    application;
   const followUp = followUpDays(application);
-  const text = next_step_at
-    ? stage === "offer"
+  const text =
+    stage === "offer" && next_step_due
       ? t("applications.decideBy", {
-          when: dayMonth(new Date(next_step_at), i18n.language),
+          when: dayMonth(new Date(`${next_step_due}T00:00`), i18n.language),
         })
-      : [
-          new Intl.DateTimeFormat(i18n.language, {
-            weekday: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-            hourCycle: "h23",
-          }).format(new Date(next_step_at)),
-          next_step,
-        ]
-          .filter(Boolean)
-          .join(" · ")
-    : next_step ||
-      (followUp !== null
-        ? t("applications.followUp", { count: followUp })
-        : applied_on &&
-          t("applications.applied", {
-            when: relativeDay(applied_on, i18n.language),
-          }));
+      : next_step_at
+        ? [
+            new Intl.DateTimeFormat(i18n.language, {
+              weekday: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+              hourCycle: "h23",
+            }).format(new Date(next_step_at)),
+            next_step,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : next_step ||
+          (followUp !== null
+            ? t("applications.followUp", { count: followUp })
+            : applied_on &&
+              t("applications.applied", {
+                when: relativeDay(applied_on, i18n.language),
+              }));
 
   return text ? (
     <span
