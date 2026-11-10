@@ -211,6 +211,19 @@ def test_a_found_document_is_edited_and_its_changeset_is_published_as_an_artifac
     assert reply["parts"][0]["text"] == "I proposed one edit."
 
 
+def test_a_documents_answer_ops_api_cannot_read_fails_the_turn():
+    director = _model(_find(name="backend résumé", kind="resume"))
+    client = TestClient(create_app(_container(_model(), _model(), director)))
+
+    finding = _send(client, _director_request())
+    failed = _send(client, [{"data": {"documents": "not a list"}}], task=finding)
+
+    assert failed["status"]["state"] == "TASK_STATE_FAILED"
+    assert failed["status"]["message"]["parts"][0]["text"].startswith(
+        "The documents didn't load"
+    )
+
+
 def test_an_unclear_document_shows_the_user_a_document_picker():
     director = _model(
         _call("choose_document", question="Which résumé?", kind="resume"),
