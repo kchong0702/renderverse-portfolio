@@ -1,5 +1,7 @@
 const AMBER = "#B45309";
 
+export const REWORDED = "rgba(245, 158, 11, 0.24)";
+
 export const unzoom = "[zoom:var(--unzoom)]";
 
 export const toolbarClass = `${unzoom} bg-panel border-hair text-ink-2 absolute z-[9] flex gap-0.5 rounded-[10px] border p-1 font-sans text-xs leading-none whitespace-nowrap shadow-[0_6px_16px_rgba(28,25,23,0.16)]`;

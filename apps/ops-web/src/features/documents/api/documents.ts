@@ -64,8 +64,25 @@ export interface DocumentSummary {
   updated_at: string;
 }
 
+type StoredDocument = AnyDocument & { design: Required<Design> };
+
 export interface DocumentRecord extends DocumentSummary {
-  body: AnyDocument & { design: Required<Design> };
+  body: StoredDocument;
+  pending_body: StoredDocument | null;
+}
+
+export interface Changeset {
+  id: string;
+  agent: string;
+  edits: Edit[];
+  reason: string;
+  status: "pending" | "accepted" | "rejected";
+}
+
+export interface ChangesetRecord {
+  id: string;
+  changeset: Changeset;
+  created_at: string;
 }
 
 export interface TemplateSpec {
@@ -111,6 +128,32 @@ export const setMaster = (id: string) =>
 
 export const fetchRender = (id: string) =>
   http.get<Render>(`${URL}/${id}/render`);
+
+export const fetchChangesets = (id: string, signal?: AbortSignal) =>
+  http.get<ChangesetRecord[]>(`${URL}/${id}/changesets`, signal);
+
+export const decideChangeset = ({
+  id,
+  changesetId,
+  status,
+}: {
+  id: string;
+  changesetId: string;
+  status: "accepted" | "rejected";
+}) =>
+  http.put<ChangesetRecord>(`${URL}/${id}/changesets/${changesetId}`, {
+    status,
+  });
+
+export const undoChangesetEdit = ({
+  id,
+  changesetId,
+  index,
+}: {
+  id: string;
+  changesetId: string;
+  index: number;
+}) => http.delete(`${URL}/${id}/changesets/${changesetId}/edits/${index}`);
 
 export const fetchTemplates = (kind: DocumentKind, signal?: AbortSignal) =>
   http.get<TemplateSpec[]>(`${URL}/templates?kind=${kind}`, signal);

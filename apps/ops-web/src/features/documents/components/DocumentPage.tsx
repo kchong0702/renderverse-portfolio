@@ -11,8 +11,7 @@ import "@renderverse/document-renderer/fonts.css";
 import "@renderverse/document-renderer/styles.css";
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import type { DocumentRecord } from "../api/documents";
-import { useEditDocument } from "../hooks/useDocuments";
+import type { DocumentRecord, Edit } from "../api/documents";
 import { arrangementOf } from "../lib/arrangement";
 import { useEditorStore } from "../state/editorStore";
 import AddSkill from "./ui/AddSkill";
@@ -56,16 +55,19 @@ const editing: Editing = {
 export default function DocumentPage({
   record,
   source,
+  pending,
   pages,
   onPages,
+  onEdit,
 }: {
   record: DocumentRecord;
   source: string;
+  pending: string[];
+  onEdit: (edits: Edit[]) => void;
   pages: number;
   onPages: (pages: number) => void;
 }) {
   const { t } = useTranslation();
-  const edit = useEditDocument();
   const setToolbar = useEditorStore((state) => state.setToolbar);
   const well = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLDivElement>(null);
@@ -119,7 +121,8 @@ export default function DocumentPage({
               template,
               arrangement: arrangementOf(record.body, template),
               source,
-              edit: (edits) => edit.mutate({ id: record.id, edits }),
+              pending,
+              edit: onEdit,
             }}
           >
             <EditingContext.Provider value={editing}>
