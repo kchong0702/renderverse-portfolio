@@ -163,12 +163,10 @@ export function navItemAt(pathname: string): NavItem | undefined {
 
 export function useNavBadges(): Partial<Record<NavKey, string>> {
   const { t } = useTranslation();
-  const picked = useJobs().data?.filter((job) => job.status === "picked");
+  const newJobs = useJobs().data?.new_count;
   const active = useApplications().data?.filter((a) => a.stage !== "closed");
   return {
-    jobs: picked?.length
-      ? t("nav.badges.newJobs", { count: picked.length })
-      : undefined,
+    jobs: newJobs ? t("nav.badges.newJobs", { count: newJobs }) : undefined,
     applications: active?.length ? String(active.length) : undefined,
   };
 }

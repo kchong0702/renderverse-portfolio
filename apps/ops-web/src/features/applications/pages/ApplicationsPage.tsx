@@ -102,7 +102,9 @@ export default function ApplicationsPage() {
                     next_step_at: null,
                   }}
                   jobs={
-                    jobs.data?.filter((job) => job.status !== "dismissed") ?? []
+                    jobs.data?.jobs.filter(
+                      (job) => job.status !== "dismissed",
+                    ) ?? []
                   }
                   pending={add.isPending}
                   error={add.isError ? add.error.message : null}

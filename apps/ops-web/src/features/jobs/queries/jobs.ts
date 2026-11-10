@@ -13,10 +13,12 @@ export const updateJobMutationOptions = mutationOptions({
     await client.cancelQueries({ queryKey });
     const previous = client.getQueryData(queryKey);
     if (previous)
-      client.setQueryData(
-        queryKey,
-        previous.map((job) => (job.id === id ? { ...job, status } : job)),
-      );
+      client.setQueryData(queryKey, {
+        ...previous,
+        jobs: previous.jobs.map((job) =>
+          job.id === id && status ? { ...job, status } : job,
+        ),
+      });
     return { previous };
   },
   onError: (_error, _update, result, { client }) => {

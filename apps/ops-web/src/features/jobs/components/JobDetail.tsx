@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { buttonClass } from "@/shared/components/button";
 import { cn } from "@/shared/lib/cn";
@@ -18,8 +18,13 @@ export default function JobDetail({ job }: { job: Job }) {
   const headingId = useId();
   const requirementsId = useId();
   const update = useUpdateJob();
+  const { mutate: markSeen } = useUpdateJob();
   const { analysis } = job;
   const saved = job.status === "saved";
+
+  useEffect(() => {
+    if (!job.seen_at) markSeen({ id: job.id, seen: true });
+  }, [job.id, job.seen_at, markSeen]);
 
   return (
     <article
