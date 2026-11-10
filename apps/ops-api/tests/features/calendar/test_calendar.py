@@ -1,7 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from src.clients.google.client import MISSING_SCOPE
 from src.core.config import get_settings
+from src.features.calendar import service as calendar_service
 from tests.conftest import PREFIX, connect_google
 
 WEEK = {"from": "2026-11-03T00:00:00+08:00", "to": "2026-11-10T00:00:00+08:00"}
@@ -149,3 +150,39 @@ async def test_a_read_only_grant_asks_to_reconnect_for_events(client, google):
 
     assert response.status_code == 409
     assert response.json() == {"detail": MISSING_SCOPE}
+
+
+async def test_free_slots_are_the_work_hours_the_calendar_leaves_open(
+    client, google, monkeypatch
+):
+    monkeypatch.setattr(
+        calendar_service, "utcnow", lambda: datetime(2026, 11, 13, 4, tzinfo=UTC)
+    )
+    await connect_google(client)
+    google.events = [
+        {
+            "id": "busy",
+            "start": {"dateTime": "2026-11-16T10:00:00+08:00"},
+            "end": {"dateTime": "2026-11-16T11:00:00+08:00"},
+        }
+    ]
+
+    response = await client.get(f"{PREFIX}/calendar/free-slots")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "free_slots": [
+            {
+                "start": f"2026-11-{day}T{start}:00+08:00",
+                "end": f"2026-11-{day}T18:00:00+08:00",
+            }
+            for day, start in [
+                ("16", "11:30"),
+                ("17", "09:00"),
+                ("18", "09:00"),
+                ("19", "09:00"),
+                ("20", "09:00"),
+            ]
+        ],
+        "timezone": "Asia/Kuala_Lumpur",
+    }

@@ -5,9 +5,10 @@ from pydantic import AwareDatetime
 
 from src.core.auth import CurrentUserDep
 from src.core.config import get_settings
-from src.features.calendar.schemas import CalendarEvent, EventCreate
+from src.features.calendar.schemas import CalendarEvent, EventCreate, FreeSlots
 from src.features.calendar.service import CalendarService
 from src.features.google import GoogleServiceDep
+from src.features.settings import SettingsServiceDep
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
 
@@ -37,3 +38,15 @@ async def create_event(
 ) -> CalendarEvent:
     """Add an event to the user's primary Google Calendar, such as an interview"""
     return await service.create(user.id, event)
+
+
+@router.get("/free-slots")
+async def list_free_slots(
+    user: CurrentUserDep, service: CalendarServiceDep, settings: SettingsServiceDep
+) -> FreeSlots:
+    """Free time in the user's work hours on the days a reply draft offers slots from"""
+    return await service.free_slots(
+        user.id,
+        (await settings.get(user.id)).scheduling,
+        get_settings().google.free_slot_days,
+    )
