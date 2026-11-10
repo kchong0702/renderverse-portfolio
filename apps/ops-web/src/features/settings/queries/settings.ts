@@ -1,5 +1,7 @@
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
 import {
+  connectJsearch,
+  disconnectJsearch,
   fetchModels,
   fetchSettings,
   updateSettings,
@@ -47,4 +49,16 @@ export const updateSettingsMutationOptions = mutationOptions({
     if (client.isMutating({ mutationKey: updateSettingsKey }) === 1)
       client.setQueryData(settingsQueryOptions.queryKey, settings);
   },
+});
+
+export const connectJsearchMutationOptions = mutationOptions({
+  mutationFn: connectJsearch,
+  onSuccess: (settings, _key, _result, { client }) =>
+    client.setQueryData(settingsQueryOptions.queryKey, settings),
+});
+
+export const disconnectJsearchMutationOptions = mutationOptions({
+  mutationFn: disconnectJsearch,
+  onSuccess: (settings, _variables, _result, { client }) =>
+    client.setQueryData(settingsQueryOptions.queryKey, settings),
 });

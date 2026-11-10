@@ -80,5 +80,5 @@ export const http = {
     request<T>(url, { method: "PUT", body: JSON.stringify(body) }),
   patch: <T>(url: string, body: unknown) =>
     request<T>(url, { method: "PATCH", body: JSON.stringify(body) }),
-  delete: (url: string) => request<void>(url, { method: "DELETE" }),
+  delete: <T = void>(url: string) => request<T>(url, { method: "DELETE" }),
 };
