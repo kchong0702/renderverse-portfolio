@@ -456,8 +456,11 @@ export default function AssistantDock({
             {running ? (
               <button
                 type="button"
-                disabled={stop.isPending}
-                onClick={() => stop.mutate({ chatId, taskId: running.taskId })}
+                disabled={stop.isPending || !running.taskId}
+                onClick={() =>
+                  running.taskId &&
+                  stop.mutate({ chatId, taskId: running.taskId })
+                }
                 className={buttonClass()}
               >
                 {t("assistant.stop")}
