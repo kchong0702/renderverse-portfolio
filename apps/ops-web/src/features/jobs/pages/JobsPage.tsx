@@ -60,7 +60,7 @@ export default function JobsPage() {
                   selectedId={selected.id}
                   onSelect={(id) => setParams({ tab, posting: id })}
                 />
-                <JobDetail job={selected} />
+                <JobDetail key={selected.id} job={selected} />
               </div>
             ) : (
               <StateMessage>{t(`jobs.empty.${tab}`)}</StateMessage>
