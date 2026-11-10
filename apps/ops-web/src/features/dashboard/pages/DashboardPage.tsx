@@ -2,7 +2,7 @@ import { Sparkle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { useApplications } from "@/features/applications";
-import { useJobs } from "@/features/jobs";
+import { useJobs, useLatestJobRun } from "@/features/jobs";
 import { useSettings } from "@/features/settings";
 import { buttonClass } from "@/shared/components/button";
 import PageBody from "@/shared/components/PageBody";
@@ -27,6 +27,7 @@ export default function DashboardPage() {
   const applications = useApplications();
   const jobs = useJobs();
   const settings = useSettings();
+  const latestRun = useLatestJobRun();
   const period: Period =
     PERIODS.find((name) => name === params.get("period")) ?? "30d";
   const days = PERIOD_DAYS[period];
@@ -92,7 +93,7 @@ export default function DashboardPage() {
               jobs={jobs.data.jobs}
               picks={newPicks}
             />
-            <ShortcutCards settings={settings.data} />
+            <ShortcutCards settings={settings.data} run={latestRun.data} />
           </>
         )}
       </PageBody>
