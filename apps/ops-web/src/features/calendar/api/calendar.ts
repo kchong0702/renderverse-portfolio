@@ -24,5 +24,13 @@ export interface EventCreate {
   location?: string;
 }
 
+export interface FreeSlots {
+  free_slots: { start: string; end: string }[];
+  timezone: string;
+}
+
+export const fetchFreeSlots = (signal?: AbortSignal) =>
+  http.get<FreeSlots>("/ops-api/v1/calendar/free-slots", signal);
+
 export const createEvent = (event: EventCreate) =>
   http.post<CalendarEvent>("/ops-api/v1/calendar/events", event);
