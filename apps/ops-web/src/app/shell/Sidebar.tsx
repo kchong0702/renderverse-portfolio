@@ -3,13 +3,14 @@ import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
 import { SignOutButton, useMe } from "@/features/auth";
+import { useProfile } from "@/features/portfolio";
 import { cn } from "@/shared/lib/cn";
 import { navGroups, useNavBadges } from "./nav";
 import ThemeToggle from "./ThemeToggle";
 
-function initials(email: string): string {
-  const name = email.split("@")[0];
-  const parts = name.split(/[._-]+/).filter(Boolean);
+function initials(nameOrEmail: string): string {
+  const name = nameOrEmail.split("@")[0];
+  const parts = name.split(/[\s._-]+/).filter(Boolean);
   return (
     parts.length > 1 ? parts[0][0] + parts[1][0] : name.slice(0, 2)
   ).toUpperCase();
@@ -18,6 +19,8 @@ function initials(email: string): string {
 export default function Sidebar() {
   const { t } = useTranslation();
   const { data: me } = useMe();
+  const { data: profile } = useProfile();
+  const name = profile?.name || me?.email;
   const badges = useNavBadges();
 
   return (
@@ -55,7 +58,7 @@ export default function Sidebar() {
                     "flex min-h-10 items-center gap-3 rounded-lg px-3 no-underline",
                     isActive
                       ? "bg-side-on text-side-on-ink font-semibold"
-                      : "text-side-muted hover:text-side-ink font-medium",
+                      : "text-side-muted font-medium",
                   )
                 }
               >
@@ -90,17 +93,22 @@ export default function Sidebar() {
         ))}
       </div>
 
-      <div className="min-h-4 flex-1" />
+      <div className="mb-3 min-h-4 flex-1" />
 
       <div className="border-side-line bg-side-foot flex items-center gap-3 border-t px-[22px] py-4">
         <span
           aria-hidden="true"
           className="border-side-on-border text-amber-soft flex size-9 shrink-0 items-center justify-center rounded-full border text-[13px] font-semibold"
         >
-          {me ? initials(me.email) : ""}
+          {name ? initials(name) : ""}
         </span>
-        <span className="min-w-0 truncate text-[13px] font-semibold">
-          {me?.email}
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-[13px] font-semibold">{name}</span>
+          {profile?.headline && (
+            <span className="text-side-muted truncate text-xs">
+              {profile.headline}
+            </span>
+          )}
         </span>
         <span className="ml-auto flex">
           <ThemeToggle />
