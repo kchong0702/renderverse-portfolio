@@ -23,9 +23,8 @@ class AssistantService:
         ezcareer: EzcareerClient,
         runner: Runner,
     ):
-        """Hold the session to commit before a turn runs, the profile the agent reads,
-        the settings naming the user's model, the harness, and the runner each chat's
-        turn runs on"""
+        """Hold the session to commit before a turn runs, the profile, settings and
+        harness a turn uses, and the runner it runs on"""
         self._session = session
         self._profile = profile
         self._settings = settings
@@ -35,46 +34,45 @@ class AssistantService:
     async def send(
         self, user_id: UUID, chat_id: UUID, message: ChatMessage
     ) -> AsyncIterator[str]:
-        """Start a turn of one of the user's chats and return its events as they come:
-        career-director answers on their model with their profile; Conflict while a
-        turn runs"""
+        """Start a turn of the user's chat and return its events as they come; Conflict
+        while a turn runs"""
+        key = f"{user_id}:{chat_id}"
         data = await self._profile.agent_profile(user_id)
         metadata = await self._settings.run_metadata(user_id)
         await self._session.commit()
-        run_id = await self._runner.start_task(
+        return await self._runner.start_task(
             user_id,
-            f"{user_id}:{chat_id}",
+            key,
             self._ezcareer.stream(
                 _AGENT,
                 str,
-                context_id=f"{user_id}:{chat_id}",
+                context_id=key,
                 text=message.text,
                 data=data,
                 metadata=metadata,
             ),
         )
-        return self._runner.read(run_id, 0)
 
     async def answer(
         self, user_id: UUID, chat_id: UUID, task_id: str, answer: Answer
     ) -> AsyncIterator[str]:
         """Answer the widget a paused turn of the chat asked and return the rest of
         the turn's events as they come; Conflict while a turn runs"""
+        key = f"{user_id}:{chat_id}"
         metadata = await self._settings.run_metadata(user_id)
         await self._session.commit()
-        run_id = await self._runner.start_task(
+        return await self._runner.start_task(
             user_id,
-            f"{user_id}:{chat_id}",
+            key,
             self._ezcareer.stream_resume(
                 _AGENT,
                 str,
-                context_id=f"{user_id}:{chat_id}",
+                context_id=key,
                 task_id=task_id,
                 answer=answer,
                 metadata=metadata,
             ),
         )
-        return self._runner.read(run_id, 0)
 
     async def resume(
         self, user_id: UUID, chat_id: UUID, last_event_id: str | None

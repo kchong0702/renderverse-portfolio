@@ -34,4 +34,6 @@ class Container(containers.DeclarativeContainer):
         ),
     )
 
-    runner = providers.Singleton(Runner, store=store)
+    runner = providers.Singleton(
+        Runner, store=store, settings=settings.provided.ezcareer
+    )

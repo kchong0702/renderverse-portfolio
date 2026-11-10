@@ -8,13 +8,10 @@ from src.db.mixins import UserScopedMixin
 
 
 class AgentRun(UserScopedMixin, Base):
-    """One agent run, such as an assistant turn, that any ops-api process can
-    replay and follow"""
-
     __tablename__ = "agent_runs"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
-    """The run's id, the first half of each event id"""
+    """The run's id"""
 
     key: Mapped[str] = mapped_column(String(200), index=True)
     """What the run belongs to, such as a user's chat"""
@@ -44,3 +41,6 @@ class AgentEvent(UserScopedMixin, Base):
 
     data: Mapped[str] = mapped_column(Text)
     """The event as JSON"""
+
+
+__all__ = ["AgentEvent", "AgentRun"]
