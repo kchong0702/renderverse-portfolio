@@ -1,7 +1,16 @@
+import asyncio
+from collections.abc import AsyncIterator
+
+import pytest
+from fastapi import FastAPI
+from sqlalchemy import delete, text
+from sqlalchemy.ext.asyncio import create_async_engine
+
 from src.core.auth.models import User
 from src.core.config import get_settings
 from src.features.settings.models import UserSettings
-from tests.conftest import PREFIX
+from tests.conftest import PREFIX, FakeArtifact, FakeGoogle, FakeHarness, _app, _client
+from tests.core.conftest import DATABASE_URL
 
 
 async def test_defaults_on_first_read(client):
@@ -83,3 +92,42 @@ async def test_rows_record_who_created_and_changed_them(app, client):
     assert row is not None
     assert row.created_by == "system"
     assert row.updated_by == f"user:{user.id}"
+
+
+@pytest.fixture
+async def postgres_app(
+    harness: FakeHarness, artifact: FakeArtifact, google: FakeGoogle
+) -> AsyncIterator[FastAPI]:
+    """The app on the test Postgres database, its dev user deleted after the test"""
+    engine = create_async_engine(DATABASE_URL)
+    async for app in _app(harness, artifact, google, engine=engine):
+        yield app
+        async with app.state.session_factory() as session, session.begin():
+            await session.execute(
+                delete(User).where(User.email == get_settings().auth.dev_email)
+            )
+
+
+@pytest.mark.postgres
+@pytest.mark.skipif(not DATABASE_URL, reason="OPS_API_TEST_DATABASE_URL is not set")
+async def test_a_first_read_that_overlaps_another_gets_the_defaults(postgres_app):
+    async with (
+        postgres_app.state.session_factory() as other,
+        _client(postgres_app) as client,
+    ):
+        user = User(email=get_settings().auth.dev_email)
+        other.add(user)
+        await other.commit()
+        other.add(UserSettings(user_id=user.id))
+        await other.flush()
+        reading = asyncio.create_task(client.get(f"{PREFIX}/settings"))
+        async with asyncio.timeout(5):
+            while not await other.scalar(
+                text("SELECT count(*) FROM pg_locks WHERE NOT granted")
+            ):
+                await asyncio.sleep(0.01)
+        await other.commit()
+        response = await reading
+
+    assert response.status_code == 200
+    assert response.json()["job_agent"]["min_score"] == 70

@@ -210,10 +210,9 @@ class SettingsService:
         return RunMetadata(model=model, jsearch=jsearch)
 
     async def _load(self, user_id: UUID) -> UserSettings:
-        settings = await self._repository.get(user_id)
-        if settings is None:
-            settings = await self._repository.add(UserSettings(user_id=user_id))
-        return settings
+        return await self._repository.get(user_id) or await self._repository.create(
+            user_id
+        )
 
 
 __all__ = ["SettingsService"]
