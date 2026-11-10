@@ -102,6 +102,11 @@ interface AssistantState {
   newChat: () => void;
 }
 
+export const openTurn = (entries: ChatEntry[]) => {
+  const last = entries.at(-1);
+  return last?.role === "assistant" && !last.outcome ? last : undefined;
+};
+
 export const useAssistantStore = create<AssistantState>()(
   persist(
     (set) => ({
@@ -112,8 +117,8 @@ export const useAssistantStore = create<AssistantState>()(
       add: (entry) => set((state) => ({ entries: [...state.entries, entry] })),
       apply: (event, id) =>
         set(({ entries }) => {
-          const last = entries.at(-1);
-          return last?.role === "assistant" && !last.outcome
+          const last = openTurn(entries);
+          return last
             ? {
                 entries: [
                   ...entries.slice(0, -1),

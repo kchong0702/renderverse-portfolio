@@ -145,7 +145,6 @@
     "thinking": "Thinking…",
     "thought": "Thought",
     "stopped": "Stopped",
-    "interrupted": "The connection closed before the assistant finished",
     "connectionLost": "The connection to the assistant was lost",
     "stepStatus": {
       "running": "Running",

@@ -48,7 +48,6 @@ export type RunEvent =
 export interface ChatMessage {
   chatId: string;
   text: string;
-  document_id?: string;
 }
 
 export interface TaskAnswer {
@@ -56,6 +55,11 @@ export interface TaskAnswer {
   taskId: string;
   answer: Answer;
   shown: string;
+}
+
+export interface TurnCursor {
+  chatId: string;
+  lastEventId: string;
 }
 
 export interface Task {
@@ -83,9 +87,37 @@ const TERMINAL: ReadonlySet<RunEvent["status"]> = new Set([
 const taskUrl = ({ chatId, taskId }: Task) =>
   `${URL}/chats/${chatId}/tasks/${encodeURIComponent(taskId)}`;
 
-async function follow(
+const openChatStream = (
   chatId: string,
-  start: { url: string; body: unknown } | null,
+  lastEventId: string | null,
+  signal: AbortSignal,
+  onRetry: (ms: number) => void,
+) =>
+  stream(
+    `${URL}/chats/${chatId}/stream`,
+    {
+      headers: lastEventId ? { "Last-Event-ID": lastEventId } : undefined,
+      signal,
+    },
+    onRetry,
+  );
+
+const wait = (ms: number, signal: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(signal.reason);
+      },
+      { once: true },
+    );
+  });
+
+async function streamTurn(
+  chatId: string,
+  request: { url: string; body: unknown } | null,
   lastEventId: string | null,
   signal: AbortSignal,
   onEvent: OnEvent,
@@ -95,23 +127,14 @@ async function follow(
   const onRetry = (ms: number) => {
     retryMs = ms;
   };
-  const resume = () =>
-    stream(
-      `${URL}/chats/${chatId}/stream`,
-      {
-        headers: lastEventId ? { "Last-Event-ID": lastEventId } : undefined,
-        signal,
-      },
-      onRetry,
-    );
 
-  let reader: Awaited<ReturnType<typeof resume>> | null = start
+  let reader: Awaited<ReturnType<typeof stream>> | null = request
     ? await stream(
-        start.url,
-        { method: "POST", body: JSON.stringify(start.body), signal },
+        request.url,
+        { method: "POST", body: JSON.stringify(request.body), signal },
         onRetry,
       )
-    : await resume();
+    : await openChatStream(chatId, lastEventId, signal, onRetry);
   for (;;) {
     if (reader) {
       try {
@@ -131,24 +154,13 @@ async function follow(
 
     if (++reconnects > MAX_RECONNECTS)
       throw new Error(i18n.t("assistant.connectionLost"));
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(
-        resolve,
-        Math.min(retryMs * 2 ** (reconnects - 1), MAX_RETRY_MS),
-      );
-      signal.addEventListener(
-        "abort",
-        () => {
-          clearTimeout(timer);
-          reject(signal.reason);
-        },
-        { once: true },
-      );
-    });
-    reader = await resume().catch((error: unknown) => {
-      if (signal.aborted || error instanceof ApiError) throw error;
-      return null;
-    });
+    await wait(Math.min(retryMs * 2 ** (reconnects - 1), MAX_RETRY_MS), signal);
+    reader = await openChatStream(chatId, lastEventId, signal, onRetry).catch(
+      (error: unknown) => {
+        if (signal.aborted || error instanceof ApiError) throw error;
+        return null;
+      },
+    );
   }
 }
 
@@ -157,7 +169,7 @@ export const sendMessage = (
   signal: AbortSignal,
   onEvent: OnEvent,
 ) =>
-  follow(
+  streamTurn(
     chatId,
     { url: `${URL}/chats/${chatId}/messages`, body: message },
     null,
@@ -170,7 +182,7 @@ export const answerTask = (
   signal: AbortSignal,
   onEvent: OnEvent,
 ) =>
-  follow(
+  streamTurn(
     task.chatId,
     { url: `${taskUrl(task)}/answer`, body: answer },
     null,
@@ -179,10 +191,10 @@ export const answerTask = (
   );
 
 export const resumeTurn = (
-  { chatId, lastEventId }: { chatId: string; lastEventId: string },
+  { chatId, lastEventId }: TurnCursor,
   signal: AbortSignal,
   onEvent: OnEvent,
-) => follow(chatId, null, lastEventId, signal, onEvent);
+) => streamTurn(chatId, null, lastEventId, signal, onEvent);
 
 export const cancelTask = (task: Task) =>
   http.post<void>(`${taskUrl(task)}/cancel`);
