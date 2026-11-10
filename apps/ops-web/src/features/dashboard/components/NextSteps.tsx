@@ -75,12 +75,13 @@ export default function NextSteps({
           ]
             .filter(Boolean)
             .join(" · "),
-          action: interview
-            ? { label: t("dashboard.next.prepare"), to: "/documents" }
-            : {
-                label: t("dashboard.next.open"),
-                to: `/applications?edit=${a.id}`,
-              },
+          action:
+            interview && gaps > 0
+              ? { label: t("dashboard.next.prepare"), to: "/documents" }
+              : {
+                  label: t("dashboard.next.open"),
+                  to: `/applications?edit=${a.id}`,
+                },
         };
       }),
     ...applications.flatMap((a) => {
