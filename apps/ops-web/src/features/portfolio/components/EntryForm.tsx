@@ -52,6 +52,7 @@ export default function EntryForm({
         .map((line) => line.trim())
         .filter(Boolean),
       archived: draft.archived,
+      on_site: draft.on_site,
     });
   };
 

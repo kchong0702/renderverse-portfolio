@@ -37,7 +37,8 @@
       "settings": "Settings"
     },
     "badges": {
-      "newJobs": "{{count}} new"
+      "newJobs": "{{count}} new",
+      "draft": "{{count}} draft"
     }
   },
   "dashboard": {
@@ -1064,7 +1065,8 @@
       "label": "Portfolio sections",
       "profile": "Profile",
       "skills": "Skills",
-      "projects": "Projects"
+      "projects": "Projects",
+      "releases": "Releases"
     },
     "filters": {
       "label": "Show",
@@ -1116,7 +1118,11 @@
       "useInAgent": "Use {{name}} in agent context",
       "confirmDelete": "Delete {{name}}? This cannot be undone.",
       "toggleFailed": "Agent context not changed: {{reason}}",
-      "deleteFailed": "Not deleted: {{reason}}"
+      "deleteFailed": "Not deleted: {{reason}}",
+      "onSite": "On site",
+      "showOnSite": "Show {{name}} on your portfolio site",
+      "changed": "Changed in draft",
+      "siteToggleFailed": "Site not changed: {{reason}}"
     },
     "form": {
       "location": "Location",
@@ -1179,6 +1185,38 @@
       "groupPlaceholder": "e.g. Platform",
       "add": "Add skill",
       "empty": "No skills yet."
+    },
+    "previewSite": "Preview site",
+    "publish": "Publish release {{number}}",
+    "releases": {
+      "heading": "Releases",
+      "draft": "Draft",
+      "draftMeta_one": "{{count}} change · not published",
+      "draftMeta_other": "{{count}} changes · not published",
+      "live": "Live",
+      "earlier": "Earlier",
+      "later": "Rolled back",
+      "published": "Published {{day}} {{month}}",
+      "rollBack": "Roll back",
+      "makeLive": "Make live",
+      "publishFailed": "Not published: {{reason}}",
+      "makeLiveFailed": "Not changed: {{reason}}"
+    },
+    "changes": {
+      "heading": "Changes in release {{number}}",
+      "description": "Publishing puts these on your portfolio site. Earlier releases stay, so you can roll back.",
+      "empty": "Nothing has changed since the live release.",
+      "about": "About you",
+      "kinds": {
+        "about": "Profile",
+        "skill": "Skill",
+        "project": "Project"
+      },
+      "types": {
+        "added": "Added",
+        "changed": "Changed",
+        "removed": "Removed"
+      }
     }
   }
 }

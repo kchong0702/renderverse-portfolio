@@ -19,6 +19,7 @@ import {
   type ProfilePatch,
   type Skill,
 } from "../api/profile";
+import { draftQueryOptions } from "./portfolio";
 
 const updateProfileKey = ["profile", "update"] as const;
 
@@ -66,12 +67,17 @@ export const updateProfileMutationOptions = mutationOptions({
     if (client.isMutating({ mutationKey: updateProfileKey }) === 1)
       client.setQueryData(profileQueryOptions.queryKey, profile);
   },
+  onSettled: (_profile, _error, _patch, _result, { client }) =>
+    client.invalidateQueries({ queryKey: draftQueryOptions.queryKey }),
 });
 
 export const addEntryMutationOptions = mutationOptions({
   mutationFn: addEntry,
   onSettled: (_entry, _error, _create, _result, { client }) =>
-    client.invalidateQueries({ queryKey: entriesQueryOptions.queryKey }),
+    Promise.all([
+      client.invalidateQueries({ queryKey: entriesQueryOptions.queryKey }),
+      client.invalidateQueries({ queryKey: draftQueryOptions.queryKey }),
+    ]),
 });
 
 export const saveEntryMutationOptions = mutationOptions({
@@ -85,7 +91,10 @@ export const saveEntryMutationOptions = mutationOptions({
       client.setQueryData(entriesQueryOptions.queryKey, result.previous);
   },
   onSettled: (_saved, _error, _entry, _result, { client }) =>
-    client.invalidateQueries({ queryKey: entriesQueryOptions.queryKey }),
+    Promise.all([
+      client.invalidateQueries({ queryKey: entriesQueryOptions.queryKey }),
+      client.invalidateQueries({ queryKey: draftQueryOptions.queryKey }),
+    ]),
 });
 
 export const deleteEntryMutationOptions = mutationOptions({
@@ -98,12 +107,17 @@ export const deleteEntryMutationOptions = mutationOptions({
     if (result?.previous)
       client.setQueryData(entriesQueryOptions.queryKey, result.previous);
   },
+  onSettled: (_deleted, _error, _id, _result, { client }) =>
+    client.invalidateQueries({ queryKey: draftQueryOptions.queryKey }),
 });
 
 export const addSkillMutationOptions = mutationOptions({
   mutationFn: addSkill,
   onSettled: (_skill, _error, _write, _result, { client }) =>
-    client.invalidateQueries({ queryKey: skillsQueryOptions.queryKey }),
+    Promise.all([
+      client.invalidateQueries({ queryKey: skillsQueryOptions.queryKey }),
+      client.invalidateQueries({ queryKey: draftQueryOptions.queryKey }),
+    ]),
 });
 
 export const saveSkillMutationOptions = mutationOptions({
@@ -117,7 +131,10 @@ export const saveSkillMutationOptions = mutationOptions({
       client.setQueryData(skillsQueryOptions.queryKey, result.previous);
   },
   onSettled: (_saved, _error, _skill, _result, { client }) =>
-    client.invalidateQueries({ queryKey: skillsQueryOptions.queryKey }),
+    Promise.all([
+      client.invalidateQueries({ queryKey: skillsQueryOptions.queryKey }),
+      client.invalidateQueries({ queryKey: draftQueryOptions.queryKey }),
+    ]),
 });
 
 export const deleteSkillMutationOptions = mutationOptions({
@@ -130,4 +147,6 @@ export const deleteSkillMutationOptions = mutationOptions({
     if (result?.previous)
       client.setQueryData(skillsQueryOptions.queryKey, result.previous);
   },
+  onSettled: (_deleted, _error, _id, _result, { client }) =>
+    client.invalidateQueries({ queryKey: draftQueryOptions.queryKey }),
 });
