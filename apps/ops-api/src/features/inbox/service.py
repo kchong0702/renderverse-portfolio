@@ -276,11 +276,20 @@ class InboxService:
             event_id = sha256(f"{user_id}:{message.thread_id}".encode()).hexdigest()
             if not await self._repository.claim_event(thread, event_id):
                 continue
+            application = (
+                await self._applications.owned(
+                    Application, user_id, thread.application_id
+                )
+                if thread.application_id
+                else None
+            )
             with suppress(AlreadyExists):
                 await self._calendar.create(
                     user_id,
                     EventCreate(
-                        title=message.payload.header("Subject") or "Interview",
+                        title=f"{application.company} {application.role} interview"
+                        if application
+                        else "Interview",
                         start=start,
                         end=aware(thread.interview_end)
                         if thread.interview_end

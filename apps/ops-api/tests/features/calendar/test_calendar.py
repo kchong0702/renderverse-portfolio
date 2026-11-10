@@ -16,6 +16,7 @@ async def test_calendar_lists_the_events_in_the_range(client, google):
             "summary": "Lumen Pay technical interview",
             "location": "Google Meet",
             "htmlLink": "https://calendar.google.com/event?eid=e1",
+            "extendedProperties": {"private": {"ops": "interview"}},
             "start": {"dateTime": "2026-11-04T10:00:00+08:00"},
             "end": {"dateTime": "2026-11-04T11:00:00+08:00"},
         },
@@ -40,6 +41,7 @@ async def test_calendar_lists_the_events_in_the_range(client, google):
             "all_day": False,
             "location": "Google Meet",
             "url": "https://calendar.google.com/event?eid=e1",
+            "interview": True,
         },
         {
             "id": "e2",
@@ -49,6 +51,7 @@ async def test_calendar_lists_the_events_in_the_range(client, google):
             "all_day": True,
             "location": "",
             "url": "",
+            "interview": False,
         },
     ]
     [params] = google.calendar_params
@@ -118,6 +121,7 @@ async def test_creating_an_event_adds_it_to_google_calendar(client, google):
             "end": {"dateTime": "2026-11-12T11:00:00+08:00"},
             "description": "With Aisha Rahman",
             "location": "Google Meet",
+            "extendedProperties": {"private": {"ops": "interview"}},
         }
     ]
     assert response.json() == {
@@ -128,6 +132,7 @@ async def test_creating_an_event_adds_it_to_google_calendar(client, google):
         "all_day": False,
         "location": "Google Meet",
         "url": "",
+        "interview": True,
     }
 
 

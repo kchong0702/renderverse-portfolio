@@ -36,7 +36,7 @@ async def list_events(
 async def create_event(
     event: EventCreate, user: CurrentUserDep, service: CalendarServiceDep
 ) -> CalendarEvent:
-    """Add an event to the user's primary Google Calendar, such as an interview"""
+    """Add an interview to the user's primary Google Calendar"""
     return await service.create(user.id, event)
 
 

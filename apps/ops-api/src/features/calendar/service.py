@@ -4,13 +4,21 @@ from datetime import datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from src.clients.google import EventTime, GoogleClient, GoogleEvent, NewEvent
+from src.clients.google import (
+    EventTime,
+    ExtendedProperties,
+    GoogleClient,
+    GoogleEvent,
+    NewEvent,
+)
 from src.core.config import GoogleSettings
 from src.core.exceptions import InvalidInput
 from src.db.base import utcnow
 from src.features.calendar.schemas import CalendarEvent, EventCreate, FreeSlots, Slot
 from src.features.google import GoogleService
 from src.features.settings.schemas import Scheduling
+
+_INTERVIEW = {"ops": "interview"}
 
 
 def _event(event: GoogleEvent) -> CalendarEvent:
@@ -23,6 +31,7 @@ def _event(event: GoogleEvent) -> CalendarEvent:
         all_day=event.start.date_time is None,
         location=event.location,
         url=event.html_link,
+        interview=_INTERVIEW.items() <= event.extended_properties.private.items(),
     )
 
 
@@ -51,7 +60,7 @@ class CalendarService:
     async def create(
         self, user_id: UUID, event: EventCreate, event_id: str | None = None
     ) -> CalendarEvent:
-        """Add an event to the primary calendar, under event_id when given"""
+        """Add an interview to the primary calendar, under event_id when given"""
         if event.end <= event.start:
             raise InvalidInput("The event must end after it starts")
         token = await self._google.access_token(user_id)
@@ -64,6 +73,7 @@ class CalendarService:
                 end=EventTime(date_time=event.end),
                 description=event.description,
                 location=event.location,
+                extended_properties=ExtendedProperties(private=_INTERVIEW),
             ),
         )
         return _event(created)

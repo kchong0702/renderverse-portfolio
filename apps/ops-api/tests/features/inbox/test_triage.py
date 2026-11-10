@@ -203,8 +203,11 @@ async def test_an_interview_a_thread_confirms_is_added_to_the_calendar_once(
     client, google, harness
 ):
     await connect_google(client)
+    application = await _application(client)
     google.messages = {"m1": _message("m1", "t-1", "Final round", "See you then.")}
-    harness.outcomes = [_triaged("interview", interview=INTERVIEW)]
+    harness.outcomes = [
+        _triaged("interview", application_id=application, interview=INTERVIEW)
+    ]
 
     await client.get(INBOX)
     await client.get(INBOX)
@@ -212,10 +215,11 @@ async def test_an_interview_a_thread_confirms_is_added_to_the_calendar_once(
     assert google.created == [
         {
             "id": ANY,
-            "summary": "Final round",
+            "summary": "Lumen Pay Backend Engineer interview",
             "start": {"dateTime": "2030-11-12T02:00:00Z"},
             "end": {"dateTime": "2030-11-12T03:00:00Z"},
             "location": "https://meet.google.com/abc",
+            "extendedProperties": {"private": {"ops": "interview"}},
         }
     ]
 
@@ -259,7 +263,7 @@ async def test_an_interview_waits_for_a_grant_that_adds_events(client, google, h
     assert refused.json() == {"detail": MISSING_SCOPE}
     assert added.status_code == 200
     assert len(harness.received) == 1
-    assert [event["summary"] for event in google.created] == ["Final round"]
+    assert [event["summary"] for event in google.created] == ["Interview"]
 
 
 class _OverlappingHarness(FakeHarness):
@@ -362,4 +366,4 @@ async def test_overlapping_syncs_add_an_interview_to_the_calendar_once(
 
     assert [first.status_code, second.status_code] == [200, 200]
     assert overlapping_google.inserts == 1
-    assert [e["summary"] for e in overlapping_google.created] == ["Final round"]
+    assert [e["summary"] for e in overlapping_google.created] == ["Interview"]
