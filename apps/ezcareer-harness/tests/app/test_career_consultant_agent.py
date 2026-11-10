@@ -6,6 +6,7 @@ from src.app.container import Container
 from tests.agents.career_consultant.test_career_consultant import (
     DONE,
     GOOD_EDIT,
+    READ_SKILL,
     _model,
     _propose,
     _state,
@@ -30,7 +31,8 @@ def test_career_consultant_is_served_as_an_agent_with_the_containers_checkpointe
 
 def test_a_proposal_to_the_served_agent_comes_back_as_a_changeset_artifact():
     container = Container()
-    container.career_consultant.agent(model=_model(_propose(GOOD_EDIT), DONE))
+    model = _model(READ_SKILL, _propose(GOOD_EDIT), DONE)
+    container.career_consultant.agent(model=model)
     state = _state()
 
     response = TestClient(create_app(container)).post(
@@ -62,3 +64,5 @@ def test_a_proposal_to_the_served_agent_comes_back_as_a_changeset_artifact():
     [changeset] = [a for a in task["artifacts"] if a["name"] == "changeset"]
     [part] = changeset["parts"]
     assert part["data"]["changeset"]["edits"] == [GOOD_EDIT.model_dump(mode="json")]
+    assert "propose_changeset" not in model.offered_tools[0]
+    assert "propose_changeset" in model.offered_tools[1]

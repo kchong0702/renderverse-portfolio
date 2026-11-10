@@ -165,6 +165,7 @@ def _director_request() -> list[dict[str, JsonValue]]:
 
 def test_a_found_document_is_edited_and_its_changeset_is_published_as_an_artifact():
     consultant = career_consultant._model(
+        career_consultant.READ_SKILL,
         career_consultant._propose(career_consultant.GOOD_EDIT),
         career_consultant.DONE,
     )

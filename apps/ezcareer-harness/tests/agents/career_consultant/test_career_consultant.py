@@ -105,6 +105,9 @@ def _changeset(*edits: AnyEdit) -> Changeset:
     )
 
 
+READ_SKILL = _call("read_file", file_path="/modify-career-documents/SKILL.md")
+
+
 def _propose(*edits: AnyEdit) -> AIMessage:
     return _call(
         "propose_changeset", changeset=_changeset(*edits).model_dump(mode="json")

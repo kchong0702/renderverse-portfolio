@@ -7,6 +7,7 @@ from tests.agents.career_consultant.test_career_consultant import (
     BAD_EDIT,
     DONE,
     GOOD_EDIT,
+    READ_SKILL,
     _model,
     _propose,
 )
@@ -29,7 +30,7 @@ def _container(*replies) -> None:
 
 
 async def test_a_probe_runs_the_containers_edit_graph_and_records_each_check_round():
-    _container(_propose(BAD_EDIT), _propose(GOOD_EDIT), DONE)
+    _container(READ_SKILL, _propose(BAD_EDIT), _propose(GOOD_EDIT), DONE)
 
     result = await probe.probe(
         probe.WORKFLOWS["edit-document"],

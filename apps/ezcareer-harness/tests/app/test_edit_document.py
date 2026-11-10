@@ -12,6 +12,7 @@ from tests.agents.career_consultant.test_career_consultant import (
     BAD_EDIT,
     DONE,
     GOOD_EDIT,
+    READ_SKILL,
     _model,
     _propose,
 )
@@ -95,7 +96,7 @@ def _request() -> list[dict[str, JsonValue]]:
 
 
 def test_a_message_fetches_the_document_then_returns_the_reply_and_changeset():
-    model = _model(_propose(GOOD_EDIT), DONE)
+    model = _model(READ_SKILL, _propose(GOOD_EDIT), DONE)
     client = _client(model)
 
     asked = _send(client, _request())
@@ -130,7 +131,12 @@ def test_a_fetch_the_client_cannot_answer_fails_the_task_with_its_reason():
 
 def test_an_unclear_request_shows_the_user_a_widget_then_finishes():
     client = _client(
-        _model(_call("clarify", question="Which job?"), _propose(GOOD_EDIT), DONE)
+        _model(
+            _call("clarify", question="Which job?"),
+            READ_SKILL,
+            _propose(GOOD_EDIT),
+            DONE,
+        )
     )
 
     fetching = _send(client, _request())
@@ -147,7 +153,7 @@ def test_an_unclear_request_shows_the_user_a_widget_then_finishes():
 
 
 def test_an_agent_that_never_stops_proposing_fails_without_a_changeset():
-    client = _client(_model(_propose(BAD_EDIT)))
+    client = _client(_model(READ_SKILL, _propose(BAD_EDIT)))
 
     asked = _send(client, _request())
     task = _send(client, [{"data": _fetched()}], task=asked)

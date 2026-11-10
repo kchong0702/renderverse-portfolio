@@ -26,13 +26,11 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
     agent = providers.Singleton(
         build_agent,
         agent=registry.provided["career-consultant"],
-        tools=providers.List(
+        tools=(read_profile_facts, clarify, permission),
+        skill_tools=providers.List(
             read_pdf_lines,
-            read_profile_facts,
             propose_changeset,
             providers.Callable(list_design_options_tool, artifact_service),
-            clarify,
-            permission,
         ),
         state_schema=CareerConsultantState,
     )
