@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import re
 from email.utils import parseaddr
+from html.parser import HTMLParser
 from uuid import UUID
 
 from src.clients.google import GmailMessage, GoogleClient
@@ -26,12 +27,39 @@ def _summary(message: GmailMessage) -> InboxMessage:
     )
 
 
+class _TextParser(HTMLParser):
+    def __init__(self):
+        """Collect an HTML body's text, leaving out styles and scripts"""
+        super().__init__()
+        self.parts: list[str] = []
+        self._hidden = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """Hide a style or script's text; a br starts a new line"""
+        if tag in ("style", "script"):
+            self._hidden = True
+        elif tag == "br":
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        """Show text again after a style or script; a block ends its line"""
+        if tag in ("style", "script"):
+            self._hidden = False
+        elif tag in ("p", "div", "tr", "li", "h1", "h2", "h3", "h4", "h5", "h6"):
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        """Keep text that is not inside a style or script"""
+        if not self._hidden:
+            self.parts.append(data)
+
+
 def _html_text(markup: str) -> str:
     """The readable text of an HTML body: no styles, scripts or tags"""
-    markup = re.sub(r"(?is)<(style|script)\b.*?</\1>", "", markup)
-    markup = re.sub(r"(?i)<br\s*/?>|</(p|div|tr|h\d|li)>", "\n", markup)
-    text = html.unescape(re.sub(r"<[^>]+>", "", markup))
-    return re.sub(r"\n\s*\n+", "\n\n", text).strip()
+    parser = _TextParser()
+    parser.feed(markup)
+    parser.close()
+    return re.sub(r"\n\s*\n+", "\n\n", "".join(parser.parts)).strip()
 
 
 class InboxService:
