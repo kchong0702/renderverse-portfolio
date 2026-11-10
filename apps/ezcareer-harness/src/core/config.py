@@ -305,6 +305,9 @@ class Settings(BaseSettings):
     agents: tuple[AgentSettings, ...] = ()
     """Every agent the app builds, read from config.toml's [[agents]] tables"""
 
+    reasoning_effort: Literal["low", "medium", "high"] = "low"
+    """How hard claude and openai models reason before answering"""
+
     harness_profiles: Path = _ROOT_PATH / "harness_profiles.yaml"
     """Each model's deepagents harness profile, by provider or provider:model,
     shared by every agent on that model; relative to the app folder"""
