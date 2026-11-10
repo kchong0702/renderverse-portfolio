@@ -3,6 +3,7 @@ import {
   type Application,
   type ApplicationStage,
 } from "@/features/applications";
+import { localDateTime } from "@/shared/lib/dates";
 
 export const PERIODS = ["30d", "90d", "all"] as const;
 export type Period = (typeof PERIODS)[number];
@@ -13,21 +14,10 @@ export const PERIOD_DAYS: Record<Period, number | null> = {
   all: null,
 };
 
-export interface Week {
-  start: Date;
-  sent: number;
-}
-
-function isoDay(at: Date): string {
-  return new Date(at.getTime() - at.getTimezoneOffset() * 60_000)
-    .toISOString()
-    .slice(0, 10);
-}
-
 export function daysAgo(days: number): string {
   const at = new Date();
   at.setDate(at.getDate() - days);
-  return isoDay(at);
+  return localDateTime(at).slice(0, 10);
 }
 
 export function sentSince(
@@ -51,20 +41,9 @@ export function hasReached(
   );
 }
 
-export function isDueSoon(
-  application: Application,
-): application is Application & { next_step_at: string } {
-  const end = new Date();
-  end.setDate(end.getDate() + 7);
-  end.setHours(23, 59, 59, 999);
-  return (
-    application.stage !== "closed" &&
-    application.next_step_at !== null &&
-    new Date(application.next_step_at) <= end
-  );
-}
-
-export function lastEightWeeks(applications: Application[]): Week[] {
+export function lastEightWeeks(
+  applications: Application[],
+): { start: Date; sent: number }[] {
   const monday = new Date();
   monday.setHours(0, 0, 0, 0);
   monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
@@ -73,7 +52,10 @@ export function lastEightWeeks(applications: Application[]): Week[] {
     start.setDate(monday.getDate() - (7 - index) * 7);
     const end = new Date(start);
     end.setDate(start.getDate() + 7);
-    const [from, to] = [isoDay(start), isoDay(end)];
+    const [from, to] = [
+      localDateTime(start).slice(0, 10),
+      localDateTime(end).slice(0, 10),
+    ];
     return {
       start,
       sent: applications.filter(

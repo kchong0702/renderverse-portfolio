@@ -22,14 +22,24 @@ export function followUpDays({
   return days >= 7 ? days : null;
 }
 
+export function isStepDue(
+  application: Application,
+  days: number,
+): application is Application & { next_step_at: string } {
+  const end = new Date();
+  end.setDate(end.getDate() + days);
+  end.setHours(23, 59, 59, 999);
+  return (
+    application.stage !== "closed" &&
+    application.next_step_at !== null &&
+    new Date(application.next_step_at) <= end
+  );
+}
+
 export function isDue(application: Application): boolean {
-  const endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
   return (
     followUpDays(application) !== null ||
-    (application.stage !== "closed" &&
-      application.next_step_at !== null &&
-      new Date(application.next_step_at) <= endOfToday) ||
+    isStepDue(application, 0) ||
     (application.stage !== "closed" &&
       application.next_step_due !== null &&
       daysFromToday(application.next_step_due) <= daysLeftThisWeek())

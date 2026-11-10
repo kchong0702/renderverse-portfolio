@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
-import type { Application } from "@/features/applications";
+import { isStepDue, type Application } from "@/features/applications";
 import { cn } from "@/shared/lib/cn";
-import { daysAgo, hasReached, isDueSoon, sentSince } from "../lib/pipeline";
+import { daysAgo, hasReached, sentSince } from "../lib/pipeline";
 
 interface KpisProps {
   applications: Application[];
@@ -49,7 +49,7 @@ export default function Kpis({ applications, sent, days }: KpisProps) {
       label: t("dashboard.kpis.interviews"),
       value: interviews,
       note: t("dashboard.kpis.soon", {
-        count: sent.filter((a) => a.stage === "interview" && isDueSoon(a))
+        count: sent.filter((a) => a.stage === "interview" && isStepDue(a, 7))
           .length,
       }),
       ink: "text-amber",

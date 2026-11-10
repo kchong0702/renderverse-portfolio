@@ -2,12 +2,12 @@ import { Calendar } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import type { Application } from "@/features/applications";
+import { isStepDue, type Application } from "@/features/applications";
 import type { Job } from "@/features/jobs";
 import { buttonClass } from "@/shared/components/button";
 import { cn } from "@/shared/lib/cn";
 import { relativeDay } from "@/shared/lib/dates";
-import { daysAgo, isDueSoon } from "../lib/pipeline";
+import { daysAgo } from "../lib/pipeline";
 
 interface Row {
   key: string;
@@ -32,26 +32,28 @@ export default function NextSteps({ applications, picks }: NextStepsProps) {
   const weekAgo = daysAgo(7);
 
   const rows: Row[] = [
-    ...applications.filter(isDueSoon).map((a) => {
-      const at = new Date(a.next_step_at);
-      return {
-        key: a.id,
-        when:
-          at < today
-            ? relativeDay(a.next_step_at, i18n.language)
-            : new Intl.DateTimeFormat(i18n.language, {
-                weekday: "short",
-                hour: "2-digit",
-                minute: "2-digit",
-                hourCycle: "h23",
-              }).format(at),
-        whenInk: at < today ? "text-warn" : "text-amber",
-        title: [a.company, a.next_step].filter(Boolean).join(" · "),
-        detail: a.role,
-        action: t("dashboard.next.open"),
-        to: `/applications?edit=${a.id}`,
-      };
-    }),
+    ...applications
+      .filter((a) => isStepDue(a, 7))
+      .map((a) => {
+        const at = new Date(a.next_step_at);
+        return {
+          key: a.id,
+          when:
+            at < today
+              ? relativeDay(a.next_step_at, i18n.language)
+              : new Intl.DateTimeFormat(i18n.language, {
+                  weekday: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hourCycle: "h23",
+                }).format(at),
+          whenInk: at < today ? "text-warn" : "text-amber",
+          title: [a.company, a.next_step].filter(Boolean).join(" · "),
+          detail: a.role,
+          action: t("dashboard.next.open"),
+          to: `/applications?edit=${a.id}`,
+        };
+      }),
     ...applications
       .filter(
         (a): a is Application & { applied_on: string } =>
