@@ -13,6 +13,7 @@ from document_schema import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.artifact import ArtifactClient, Render
+from src.core.config import DocumentsSettings
 from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.features.documents.models import (
     Document,
@@ -57,11 +58,26 @@ def _summary(document: Document, pending_edits: int) -> DocumentSummary:
 
 
 class DocumentService:
-    def __init__(self, session: AsyncSession, artifact: ArtifactClient):
-        """Read and write documents through a repository on the session, and render
-        them with artifact-service"""
+    def __init__(
+        self,
+        session: AsyncSession,
+        artifact: ArtifactClient,
+        limits: DocumentsSettings,
+    ):
+        """Read and write documents through a repository on the session, render them
+        with artifact-service, and keep at most limits' documents of each kind"""
         self._repository = DocumentRepository(session)
         self._artifact = artifact
+        self._max_per_kind = limits.max_per_kind
+
+    async def _make_room(self, user_id: UUID, kind: DocumentKind) -> None:
+        """Conflict when the user already keeps the most documents of this kind"""
+        kept = sum(d.kind is kind for d in await self._repository.documents(user_id))
+        if kept >= self._max_per_kind:
+            raise Conflict(
+                f"You already keep {kept} {kind.value.replace('_', ' ')} documents."
+                " Delete one to add another."
+            )
 
     async def documents(self, user_id: UUID) -> list[DocumentSummary]:
         """Every résumé, CV and cover letter, with its count of edits to review"""
@@ -77,7 +93,9 @@ class DocumentService:
         return await self._read(await self._load(user_id, document_id))
 
     async def create(self, user_id: UUID, create: DocumentCreate) -> DocumentRead:
-        """Store a new document and keep its first draft as version 1"""
+        """Store a new document and keep its first draft as version 1; Conflict when
+        the user keeps the most of its kind already"""
+        await self._make_room(user_id, create.body.kind)
         document = await self._repository.add(
             Document(
                 user_id=user_id,

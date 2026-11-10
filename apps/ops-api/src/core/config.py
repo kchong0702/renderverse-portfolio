@@ -84,6 +84,13 @@ class ArtifactSettings(BaseModel):
     """How long a request may take; a render can take 30 seconds"""
 
 
+class DocumentsSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    max_per_kind: int = Field(default=10, gt=0)
+    """How many résumés, CVs or cover letters a user keeps at most, each"""
+
+
 class OAuthClientSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
@@ -280,6 +287,9 @@ class Settings(BaseSettings):
     artifact: ArtifactSettings = Field(default_factory=ArtifactSettings)
     """Where ops-api reaches artifact-service for templates and PDFs"""
 
+    documents: DocumentsSettings = Field(default_factory=DocumentsSettings)
+    """Limits on the documents a user keeps"""
+
     auth: AuthSettings = Field(default_factory=AuthSettings)
     """Sign-in and session settings"""
 
@@ -328,6 +338,7 @@ __all__ = [
     "ArtifactSettings",
     "AuthSettings",
     "DatabaseSettings",
+    "DocumentsSettings",
     "EzcareerSettings",
     "ObservabilitySettings",
     "Settings",
