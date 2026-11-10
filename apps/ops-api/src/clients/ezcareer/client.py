@@ -120,7 +120,7 @@ class EzcareerClient:
         answer_data_request: AnswerDataRequest | None,
     ) -> Run[R]:
         """POST an A2A SendMessage, with metadata on the request, answering any data
-        request the task pauses with through answer_data_request, and read how the task ended"""
+        request the task pauses with, and read how the task ended"""
         try:
             while True:
                 response = await self._http.post(
@@ -293,8 +293,7 @@ class EzcareerClient:
         answer_data_request: AnswerDataRequest | None,
     ) -> AsyncIterator[RunEvent[R]]:
         """POST an A2A SendStreamingMessage and turn its events into run events,
-        answering any data request through answer_data_request; a stream closed early cancels the
-        task"""
+        answering any data request; a stream closed early cancels the task"""
         task_id = ""
         ended = False
         reply_part = None

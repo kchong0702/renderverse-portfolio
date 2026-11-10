@@ -199,6 +199,10 @@ class EzcareerSettings(BaseModel):
     replay_ttl_seconds: float = Field(default=60, gt=0)
     """How long a finished run can still be resumed"""
 
+    run_poll_seconds: float = Field(default=5, gt=0)
+    """How often a reader checks a run it heard nothing about, in case a notification
+    was missed"""
+
     stores: Literal["memory", "postgres"] = "memory"
     """Where agent runs are kept: memory serves one ops-api process, postgres
     lets any process replay and follow them"""
