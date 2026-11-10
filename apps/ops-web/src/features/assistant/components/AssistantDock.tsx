@@ -108,6 +108,7 @@ function ChatWidget({
   const labelId = useId();
   const choosesDocument = widget.choose === "document";
   const asksInput = widget.input_placeholder !== null || choosesDocument;
+  const cancelLabel = widget.cancel_btn;
 
   return (
     <form
@@ -127,72 +128,74 @@ function ChatWidget({
           {widget.label}
         </p>
       )}
-      {live && widget.input_value !== null && (
-        <input
-          disabled
-          value={widget.input_value}
-          aria-labelledby={labelId}
-          className={fieldClass}
-        />
-      )}
-      {live && choosesDocument && (
-        <DocumentPills
-          kind={widget.kind}
-          disabled={answer.isPending}
-          onPick={(title) =>
-            answer.mutate({
-              chatId,
-              taskId,
-              answer: { input: title },
-              shown: title,
-            })
-          }
-        />
-      )}
-      {live && asksInput && (
-        <input
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          placeholder={
-            widget.input_placeholder ?? t("assistant.documents.typeTitle")
-          }
-          aria-labelledby={labelId}
-          disabled={answer.isPending}
-          className={fieldClass}
-        />
-      )}
       {live && (
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            disabled={answer.isPending || (asksInput && !input.trim())}
-            className={buttonClass("primary")}
-          >
-            {widget.submit_btn ?? t("assistant.send")}
-          </button>
-          {widget.cancel_btn !== null && (
-            <button
-              type="button"
+        <>
+          {widget.input_value !== null && (
+            <input
+              disabled
+              value={widget.input_value}
+              aria-labelledby={labelId}
+              className={fieldClass}
+            />
+          )}
+          {choosesDocument && (
+            <DocumentPills
+              kind={widget.kind}
               disabled={answer.isPending}
-              onClick={() =>
+              onPick={(title) =>
                 answer.mutate({
                   chatId,
                   taskId,
-                  answer: { accept: false },
-                  shown: widget.cancel_btn ?? "",
+                  answer: { input: title },
+                  shown: title,
                 })
               }
-              className={buttonClass()}
-            >
-              {widget.cancel_btn}
-            </button>
+            />
           )}
-        </div>
-      )}
-      {live && answer.error && (
-        <p role="alert" className="text-crit m-0 text-[13px]">
-          {t("assistant.answerFailed", { reason: answer.error.message })}
-        </p>
+          {asksInput && (
+            <input
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder={
+                widget.input_placeholder ?? t("assistant.documents.typeTitle")
+              }
+              aria-labelledby={labelId}
+              disabled={answer.isPending}
+              className={fieldClass}
+            />
+          )}
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={answer.isPending || (asksInput && !input.trim())}
+              className={buttonClass("primary")}
+            >
+              {widget.submit_btn ?? t("assistant.send")}
+            </button>
+            {cancelLabel !== null && (
+              <button
+                type="button"
+                disabled={answer.isPending}
+                onClick={() =>
+                  answer.mutate({
+                    chatId,
+                    taskId,
+                    answer: { accept: false },
+                    shown: cancelLabel,
+                  })
+                }
+                className={buttonClass()}
+              >
+                {cancelLabel}
+              </button>
+            )}
+          </div>
+          {answer.error && (
+            <p role="alert" className="text-crit m-0 text-[13px]">
+              {t("assistant.answerFailed", { reason: answer.error.message })}
+            </p>
+          )}
+        </>
       )}
     </form>
   );
