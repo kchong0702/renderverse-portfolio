@@ -111,5 +111,9 @@ export const useEditorStore = create<EditorState>()((set) => ({
   focusNext: (focus) => set({ focus }),
   setFormatting: (formatting) => set({ formatting }),
   setToolbar: (toolbar) => set({ toolbar }),
-  reset: () => set(initial),
+  reset: () =>
+    set((state) => ({
+      ...initial,
+      panel: state.panel === "entry" ? "design" : state.panel,
+    })),
 }));
