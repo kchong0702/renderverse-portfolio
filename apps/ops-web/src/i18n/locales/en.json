@@ -576,6 +576,30 @@
         "title": "Choose a look",
         "hint": "Once the draft is ready you pick one of these, and you can switch any time from the document's Design tab."
       }
+    },
+    "assistant": {
+      "conversation": "Conversation",
+      "from": "From {{source}}",
+      "undo": "Undo",
+      "undoFailed": "Not undone: {{reason}}",
+      "accepted": "Approve",
+      "rejected": "Reject",
+      "decideFailed": "Not done: {{reason}}",
+      "placeholder": "Ask for a change, or paste a job posting",
+      "prompts": [
+        "Shorten to one page",
+        "Write a cover letter",
+        "Match posting keywords"
+      ],
+      "changes": {
+        "update_field": "Clears a field",
+        "insert_item": "Adds a line",
+        "insert_block": "Adds a section",
+        "move": "Moves a line",
+        "delete": "Removes a line",
+        "update_visibility": "Shows or hides a section",
+        "update_design": "Changes the design"
+      }
     }
   },
   "settings": {

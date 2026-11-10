@@ -9,6 +9,7 @@ export interface Page {
   template: TemplateSpec;
   arrangement: Arrangement;
   source: string;
+  pending: string[];
   edit: (edits: Edit[]) => void;
 }
 

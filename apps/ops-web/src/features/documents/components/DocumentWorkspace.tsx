@@ -11,11 +11,13 @@ import {
   useDeleteDocument,
   useDesignDocument,
   useDocument,
-  useEditDocument,
   useExportPdf,
+  usePendingChangeset,
+  useSave,
   useSaves,
   useSetMaster,
 } from "../hooks/useDocuments";
+import { pathOf } from "../lib/changes";
 import { entryAt } from "../lib/items";
 import { editDocumentMutationOptions } from "../queries/documents";
 import { useEditorStore, type Panel } from "../state/editorStore";
@@ -42,7 +44,8 @@ export default function DocumentWorkspace({ id }: { id: string }) {
   const { t, i18n } = useTranslation();
   const { data: me } = useMe();
   const document = useDocument(id);
-  const edit = useEditDocument();
+  const save = useSave(id);
+  const changeset = usePendingChangeset(id);
   const designEdit = useDesignDocument();
   const setMaster = useSetMaster();
   const exportPdf = useExportPdf();
@@ -71,9 +74,13 @@ export default function DocumentWorkspace({ id }: { id: string }) {
     );
 
   const record = document.data;
+  const shown = { ...record, body: record.pending_body ?? record.body };
+  const pending = (changeset?.changeset.edits ?? []).flatMap(
+    (edit) => pathOf(edit) ?? [],
+  );
   const source = `user:${me?.id ?? "owner"}`;
-  const entry = details && entryAt(record.body.content.blocks, details)?.item;
-  const shown: Panel = panel === "entry" && !entry ? "design" : panel;
+  const entry = details && entryAt(shown.body.content.blocks, details)?.item;
+  const tab: Panel = panel === "entry" && !entry ? "design" : panel;
   const failure = [saves.at(-1), designEdit, setMaster].find(
     (result) => result?.status === "error",
   )?.error;
@@ -201,8 +208,10 @@ export default function DocumentWorkspace({ id }: { id: string }) {
           </span>
         </div>
         <DocumentPage
-          record={record}
+          record={shown}
           source={source}
+          pending={pending}
+          onEdit={save}
           pages={pages}
           onPages={setPages}
         />
@@ -223,7 +232,7 @@ export default function DocumentWorkspace({ id }: { id: string }) {
         className="bg-panel border-hair shadow-card flex min-w-0 flex-[2_1_340px] flex-col rounded-xl border"
       >
         <RadixTabs.Root
-          value={shown}
+          value={tab}
           onValueChange={(next) => showPanel(next as Panel)}
           className="flex flex-col"
         >
@@ -244,14 +253,14 @@ export default function DocumentWorkspace({ id }: { id: string }) {
             aria-label={t("documents.panels.design")}
           >
             <DesignPanel
-              document={record}
+              document={shown}
               onDesign={(design) =>
                 designEdit.mutate({
                   id,
                   edits: [{ kind: "update_design", design }],
                 })
               }
-              onEdit={(edits) => edit.mutate({ id, edits })}
+              onEdit={save}
             />
           </RadixTabs.Content>
           {entry && details && (
@@ -260,10 +269,10 @@ export default function DocumentWorkspace({ id }: { id: string }) {
               aria-label={t("documents.panels.entryDetails")}
             >
               <EntryPanel
-                document={record}
+                document={shown}
                 path={details}
                 source={source}
-                onEdit={(edits) => edit.mutate({ id, edits })}
+                onEdit={save}
               />
             </RadixTabs.Content>
           )}
@@ -271,7 +280,7 @@ export default function DocumentWorkspace({ id }: { id: string }) {
             value="assistant"
             aria-label={t("documents.panels.assistant")}
           >
-            <AssistantPanel />
+            <AssistantPanel document={record} />
           </RadixTabs.Content>
         </RadixTabs.Root>
       </section>

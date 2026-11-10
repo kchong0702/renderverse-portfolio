@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
+import { isPending } from "../../lib/changes";
 import { useEditorStore } from "../../state/editorStore";
+import { REWORDED } from "./chrome";
 import { usePage } from "./PageContext";
 
 const textOf = (element: HTMLElement) =>
@@ -44,6 +46,9 @@ export default function PlainField({
       spellCheck={false}
       data-path={path}
       className="cursor-text"
+      style={{
+        background: isPending(page.pending, path) ? REWORDED : undefined,
+      }}
       onClick={(event) => event.preventDefault()}
       onKeyDown={(event) => {
         if (item && event.key === "Backspace" && !textOf(event.currentTarget)) {
