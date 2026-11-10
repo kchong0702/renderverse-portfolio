@@ -568,7 +568,26 @@
         "picked": "{{name}} on {{size}}",
         "note": "{{description}} Your facts and wording stay the same.",
         "page": "Page 1 of your résumé in the {{name}} theme",
-        "use": "Use {{name}}"
+        "use": "Use {{name}}",
+        "suggested": "Suggested",
+        "because": "Suggested because your {{file}} is {{columns}}.",
+        "becauseWith": "Suggested because your {{file}} is {{columns}} with {{traits}}.",
+        "files": {
+          "pdf": "PDF",
+          "word": "Word file"
+        },
+        "columns": {
+          "1": "one column",
+          "2": "two columns"
+        },
+        "traits": {
+          "accent_band": "a coloured band",
+          "photo": "a photo",
+          "tinted_headings": "tinted headings",
+          "ruled_headings": "ruled headings",
+          "serif_font": "a serif font",
+          "coloured_name": "a coloured name"
+        }
       },
       "facts": {
         "checked_one": "{{count}} fact checked: {{kinds}}",
