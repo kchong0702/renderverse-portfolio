@@ -140,6 +140,18 @@ async def test_a_revoked_grant_asks_to_reconnect(client, google):
     }
 
 
+async def test_a_google_error_hides_its_body(client, google):
+    await connect_google(client)
+    google.failing = True
+
+    response = await client.get(f"{PREFIX}/inbox")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Google answered with an error; try again later"
+    }
+
+
 async def test_google_unreachable_is_a_clear_error(client, google):
     await connect_google(client)
     google.down = True
