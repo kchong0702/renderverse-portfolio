@@ -89,10 +89,10 @@ class SettingsService:
     async def _connections(self, settings: UserSettings) -> list[Connection]:
         """Google from its stored account, JSearch from the stored key and its last
         quota; the portfolio site waits for its integration"""
-        account = await self._google.account(settings.user_id)
+        email = await self._google.email(settings.user_id)
         google = (
-            Connection(id="google", status="connected", account=account)
-            if account is not None
+            Connection(id="google", status="connected", account=email)
+            if email is not None
             else Connection(
                 id="google",
                 status="not_connected" if self._google.configured else "not_configured",
