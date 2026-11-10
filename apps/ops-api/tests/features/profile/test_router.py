@@ -235,3 +235,18 @@ async def test_a_first_read_that_overlaps_another_gets_the_profile(postgres_app)
 
     assert response.status_code == 200
     assert response.json()["name"] == "Kelvin Chong"
+
+
+async def test_entries_stay_off_the_site_until_turned_on(client):
+    created = await client.post(
+        f"{PROFILE}/entries", json={"kind": "project", "title": "Renderverse"}
+    )
+    assert created.json()["on_site"] is False
+
+    replaced = await client.put(
+        f"{PROFILE}/entries/{created.json()['id']}",
+        json={"title": "Renderverse", "on_site": True},
+    )
+
+    assert replaced.json()["on_site"] is True
+    assert (await client.get(f"{PROFILE}/entries")).json()[0]["on_site"] is True
