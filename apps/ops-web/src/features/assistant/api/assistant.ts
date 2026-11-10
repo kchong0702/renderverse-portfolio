@@ -8,6 +8,7 @@ export interface DocumentSummary {
   kind: DocumentKind;
   title: string;
   master: boolean;
+  updated_at: string;
 }
 
 export interface Widget {

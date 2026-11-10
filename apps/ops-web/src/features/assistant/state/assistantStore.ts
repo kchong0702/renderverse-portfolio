@@ -126,7 +126,6 @@ interface AssistantState {
   apply: (chat: Chat, event: RunEvent, id?: string) => void;
   reconnect: (chat: Chat, attempt: number) => void;
   restore: (chat: Chat, entries: ChatEntry[]) => void;
-  newChat: (chat: Chat) => void;
   reset: () => void;
 }
 
@@ -186,15 +185,6 @@ export const useAssistantStore = create<AssistantState>()(
         set(({ chats }) => ({
           chats: withEntries(chats, chat, () => entries),
         })),
-      newChat: (chat) =>
-        set(({ chats }) =>
-          chat.kind === "assistant"
-            ? {
-                chatId: crypto.randomUUID(),
-                chats: { ...chats, assistant: {} },
-              }
-            : { chats: withEntries(chats, chat, () => []) },
-        ),
       reset: () =>
         set({
           open: false,
