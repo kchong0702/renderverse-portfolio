@@ -226,25 +226,23 @@ class InboxService:
         for message, result in zip(changed, results, strict=True):
             if result is None:
                 continue
-            row = threads.get(message.thread_id) or EmailThread(
-                user_id=user_id, thread_id=message.thread_id
-            )
             interview = result.interview
             start = interview.start.astimezone(UTC) if interview else None
-            row.last_message_id = message.id
-            row.state = result.state
-            row.application_id = next(
-                (a.id for a in applications if a.id == result.application_id), None
-            )
-            row.decide_by = result.decide_by
-            row.interview_start = start
-            row.interview_end = (
-                interview.end.astimezone(UTC)
+            threads[message.thread_id] = await self._repository.save(
+                user_id,
+                message.thread_id,
+                last_message_id=message.id,
+                state=result.state,
+                application_id=next(
+                    (a.id for a in applications if a.id == result.application_id), None
+                ),
+                decide_by=result.decide_by,
+                interview_start=start,
+                interview_end=interview.end.astimezone(UTC)
                 if interview and start and interview.end and interview.end > start
-                else None
+                else None,
+                interview_location=interview.location if interview else None,
             )
-            row.interview_location = interview.location if interview else None
-            threads[message.thread_id] = await self._repository.add(row)
         await self._session.commit()
 
     async def _add_interviews(
