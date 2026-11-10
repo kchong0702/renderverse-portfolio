@@ -6,6 +6,7 @@ from email.utils import parseaddr
 from uuid import UUID
 
 from src.clients.google import GmailMessage, GoogleClient
+from src.core.config import GoogleSettings
 from src.features.google import GoogleService
 from src.features.inbox.schemas import InboxMessage, InboxMessageDetail
 
@@ -34,16 +35,20 @@ def _html_text(markup: str) -> str:
 
 
 class InboxService:
-    def __init__(self, google: GoogleService, client: GoogleClient, query: str):
+    def __init__(
+        self, google: GoogleService, client: GoogleClient, settings: GoogleSettings
+    ):
         """Read Gmail with the user's token, keeping to the job-search query"""
         self._google = google
         self._client = client
-        self._query = query
+        self._settings = settings
 
     async def messages(self, user_id: UUID) -> list[InboxMessage]:
-        """The 25 newest emails that match the job-search query"""
+        """The newest emails that match the job-search query"""
         token = await self._google.access_token(user_id)
-        found = await self._client.messages(token, self._query, 25)
+        found = await self._client.messages(
+            token, self._settings.inbox_query, self._settings.inbox_limit
+        )
         return [_summary(message) for message in found]
 
     async def message(self, user_id: UUID, message_id: str) -> InboxMessageDetail:

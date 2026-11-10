@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta
+
+from src.core.config import get_settings
 from tests.conftest import PREFIX, connect_google
 
 WEEK = {"from": "2026-11-03T00:00:00+08:00", "to": "2026-11-10T00:00:00+08:00"}
@@ -50,6 +53,7 @@ async def test_calendar_lists_the_events_in_the_range(client, google):
     assert params["timeMin"] == ["2026-11-03T00:00:00+08:00"]
     assert params["timeMax"] == ["2026-11-10T00:00:00+08:00"]
     assert params["singleEvents"] == ["true"]
+    assert params["maxResults"] == [str(get_settings().google.calendar_max_events)]
 
 
 async def test_the_range_needs_time_zones_and_an_order(client):
@@ -62,9 +66,20 @@ async def test_the_range_needs_time_zones_and_an_order(client):
     backwards = await client.get(
         f"{PREFIX}/calendar", params={"from": WEEK["to"], "to": WEEK["from"]}
     )
+    too_long = await client.get(
+        f"{PREFIX}/calendar",
+        params={
+            "from": WEEK["from"],
+            "to": (
+                datetime.fromisoformat(WEEK["from"])
+                + timedelta(days=get_settings().google.calendar_max_days + 1)
+            ).isoformat(),
+        },
+    )
 
     assert naive.status_code == 422
     assert backwards.status_code == 422
+    assert too_long.status_code == 422
 
 
 async def test_an_expired_grant_asks_to_reconnect(client, google):

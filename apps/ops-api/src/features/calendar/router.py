@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import AwareDatetime
 
 from src.core.auth import CurrentUserDep
+from src.core.config import get_settings
 from src.features.calendar.schemas import CalendarEvent
 from src.features.calendar.service import CalendarService
 from src.features.google import GoogleServiceDep
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/calendar", tags=["calendar"])
 
 def get_calendar_service(google: GoogleServiceDep, request: Request) -> CalendarService:
     """The calendar service, reading Google Calendar"""
-    return CalendarService(google, request.app.state.google)
+    return CalendarService(google, request.app.state.google, get_settings().google)
 
 
 CalendarServiceDep = Annotated[CalendarService, Depends(get_calendar_service)]

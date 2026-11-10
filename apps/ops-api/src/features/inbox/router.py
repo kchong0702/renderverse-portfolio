@@ -13,9 +13,7 @@ router = APIRouter(prefix="/inbox", tags=["inbox"])
 
 def get_inbox_service(google: GoogleServiceDep, request: Request) -> InboxService:
     """The inbox service, reading Gmail with the configured job-search query"""
-    return InboxService(
-        google, request.app.state.google, get_settings().google.inbox_query
-    )
+    return InboxService(google, request.app.state.google, get_settings().google)
 
 
 InboxServiceDep = Annotated[InboxService, Depends(get_inbox_service)]
