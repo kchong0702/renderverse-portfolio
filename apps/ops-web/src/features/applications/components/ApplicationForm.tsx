@@ -4,14 +4,9 @@ import type { Job } from "@/features/jobs";
 import { buttonClass } from "@/shared/components/button";
 import { SelectField, TextField } from "@/shared/components/fields";
 import { cn } from "@/shared/lib/cn";
+import { localDateTime } from "@/shared/lib/dates";
 import type { ApplicationCreate } from "../api/applications";
 import { STAGES } from "../lib/stages";
-
-function localDateTime(at: Date): string {
-  return new Date(at.getTime() - at.getTimezoneOffset() * 60_000)
-    .toISOString()
-    .slice(0, 16);
-}
 
 interface ApplicationFormProps {
   application: ApplicationCreate;
