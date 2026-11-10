@@ -25,20 +25,44 @@ class FakeAnthropic:
         self.requests: list[httpx2.Request] = []
 
     async def handle_async_request(self, request: httpx2.Request) -> httpx2.Response:
-        """Records the request and replies as Claude would"""
+        """Records the request and streams one text reply as Claude would"""
         self.requests.append(request)
+        message = {
+            "id": "msg-1",
+            "type": "message",
+            "role": "assistant",
+            "model": json.loads(request.content)["model"],
+            "content": [],
+            "stop_reason": None,
+            "stop_sequence": None,
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+        }
+        events = [
+            {"type": "message_start", "message": message},
+            {
+                "type": "content_block_start",
+                "index": 0,
+                "content_block": {"type": "text", "text": ""},
+            },
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "delta": {"type": "text_delta", "text": "Hello from Claude"},
+            },
+            {"type": "content_block_stop", "index": 0},
+            {
+                "type": "message_delta",
+                "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+                "usage": {"output_tokens": 1},
+            },
+            {"type": "message_stop"},
+        ]
         return httpx2.Response(
             200,
-            json={
-                "id": "msg-1",
-                "type": "message",
-                "role": "assistant",
-                "model": json.loads(request.content)["model"],
-                "content": [{"type": "text", "text": "Hello from Claude"}],
-                "stop_reason": "end_turn",
-                "stop_sequence": None,
-                "usage": {"input_tokens": 1, "output_tokens": 1},
-            },
+            headers={"content-type": "text/event-stream"},
+            content="".join(
+                f"event: {e['type']}\ndata: {json.dumps(e)}\n\n" for e in events
+            ),
         )
 
 
@@ -104,10 +128,16 @@ def test_a_run_calls_the_model_the_metadata_names_on_the_servers_key(
     task = _task(_say(_client(configured), METADATA))
 
     assert task["status"]["state"] == "TASK_STATE_COMPLETED"
-    assert task["artifacts"][0]["parts"][0]["text"] == "Hello from Claude"
+    [reply] = [a for a in task["artifacts"] if a["name"] == "greeter"]
+    assert reply["parts"][0]["text"] == "Hello from Claude"
     [request] = anthropic.requests
     assert request.headers["authorization"] == f"Bearer {SERVER_KEY}"
     assert json.loads(request.content)["model"] == "claude-sonnet-5-5"
+    assert json.loads(request.content)["thinking"] == {
+        "type": "adaptive",
+        "display": "summarized",
+    }
+    assert json.loads(request.content)["output_config"] == {"effort": "low"}
     assert configured.requests == []
 
 
@@ -116,7 +146,8 @@ def test_without_metadata_a_run_keeps_its_configured_model(anthropic: FakeAnthro
 
     task = _task(_say(_client(configured), None))
 
-    assert task["artifacts"][0]["parts"][0]["text"] == "Hello from glm"
+    [reply] = [a for a in task["artifacts"] if a["name"] == "greeter"]
+    assert reply["parts"][0]["text"] == "Hello from glm"
     assert anthropic.requests == []
 
 

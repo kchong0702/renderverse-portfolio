@@ -9,11 +9,11 @@ from a2a.helpers import (
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.server.tasks import TaskUpdater
-from a2a.types import Message
-from langchain_core.messages import HumanMessage
+from a2a.types import Message, TaskState
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.errors import GraphRecursionError
 from langgraph.graph.state import CompiledStateGraph
-from langgraph.types import Command
+from langgraph.types import Command, TaskPayload, TaskResultPayload
 from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError
 from pydantic_core import to_jsonable_python
 
@@ -47,6 +47,64 @@ class RunMetadata(BaseModel):
 
     model: ModelChoice
     """The model the user picked for the run"""
+
+
+class Step(BaseModel):
+    model_config = ConfigDict(frozen=True, use_attribute_docstrings=True)
+
+    id: str
+    """The tool call or graph task the step is"""
+
+    parent: str | None
+    """The tool call whose workflow runs this step, if any"""
+
+    name: str
+    """The tool or graph node, such as analyse_job or fetch"""
+
+    status: Literal["running", "done", "failed", "waiting"]
+    """Where the step is"""
+
+
+def _steps(
+    kind: Literal["workflow", "agent"],
+    namespace: tuple[str, ...],
+    task: TaskPayload | TaskResultPayload,
+    calls: dict[str, list[tuple[str, str]]],
+) -> list[Step]:
+    """The steps a graph task starts or ends: an agent's tool calls and the nodes of
+    the workflows they run, or a workflow's own nodes"""
+    if "." in task["name"]:
+        return []
+    status: Literal["running", "done", "failed", "waiting"]
+    if "input" in task:
+        status = "running"
+    elif task["error"] or any(
+        isinstance(m, ToolMessage) and m.status == "error"
+        for m in task["result"].get("messages", [])
+    ):
+        status = "failed"
+    else:
+        status = "waiting" if task["interrupts"] else "done"
+    if kind == "workflow":
+        return (
+            []
+            if namespace
+            else [Step(id=task["id"], parent=None, name=task["name"], status=status)]
+        )
+    if not namespace and task["name"] == "tools":
+        if "input" in task:
+            calls[task["id"]] = [(call["id"], call["name"]) for call in task["input"]]
+        return [
+            Step(id=call_id, parent=None, name=name, status=status)
+            for call_id, name in calls.get(task["id"], [])
+        ]
+    if len(namespace) == 1 and (
+        parent := calls.get(namespace[0].removeprefix("tools:"))
+    ):
+        return [
+            Step(id=task["id"], parent=parent[0][0], name=task["name"], status=status)
+        ]
+    return []
 
 
 class Executable(BaseModel):
@@ -116,8 +174,11 @@ class LanggraphExecutor(AgentExecutor):
                 )
             )
             return
+        result = {}
+        opened: set[str] = set()
+        calls: dict[str, list[tuple[str, str]]] = {}
         try:
-            result = await self.executable.graph.ainvoke(
+            async for namespace, mode, data in self.executable.graph.astream(
                 graph_input,
                 {
                     "configurable": {
@@ -131,7 +192,44 @@ class LanggraphExecutor(AgentExecutor):
                 )
                 if metadata
                 else None,
-            )
+                stream_mode=["values", "messages", "tasks"],
+                output_keys=self.executable.graph.output_channels,
+                subgraphs=True,
+            ):
+                if mode == "values" and not namespace:
+                    result = data
+                elif mode == "messages" and not namespace:
+                    chunk, meta = data
+                    if not (
+                        isinstance(chunk, AIMessage)
+                        and meta["langgraph_node"] == "model"
+                    ):
+                        continue
+                    for block in chunk.content_blocks:
+                        if block["type"] == "reasoning":
+                            name, text = "thinking", block.get("reasoning")
+                        elif block["type"] == "text":
+                            name, text = "text", block["text"]
+                        else:
+                            continue
+                        if not text:
+                            continue
+                        artifact_id = f"{name}-{meta['langgraph_checkpoint_ns']}"
+                        await updater.add_artifact(
+                            [new_text_part(text)],
+                            artifact_id=artifact_id,
+                            name=name,
+                            append=artifact_id in opened,
+                        )
+                        opened.add(artifact_id)
+                elif mode == "tasks":
+                    for step in _steps(self.executable.kind, namespace, data, calls):
+                        await updater.update_status(
+                            TaskState.TASK_STATE_WORKING,
+                            updater.new_agent_message(
+                                [new_data_part({"step": step.model_dump()})]
+                            ),
+                        )
         except GraphRecursionError:
             await updater.failed(_reason(updater, "Ran out of steps before finishing"))
             return

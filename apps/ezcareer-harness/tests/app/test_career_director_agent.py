@@ -39,6 +39,29 @@ def _send(
     return response.json()["result"]["task"]
 
 
+def _stream(
+    client: TestClient, parts: list[dict[str, JsonValue]]
+) -> list[dict[str, JsonValue]]:
+    """Every event SendStreamingMessage sends for one message"""
+    message = {"messageId": f"m-{id(parts)}", "role": "ROLE_USER", "parts": parts}
+    with client.stream(
+        "POST",
+        "/ezcareer/a2a/career-director",
+        headers={"A2A-Version": "1.0"},
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "SendStreamingMessage",
+            "params": {"message": message},
+        },
+    ) as response:
+        return [
+            json.loads(line.removeprefix("data: "))["result"]
+            for line in response.iter_lines()
+            if line.startswith("data: ")
+        ]
+
+
 def _container(
     finder: ScriptedChatModel,
     consultant: ScriptedChatModel,
@@ -98,7 +121,8 @@ def test_career_director_analyses_the_posting_at_a_url_through_analyse_job():
     )
 
     assert task["status"]["state"] == "TASK_STATE_COMPLETED"
-    assert task["artifacts"][0]["parts"][0]["text"] == "It fits 67%."
+    [reply] = [a for a in task["artifacts"] if a["name"] == "career-director"]
+    assert reply["parts"][0]["text"] == "It fits 67%."
     [report] = [m for m in director.requests[1] if isinstance(m, ToolMessage)]
     assert '"fit":67' in report.text
 
@@ -156,7 +180,8 @@ def test_a_workflows_question_reaches_the_user_and_their_answer_finishes_the_tur
         "submit_btn": "Send",
     }
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
-    assert done["artifacts"][0]["parts"][0]["text"] == "I proposed one edit."
+    [reply] = [a for a in done["artifacts"] if a["name"] == "career-director"]
+    assert reply["parts"][0]["text"] == "I proposed one edit."
     [answer] = [m.text for m in consultant.requests[-1] if isinstance(m, ToolMessage)]
     assert answer == "The queue one"
     [report] = [m for m in director.requests[-1] if isinstance(m, ToolMessage)]
@@ -164,3 +189,64 @@ def test_a_workflows_question_reaches_the_user_and_their_answer_finishes_the_tur
         career_consultant.GOOD_EDIT.model_dump(mode="json")
     ]
     assert len(director.requests) == 2
+
+
+@respx.mock
+def test_career_director_streams_its_thinking_steps_and_reply():
+    respx.get(analyse_job.URL).respond(200, html=analyse_job.POSTING)
+    director = _model(
+        _call("analyse_job", url=analyse_job.URL),
+        AIMessage(
+            [
+                {"type": "reasoning", "reasoning": "The posting asks for Python."},
+                {"type": "text", "text": "It fits 67%."},
+            ]
+        ),
+    )
+    container = _container(
+        ScriptedChatModel(
+            replies=[analyse_job._answer("5+ years of Python in production")]
+        ),
+        _model(),
+        director,
+    )
+
+    events = _stream(
+        TestClient(create_app(container)),
+        [
+            {"text": f"How well do I fit {analyse_job.URL}?"},
+            {"data": {"facts": analyse_job.INPUT["facts"], "preferences": {}}},
+        ],
+    )
+
+    steps = [
+        e["statusUpdate"]["status"]["message"]["parts"][0]["data"]["step"]
+        for e in events
+        if "message" in e.get("statusUpdate", {}).get("status", {})
+    ]
+    call = steps[0]["id"]
+    assert [(s["name"], s["status"], s["parent"]) for s in steps] == [
+        ("analyse_job", "running", None),
+        ("fetch", "running", call),
+        ("fetch", "done", call),
+        ("agent", "running", call),
+        ("agent", "done", call),
+        ("check", "running", call),
+        ("check", "done", call),
+        ("output", "running", call),
+        ("output", "done", call),
+        ("analyse_job", "done", None),
+    ]
+    assert [
+        (
+            e["artifactUpdate"]["artifact"]["name"],
+            e["artifactUpdate"]["artifact"]["parts"][0]["text"],
+        )
+        for e in events
+        if "artifactUpdate" in e
+    ] == [
+        ("thinking", "The posting asks for Python."),
+        ("text", "It fits 67%."),
+        ("career-director", "It fits 67%."),
+    ]
+    assert events[-1]["statusUpdate"]["status"]["state"] == "TASK_STATE_COMPLETED"

@@ -224,7 +224,8 @@ def test_an_agent_takes_the_users_text_and_replies_in_text():
     task = _say(_agent_client(create_agent(model)), "Hi, I'm Ada")
 
     assert task["status"]["state"] == "TASK_STATE_COMPLETED"
-    assert task["artifacts"][0]["parts"][0]["text"] == "Hello, Ada!"
+    [reply] = [a for a in task["artifacts"] if a["name"] == "greeter"]
+    assert reply["parts"][0]["text"] == "Hello, Ada!"
     assert model.requests[0][-1].text == "Hi, I'm Ada"
 
 
@@ -294,5 +295,6 @@ def test_a_served_agent_asks_the_user_and_resumes_on_the_same_task():
     resumed = _say(client, "Dr", task=asked)
 
     assert resumed["status"]["state"] == "TASK_STATE_COMPLETED"
-    assert resumed["artifacts"][0]["parts"][0]["text"] == "Hello, Dr Ada!"
+    [reply] = [a for a in resumed["artifacts"] if a["name"] == "greeter"]
+    assert reply["parts"][0]["text"] == "Hello, Dr Ada!"
     assert model.requests[-1][-1].text == "Dr"
