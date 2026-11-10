@@ -11,10 +11,67 @@ import Switch from "./Switch";
 const columns =
   "grid grid-cols-[minmax(0,1fr)_64px_40px] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_40px] sm:gap-4";
 
+interface SkillRowProps {
+  skill: Skill;
+  deleteError: string | null;
+  onDelete: () => void;
+}
+
+function SkillRow({ skill, deleteError, onDelete }: SkillRowProps) {
+  const { t } = useTranslation();
+  const toggle = useSaveSkill();
+
+  return (
+    <div
+      role="row"
+      className={`${columns} border-hair-soft border-b px-5 py-3 ${skill.archived ? "opacity-70" : ""}`}
+    >
+      <span role="cell" className="flex min-w-0 flex-col">
+        <span className="flex flex-wrap items-center gap-2.5 font-semibold">
+          {skill.name}
+          {skill.archived && <Badge>{t("portfolio.table.archived")}</Badge>}
+        </span>
+        <span className="text-ink-3 text-[13px] sm:hidden">{skill.group}</span>
+        {toggle.isError && (
+          <span role="alert" className="text-crit text-sm">
+            {t("portfolio.table.toggleFailed", {
+              reason: toggle.error.message,
+            })}
+          </span>
+        )}
+        {deleteError && (
+          <span role="alert" className="text-crit text-sm">
+            {t("portfolio.table.deleteFailed", { reason: deleteError })}
+          </span>
+        )}
+      </span>
+      <span role="cell" className="text-ink-2 hidden text-sm sm:block">
+        {skill.group}
+      </span>
+      <span role="cell" className="flex justify-center">
+        <Switch
+          label={t("portfolio.table.useInAgent", { name: skill.name })}
+          checked={!skill.archived}
+          onChange={(on) => toggle.mutate({ ...skill, archived: !on })}
+        />
+      </span>
+      <span role="cell" className="flex justify-end">
+        <button
+          type="button"
+          aria-label={t("portfolio.table.delete", { name: skill.name })}
+          onClick={onDelete}
+          className="text-ink-3 hover:text-crit inline-flex size-10 cursor-pointer items-center justify-center rounded-lg"
+        >
+          <Trash2 size={18} />
+        </button>
+      </span>
+    </div>
+  );
+}
+
 export default function SkillsTab({ skills }: { skills: Skill[] }) {
   const { t } = useTranslation();
   const add = useAddSkill();
-  const save = useSaveSkill();
   const remove = useDeleteSkill();
   const [name, setName] = useState("");
   const [group, setGroup] = useState("");
@@ -63,43 +120,16 @@ export default function SkillsTab({ skills }: { skills: Skill[] }) {
           </p>
         )}
         {skills.map((skill) => (
-          <div
+          <SkillRow
             key={skill.id}
-            role="row"
-            className={`${columns} border-hair-soft border-b px-5 py-3 ${skill.archived ? "opacity-70" : ""}`}
-          >
-            <span role="cell" className="flex min-w-0 flex-col">
-              <span className="flex flex-wrap items-center gap-2.5 font-semibold">
-                {skill.name}
-                {skill.archived && (
-                  <Badge>{t("portfolio.table.archived")}</Badge>
-                )}
-              </span>
-              <span className="text-ink-3 text-[13px] sm:hidden">
-                {skill.group}
-              </span>
-            </span>
-            <span role="cell" className="text-ink-2 hidden text-sm sm:block">
-              {skill.group}
-            </span>
-            <span role="cell" className="flex justify-center">
-              <Switch
-                label={t("portfolio.table.useInAgent", { name: skill.name })}
-                checked={!skill.archived}
-                onChange={(on) => save.mutate({ ...skill, archived: !on })}
-              />
-            </span>
-            <span role="cell" className="flex justify-end">
-              <button
-                type="button"
-                aria-label={t("portfolio.table.delete", { name: skill.name })}
-                onClick={() => remove.mutate(skill.id)}
-                className="text-ink-3 hover:text-crit inline-flex size-10 cursor-pointer items-center justify-center rounded-lg"
-              >
-                <Trash2 size={18} />
-              </button>
-            </span>
-          </div>
+            skill={skill}
+            deleteError={
+              remove.isError && remove.variables === skill.id
+                ? remove.error.message
+                : null
+            }
+            onDelete={() => remove.mutate(skill.id)}
+          />
         ))}
         <form
           onSubmit={submit}

@@ -1114,7 +1114,9 @@
       "edit": "Edit {{name}}",
       "delete": "Delete {{name}}",
       "useInAgent": "Use {{name}} in agent context",
-      "confirmDelete": "Delete {{name}}? This cannot be undone."
+      "confirmDelete": "Delete {{name}}? This cannot be undone.",
+      "toggleFailed": "Agent context not changed: {{reason}}",
+      "deleteFailed": "Not deleted: {{reason}}"
     },
     "form": {
       "location": "Location",
