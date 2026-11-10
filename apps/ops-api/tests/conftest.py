@@ -10,7 +10,7 @@ import pytest
 from dependency_injector import providers
 from fastapi import FastAPI
 from pydantic import JsonValue
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 
@@ -349,6 +349,7 @@ async def _app(
     artifact: FakeArtifact,
     google: FakeGoogle,
     oauth_providers: dict | None = None,
+    engine: AsyncEngine | None = None,
 ) -> AsyncIterator[FastAPI]:
     from src.app.app import create_app
     from src.app.container import Container
@@ -362,7 +363,9 @@ async def _app(
 
     settings = reload_settings()
     directory = TemporaryDirectory()
-    engine = create_async_engine(f"sqlite+aiosqlite:///{directory.name}/ops.db")
+    engine = engine or create_async_engine(
+        f"sqlite+aiosqlite:///{directory.name}/ops.db"
+    )
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
 

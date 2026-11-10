@@ -1,8 +1,29 @@
+import asyncio
 from base64 import urlsafe_b64encode
+from collections.abc import AsyncIterator
 from uuid import uuid4
 
+import httpx2
+import pytest
+from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import create_async_engine
+
 from src.clients.google.client import MISSING_SCOPE
-from tests.conftest import PREFIX, a2a_sent, a2a_task, connect_google
+from src.core.auth.models import User
+from src.core.config import get_settings
+from src.db.session import create_session_factory
+from tests.conftest import (
+    PREFIX,
+    FakeArtifact,
+    FakeGoogle,
+    FakeHarness,
+    _app,
+    _client,
+    a2a_sent,
+    a2a_task,
+    connect_google,
+)
+from tests.core.conftest import DATABASE_URL
 
 INBOX = f"{PREFIX}/inbox"
 
@@ -236,3 +257,56 @@ async def test_an_interview_waits_for_a_grant_that_adds_events(client, google, h
     assert added.status_code == 200
     assert len(harness.received) == 1
     assert [event["summary"] for event in google.created] == ["Final round"]
+
+
+class _OverlappingHarness(FakeHarness):
+    def __init__(self):
+        """Hold each triage until a second one starts, so two syncs overlap"""
+        super().__init__()
+        self.triaging = asyncio.Barrier(2)
+
+    async def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        """Answer as FakeHarness once two triages are running"""
+        if request.url.path.endswith("/triage-email"):
+            await asyncio.wait_for(self.triaging.wait(), 5)
+        return super().__call__(request)
+
+
+@pytest.fixture
+def overlapping() -> _OverlappingHarness:
+    return _OverlappingHarness()
+
+
+@pytest.fixture
+async def postgres_client(
+    overlapping: _OverlappingHarness, artifact: FakeArtifact, google: FakeGoogle
+) -> AsyncIterator[httpx2.AsyncClient]:
+    """The app on the test Postgres database, its dev user deleted after the test"""
+    engine = create_async_engine(DATABASE_URL)
+    async for app in _app(overlapping, artifact, google, engine=engine):
+        async with _client(app) as http:
+            yield http
+        async with create_session_factory(engine)() as session, session.begin():
+            await session.execute(
+                delete(User).where(User.email == get_settings().auth.dev_email)
+            )
+
+
+@pytest.mark.postgres
+@pytest.mark.skipif(not DATABASE_URL, reason="OPS_API_TEST_DATABASE_URL is not set")
+async def test_overlapping_first_syncs_of_a_thread_both_succeed(
+    postgres_client, overlapping, google
+):
+    await connect_google(postgres_client)
+    await postgres_client.get(f"{PREFIX}/settings")
+    google.messages = {"m1": _message("m1", "t-1", "Final round", "Times?")}
+    overlapping.outcomes = [_triaged("needs_reply")] * 2
+
+    first, second = await asyncio.gather(
+        postgres_client.get(INBOX), postgres_client.get(INBOX)
+    )
+    after = await postgres_client.get(INBOX)
+
+    assert [first.status_code, second.status_code] == [200, 200]
+    assert after.json()["needs_reply"] == 1
+    assert len(overlapping.received) == 2
