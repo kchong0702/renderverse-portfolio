@@ -6,11 +6,15 @@ import PageBody from "@/shared/components/PageBody";
 import PageHeader from "@/shared/components/PageHeader";
 import StateMessage from "@/shared/components/StateMessage";
 import { Tab, TabList, TabPanel, Tabs } from "@/shared/components/Tabs";
+import { cn } from "@/shared/lib/cn";
 import AboutPanel from "../components/AboutPanel";
+import ChangesTab from "../components/ChangesTab";
 import EntrySection from "../components/EntrySection";
 import PreferencesPanel from "../components/PreferencesPanel";
 import ProjectsTab from "../components/ProjectsTab";
+import ReleasesAside from "../components/ReleasesAside";
 import SkillsTab from "../components/SkillsTab";
+import { useDraft, usePublish, useReleases } from "../hooks/usePortfolio";
 import {
   useEntries,
   useProfile,
@@ -18,7 +22,7 @@ import {
   useUpdateProfile,
 } from "../hooks/useProfile";
 
-const TABS = ["profile", "skills", "projects"] as const;
+const TABS = ["profile", "skills", "projects", "releases"] as const;
 type PortfolioTab = (typeof TABS)[number];
 
 export default function PortfolioPage() {
@@ -28,8 +32,13 @@ export default function PortfolioPage() {
   const entries = useEntries();
   const skills = useSkills();
   const update = useUpdateProfile();
+  const draft = useDraft();
+  const releases = useReleases();
+  const publish = usePublish();
+  const site = draft.data?.site_url ?? null;
+  const tabs = site ? TABS : TABS.filter((name) => name !== "releases");
   const tab: PortfolioTab =
-    TABS.find((name) => name === params.get("tab")) ?? "projects";
+    tabs.find((name) => name === params.get("tab")) ?? "projects";
 
   const saveStatus = update.isPending
     ? t("portfolio.save.saving")
@@ -38,7 +47,9 @@ export default function PortfolioPage() {
       : update.isSuccess
         ? t("portfolio.save.saved")
         : null;
-  const failed = [profile, entries, skills].find((query) => query.isError);
+  const failed = [profile, entries, skills, draft, releases].find(
+    (query) => query.isError,
+  );
 
   return (
     <>
@@ -46,14 +57,38 @@ export default function PortfolioPage() {
         title={t("portfolio.title")}
         subtitle={t("portfolio.subtitle")}
         actions={
-          <button
-            type="button"
-            className={buttonClass("primary")}
-            onClick={() => setParams({ tab: "projects", edit: "new-project" })}
-          >
-            <Sparkle size={14} className="text-amber-soft" />
-            {t("portfolio.addProject")}
-          </button>
+          !draft.data ? null : site ? (
+            <>
+              <a
+                href={site}
+                target="_blank"
+                rel="noreferrer"
+                className={cn(buttonClass(), "min-h-[42px]")}
+              >
+                {t("portfolio.previewSite")}
+              </a>
+              <button
+                type="button"
+                className={buttonClass("primary")}
+                disabled={draft.data.changes.length === 0 || publish.isPending}
+                onClick={() => publish.mutate()}
+              >
+                <Sparkle size={14} className="text-amber-soft" />
+                {t("portfolio.publish", { number: draft.data.number })}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className={buttonClass("primary")}
+              onClick={() =>
+                setParams({ tab: "projects", edit: "new-project" })
+              }
+            >
+              <Sparkle size={14} className="text-amber-soft" />
+              {t("portfolio.addProject")}
+            </button>
+          )
         }
       />
       <PageBody>
@@ -61,7 +96,11 @@ export default function PortfolioPage() {
           <StateMessage tone="error">
             {t("portfolio.loadFailed", { reason: failed.error.message })}
           </StateMessage>
-        ) : !profile.data || !entries.data || !skills.data ? (
+        ) : !profile.data ||
+          !entries.data ||
+          !skills.data ||
+          !draft.data ||
+          !releases.data ? (
           <StateMessage>{t("common.loading")}</StateMessage>
         ) : (
           <Tabs
@@ -70,7 +109,7 @@ export default function PortfolioPage() {
             className="flex flex-col gap-7"
           >
             <TabList aria-label={t("portfolio.tabs.label")}>
-              {TABS.map((name) => (
+              {tabs.map((name) => (
                 <Tab key={name} value={name}>
                   {t(`portfolio.tabs.${name}`)}
                 </Tab>
@@ -106,9 +145,35 @@ export default function PortfolioPage() {
             <TabPanel value="skills">
               <SkillsTab skills={skills.data} />
             </TabPanel>
-            <TabPanel value="projects">
-              <ProjectsTab entries={entries.data} />
+            <TabPanel
+              value="projects"
+              className="flex flex-wrap items-start gap-6"
+            >
+              <div className="flex min-w-0 flex-[999_1_560px] flex-col">
+                <ProjectsTab entries={entries.data} />
+              </div>
+              {site && (
+                <ReleasesAside
+                  draft={draft.data}
+                  releases={releases.data}
+                  publishError={publish.isError ? publish.error.message : null}
+                  limit={3}
+                />
+              )}
             </TabPanel>
+            {site && (
+              <TabPanel
+                value="releases"
+                className="flex flex-wrap items-start gap-6"
+              >
+                <ChangesTab draft={draft.data} />
+                <ReleasesAside
+                  draft={draft.data}
+                  releases={releases.data}
+                  publishError={publish.isError ? publish.error.message : null}
+                />
+              </TabPanel>
+            )}
           </Tabs>
         )}
       </PageBody>

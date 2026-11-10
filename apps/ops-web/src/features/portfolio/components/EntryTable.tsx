@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import Badge from "@/shared/components/Badge";
 import TrashIcon from "@/shared/components/TrashIcon";
 import type { Entry, EntryKind, EntryWrite } from "../api/profile";
+import { useDraft } from "../hooks/usePortfolio";
 import { useAddEntry, useDeleteEntry, useSaveEntry } from "../hooks/useProfile";
 import EntryForm from "./EntryForm";
 import Switch from "./Switch";
@@ -16,21 +17,34 @@ const BLANK: EntryWrite = {
   summary: "",
   highlights: [],
   archived: false,
+  on_site: false,
 };
 
-const columns =
-  "grid grid-cols-[minmax(0,1fr)_64px_40px] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_120px_40px] sm:gap-4";
+const columns = (site: boolean) =>
+  site
+    ? "grid grid-cols-[minmax(0,1fr)_64px_64px_40px] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_96px_120px_40px] sm:gap-4"
+    : "grid grid-cols-[minmax(0,1fr)_64px_40px] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_120px_40px] sm:gap-4";
 
 interface EntryRowProps {
   entry: Entry;
+  site: boolean;
+  changed: boolean;
   deleteError: string | null;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-function EntryRow({ entry, deleteError, onEdit, onDelete }: EntryRowProps) {
+function EntryRow({
+  entry,
+  site,
+  changed,
+  deleteError,
+  onEdit,
+  onDelete,
+}: EntryRowProps) {
   const { t } = useTranslation();
   const toggle = useSaveEntry();
+  const siteToggle = useSaveEntry();
   const from = entry.start?.slice(0, 4);
   const to =
     entry.end === "present"
@@ -40,7 +54,7 @@ function EntryRow({ entry, deleteError, onEdit, onDelete }: EntryRowProps) {
   return (
     <div
       role="row"
-      className={`${columns} border-hair-soft border-b px-5 py-4 ${entry.archived ? "opacity-70" : ""}`}
+      className={`${columns(site)} border-hair-soft border-b px-5 py-4 ${entry.archived ? "opacity-70" : ""}`}
     >
       <span role="cell" className="flex min-w-0 flex-col gap-0.5">
         <span className="flex flex-wrap items-center gap-2.5">
@@ -57,7 +71,11 @@ function EntryRow({ entry, deleteError, onEdit, onDelete }: EntryRowProps) {
               ? t("portfolio.period.range", { from, to })
               : (from ?? to ?? "")}
           </span>
-          {entry.archived && <Badge>{t("portfolio.table.archived")}</Badge>}
+          {entry.archived ? (
+            <Badge>{t("portfolio.table.archived")}</Badge>
+          ) : (
+            changed && <Badge tone="warn">{t("portfolio.table.changed")}</Badge>
+          )}
         </span>
         <span className="text-ink-2 text-sm">
           {entry.kind === "project"
@@ -71,12 +89,28 @@ function EntryRow({ entry, deleteError, onEdit, onDelete }: EntryRowProps) {
             })}
           </span>
         )}
+        {siteToggle.isError && (
+          <span role="alert" className="text-crit text-sm">
+            {t("portfolio.table.siteToggleFailed", {
+              reason: siteToggle.error.message,
+            })}
+          </span>
+        )}
         {deleteError && (
           <span role="alert" className="text-crit text-sm">
             {t("portfolio.table.deleteFailed", { reason: deleteError })}
           </span>
         )}
       </span>
+      {site && (
+        <span role="cell" className="flex justify-center">
+          <Switch
+            label={t("portfolio.table.showOnSite", { name: entry.title })}
+            checked={entry.on_site}
+            onChange={(on) => siteToggle.mutate({ ...entry, on_site: on })}
+          />
+        </span>
+      )}
       <span role="cell" className="flex justify-center">
         <Switch
           label={t("portfolio.table.useInAgent", { name: entry.title })}
@@ -116,6 +150,8 @@ export default function EntryTable({ kind, entries }: EntryTableProps) {
   const add = useAddEntry();
   const save = useSaveEntry();
   const remove = useDeleteEntry();
+  const { data: draft } = useDraft();
+  const site = kind === "project" && Boolean(draft?.site_url);
   const editing = params.get("edit");
   const adding = editing === `new-${kind}`;
 
@@ -135,9 +171,14 @@ export default function EntryTable({ kind, entries }: EntryTableProps) {
       <div role="table" aria-labelledby={`${kind}-heading`}>
         <div
           role="row"
-          className={`${columns} border-hair text-ink-3 border-b px-5 py-3 text-[13px] font-semibold`}
+          className={`${columns(site)} border-hair text-ink-3 border-b px-5 py-3 text-[13px] font-semibold`}
         >
           <span role="columnheader">{t(`portfolio.kinds.${kind}.column`)}</span>
+          {site && (
+            <span role="columnheader" className="text-center">
+              {t("portfolio.table.onSite")}
+            </span>
+          )}
           <span role="columnheader" className="text-center">
             {t("portfolio.table.agentContext")}
           </span>
@@ -172,6 +213,11 @@ export default function EntryTable({ kind, entries }: EntryTableProps) {
             <EntryRow
               key={entry.id}
               entry={entry}
+              site={site}
+              changed={Boolean(
+                draft?.site_url &&
+                draft.changes.some((change) => change.id === entry.id),
+              )}
               deleteError={
                 remove.isError && remove.variables === entry.id
                   ? remove.error.message

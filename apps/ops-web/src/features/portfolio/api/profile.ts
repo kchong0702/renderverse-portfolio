@@ -41,6 +41,7 @@ export interface EntryWrite {
   summary: string;
   highlights: string[];
   archived: boolean;
+  on_site: boolean;
 }
 
 export interface EntryCreate extends EntryWrite {
