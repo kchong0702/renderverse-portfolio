@@ -19,6 +19,7 @@ def pytest_configure(config: pytest.Config) -> None:
     """Pin the settings tests rely on before any app module reads them"""
     os.environ["OPS_API_AUTH__ENABLED"] = "false"
     os.environ["OPS_API_EZCAREER__URL"] = "http://harness.test/ezcareer"
+    os.environ["OPS_API_EZCAREER__RUN_STORE"] = "memory"
 
 
 class FakeProvider:

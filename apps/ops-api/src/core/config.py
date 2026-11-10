@@ -199,6 +199,10 @@ class EzcareerSettings(BaseModel):
     replay_ttl_seconds: float = Field(default=60, gt=0)
     """How long a finished run can still be resumed"""
 
+    run_store: Literal["memory", "postgres"] = "memory"
+    """Where streamed runs are kept: memory serves one ops-api process, postgres
+    lets any process replay and follow them"""
+
 
 class ObservabilitySettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}

@@ -5,9 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Request, status
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 
-from src.clients.ezcareer import Answer, RunStream
+from src.clients.ezcareer import Answer
 from src.core.auth import CurrentUserDep
-from src.core.config import get_settings
 from src.db.session import SessionDep
 from src.features.assistant.schemas import ChatMessage
 from src.features.assistant.service import AssistantService
@@ -24,14 +23,13 @@ def get_assistant_service(
     request: Request,
 ) -> AssistantService:
     """The assistant service on the request's session, its profile and settings
-    services, and the app's running turns"""
+    services, the harness and the app's run store"""
     return AssistantService(
         session,
         profile,
         settings,
         request.app.state.ezcareer,
-        request.app.state.runs,
-        get_settings().ezcareer,
+        request.app.state.run_store,
     )
 
 
@@ -43,8 +41,8 @@ async def start_turn(
     message: ChatMessage,
     user: CurrentUserDep,
     service: AssistantServiceDep,
-) -> RunStream:
-    """The turn a message starts, its profile read and committed before the response
+) -> str:
+    """The run a message starts, its profile read and committed before the response
     streams"""
     return await service.send(user.id, chat_id, message)
 
@@ -55,29 +53,29 @@ async def answer_turn(
     answer: Answer,
     user: CurrentUserDep,
     service: AssistantServiceDep,
-) -> RunStream:
-    """The rest of the paused turn an answer resumes, read and committed before the
+) -> str:
+    """The run of the rest of the paused turn an answer resumes, read and committed before the
     response streams"""
     return await service.answer(user.id, chat_id, task_id, answer)
 
 
-def resume_turn(
+async def resume_turn(
     chat_id: UUID,
     user: CurrentUserDep,
     service: AssistantServiceDep,
     last_event_id: Annotated[str | None, Header()] = None,
-) -> tuple[RunStream, int]:
-    """The chat's current turn and how many of its events the client already has"""
-    return service.resume(user.id, chat_id, last_event_id)
+) -> tuple[str, int]:
+    """The chat's current run and how many of its events the client already has"""
+    return await service.resume(user.id, chat_id, last_event_id)
 
 
 @router.post("/chats/{chat_id}/messages", response_class=EventSourceResponse)
 async def send_message(
-    run: Annotated[RunStream, Depends(start_turn)],
+    run_id: Annotated[str, Depends(start_turn)], request: Request
 ) -> AsyncIterable[ServerSentEvent]:
     """Ask career-director something in one chat and stream the turn: it starts,
     thinks, writes and runs steps, then replies, asks back, fails or is stopped"""
-    async for event in run.stream():
+    async for event in request.app.state.run_store.read(run_id, 0):
         yield event
 
 
@@ -85,21 +83,21 @@ async def send_message(
     "/chats/{chat_id}/tasks/{task_id}/answer", response_class=EventSourceResponse
 )
 async def answer_task(
-    run: Annotated[RunStream, Depends(answer_turn)],
+    run_id: Annotated[str, Depends(answer_turn)], request: Request
 ) -> AsyncIterable[ServerSentEvent]:
     """Answer the widget a paused turn of the chat asked, and stream the rest of it"""
-    async for event in run.stream():
+    async for event in request.app.state.run_store.read(run_id, 0):
         yield event
 
 
 @router.get("/chats/{chat_id}/stream", response_class=EventSourceResponse)
 async def resume_chat(
-    resumed: Annotated[tuple[RunStream, int], Depends(resume_turn)],
+    resumed: Annotated[tuple[str, int], Depends(resume_turn)], request: Request
 ) -> AsyncIterable[ServerSentEvent]:
     """Resume the chat's turn after the Last-Event-ID the client last saw; the turn
     kept running while the connection was down"""
-    run, after = resumed
-    async for event in run.stream(after):
+    run_id, after = resumed
+    async for event in request.app.state.run_store.read(run_id, after):
         yield event
 
 
