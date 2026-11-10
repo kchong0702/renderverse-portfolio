@@ -23,9 +23,21 @@ Import rules:
 
 `tests/test_architecture.py` enforces both rules.
 
+## Agents and workflows
+
+| Agent             | Workflows it runs                                | Served as an agent |
+| ----------------- | ------------------------------------------------ | ------------------ |
+| job-finder        | `analyse-job`, `find-jobs`                       | yes                |
+| career-consultant | `edit-document` (`src/features/write_document`)  | yes                |
+| career-director   | none; it runs the others as its tools            | yes                |
+| email-assistant   | `triage-email`                                   | no                 |
+| resume-importer   | `import-resume` (`src/features/import_document`) | no                 |
+
+email-assistant reads the emails of the user's job search. `triage-email` uses its model only to read a thread. Code matches the thread to an application by the company it names, narrowed by role, and keeps `decide_by` only for an offer and `interview` only for a confirmed interview.
+
 ## Agents own their tools and skills
 
-An agent is everything it needs to do its job. Each agent is built once by `build_agent` in its container and served as an agent of its own. Every workflow that uses the agent runs that same instance.
+An agent is everything it needs to do its job. Each agent is built once by `build_agent` in its container. The table above says which are also served as agents of their own. Every workflow that uses the agent runs that same instance.
 
 An agent has two kinds of tools:
 

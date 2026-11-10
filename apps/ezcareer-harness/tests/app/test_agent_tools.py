@@ -19,6 +19,7 @@ def _served() -> dict[str, tuple[Agent, set[str], set[str]]]:
         container.job_finder.agent,
         container.career_consultant.agent,
         container.career_director.agent,
+        container.email_assistant.agent,
         container.import_document.agent,
     ]
     return {

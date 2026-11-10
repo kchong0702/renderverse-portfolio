@@ -6,6 +6,7 @@ from src.agents import load_agents
 from src.app.container.career_consultant import CareerConsultantContainer
 from src.app.container.career_director import CareerDirectorContainer
 from src.app.container.clients import ClientsContainer
+from src.app.container.email_assistant import EmailAssistantContainer
 from src.app.container.import_document import ImportDocumentContainer
 from src.app.container.job_finder import JobFinderContainer
 from src.core.config import get_settings
@@ -45,6 +46,11 @@ class Container(containers.DeclarativeContainer):
     )
     """career-consultant and the workflows that run on it"""
 
+    email_assistant = providers.Container(
+        EmailAssistantContainer, registry=registry, checkpointer=checkpointer
+    )
+    """email-assistant and the email workflows that run on it"""
+
     career_director = providers.Container(
         CareerDirectorContainer,
         registry=registry,
@@ -69,6 +75,7 @@ class Container(containers.DeclarativeContainer):
         career_consultant.agent_executable,
         career_consultant.edit_document_executable,
         career_director.agent_executable,
+        email_assistant.triage_email_executable,
         import_document.import_resume_executable,
     )
     """Agents and workflows served over A2A; add an agent's container above and
