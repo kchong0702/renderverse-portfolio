@@ -20,6 +20,9 @@ export interface AssistantTurn {
   lastEventId: string | null;
   parts: Part[];
   outcome: Outcome | null;
+  startedAt: number;
+  endedAt: number | null;
+  reconnecting: number;
 }
 
 export type ChatEntry = { role: "user"; text: string } | AssistantTurn;
@@ -87,6 +90,7 @@ function applyEvent(turn: AssistantTurn, event: RunEvent): AssistantTurn {
       return {
         ...turn,
         outcome: event,
+        endedAt: Date.now(),
         parts:
           !event.reply.trim() ||
           (written?.kind === "text" &&
@@ -99,7 +103,7 @@ function applyEvent(turn: AssistantTurn, event: RunEvent): AssistantTurn {
       };
     }
     default:
-      return { ...turn, outcome: event };
+      return { ...turn, outcome: event, endedAt: Date.now() };
   }
 }
 
@@ -119,6 +123,7 @@ interface AssistantState {
   chats: Chats;
   add: (chat: Chat, entry: ChatEntry) => void;
   apply: (chat: Chat, event: RunEvent, id?: string) => void;
+  reconnect: (chat: Chat, attempt: number) => void;
   restore: (chat: Chat, entries: ChatEntry[]) => void;
   newChat: () => void;
 }
@@ -160,8 +165,18 @@ export const useAssistantStore = create<AssistantState>()(
                   {
                     ...applyEvent(last, event),
                     lastEventId: id ?? last.lastEventId,
+                    reconnecting: 0,
                   },
                 ]
+              : entries;
+          }),
+        })),
+      reconnect: (chat, attempt) =>
+        set(({ chats }) => ({
+          chats: withEntries(chats, chat, (entries) => {
+            const last = openTurn(entries);
+            return last
+              ? [...entries.slice(0, -1), { ...last, reconnecting: attempt }]
               : entries;
           }),
         })),
@@ -177,7 +192,7 @@ export const useAssistantStore = create<AssistantState>()(
     }),
     {
       name: "ops:assistant",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => sessionStorage),
       partialize: ({ chatId, chats }) => ({ chatId, chats }),
     },
