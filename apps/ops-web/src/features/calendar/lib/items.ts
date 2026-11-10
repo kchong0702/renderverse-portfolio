@@ -36,7 +36,14 @@ export function itemsOf(
     })),
     ...applications.flatMap(
       ({ id, company, stage, next_step, next_step_at }): CalendarItem[] =>
-        next_step_at && stage !== "closed"
+        next_step_at &&
+        stage !== "closed" &&
+        !events.some(
+          (event) =>
+            event.interview &&
+            eventTime(event.start, event.all_day).getTime() ===
+              new Date(next_step_at).getTime(),
+        )
           ? [
               {
                 id,
