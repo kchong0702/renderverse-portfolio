@@ -130,53 +130,61 @@ export default function EntryTable({ kind, entries }: EntryTableProps) {
 
   return (
     <div className="bg-panel border-hair shadow-card overflow-hidden rounded-xl border">
-      <div
-        role="row"
-        className={`${columns} border-hair text-ink-3 border-b px-5 py-3 text-[13px] font-semibold`}
-      >
-        <span role="columnheader">{t(`portfolio.kinds.${kind}.column`)}</span>
-        <span role="columnheader" className="text-center">
-          {t("portfolio.table.agentContext")}
-        </span>
-        <span role="columnheader" className="sr-only">
-          {t("portfolio.table.deleteColumn")}
-        </span>
+      <div role="table" aria-labelledby={`${kind}-heading`}>
+        <div
+          role="row"
+          className={`${columns} border-hair text-ink-3 border-b px-5 py-3 text-[13px] font-semibold`}
+        >
+          <span role="columnheader">{t(`portfolio.kinds.${kind}.column`)}</span>
+          <span role="columnheader" className="text-center">
+            {t("portfolio.table.agentContext")}
+          </span>
+          <span role="columnheader" className="sr-only">
+            {t("portfolio.table.deleteColumn")}
+          </span>
+        </div>
+        {entries.map((entry) =>
+          editing === entry.id ? (
+            <div
+              key={entry.id}
+              role="row"
+              className="border-hair-soft border-b px-5 py-4"
+            >
+              <div role="cell">
+                <EntryForm
+                  kind={kind}
+                  entry={entry}
+                  pending={save.isPending}
+                  error={save.isError ? save.error.message : null}
+                  onCancel={() => setEditing(null)}
+                  onSubmit={(write) =>
+                    save.mutate(
+                      { ...entry, ...write },
+                      { onSuccess: () => setEditing(null) },
+                    )
+                  }
+                />
+              </div>
+            </div>
+          ) : (
+            <EntryRow
+              key={entry.id}
+              entry={entry}
+              deleteError={
+                remove.isError && remove.variables === entry.id
+                  ? remove.error.message
+                  : null
+              }
+              onEdit={() => setEditing(entry.id)}
+              onDelete={() => remove.mutate(entry.id)}
+            />
+          ),
+        )}
       </div>
       {entries.length === 0 && !adding && (
         <p className="text-ink-3 border-hair-soft m-0 border-b px-5 py-4 text-sm">
           {t(`portfolio.kinds.${kind}.empty`)}
         </p>
-      )}
-      {entries.map((entry) =>
-        editing === entry.id ? (
-          <div key={entry.id} className="border-hair-soft border-b px-5 py-4">
-            <EntryForm
-              kind={kind}
-              entry={entry}
-              pending={save.isPending}
-              error={save.isError ? save.error.message : null}
-              onCancel={() => setEditing(null)}
-              onSubmit={(write) =>
-                save.mutate(
-                  { ...entry, ...write },
-                  { onSuccess: () => setEditing(null) },
-                )
-              }
-            />
-          </div>
-        ) : (
-          <EntryRow
-            key={entry.id}
-            entry={entry}
-            deleteError={
-              remove.isError && remove.variables === entry.id
-                ? remove.error.message
-                : null
-            }
-            onEdit={() => setEditing(entry.id)}
-            onDelete={() => remove.mutate(entry.id)}
-          />
-        ),
       )}
       <div className="px-5 py-3.5">
         {adding ? (
