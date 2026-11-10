@@ -158,7 +158,8 @@ class GoogleClient:
     async def messages(
         self, access_token: str, query: str, limit: int
     ) -> list[GmailMessage]:
-        """The newest messages matching a Gmail search, with headers but no body"""
+        """The newest messages matching a Gmail search, with headers but no body;
+        leaves out any deleted between the search and the fetch"""
         found = await self._get(
             f"{_GMAIL_URL}/messages",
             access_token,
@@ -170,19 +171,22 @@ class GoogleClient:
             ("metadataHeaders", "From"),
             ("metadataHeaders", "Subject"),
         ]
-        return list(
-            await asyncio.gather(
-                *(
-                    self._get(
-                        f"{_GMAIL_URL}/messages/{ref.id}",
-                        access_token,
-                        GmailMessage,
-                        metadata,
-                    )
-                    for ref in found.messages
+        messages = await asyncio.gather(
+            *(
+                self._get(
+                    f"{_GMAIL_URL}/messages/{ref.id}",
+                    access_token,
+                    GmailMessage,
+                    metadata,
                 )
-            )
+                for ref in found.messages
+            ),
+            return_exceptions=True,
         )
+        for message in messages:
+            if isinstance(message, BaseException) and not isinstance(message, NotFound):
+                raise message
+        return [message for message in messages if isinstance(message, GmailMessage)]
 
     async def message(self, access_token: str, message_id: str) -> GmailMessage:
         """One message with its whole MIME tree"""

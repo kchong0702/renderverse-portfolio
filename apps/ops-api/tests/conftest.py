@@ -234,6 +234,7 @@ class FakeGoogle:
         self.gmail_queries: list[str] = []
         self.calendar_params: list[dict[str, list[str]]] = []
         self.messages: dict[str, dict[str, object]] = {}
+        self.deleted: list[str] = []
         self.events: list[dict[str, object]] = []
 
     def _token(self, form: dict[str, list[str]]) -> httpx2.Response:
@@ -260,7 +261,10 @@ class FakeGoogle:
             return httpx2.Response(200, json={"emailAddress": "kelvin@gmail.com"})
         if path == "/gmail/v1/users/me/messages":
             self.gmail_queries += query["q"]
-            refs = [{"id": key, "threadId": f"t-{key}"} for key in self.messages]
+            refs = [
+                {"id": key, "threadId": f"t-{key}"}
+                for key in [*self.messages, *self.deleted]
+            ]
             return httpx2.Response(200, json={"messages": refs} if refs else {})
         if path.startswith("/gmail/v1/users/me/messages/"):
             message = self.messages.get(path.rsplit("/", 1)[1])
