@@ -68,6 +68,7 @@ type StoredDocument = AnyDocument & { design: Required<Design> };
 
 export interface DocumentRecord extends DocumentSummary {
   body: StoredDocument;
+  lines: { id: string; text: string }[];
   pending_body: StoredDocument | null;
 }
 

@@ -538,7 +538,8 @@
       "user": "you, on this page",
       "agent": "the assistant",
       "fact": "your profile",
-      "upload": "your uploaded résumé"
+      "upload": "your uploaded résumé",
+      "line": "“{{text}}” in your uploaded résumé"
     },
     "importPage": {
       "title": "Import résumé",
