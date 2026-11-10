@@ -4,10 +4,13 @@ import { buttonClass } from "@/shared/components/button";
 import StateMessage from "@/shared/components/StateMessage";
 import type { ChangesetStatus, DocumentRecord, Edit } from "../api/documents";
 import { useChangesets, useDecideChangeset } from "../hooks/useDocuments";
-import { blockKind, fieldKey, newText, nodeAt } from "../lib/fields";
-
-const plain = (html: string) =>
-  new DOMParser().parseFromString(html, "text/html").body.textContent ?? "";
+import {
+  blockKind,
+  fieldKey,
+  htmlToText,
+  newText,
+  nodeAt,
+} from "../lib/fields";
 
 const STATUS_TONE = {
   pending: "warn",
@@ -41,7 +44,7 @@ export default function ChangesPanel({
       case "update_field":
         return t("documents.changes.update", {
           field: fieldLabel(edit.path),
-          text: plain(newText(edit.value)),
+          text: htmlToText(newText(edit.value)),
         });
       case "insert_block":
         return t("documents.changes.insertBlock", {
@@ -54,12 +57,12 @@ export default function ChangesPanel({
       case "move":
         return t("documents.changes.move", {
           item: fieldLabel(edit.path),
-          text: plain(newText(nodeAt(blocks, edit.path))),
+          text: htmlToText(newText(nodeAt(blocks, edit.path))),
         });
       case "delete":
         return t("documents.changes.delete", {
           item: fieldLabel(edit.path),
-          text: plain(newText(nodeAt(blocks, edit.path))),
+          text: htmlToText(newText(nodeAt(blocks, edit.path))),
         });
       case "update_visibility":
         return t(

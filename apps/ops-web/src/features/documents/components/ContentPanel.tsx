@@ -75,7 +75,11 @@ export default function ContentPanel({ document, onEdit }: ContentPanelProps) {
                       value:
                         "html" in entry.value
                           ? {
-                              html: text,
+                              html: text
+                                .replace(/&/g, "&amp;")
+                                .replace(/</g, "&lt;")
+                                .replace(/>/g, "&gt;")
+                                .replace(/\n/g, "<br>"),
                               align: entry.value.align ?? null,
                               src: [source],
                             }

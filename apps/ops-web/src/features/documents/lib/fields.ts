@@ -134,8 +134,17 @@ export function textEntries(block: Block): TextEntry[] {
   return out;
 }
 
+export function htmlToText(html: string): string {
+  return (
+    new DOMParser().parseFromString(
+      html.replace(/<br\s*\/?>/gi, "\n"),
+      "text/html",
+    ).body.textContent ?? ""
+  );
+}
+
 export function plainText(value: Value | RichValue): string {
-  return "html" in value ? value.html : value.text;
+  return "html" in value ? htmlToText(value.html) : value.text;
 }
 
 export function newText(value: Json): string {
