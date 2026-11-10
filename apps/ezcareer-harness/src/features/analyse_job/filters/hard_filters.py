@@ -1,13 +1,8 @@
 from datetime import date
 
-from src.features.analyse_job.enums import FilterKind
 from src.features.analyse_job.filters.experience import experience_years
-from src.features.analyse_job.filters.preferences import (
-    countries_fit,
-    work_mode_fits,
-)
 from src.features.analyse_job.schemas import HardFilter, PostingTerms
-from src.shared.profile import Profile
+from src.shared.profile import FilterKind, Profile, countries_fit, work_mode_fits
 
 
 def hard_filters(

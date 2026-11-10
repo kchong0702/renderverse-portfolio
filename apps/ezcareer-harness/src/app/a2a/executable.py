@@ -125,6 +125,10 @@ class Executable(BaseModel):
     graph: CompiledStateGraph
     """The graph it runs; with a checkpointer it can pause for input and resume"""
 
+    reply_node: str | None = None
+    """The workflow node whose model streams its thinking and text to the user;
+    None streams an agent's own model and nothing of a workflow's"""
+
 
 class LanggraphExecutor(AgentExecutor):
     def __init__(self, executable: Executable) -> None:
@@ -198,7 +202,11 @@ class LanggraphExecutor(AgentExecutor):
             ):
                 if mode == "values" and not namespace:
                     result = data
-                elif mode == "messages" and not namespace:
+                elif mode == "messages" and tuple(
+                    segment.partition(":")[0] for segment in namespace
+                ) == (
+                    (self.executable.reply_node,) if self.executable.reply_node else ()
+                ):
                     chunk, meta = data
                     if not (
                         isinstance(chunk, AIMessage)
@@ -230,6 +238,18 @@ class LanggraphExecutor(AgentExecutor):
                                 [new_data_part({"step": step.model_dump()})]
                             ),
                         )
+                    if namespace or data["name"] != "tools" or "result" not in data:
+                        continue
+                    for message in data["result"].get("messages", []):
+                        match message:
+                            case ToolMessage(
+                                artifact={"name": str() as name, "data": artifact}
+                            ):
+                                await updater.add_artifact(
+                                    [new_data_part(to_jsonable_python(artifact))],
+                                    name=name,
+                                    append=False,
+                                )
         except GraphRecursionError:
             await updater.failed(_reason(updater, "Ran out of steps before finishing"))
             return

@@ -1,9 +1,5 @@
-from src.features.analyse_job.schemas import (
-    JobAnalysis,
-    JobRequirements,
-    PostingLine,
-    Requirement,
-)
+from src.features.analyse_job.schemas import JobAnalysis, JobRequirements, Requirement
+from src.shared.jobs import PostingLine
 
 
 def _requirement(importance: str, match: str) -> Requirement:

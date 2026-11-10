@@ -2,7 +2,6 @@ from typing import Annotated, TypedDict
 
 import pytest
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, ToolMessage
-from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
@@ -10,7 +9,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
 from src.agents import Agent, AgentOverride, build_agent
-from tests.agents.test_builder import GREETER, _call, look_up_name
+from tests.agents.test_builder import GREETER, _call, look_up_name, look_up_title
 from tests.conftest import ScriptedChatModel
 
 
@@ -20,12 +19,6 @@ class Greeting(BaseModel):
 
 class Farewell(BaseModel):
     text: str
-
-
-@tool
-def look_up_title(person: str) -> str:
-    """Looks up a person's title"""
-    return "Countess"
 
 
 def _agent(model: ScriptedChatModel, model_name: str = "glm-5.3") -> CompiledStateGraph:
@@ -42,7 +35,10 @@ def _agent(model: ScriptedChatModel, model_name: str = "glm-5.3") -> CompiledSta
         }
     )
     return build_agent(
-        agent, response_formats=(Greeting, Farewell), tools=(look_up_name,), model=model
+        agent,
+        response_formats=(Greeting, Farewell),
+        tools=(look_up_name, look_up_title),
+        model=model,
     )
 
 
@@ -111,7 +107,7 @@ async def test_an_invalid_answer_goes_back_to_the_model_to_retry():
     assert len(model.requests) == 2
 
 
-async def test_an_overrides_tools_are_offered_described_and_run():
+async def test_an_override_offers_only_the_tools_it_allows():
     model = ScriptedChatModel(
         replies=[
             _call("look_up_title", person="Lovelace"),
@@ -121,16 +117,46 @@ async def test_an_overrides_tools_are_offered_described_and_run():
 
     result = await _ask(
         _agent(model),
-        AgentOverride(response_format=Greeting, tools=(look_up_title,)),
+        AgentOverride(response_format=Greeting, tools=frozenset({"look_up_title"})),
     )
 
-    [title] = [
-        m
-        for m in result["messages"]
-        if isinstance(m, ToolMessage) and m.name == "look_up_title"
-    ]
-    assert title.text == "Countess"
+    assert "look_up_title" in model.offered_tools[0]
+    assert "look_up_name" not in model.offered_tools[0]
     assert model.tool_descriptions["look_up_title"] == "Finds the title to use"
+    assert result["structured_response"] == Greeting(text="Hi")
+
+
+async def test_an_override_that_allows_a_tool_the_agent_lacks_fails():
+    model = ScriptedChatModel(replies=[_call("Greeting", text="Hi")])
+
+    with pytest.raises(ValueError, match="look_up_age"):
+        await _ask(
+            _agent(model),
+            AgentOverride(response_format=Greeting, tools=frozenset({"look_up_age"})),
+        )
+
+
+async def test_an_override_leaves_out_a_skill_tool_it_doesnt_allow():
+    model = ScriptedChatModel(
+        replies=[
+            _call("read_file", file_path="/title/SKILL.md"),
+            _call("Greeting", text="Hi"),
+        ]
+    )
+    agent = build_agent(
+        Agent.load(GREETER),
+        response_formats=(Greeting,),
+        tools=(look_up_name,),
+        skill_tools=(look_up_title,),
+        model=model,
+    )
+
+    await _ask(
+        agent,
+        AgentOverride(response_format=Greeting, tools=frozenset({"look_up_name"})),
+    )
+
+    assert "look_up_title" not in model.offered_tools[1]
 
 
 async def test_an_agent_called_without_an_override_replies_in_text():
@@ -152,9 +178,7 @@ def _graph(agent: CompiledStateGraph) -> CompiledStateGraph:
     graph = StateGraph(_Greeted)
     graph.add_node(
         "agent",
-        agent.with_config(
-            AgentOverride(response_format=Greeting, tools=(look_up_title,)).config()
-        ),
+        agent.with_config(AgentOverride(response_format=Greeting).config()),
     )
     graph.add_edge(START, "agent")
     graph.add_edge("agent", END)

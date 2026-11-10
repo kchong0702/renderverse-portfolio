@@ -1,9 +1,13 @@
 from dependency_injector import containers, providers
-from document_schema import Changeset
 
 from src.agents import build_agent
 from src.agents.career_consultant import CareerConsultantState
-from src.agents.career_consultant.tools import list_design_options_tool, read_pdf_lines
+from src.agents.career_consultant.middlewares import document_prompt
+from src.agents.career_consultant.tools import (
+    list_design_options_tool,
+    propose_changeset,
+    read_pdf_lines,
+)
 from src.app.a2a import Executable
 from src.clients.artifact_service import ArtifactServiceClient
 from src.features import write_document
@@ -23,14 +27,13 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
     agent = providers.Singleton(
         build_agent,
         agent=registry.provided["career-consultant"],
-        response_formats=(Changeset,),
-        tools=providers.List(
+        tools=(read_profile_facts, clarify, permission),
+        skill_tools=providers.List(
             read_pdf_lines,
-            read_profile_facts,
+            propose_changeset,
             providers.Callable(list_design_options_tool, artifact_service),
-            clarify,
-            permission,
         ),
+        middleware=(document_prompt,),
         state_schema=CareerConsultantState,
     )
     """The career-consultant agent, built once"""
@@ -49,7 +52,8 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
     edit_document_executable = providers.Singleton(
         Executable,
         name="edit-document",
-        description="Propose a checked changeset for a chat request to change a résumé or cover letter",
+        description="Answer the user's message about one résumé, CV or cover letter, by its id, proposing a checked changeset when an edit helps",
+        reply_node="agent",
         graph=providers.Singleton(
             write_document.build_graph,
             agent=agent,

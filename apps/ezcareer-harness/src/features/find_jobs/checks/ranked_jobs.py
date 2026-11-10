@@ -1,7 +1,7 @@
 from src.features.analyse_job import JobRequirements, check_citations
-from src.features.find_jobs.filters import broken_filters
 from src.features.find_jobs.schemas import JobPosting, RankedJobs
 from src.shared.checks import CheckError, CheckRule
+from src.shared.jobs import broken_filters
 from src.shared.profile import Profile
 
 

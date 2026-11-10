@@ -40,6 +40,12 @@ def look_up_name(person: str) -> str:
     return "Ada"
 
 
+@tool
+def look_up_title(person: str) -> str:
+    """Looks up a person's title"""
+    return "Countess"
+
+
 def _call(name: str, **args) -> AIMessage:
     return AIMessage(
         content="", tool_calls=[{"name": name, "args": args, "id": f"call-{name}"}]
@@ -364,3 +370,41 @@ async def test_trace_records_the_agent_hash_and_the_tool_calls(
     }
     assert hashes == {Agent.load(GREETER).hash}
     assert "look_up_name" in {span.name for span in exporter.spans}
+
+
+async def test_a_skill_tool_is_offered_only_after_its_skill_is_read():
+    model = ScriptedChatModel(
+        replies=[
+            _call("read_file", file_path="/title/SKILL.md"),
+            _call("look_up_title", person="Lovelace"),
+            _call("Greeting", text="Hello, Countess!"),
+        ]
+    )
+
+    result = await _ask(model, skill_tools=(look_up_title,))
+
+    assert "look_up_title" not in model.offered_tools[0]
+    assert "look_up_title" in model.offered_tools[1]
+    assert [
+        m.text
+        for m in result["messages"]
+        if isinstance(m, ToolMessage) and m.name == "look_up_title"
+    ] == ["Countess"]
+
+
+async def test_a_skill_tool_is_unknown_until_its_skill_is_read():
+    model = ScriptedChatModel(
+        replies=[
+            _call("look_up_title", person="Lovelace"),
+            _call("Greeting", text="Hello!"),
+        ]
+    )
+
+    result = await _ask(model, skill_tools=(look_up_title,))
+
+    [refused] = [
+        m
+        for m in result["messages"]
+        if isinstance(m, ToolMessage) and m.name == "look_up_title"
+    ]
+    assert refused.status == "error"

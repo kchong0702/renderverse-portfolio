@@ -15,12 +15,9 @@ from src.core.errors import ExecuteError
 from src.features.analyse_job.configurations import CHECKS, AnalyseJobConfigurations
 from src.features.analyse_job.filters import hard_filters
 from src.features.analyse_job.nodes import fetch_posting
-from src.features.analyse_job.schemas import (
-    JobAnalysis,
-    JobRequirements,
-    PostingLine,
-)
+from src.features.analyse_job.schemas import JobAnalysis, JobRequirements
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
+from src.shared.jobs import PostingLine
 from src.shared.profile import Preferences, Profile, ProfileFact
 from src.shared.url import Url
 
@@ -132,7 +129,12 @@ def build_graph(
     graph.add_node("fetch", _fetch)
     graph.add_node(
         "agent",
-        agent.with_config(AgentOverride(response_format=JobRequirements).config()),
+        agent.with_config(
+            AgentOverride(
+                response_format=JobRequirements,
+                tools=frozenset({"read_profile_facts"}),
+            ).config()
+        ),
     )
     graph.add_node("check", check)
     graph.add_node("output", _output)

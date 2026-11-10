@@ -8,11 +8,14 @@ from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
 
+from langchain_core.runnables import RunnableConfig
+from langgraph.types import Command
 from openinference.instrumentation.langchain import LangChainInstrumentor
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from pydantic import JsonValue, TypeAdapter
 from pydantic_core import to_jsonable_python
 
 from src.agents import register_harness_profiles
@@ -27,13 +30,20 @@ CONTAINER = Container()
 
 
 async def _run_graph(name: str, task: object) -> object:
-    """Runs the container's graph served as name on the task, read as the graph's
-    input, in a thread of its own"""
+    """Runs the container's graph served as name on the task in a thread of its own,
+    answering each data request it pauses with from the task's fetch answers"""
     [graph] = [e.graph for e in CONTAINER.executables() if e.name == name]
-    return await graph.ainvoke(
-        graph.get_input_schema().model_validate(task),
-        {"configurable": {"thread_id": str(uuid4())}},
-    )
+    fields = TypeAdapter(dict[str, JsonValue]).validate_python(task)
+    answers = TypeAdapter(dict[str, JsonValue]).validate_python(fields.pop("fetch", {}))
+    run: RunnableConfig = {"configurable": {"thread_id": str(uuid4())}}
+    result = await graph.ainvoke(graph.get_input_schema().model_validate(fields), run)
+    while interrupts := result.get("__interrupt__"):
+        [request] = interrupts
+        asked = request.value.get("fetch") if isinstance(request.value, dict) else None
+        if asked not in answers:
+            raise ValueError(f"The task has no fetch answer for {request.value!r}")
+        result = await graph.ainvoke(Command(resume=answers[asked]), run)
+    return result
 
 
 WORKFLOWS: dict[str, RunWorkflow] = {
@@ -110,7 +120,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m scripts.probe")
     parser.add_argument("--workflow", required=True, choices=sorted(WORKFLOWS))
     parser.add_argument(
-        "--task", required=True, type=Path, help="the workflow's input as JSON"
+        "--task",
+        required=True,
+        type=Path,
+        help="the workflow's input as JSON, with each data request's answer under fetch",
     )
     parser.add_argument(
         "--config",

@@ -29,6 +29,13 @@
 - If something is used in only one place, write it inline instead of extracting a separate variable or function.
 - Aim for the smallest change that achieves the task.
 
+# ezcareer-harness Architecture
+
+- Before changing how `apps/ezcareer-harness` is put together (its layers, agents, workflows, tools, skills or A2A contract), read `apps/ezcareer-harness/docs/architecture/` and `apps/ezcareer-harness/docs/development/`, and update them in the same change.
+- An agent owns all its tools and skills. A tool only one skill uses is a skill tool, listed under `metadata.include_tools` in that skill's `SKILL.md`.
+- A workflow owns no tools and has no `tools/` folder. It may only whitelist its agent's tools by name with `AgentOverride(tools=...)`.
+- Follow LangChain, LangGraph, deepagents or the relevant library's convention instead of inventing your own.
+
 # Git Conventions
 
 - Never add Claude, Anthropic, or any AI assistant as an author, co-author, or contributor: no `Co-Authored-By` trailers, and no AI attribution in commit messages, PR descriptions, issues, or review comments.

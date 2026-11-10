@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 import respx
 from langchain_core.messages import AIMessage, HumanMessage
@@ -7,9 +5,9 @@ from langchain_core.messages import AIMessage, HumanMessage
 from src.app.container import Container
 from src.core.config import reload_settings
 from src.features.find_jobs import build_graph
+from tests.agents.job_finder.test_search_jobs import RESPONSE
 from tests.conftest import ScriptedChatModel
 
-RESPONSE = (Path(__file__).parent / "fixtures" / "jsearch_search.json").read_text()
 INPUT = {
     "facts": [{"id": "py", "text": "Six years of Python in production"}],
     "preferences": {"countries": ["GB"]},
@@ -70,9 +68,7 @@ async def test_unknown_jobs_go_back_and_the_ranking_comes_out_by_fit(jsearch):
 
     container = Container()
 
-    result = await build_graph(
-        container.job_finder.agent(model=model), container.clients.job_sources()
-    ).ainvoke(INPUT)
+    result = await build_graph(container.job_finder.agent(model=model)).ainvoke(INPUT)
 
     assert [(job.posting.id, job.fit) for job in result["jobs"]] == [
         ("aB3xK9_newer-copy==", 100),
@@ -81,6 +77,8 @@ async def test_unknown_jobs_go_back_and_the_ranking_comes_out_by_fit(jsearch):
     assert result["jobs"][0].posting.apply_url == (
         "https://careers.acme.example/jobs/42"
     )
+    assert "search_jobs" not in model.offered_tools[0]
+    assert "search_jobs" in model.offered_tools[1]
     feedback = [m.text for m in model.requests[-1] if isinstance(m, HumanMessage)]
     assert '"GB"' in feedback[0]
     assert "unknown_job" in feedback[-1]

@@ -1,3 +1,6 @@
+from typing import Literal
+
+from document_schema import DocumentKind
 from pydantic import BaseModel, ConfigDict
 
 
@@ -12,6 +15,13 @@ class WidgetSetting(BaseModel):
 
     input_placeholder: str | None = None
     """Placeholder of an input field the user types in; shown only when set"""
+
+    choose: Literal["document"] | None = None
+    """What the user picks from instead of typing; the app lists their documents
+    of kind"""
+
+    kind: DocumentKind | None = None
+    """The kind of document the user picks from; every kind when None"""
 
     submit_btn: str | None = None
     """Text of the submit button; shown only when set"""

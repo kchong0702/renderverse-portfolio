@@ -4,7 +4,9 @@ from src.agents import build_agent
 from src.agents.career_director import CareerDirectorState
 from src.agents.career_director.tools import (
     analyse_job_tool,
+    choose_document,
     edit_document_tool,
+    find_documents,
     find_jobs_tool,
 )
 from src.app.a2a import Executable
@@ -37,6 +39,8 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
                 edit_document_tool,
                 career_consultant.edit_document_executable.provided.graph,
             ),
+            find_documents,
+            choose_document,
         ),
         state_schema=CareerDirectorState,
     )

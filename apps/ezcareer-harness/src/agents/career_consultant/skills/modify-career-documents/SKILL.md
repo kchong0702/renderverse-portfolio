@@ -1,6 +1,8 @@
 ---
 name: modify-career-documents
 description: How to write a Changeset of edits to a résumé or cover letter, with paths, sources and the rules each edit kind follows.
+metadata:
+  include_tools: read_pdf_lines propose_changeset list_design_options
 ---
 
 # Modify a career document
@@ -14,7 +16,8 @@ description: How to write a Changeset of edits to a résumé or cover letter, wi
    - `move` moves a block or an item within its list.
    - `delete` removes a block or an item. A block that the design's `layouts` places can only go after an `update_design` takes it out of every placement there.
    - `update_visibility` hides or shows a block without deleting it.
-   - `update_design` sets the whole design. Copy the current design and change only what the user asked.
+   - `update_design` sets the whole design. Call `list_design_options` first for the templates, fonts and colours this document's kind can use. Copy the current design and change only what the user asked.
 4. Cite sources in every value's `src`. Rewording a line cites that line. A claim the PDF doesn't make cites the fact that supports it. Keep every number and name exactly as the cited line or fact has it.
 5. New ids are short, lowercase and unique among their siblings, such as `k8s-bullet`.
 6. Write `reason` as one sentence the user reads, saying what the changeset does and why.
+7. Propose the changeset with `propose_changeset`.

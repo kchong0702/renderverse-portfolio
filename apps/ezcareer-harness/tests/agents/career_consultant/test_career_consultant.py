@@ -11,10 +11,12 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 from pydantic import TypeAdapter
 
-from src.agents import AgentOverride, build_agent, load_agents
+from src.agents import build_agent, load_agents
 from src.agents.career_consultant import CareerConsultantState
+from src.agents.career_consultant.middlewares import document_prompt
 from src.agents.career_consultant.tools import (
     list_design_options_tool,
+    propose_changeset,
     read_pdf_lines,
 )
 from src.clients.artifact_service import ArtifactServiceClient
@@ -52,6 +54,7 @@ def _templates(request: httpx.Request) -> httpx.Response:
 TOOLS: tuple[BaseTool, ...] = (
     read_pdf_lines,
     read_profile_facts,
+    propose_changeset,
     list_design_options_tool(
         ArtifactServiceClient(
             httpx.AsyncClient(
@@ -63,7 +66,6 @@ TOOLS: tuple[BaseTool, ...] = (
     clarify,
     permission,
 )
-EDIT = AgentOverride(response_format=Changeset)
 GOOD_EDIT = UpdateField(
     kind="update_field",
     path="blocks/experience/items/lumen/bullets/queue/text",
@@ -72,6 +74,10 @@ GOOD_EDIT = UpdateField(
         src=["p1.s8", "fact:k8s"],
     ),
 )
+BAD_EDIT = GOOD_EDIT.model_copy(
+    update={"value": GOOD_EDIT.value.model_copy(update={"src": ["p1.s8"]})}
+)
+DONE = AIMessage("I proposed naming the Kubernetes migration in the queue bullet.")
 LETTER = {
     "kind": "cover_letter",
     "content": {
@@ -100,8 +106,13 @@ def _changeset(*edits: AnyEdit) -> Changeset:
     )
 
 
-def _answer(*edits: AnyEdit) -> AIMessage:
-    return _call("Changeset", **_changeset(*edits).model_dump(mode="json"))
+READ_SKILL = _call("read_file", file_path="/modify-career-documents/SKILL.md")
+
+
+def _propose(*edits: AnyEdit) -> AIMessage:
+    return _call(
+        "propose_changeset", changeset=_changeset(*edits).model_dump(mode="json")
+    )
 
 
 def _state() -> CareerConsultantState:
@@ -130,8 +141,8 @@ def _model(*replies: AIMessage) -> ScriptedChatModel:
 def _agent(model: ScriptedChatModel) -> CompiledStateGraph:
     return build_agent(
         AGENT,
-        response_formats=(Changeset,),
         tools=TOOLS,
+        middleware=(document_prompt,),
         state_schema=CareerConsultantState,
         model=model,
     )
@@ -143,8 +154,8 @@ def _tool_results(result: CareerConsultantState) -> dict[str, str]:
 
 async def test_agent_reads_the_pdf_lines_and_profile_facts():
     result = await _agent(
-        _model(_call("read_pdf_lines"), _call("read_profile_facts"), _answer(GOOD_EDIT))
-    ).ainvoke(_state(), EDIT.config())
+        _model(_call("read_pdf_lines"), _call("read_profile_facts"), DONE)
+    ).ainvoke(_state())
 
     results = _tool_results(result)
     assert "p1.s8  Led the migration of 30 services" in results["read_pdf_lines"]
@@ -152,16 +163,14 @@ async def test_agent_reads_the_pdf_lines_and_profile_facts():
         "fact:k8s  Ran production workloads on Kubernetes"
         in results["read_profile_facts"]
     )
-    assert result["structured_response"] == _changeset(GOOD_EDIT)
+    assert result["messages"][-1].text == DONE.text
 
 
 async def _asked(
     ask: AIMessage, answer: object, configurable: dict[str, str] | None = None
 ) -> tuple[CareerConsultantState, CareerConsultantState]:
-    agent = _agent(_model(ask, _answer(GOOD_EDIT))).copy(
-        update={"checkpointer": InMemorySaver()}
-    )
-    thread = EDIT.config({"configurable": {"thread_id": "t1", **(configurable or {})}})
+    agent = _agent(_model(ask, DONE)).copy(update={"checkpointer": InMemorySaver()})
+    thread = {"configurable": {"thread_id": "t1", **(configurable or {})}}
     return (
         await agent.ainvoke(_state(), thread),
         await agent.ainvoke(Command(resume=answer), thread),
@@ -182,7 +191,7 @@ async def test_clarify_shows_the_user_a_widget_and_returns_what_they_typed():
         )
     ]
     assert _tool_results(resumed)["clarify"] == "The queue migration one"
-    assert resumed["structured_response"] == _changeset(GOOD_EDIT)
+    assert resumed["messages"][-1].text == DONE.text
 
 
 @pytest.mark.parametrize(
@@ -246,18 +255,16 @@ async def test_clarify_takes_a_plain_text_answer_as_what_was_typed():
 async def test_design_options_are_artifact_services_templates_for_the_document_kind():
     state = _state() | {"document": TypeAdapter(AnyDocument).validate_python(LETTER)}
 
-    result = await _agent(
-        _model(_call("list_design_options"), _answer(GOOD_EDIT))
-    ).ainvoke(state, EDIT.config())
+    result = await _agent(_model(_call("list_design_options"), DONE)).ainvoke(state)
 
     templates = json.loads(_tool_results(result)["list_design_options"])
     assert [template["id"] for template in templates] == ["plain-letter"]
 
 
 async def test_agent_offers_its_tools_and_loads_both_skills():
-    model = _model(_answer(GOOD_EDIT))
+    model = _model(DONE)
 
-    await _agent(model).ainvoke(_state(), EDIT.config())
+    await _agent(model).ainvoke(_state())
 
     assert {tool.name for tool in TOOLS} <= model.offered_tools[0]
     assert {"write_file", "edit_file", "task"}.isdisjoint(model.offered_tools[0])
@@ -266,9 +273,9 @@ async def test_agent_offers_its_tools_and_loads_both_skills():
 
 
 async def test_the_profile_describes_the_tools_and_marks_text_untrusted():
-    model = _model(_answer(GOOD_EDIT))
+    model = _model(DONE)
 
-    await _agent(model).ainvoke(_state(), EDIT.config())
+    await _agent(model).ainvoke(_state())
 
     overrides = AGENT.profile.tool_description_overrides
     assert {name: model.tool_descriptions[name] for name in overrides} == overrides

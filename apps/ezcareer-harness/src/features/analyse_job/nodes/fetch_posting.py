@@ -1,7 +1,7 @@
 import html_text
 import httpx
 
-from src.features.analyse_job.schemas import PostingLine
+from src.shared.jobs import PostingLine
 
 
 async def fetch_posting(url: str) -> list[PostingLine]:
