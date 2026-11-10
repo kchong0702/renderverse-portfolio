@@ -14,6 +14,7 @@ export interface InboxMessage {
   state: ThreadState | null;
   decide_by: string | null;
   application_id: string | null;
+  on_calendar: boolean;
 }
 
 export interface InboxMessageDetail extends InboxMessage {

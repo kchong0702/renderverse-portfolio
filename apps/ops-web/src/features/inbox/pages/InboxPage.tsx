@@ -117,9 +117,6 @@ export default function InboxPage() {
                 <ThreadList
                   threads={threads}
                   selectedId={selected.thread_id}
-                  addsInterviews={
-                    settings.data.automation.add_interview_invites
-                  }
                   onSelect={(thread) => {
                     setCompose(null);
                     setParams({ thread });
