@@ -58,6 +58,9 @@ class DocumentRead(DocumentSummary):
     body: AnyDocument
     """The current draft"""
 
+    pending_body: AnyDocument | None
+    """The draft with the pending changeset's edits applied; None when none waits"""
+
 
 class VersionCreate(BaseModel):
     label: str = Field(default="", max_length=200)
