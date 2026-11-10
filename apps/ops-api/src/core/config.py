@@ -90,6 +90,9 @@ class DocumentsSettings(BaseModel):
     max_per_kind: int = Field(default=10, gt=0)
     """How many résumés, CVs or cover letters a user keeps at most, each"""
 
+    match_cutoff: int = Field(default=70, ge=0, le=100)
+    """How closely, from 0 to 100, a title must match the name a run asks for"""
+
     max_upload_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
     """The largest résumé file a user may upload"""
 

@@ -7,7 +7,6 @@ from uuid import UUID
 from pydantic import BaseModel, ValidationError
 
 from src.clients.ezcareer import Answer, EzcareerClient, Published, RunEvent
-from src.core.exceptions import InvalidInput, NotFound
 from src.core.logging import get_logger
 from src.core.runner import Runner
 from src.features.assistant.schemas import ChatMessage
@@ -48,14 +47,12 @@ class AssistantService:
             elif event.name == "changeset":
                 try:
                     artifact = ChangesetArtifact.model_validate(event.data)
-                    proposed = await self._documents.propose_from_run(
-                        user_id, artifact.document_id, artifact.changeset
-                    )
                 except ValidationError as error:
                     logger.warning("changeset_skipped", reason=str(error))
-                except (NotFound, InvalidInput) as error:
-                    logger.warning("changeset_skipped", reason=error.message)
-                else:
+                    continue
+                if proposed := await self._documents.propose_from_run(
+                    user_id, artifact.document_id, artifact.changeset
+                ):
                     yield proposed
 
     async def send(
