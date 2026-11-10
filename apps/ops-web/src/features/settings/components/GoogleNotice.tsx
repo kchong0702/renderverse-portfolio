@@ -2,10 +2,8 @@ import { useTranslation } from "react-i18next";
 import { buttonClass } from "@/shared/components/button";
 import { googleConnectUrl } from "../api/settings";
 
-export type GoogleProblem = "not_configured" | "not_connected" | "expired";
-
 interface GoogleNoticeProps {
-  problem: GoogleProblem;
+  problem: "not_configured" | "not_connected" | "expired";
   next: string;
 }
 
