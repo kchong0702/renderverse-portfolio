@@ -17,6 +17,7 @@ from src.clients.google.schemas import (
 )
 from src.core.config import GoogleSettings
 from src.core.exceptions import Conflict, NotFound, ServiceUnavailable
+from src.core.logging import get_logger
 
 SCOPES = (
     "https://www.googleapis.com/auth/gmail.readonly",
@@ -33,13 +34,16 @@ _REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 _GMAIL_URL = "https://gmail.googleapis.com/gmail/v1/users/me"
 _CALENDAR_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
 
+logger = get_logger(__name__)
+
 
 def _parse[T: BaseModel](response: httpx2.Response, model: type[T]) -> T:
     """A successful response's JSON as model; ServiceUnavailable for anything else"""
     if response.is_error:
-        raise ServiceUnavailable(
-            f"Google answered {response.status_code}: {response.text[:300]}"
+        logger.warning(
+            "google_error", status_code=response.status_code, body=response.text
         )
+        raise ServiceUnavailable("Google answered with an error; try again later")
     try:
         return model.model_validate_json(response.content)
     except ValidationError as error:

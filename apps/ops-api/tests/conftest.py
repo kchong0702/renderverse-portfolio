@@ -67,6 +67,7 @@ class FakeHarness:
             ]
         }
         self.down = False
+        self.failing = False
         self.outcomes: list[dict | list[dict]] = []
         self.received: list[httpx2.Request] = []
 
@@ -201,6 +202,7 @@ class FakeArtifact:
         ]
         self.rendered: list[JsonValue] = []
         self.down = False
+        self.failing = False
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         """Serve templates and renders at /artifact-service/v1, or refuse when down"""
@@ -229,6 +231,7 @@ class FakeGoogle:
         self.scope = GOOGLE_SCOPES
         self.revoked = False
         self.down = False
+        self.failing = False
         self.refreshed_with: list[str] = []
         self.revoked_tokens: list[str] = []
         self.gmail_queries: list[str] = []
@@ -255,6 +258,8 @@ class FakeGoogle:
 
     def _api(self, request: httpx2.Request) -> httpx2.Response:
         """Gmail and Calendar for a request that carries an access token"""
+        if self.failing:
+            return httpx2.Response(500, text="backend detail for Google's engineers")
         path = request.url.path
         query = parse_qs(urlsplit(str(request.url)).query)
         if path == "/gmail/v1/users/me/profile":
