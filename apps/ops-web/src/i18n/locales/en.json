@@ -675,8 +675,8 @@
         "remove": "Remove key",
         "failed": "Not saved: {{reason}}"
       },
-      "connectedAs": "Connected as {{account}}",
       "google": {
+        "connected": "Connected · Gmail and Calendar",
         "connect": "Connect",
         "disconnect": "Disconnect",
         "disconnectFailed": "Not disconnected: {{reason}}"
