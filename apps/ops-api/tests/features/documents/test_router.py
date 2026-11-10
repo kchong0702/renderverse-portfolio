@@ -63,6 +63,19 @@ def _block(document, block_id):
     return next(b for b in document["body"]["content"]["blocks"] if b["id"] == block_id)
 
 
+async def test_a_user_keeps_at_most_ten_documents_of_each_kind(client):
+    for number in range(10):
+        await _create(client, title=f"Résumé {number}")
+
+    eleventh = await client.post(DOCUMENTS, json={"title": "One more", "body": RESUME})
+
+    assert eleventh.status_code == 409
+    assert eleventh.json() == {
+        "detail": "You already keep 10 resume documents. Delete one to add another."
+    }
+    assert len((await client.get(DOCUMENTS)).json()) == 10
+
+
 async def test_documents_start_empty(client):
     response = await client.get(DOCUMENTS)
 

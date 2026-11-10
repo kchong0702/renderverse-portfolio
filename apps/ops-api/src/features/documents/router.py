@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request, UploadFile, status
 
 from src.clients.artifact import Render
 from src.core.auth import CurrentUserDep
+from src.core.config import get_settings
 from src.db.session import SessionDep
 from src.features.documents.schemas import (
     ChangesetDecision,
@@ -26,7 +27,9 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 
 def get_document_service(session: SessionDep, request: Request) -> DocumentService:
     """The documents service on the request's database session"""
-    return DocumentService(session, request.app.state.artifact)
+    return DocumentService(
+        session, request.app.state.artifact, get_settings().documents
+    )
 
 
 DocumentServiceDep = Annotated[DocumentService, Depends(get_document_service)]

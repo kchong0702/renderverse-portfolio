@@ -15,6 +15,9 @@ access_log = true
 url = "http://127.0.0.1:8210/artifact-service"
 timeout_seconds = 60
 
+[documents]
+max_per_kind = 10
+
 [auth]
 enabled = false
 dev_email = "owner@localhost"
