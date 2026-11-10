@@ -123,6 +123,9 @@ class EntryWrite(BaseModel):
     archived: bool = False
     """Kept but left out of what the agents see"""
 
+    on_site: bool = False
+    """Shown on the portfolio site from the next release; only projects use it"""
+
     @model_validator(mode="after")
     def _end_not_before_start(self) -> Self:
         """Reject an end month earlier than the start month"""

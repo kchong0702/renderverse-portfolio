@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import ForeignKey, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base, EnumString, JsonType
@@ -89,6 +89,9 @@ class ProfileEntry(IdMixin, UserScopedMixin, AuditMixin, Base):
 
     archived: Mapped[bool] = mapped_column(default=False)
     """Kept but left out of what the agents see"""
+
+    on_site: Mapped[bool] = mapped_column(default=False, server_default=false())
+    """Shown on the portfolio site from the next release; only projects use it"""
 
 
 class ProfileSkill(IdMixin, UserScopedMixin, AuditMixin, Base):
