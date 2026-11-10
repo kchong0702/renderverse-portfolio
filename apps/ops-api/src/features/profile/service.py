@@ -191,10 +191,9 @@ class ProfileService:
 
     async def _load(self, user_id: UUID) -> Profile:
         """The user's profile row, created empty when missing"""
-        profile = await self._repository.profile(user_id)
-        if profile is None:
-            profile = await self._repository.add(Profile(user_id=user_id))
-        return profile
+        return await self._repository.profile(user_id) or await self._repository.create(
+            user_id
+        )
 
 
 __all__ = ["ProfileService"]
