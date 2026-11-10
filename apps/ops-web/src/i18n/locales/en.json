@@ -514,15 +514,7 @@
       "eb-garamond": "EB Garamond"
     },
     "request": {
-      "label": "Ask for a change",
-      "placeholder": "Tailor it for the Northwind Labs posting, or shorten it to one page",
-      "ask": "Propose edits",
-      "asking": "Proposing…",
-      "send": "Send",
-      "working": "The assistant is drafting edits from your facts and checking them. This can take a few minutes.",
-      "failed": "No edits proposed: {{reason}}",
-      "proposed_one": "The assistant proposed {{count}} edit. Review it below.",
-      "proposed_other": "The assistant proposed {{count}} edits. Review them below."
+      "send": "Send"
     },
     "entryPanel": {
       "experience": "Experience entry",
@@ -706,8 +698,10 @@
     "close": "Close assistant",
     "askAbout": "Ask about {{topic}}, or anything in your job search",
     "askAnything": "Ask anything in your job search",
+    "aboutDocument": "Talking about {{title}}",
     "message": "Message the assistant",
     "placeholder": "Ask anything",
+    "documentPlaceholder": "Ask for a change to this document",
     "send": "Send",
     "stop": "Stop",
     "newChat": "New chat",
@@ -755,6 +749,14 @@
     },
     "failed": "That did not work: {{reason}}",
     "answerFailed": "Your answer was not sent: {{reason}}",
+    "changeset_one": "{{count}} edit proposed in {{title}}",
+    "changeset_other": "{{count}} edits proposed in {{title}}",
+    "review": "Review",
+    "documentSuggestions": [
+      "Shorten this to one page",
+      "Tighten the summary",
+      "Tailor this for the Northwind Labs posting"
+    ],
     "documents": {
       "label": "Your documents",
       "loading": "Loading your documents…",

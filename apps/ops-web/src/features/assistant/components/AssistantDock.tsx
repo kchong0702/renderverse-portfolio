@@ -1,22 +1,24 @@
-import { useIsMutating } from "@tanstack/react-query";
 import {
   CircleCheck,
   CirclePause,
   CircleStop,
   CircleX,
+  FilePen,
   LoaderCircle,
   Sparkle,
   SquarePen,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import Badge from "@/shared/components/Badge";
 import { buttonClass } from "@/shared/components/button";
 import type { DocumentKind, Step, Widget } from "../api/assistant";
 import {
   useAnswerTask,
+  useChat,
   useDocuments,
-  useResumeTurn,
+  useResumeTurns,
   useSendMessage,
   useStop,
 } from "../hooks/useAssistant";
@@ -24,7 +26,10 @@ import {
   openTurn,
   useAssistantStore,
   type AssistantTurn,
+  type ChatEntry,
 } from "../state/assistantStore";
+
+const NO_ENTRIES: ChatEntry[] = [];
 
 const fieldClass =
   "border-hair bg-ground text-ink min-h-10 rounded-lg border px-3 py-2 text-sm leading-normal disabled:opacity-60";
@@ -103,19 +108,18 @@ function ChatWidget({
 }) {
   const { t } = useTranslation();
   const answer = useAnswerTask();
-  const chatId = useAssistantStore((state) => state.chatId);
+  const chat = useChat();
   const [input, setInput] = useState("");
   const labelId = useId();
   const choosesDocument = widget.choose === "document";
   const asksInput = widget.input_placeholder !== null || choosesDocument;
-  const cancelLabel = widget.cancel_btn;
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
         answer.mutate({
-          chatId,
+          chat,
           taskId,
           answer: { input: input.trim() || undefined, accept: true },
           shown: input.trim() || widget.submit_btn || t("assistant.send"),
@@ -128,74 +132,72 @@ function ChatWidget({
           {widget.label}
         </p>
       )}
+      {live && widget.input_value !== null && (
+        <input
+          disabled
+          value={widget.input_value}
+          aria-labelledby={labelId}
+          className={fieldClass}
+        />
+      )}
+      {live && choosesDocument && (
+        <DocumentPills
+          kind={widget.kind}
+          disabled={answer.isPending}
+          onPick={(title) =>
+            answer.mutate({
+              chat,
+              taskId,
+              answer: { input: title },
+              shown: title,
+            })
+          }
+        />
+      )}
+      {live && asksInput && (
+        <input
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          placeholder={
+            widget.input_placeholder ?? t("assistant.documents.typeTitle")
+          }
+          aria-labelledby={labelId}
+          disabled={answer.isPending}
+          className={fieldClass}
+        />
+      )}
       {live && (
-        <>
-          {widget.input_value !== null && (
-            <input
-              disabled
-              value={widget.input_value}
-              aria-labelledby={labelId}
-              className={fieldClass}
-            />
-          )}
-          {choosesDocument && (
-            <DocumentPills
-              kind={widget.kind}
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={answer.isPending || (asksInput && !input.trim())}
+            className={buttonClass("primary")}
+          >
+            {widget.submit_btn ?? t("assistant.send")}
+          </button>
+          {widget.cancel_btn !== null && (
+            <button
+              type="button"
               disabled={answer.isPending}
-              onPick={(title) =>
+              onClick={() =>
                 answer.mutate({
-                  chatId,
+                  chat,
                   taskId,
-                  answer: { input: title },
-                  shown: title,
+                  answer: { accept: false },
+                  shown: widget.cancel_btn ?? "",
                 })
               }
-            />
-          )}
-          {asksInput && (
-            <input
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              placeholder={
-                widget.input_placeholder ?? t("assistant.documents.typeTitle")
-              }
-              aria-labelledby={labelId}
-              disabled={answer.isPending}
-              className={fieldClass}
-            />
-          )}
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={answer.isPending || (asksInput && !input.trim())}
-              className={buttonClass("primary")}
+              className={buttonClass()}
             >
-              {widget.submit_btn ?? t("assistant.send")}
+              {widget.cancel_btn}
             </button>
-            {cancelLabel !== null && (
-              <button
-                type="button"
-                disabled={answer.isPending}
-                onClick={() =>
-                  answer.mutate({
-                    chatId,
-                    taskId,
-                    answer: { accept: false },
-                    shown: cancelLabel,
-                  })
-                }
-                className={buttonClass()}
-              >
-                {cancelLabel}
-              </button>
-            )}
-          </div>
-          {answer.error && (
-            <p role="alert" className="text-crit m-0 text-[13px]">
-              {t("assistant.answerFailed", { reason: answer.error.message })}
-            </p>
           )}
-        </>
+        </div>
+      )}
+      {live && answer.error && (
+        <p role="alert" className="text-crit m-0 text-[13px]">
+          {t("assistant.answerFailed", { reason: answer.error.message })}
+        </p>
       )}
     </form>
   );
@@ -264,6 +266,23 @@ function Turn({ turn, last }: { turn: AssistantTurn; last: boolean }) {
           >
             {part.text}
           </p>
+        ) : part.kind === "changeset" ? (
+          <p
+            key={index}
+            className="border-hair text-ink-2 m-0 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border px-3 py-2 text-[13px]"
+          >
+            <FilePen size={14} className="text-amber" />
+            {t("assistant.changeset", {
+              count: part.changeset.edits,
+              title: part.changeset.title,
+            })}
+            <Link
+              to={`/documents?doc=${part.changeset.document_id}&panel=changes`}
+              className="text-ink font-medium underline"
+            >
+              {t("assistant.review")}
+            </Link>
+          </p>
         ) : (
           <div
             key={index}
@@ -322,15 +341,17 @@ export default function AssistantDock({
   const { t, i18n } = useTranslation();
   const open = useAssistantStore((state) => state.open);
   const setOpen = useAssistantStore((state) => state.setOpen);
-  const entries = useAssistantStore((state) => state.entries);
-  const chatId = useAssistantStore((state) => state.chatId);
+  const document = useAssistantStore((state) => state.document);
+  const chat = useChat();
+  const entries = useAssistantStore(
+    (state) => state.chats[chat.kind][chat.id] ?? NO_ENTRIES,
+  );
   const newChat = useAssistantStore((state) => state.newChat);
   const send = useSendMessage();
   const stop = useStop();
-  useResumeTurn();
+  useResumeTurns();
   const current = entries.at(-1);
   const running = openTurn(entries);
-  const busy = useIsMutating({ mutationKey: ["assistant"] }) > 0;
   const [draft, setDraft] = useState("");
   const toggleRef = useRef<HTMLButtonElement>(null);
   const transcriptRef = useRef<HTMLOListElement>(null);
@@ -350,9 +371,9 @@ export default function AssistantDock({
   };
 
   const ask = (text: string) => {
-    if (!text.trim() || busy) return;
+    if (!text.trim() || running) return;
     pinned.current = true;
-    send.mutate({ chatId, text: text.trim() });
+    send.mutate({ chat, text: text.trim() });
     setDraft("");
   };
 
@@ -373,11 +394,11 @@ export default function AssistantDock({
                 <Sparkle size={16} />
               </span>
               {t("assistant.title")}
-              {entries.length > 0 && (
+              {!document && entries.length > 0 && (
                 <button
                   type="button"
                   onClick={newChat}
-                  disabled={busy}
+                  disabled={running !== undefined}
                   aria-label={t("assistant.newChat")}
                   title={t("assistant.newChat")}
                   className="text-ink-3 hover:text-ink ml-auto flex cursor-pointer rounded-md border-0 bg-transparent p-1 disabled:opacity-60"
@@ -387,16 +408,21 @@ export default function AssistantDock({
               )}
             </span>
             <span className="text-ink-3 text-[13px]">
-              {topic
-                ? t("assistant.askAbout", {
-                    topic: topic.toLocaleLowerCase(i18n.language),
-                  })
-                : t("assistant.askAnything")}
+              {document
+                ? t("assistant.aboutDocument", { title: document.title })
+                : topic
+                  ? t("assistant.askAbout", {
+                      topic: topic.toLocaleLowerCase(i18n.language),
+                    })
+                  : t("assistant.askAnything")}
             </span>
           </div>
-          {entries.length === 0 && !busy ? (
+          {entries.length === 0 ? (
             <div className="flex flex-col gap-2 px-[18px] py-4">
-              {suggestions.map((suggestion) => (
+              {(document
+                ? t("assistant.documentSuggestions", { returnObjects: true })
+                : suggestions
+              ).map((suggestion) => (
                 <button
                   key={suggestion}
                   type="button"
@@ -452,7 +478,11 @@ export default function AssistantDock({
                     ask(draft);
                   }
                 }}
-                placeholder={t("assistant.placeholder")}
+                placeholder={
+                  document
+                    ? t("assistant.documentPlaceholder")
+                    : t("assistant.placeholder")
+                }
                 className="border-hair bg-ground text-ink min-h-10 flex-1 resize-none rounded-lg border px-3 py-2 text-sm leading-normal"
               />
             </label>
@@ -462,7 +492,7 @@ export default function AssistantDock({
                 disabled={stop.isPending || !running.taskId}
                 onClick={() =>
                   running.taskId &&
-                  stop.mutate({ chatId, taskId: running.taskId })
+                  stop.mutate({ chat, taskId: running.taskId })
                 }
                 className={buttonClass()}
               >
@@ -471,7 +501,7 @@ export default function AssistantDock({
             ) : (
               <button
                 type="submit"
-                disabled={busy || !draft.trim()}
+                disabled={!draft.trim()}
                 className={buttonClass("primary")}
               >
                 {t("assistant.send")}

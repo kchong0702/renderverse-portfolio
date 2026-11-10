@@ -38,38 +38,51 @@ export type Outcome =
   | { status: "failed"; reason: string }
   | { status: "cancelled" };
 
+export interface Changeset {
+  document_id: string;
+  title: string;
+  changeset_id: string;
+  edits: number;
+}
+
 export type RunEvent =
   | { status: "started"; task_id: string }
   | { status: "thinking"; turn: string; text: string }
   | { status: "text"; turn: string; text: string }
   | { status: "step"; step: Step }
+  | ({ status: "changeset" } & Changeset)
   | Outcome;
 
+export interface Chat {
+  kind: "assistant" | "document";
+  id: string;
+}
+
 export interface ChatMessage {
-  chatId: string;
+  chat: Chat;
   text: string;
 }
 
 export interface TaskAnswer {
-  chatId: string;
+  chat: Chat;
   taskId: string;
   answer: Answer;
   shown: string;
 }
 
 export interface TurnCursor {
-  chatId: string;
+  chat: Chat;
   lastEventId: string;
 }
 
 export interface Task {
-  chatId: string;
+  chat: Chat;
   taskId: string;
 }
 
 type OnEvent = (event: RunEvent, id: string | undefined) => void;
 
-const URL = "/ops-api/v1/assistant";
+const URL = "/ops-api/v1";
 
 const MAX_RECONNECTS = 5;
 
@@ -84,17 +97,22 @@ const TERMINAL: ReadonlySet<RunEvent["status"]> = new Set([
   "cancelled",
 ]);
 
-const taskUrl = ({ chatId, taskId }: Task) =>
-  `${URL}/chats/${chatId}/tasks/${encodeURIComponent(taskId)}`;
+const chatUrl = ({ kind, id }: Chat) =>
+  kind === "document"
+    ? `${URL}/documents/${id}/chat`
+    : `${URL}/assistant/chats/${id}`;
+
+const taskUrl = ({ chat, taskId }: Task) =>
+  `${chatUrl(chat)}/tasks/${encodeURIComponent(taskId)}`;
 
 const openChatStream = (
-  chatId: string,
+  chat: Chat,
   lastEventId: string | null,
   signal: AbortSignal,
   onRetry: (ms: number) => void,
 ) =>
   stream(
-    `${URL}/chats/${chatId}/stream`,
+    `${chatUrl(chat)}/stream`,
     {
       headers: lastEventId ? { "Last-Event-ID": lastEventId } : undefined,
       signal,
@@ -116,7 +134,7 @@ const wait = (ms: number, signal: AbortSignal) =>
   });
 
 async function streamTurn(
-  chatId: string,
+  chat: Chat,
   request: { url: string; body: unknown } | null,
   lastEventId: string | null,
   signal: AbortSignal,
@@ -134,7 +152,7 @@ async function streamTurn(
         { method: "POST", body: JSON.stringify(request.body), signal },
         onRetry,
       )
-    : await openChatStream(chatId, lastEventId, signal, onRetry);
+    : await openChatStream(chat, lastEventId, signal, onRetry);
   for (;;) {
     if (reader) {
       try {
@@ -155,7 +173,7 @@ async function streamTurn(
     if (++reconnects > MAX_RECONNECTS)
       throw new Error(i18n.t("assistant.connectionLost"));
     await wait(Math.min(retryMs * 2 ** (reconnects - 1), MAX_RETRY_MS), signal);
-    reader = await openChatStream(chatId, lastEventId, signal, onRetry).catch(
+    reader = await openChatStream(chat, lastEventId, signal, onRetry).catch(
       (error: unknown) => {
         if (signal.aborted || error instanceof ApiError) throw error;
         return null;
@@ -165,13 +183,17 @@ async function streamTurn(
 }
 
 export const sendMessage = (
-  { chatId, ...message }: ChatMessage,
+  { chat, text }: ChatMessage,
   signal: AbortSignal,
   onEvent: OnEvent,
 ) =>
   streamTurn(
-    chatId,
-    { url: `${URL}/chats/${chatId}/messages`, body: message },
+    chat,
+    {
+      url:
+        chat.kind === "document" ? chatUrl(chat) : `${chatUrl(chat)}/messages`,
+      body: { text },
+    },
     null,
     signal,
     onEvent,
@@ -183,7 +205,7 @@ export const answerTask = (
   onEvent: OnEvent,
 ) =>
   streamTurn(
-    task.chatId,
+    task.chat,
     { url: `${taskUrl(task)}/answer`, body: answer },
     null,
     signal,
@@ -191,13 +213,13 @@ export const answerTask = (
   );
 
 export const resumeTurn = (
-  { chatId, lastEventId }: TurnCursor,
+  { chat, lastEventId }: TurnCursor,
   signal: AbortSignal,
   onEvent: OnEvent,
-) => streamTurn(chatId, null, lastEventId, signal, onEvent);
+) => streamTurn(chat, null, lastEventId, signal, onEvent);
 
 export const cancelTask = (task: Task) =>
   http.post<void>(`${taskUrl(task)}/cancel`);
 
 export const fetchDocuments = (signal?: AbortSignal) =>
-  http.get<DocumentSummary[]>("/ops-api/v1/documents", signal);
+  http.get<DocumentSummary[]>(`${URL}/documents`, signal);

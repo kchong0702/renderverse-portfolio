@@ -108,12 +108,6 @@ export type EditRun =
   | { status: "input_required"; task_id: string; widget: Widget }
   | { status: "failed"; reason: string };
 
-export interface EditRequest {
-  id: string;
-  requestId: string;
-  text: string;
-}
-
 export interface EditAnswer {
   id: string;
   requestId: string;
@@ -159,9 +153,6 @@ export const cancelImport = (id: string) => http.delete(`${URL}/imports/${id}`);
 
 export const readImport = (id: string) =>
   http.post<DocumentImport>(`${URL}/imports/${id}/read`);
-
-export const requestEdit = ({ id, requestId, text }: EditRequest) =>
-  http.post<EditRun>(`${URL}/${id}/edit-requests/${requestId}`, { text });
 
 export const answerEdit = ({ id, requestId, taskId, answer }: EditAnswer) =>
   http.post<EditRun>(
