@@ -63,7 +63,7 @@ class PostgresRunStore:
         """The oldest last activity of a run still taken to be running"""
         return utcnow() - timedelta(seconds=self._settings.run_timeout_seconds)
 
-    async def start(self, user_id: UUID, key: str) -> str:
+    async def create(self, user_id: UUID, key: str) -> str:
         """Open a new run of the user's for key and return its id; Conflict while key's
         last run is still going and was active within run_timeout_seconds"""
         async with self._factory() as session, session.begin():

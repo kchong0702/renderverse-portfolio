@@ -33,7 +33,7 @@ class Runner:
     ) -> str:
         """Start a task of the user's for key in the background and return its run
         id; Conflict while key's last task is still going"""
-        run_id = await self._store.start(user_id, key)
+        run_id = await self._store.create(user_id, key)
         task = asyncio.create_task(self._write(run_id, events))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
