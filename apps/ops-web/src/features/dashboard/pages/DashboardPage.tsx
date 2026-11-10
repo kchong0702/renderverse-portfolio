@@ -30,10 +30,13 @@ export default function DashboardPage() {
   const period: Period =
     PERIODS.find((name) => name === params.get("period")) ?? "30d";
   const days = PERIOD_DAYS[period];
-  const picks = jobs.data?.filter((job) => job.status === "picked") ?? [];
-  const bestPicks = picks.filter((job) =>
-    ["good", "excellent"].includes(job.analysis?.band ?? ""),
-  );
+  const newPicks =
+    jobs.data?.jobs.filter(
+      (job) =>
+        job.status === "picked" &&
+        !job.seen_at &&
+        ["good", "excellent"].includes(job.analysis?.band ?? ""),
+    ) ?? [];
   const sent = sentSince(
     applications.data ?? [],
     days === null ? null : daysAgo(days),
@@ -80,12 +83,14 @@ export default function DashboardPage() {
             <Pipeline
               applications={applications.data}
               sent={sent}
-              saved={jobs.data.filter((job) => job.status === "saved").length}
+              saved={
+                jobs.data.jobs.filter((job) => job.status === "saved").length
+              }
             />
             <NextSteps
               applications={applications.data}
-              jobs={jobs.data}
-              picks={bestPicks}
+              jobs={jobs.data.jobs}
+              picks={newPicks}
             />
             <ShortcutCards settings={settings.data} />
           </>
