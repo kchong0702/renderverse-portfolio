@@ -20,3 +20,4 @@ metadata:
 4. Cite sources in every value's `src`. Rewording a line cites that line. A claim the PDF doesn't make cites the fact that supports it. Keep every number and name exactly as the cited line or fact has it.
 5. New ids are short, lowercase and unique among their siblings, such as `k8s-bullet`.
 6. Write `reason` as one sentence the user reads, saying what the changeset does and why.
+7. Propose the changeset with `propose_changeset`.
