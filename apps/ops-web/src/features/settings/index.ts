@@ -5,4 +5,4 @@ export {
   useSettings,
   useUpdateSettings,
 } from "./hooks/useSettings";
-export type { ModelFamily, Settings } from "./api/settings";
+export type { Automation, ModelFamily, Settings } from "./api/settings";

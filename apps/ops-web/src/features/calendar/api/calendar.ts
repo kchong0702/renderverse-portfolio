@@ -15,3 +15,13 @@ export const fetchEvents = (from: string, to: string, signal?: AbortSignal) =>
     `/ops-api/v1/calendar?${new URLSearchParams({ from, to })}`,
     signal,
   );
+
+export interface EventCreate {
+  title: string;
+  start: string;
+  end: string;
+  location?: string;
+}
+
+export const createEvent = (event: EventCreate) =>
+  http.post<CalendarEvent>("/ops-api/v1/calendar/events", event);

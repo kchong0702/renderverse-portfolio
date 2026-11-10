@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkle } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
@@ -13,6 +13,7 @@ import { cn } from "@/shared/lib/cn";
 import AutomationPanel from "../components/AutomationPanel";
 import ComingUp from "../components/ComingUp";
 import MonthGrid from "../components/MonthGrid";
+import ScheduleForm from "../components/ScheduleForm";
 import WeekGrid from "../components/WeekGrid";
 import { useEvents } from "../hooks/useEvents";
 import {
@@ -30,6 +31,7 @@ export default function CalendarPage() {
   const headingId = useId();
   const [params, setParams] = useSearchParams();
   const [now, setNow] = useState(Date.now);
+  const [scheduling, setScheduling] = useState(false);
   const { settings, account, problem } = useGoogleAccount();
   const applications = useApplications();
   const view = params.get("view") === "month" ? "month" : "week";
@@ -137,11 +139,30 @@ export default function CalendarPage() {
               >
                 <ChevronRight aria-hidden size={16} />
               </button>
+              <button
+                type="button"
+                className={buttonClass("primary")}
+                onClick={() => setScheduling(true)}
+              >
+                <span className="text-amber-soft flex">
+                  <Sparkle aria-hidden size={14} />
+                </span>
+                {t("calendar.schedule.title")}
+              </button>
             </>
           )
         }
       />
       <PageBody>
+        {scheduling && (
+          <ScheduleForm
+            day={isoDay(anchor < today ? today : anchor)}
+            onDone={(day) => {
+              setScheduling(false);
+              if (day) setParams({ ...(view === "month" && { view }), day });
+            }}
+          />
+        )}
         {settings.isPending ? (
           <StateMessage>{t("common.loading")}</StateMessage>
         ) : settings.isError ? (
@@ -251,9 +272,7 @@ export default function CalendarPage() {
               ) : (
                 <ComingUp items={itemsOf(upcoming.data, applications.data)} />
               )}
-              <AutomationPanel
-                followUpReminders={settings.data.automation.follow_up_reminders}
-              />
+              <AutomationPanel automation={settings.data.automation} />
             </aside>
           </div>
         )}
