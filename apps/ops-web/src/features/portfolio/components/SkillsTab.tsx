@@ -59,7 +59,14 @@ function SkillRow({ skill, deleteError, onDelete }: SkillRowProps) {
         <button
           type="button"
           aria-label={t("portfolio.table.delete", { name: skill.name })}
-          onClick={onDelete}
+          onClick={() => {
+            if (
+              window.confirm(
+                t("portfolio.table.confirmDelete", { name: skill.name }),
+              )
+            )
+              onDelete();
+          }}
           className="text-ink-3 hover:text-crit inline-flex size-10 cursor-pointer items-center justify-center rounded-lg"
         >
           <Trash2 size={18} />
