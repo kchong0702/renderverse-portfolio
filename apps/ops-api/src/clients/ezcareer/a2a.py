@@ -55,7 +55,8 @@ class SendMessageRequest(BaseModel):
     """Request id the response echoes"""
 
     method: Literal["SendMessage", "SendStreamingMessage"] = "SendMessage"
-    """A2A 1.0's blocking send; it answers once the task ends or pauses"""
+    """SendMessage answers once the task ends or pauses; SendStreamingMessage streams
+    each event"""
 
     params: SendMessageParams
     """The message"""
