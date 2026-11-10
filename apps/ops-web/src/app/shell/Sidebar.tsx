@@ -2,11 +2,10 @@ import { Sparkle } from "lucide-react";
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
-import { SignOutButton, useMe } from "@/features/auth";
+import { AccountMenu, useMe } from "@/features/auth";
 import { useProfile } from "@/features/portfolio";
 import { cn } from "@/shared/lib/cn";
 import { navGroups, useNavBadges } from "./nav";
-import ThemeToggle from "./ThemeToggle";
 
 function initials(nameOrEmail: string): string {
   const name = nameOrEmail.split("@")[0];
@@ -97,7 +96,7 @@ export default function Sidebar() {
 
       <div className="mb-3 min-h-4 flex-1" />
 
-      <div className="border-side-line bg-side-foot flex items-center gap-3 border-t px-[22px] py-4">
+      <AccountMenu>
         <span
           aria-hidden="true"
           className="border-side-on-border text-amber-soft flex size-9 shrink-0 items-center justify-center rounded-full border text-[13px] font-semibold"
@@ -112,11 +111,7 @@ export default function Sidebar() {
             </span>
           )}
         </span>
-        <span className="ml-auto flex">
-          <ThemeToggle />
-          <SignOutButton />
-        </span>
-      </div>
+      </AccountMenu>
     </nav>
   );
 }

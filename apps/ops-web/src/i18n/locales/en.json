@@ -10,8 +10,7 @@
     "tagline": "Your career starts here",
     "space": "Career space",
     "mainNav": "Main",
-    "useDarkTheme": "Use the dark theme",
-    "useLightTheme": "Use the light theme",
+    "account": "Account",
     "comingSoon": "This screen is coming in a later step of the rebuild.",
     "notFound": {
       "title": "Page not found",
@@ -43,6 +42,15 @@
     "title": "Settings",
     "subtitle": "Connections and automation",
     "loadFailed": "Settings could not be loaded: {{reason}}",
+    "appearance": {
+      "title": "Appearance",
+      "theme": "Theme",
+      "modes": {
+        "system": "Match system",
+        "light": "Light",
+        "dark": "Dark"
+      }
+    },
     "save": {
       "saving": "Saving…",
       "saved": "All changes saved",
