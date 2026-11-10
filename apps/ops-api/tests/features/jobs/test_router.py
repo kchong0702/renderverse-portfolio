@@ -1,5 +1,3 @@
-from uuid import uuid4
-
 from src.core.auth.models import User
 from src.features.jobs.models import Job
 from tests.conftest import PREFIX
@@ -148,7 +146,7 @@ async def test_jobs_of_another_user_are_not_found(app, client):
     assert (await client.get(JOBS)).json() == []
     patch = await client.patch(f"{JOBS}/{theirs.id}", json={"status": "saved"})
     assert patch.status_code == 404
-    put = await client.put(f"{JOBS}/{uuid4()}/analysis", json=ANALYSIS)
+    put = await client.put(f"{JOBS}/{theirs.id}/analysis", json=ANALYSIS)
     assert put.status_code == 404
     mine = await client.post(JOBS, json=NORTHWIND)
     assert mine.json()["id"] != str(theirs.id)
