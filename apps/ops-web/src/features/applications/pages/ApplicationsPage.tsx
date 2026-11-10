@@ -61,9 +61,11 @@ export default function ApplicationsPage() {
                 label: t(`applications.views.${name}`),
               }))}
               onChange={(next) =>
-                setParams(
-                  editing ? { view: next, edit: editing } : { view: next },
-                )
+                setParams((current) => {
+                  const params = new URLSearchParams(current);
+                  params.set("view", next);
+                  return params;
+                })
               }
             />
             <button
@@ -125,8 +127,8 @@ export default function ApplicationsPage() {
                   key={edited.id}
                   application={edited}
                   jobs={null}
-                  pending={save.isPending}
-                  error={save.isError ? save.error.message : null}
+                  pending={save.isPending || remove.isPending}
+                  error={(save.error ?? remove.error)?.message ?? null}
                   onCancel={() => setEditing(null)}
                   onSubmit={(application) =>
                     save.mutate(
@@ -142,8 +144,9 @@ export default function ApplicationsPage() {
                         }),
                       )
                     ) {
-                      remove.mutate(edited.id);
-                      setEditing(null);
+                      remove.mutate(edited.id, {
+                        onSuccess: () => setEditing(null),
+                      });
                     }
                   }}
                 />
