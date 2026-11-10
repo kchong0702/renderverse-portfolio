@@ -15,6 +15,7 @@ from src.agents import build_agent, load_agents
 from src.agents.career_consultant import CareerConsultantState
 from src.agents.career_consultant.tools import (
     list_design_options_tool,
+    propose_changeset,
     read_pdf_lines,
 )
 from src.clients.artifact_service import ArtifactServiceClient
@@ -52,6 +53,7 @@ def _templates(request: httpx.Request) -> httpx.Response:
 TOOLS: tuple[BaseTool, ...] = (
     read_pdf_lines,
     read_profile_facts,
+    propose_changeset,
     list_design_options_tool(
         ArtifactServiceClient(
             httpx.AsyncClient(

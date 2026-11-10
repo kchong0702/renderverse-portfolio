@@ -4,13 +4,11 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
 
-from src.agents import AgentOverride
 from src.clients.artifact_service import ArtifactServiceClient
 from src.core.config import get_settings
 from src.features.write_document.configurations import WriteDocumentConfigurations
 from src.features.write_document.nodes import brief, load, output, page_fit
 from src.features.write_document.state import EditGraphState
-from src.features.write_document.tools import propose_changeset
 from src.features.write_document.types import EditInput, EditOutput
 
 
@@ -27,9 +25,7 @@ def build_graph(
     graph = StateGraph(EditGraphState, input_schema=EditInput, output_schema=EditOutput)
     graph.add_node("load", load)
     graph.add_node("brief", brief)
-    graph.add_node(
-        "agent", agent.with_config(AgentOverride(tools=(propose_changeset,)).config())
-    )
+    graph.add_node("agent", agent)
     graph.add_node(
         "page_fit",
         partial(

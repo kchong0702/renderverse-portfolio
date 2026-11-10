@@ -2,7 +2,11 @@ from dependency_injector import containers, providers
 
 from src.agents import build_agent
 from src.agents.career_consultant import CareerConsultantState
-from src.agents.career_consultant.tools import list_design_options_tool, read_pdf_lines
+from src.agents.career_consultant.tools import (
+    list_design_options_tool,
+    propose_changeset,
+    read_pdf_lines,
+)
 from src.app.a2a import Executable
 from src.clients.artifact_service import ArtifactServiceClient
 from src.features import write_document
@@ -25,6 +29,7 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
         tools=providers.List(
             read_pdf_lines,
             read_profile_facts,
+            propose_changeset,
             providers.Callable(list_design_options_tool, artifact_service),
             clarify,
             permission,

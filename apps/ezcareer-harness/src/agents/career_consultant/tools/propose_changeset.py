@@ -7,7 +7,7 @@ from langchain_core.tools import tool
 from langgraph.types import Command
 
 from src.agents.career_consultant import CareerConsultantState
-from src.features.write_document.checks import check_changeset, sources
+from src.agents.career_consultant.checks import check_changeset, sources
 from src.shared.checks import check_round
 
 
@@ -30,6 +30,10 @@ def propose_changeset(
                     "proposed",
                     name="propose_changeset",
                     tool_call_id=runtime.tool_call_id,
+                    artifact={
+                        "name": "changeset",
+                        "data": {"changeset": changeset.model_dump(mode="json")},
+                    },
                 )
             ],
         }

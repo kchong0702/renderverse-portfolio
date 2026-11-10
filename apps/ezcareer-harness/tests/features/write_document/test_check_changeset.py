@@ -6,7 +6,7 @@ import pytest
 from document_schema import AnyDocument, Changeset
 from pydantic import TypeAdapter
 
-from src.features.write_document.checks import check_changeset
+from src.agents.career_consultant.checks import check_changeset
 
 FIXTURES = Path(__file__).parent / "fixtures"
 DOCUMENT = TypeAdapter(AnyDocument).validate_python(
