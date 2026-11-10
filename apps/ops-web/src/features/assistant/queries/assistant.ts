@@ -97,6 +97,18 @@ export const answerTaskMutationOptions = mutationOptions({
       : failTurn(error, answer),
 });
 
+export const followTurnMutationOptions = mutationOptions({
+  mutationKey: ["assistant", "follow"],
+  mutationFn: (chat: Chat) =>
+    resumeTurn(
+      { chat, lastEventId: null },
+      startTurn(chat),
+      receive(chat),
+      (attempt) => reconnect(chat, attempt),
+    ),
+  onError: (error, chat) => failTurn(error, { chat }),
+});
+
 export const resumeTurnMutationOptions = mutationOptions({
   mutationKey: ["assistant", "resume"],
   mutationFn: (turn: TurnCursor) =>

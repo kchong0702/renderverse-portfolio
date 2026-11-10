@@ -57,6 +57,16 @@ export interface JobRun {
 export type RunResult<R> =
   { status: "completed"; reply: R } | { status: "failed"; reason: string };
 
+export interface TailoredDocument {
+  document_id: string;
+  tailoring: boolean;
+}
+
+export interface TailorResult {
+  resume: TailoredDocument;
+  cover_letter: TailoredDocument | null;
+}
+
 export interface JobUpdate {
   id: string;
   status?: JobStatus;
@@ -82,3 +92,6 @@ export const findJobs = (search: JobSearch) =>
 
 export const analyseJob = (id: string) =>
   http.post<RunResult<Job>>(`${URL}/${id}/analyse`);
+
+export const tailorJob = (id: string) =>
+  http.post<TailorResult>(`${URL}/${id}/tailor`);

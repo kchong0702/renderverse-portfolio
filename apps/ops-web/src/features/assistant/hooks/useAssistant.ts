@@ -5,6 +5,7 @@ import type { Chat } from "../api/assistant";
 import {
   answerTaskMutationOptions,
   documentsQueryOptions,
+  followTurnMutationOptions,
   resumeTurnMutationOptions,
   sendMessageMutationOptions,
   stopMutationOptions,
@@ -33,6 +34,10 @@ export function useStop() {
 
 export function useDocuments() {
   return useQuery(documentsQueryOptions);
+}
+
+export function useFollowTurn() {
+  return useMutation(followTurnMutationOptions);
 }
 
 export function useResumeTurns() {

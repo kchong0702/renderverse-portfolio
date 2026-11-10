@@ -5,6 +5,7 @@ import {
   jobsQueryOptions,
   latestRunQueryOptions,
   updateJobMutationOptions,
+  tailorJobMutationOptions,
 } from "../queries/jobs";
 
 export function useJobs() {
@@ -25,4 +26,8 @@ export function useFindJobs() {
 
 export function useAnalyseJob() {
   return useMutation(analyseJobMutationOptions);
+}
+
+export function useTailorJob() {
+  return useMutation(tailorJobMutationOptions);
 }
