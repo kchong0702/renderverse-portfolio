@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from src.clients.google import EventTime, GoogleClient, GoogleEvent, NewEvent
 from src.core.config import GoogleSettings
 from src.core.exceptions import InvalidInput
-from src.features.calendar.schemas import CalendarEvent, EventCreate
+from src.db.base import utcnow
+from src.features.calendar.schemas import CalendarEvent, EventCreate, FreeSlots, Slot
 from src.features.google import GoogleService
+from src.features.settings.schemas import Scheduling
 
 
 def _event(event: GoogleEvent) -> CalendarEvent:
@@ -61,6 +64,40 @@ class CalendarService:
             ),
         )
         return _event(created)
+
+    async def free_slots(self, user_id: UUID, scheduling: Scheduling) -> FreeSlots:
+        """Free time in the work hours of the weekdays from tomorrow, kept the
+        meeting gap clear of events and at least an interview long"""
+        days = self._settings.free_slot_days
+        now = utcnow()
+        token = await self._google.access_token(user_id)
+        found = await self._client.events(token, now, now + timedelta(days=days + 1))
+        zone = ZoneInfo(found.time_zone)
+        gap = timedelta(minutes=scheduling.meeting_gap_minutes)
+        busy = sorted(
+            (event.start.date_time - gap, event.end.date_time + gap)
+            for event in found.items
+            if event.start.date_time
+            and event.end.date_time
+            and event.status != "cancelled"
+            and event.transparency != "transparent"
+        )
+        shortest = timedelta(minutes=self._settings.interview_minutes)
+        today = now.astimezone(zone).date()
+        slots = []
+        for day in (today + timedelta(days=n) for n in range(1, days + 1)):
+            if day.weekday() >= 5:
+                continue
+            free_from = datetime.combine(day, scheduling.work_day_start, zone)
+            close = datetime.combine(day, scheduling.work_day_end, zone)
+            for busy_from, busy_to in [*busy, (close, close)]:
+                free_to = min(busy_from, close)
+                if free_to - free_from >= shortest:
+                    slots.append(Slot(start=free_from, end=free_to.astimezone(zone)))
+                free_from = max(free_from, busy_to.astimezone(zone))
+                if free_from >= close:
+                    break
+        return FreeSlots(free_slots=slots, timezone=found.time_zone)
 
 
 __all__ = ["CalendarService"]

@@ -45,4 +45,20 @@ class EventCreate(BaseModel):
     """Where it takes place, such as a video link"""
 
 
-__all__ = ["CalendarEvent", "EventCreate"]
+class Slot(BaseModel):
+    start: datetime
+    """When the free time starts"""
+
+    end: datetime
+    """When it ends"""
+
+
+class FreeSlots(BaseModel):
+    free_slots: list[Slot]
+    """Free time in work hours, earliest first"""
+
+    timezone: str
+    """The calendar's time zone, such as Asia/Kuala_Lumpur"""
+
+
+__all__ = ["CalendarEvent", "EventCreate", "FreeSlots", "Slot"]

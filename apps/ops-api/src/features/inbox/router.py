@@ -2,18 +2,21 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Request, status
 
+from src.clients.ezcareer import Failed
 from src.core.auth import CurrentUserDep
 from src.core.config import get_settings
 from src.db.session import SessionDep
 from src.features.calendar import CalendarServiceDep
 from src.features.google import GoogleServiceDep
 from src.features.inbox.schemas import (
+    DraftReplyOutput,
     EmailCreate,
     InboxList,
     InboxMessageDetail,
     ReplyCreate,
 )
 from src.features.inbox.service import InboxService
+from src.features.profile import ProfileServiceDep
 from src.features.settings import SettingsServiceDep
 
 router = APIRouter(prefix="/inbox", tags=["inbox"])
@@ -24,15 +27,17 @@ def get_inbox_service(
     google: GoogleServiceDep,
     settings: SettingsServiceDep,
     calendar: CalendarServiceDep,
+    profile: ProfileServiceDep,
     request: Request,
 ) -> InboxService:
     """The inbox service on the request's database session, with Gmail, Calendar,
-    the user's settings and the harness"""
+    the user's settings and profile, and the harness"""
     return InboxService(
         session,
         google,
         settings,
         calendar,
+        profile,
         request.app.state.google,
         request.app.state.ezcareer,
         get_settings().google,
@@ -80,3 +85,12 @@ async def send_reply(
     """Send the reply in the Gmail thread to the last person other than the user
     who wrote in it"""
     await service.reply(user.id, thread_id, reply)
+
+
+@router.post("/{thread_id}/reply-draft")
+async def draft_reply(
+    thread_id: GmailId, user: CurrentUserDep, service: InboxServiceDep
+) -> DraftReplyOutput | Failed:
+    """Draft a reply to the thread, offering free calendar slots while the user lets
+    it, or fail with the agent's reason; nothing is sent"""
+    return await service.draft_reply(user.id, thread_id)
