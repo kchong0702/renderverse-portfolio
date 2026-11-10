@@ -1,6 +1,8 @@
 ---
 name: search-jobs
 description: Turn the user's profile and preferences into a few search_jobs queries that find fresh jobs worth ranking.
+metadata:
+  include_tools: search_jobs
 ---
 
 # Search for jobs

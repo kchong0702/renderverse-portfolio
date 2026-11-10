@@ -1,9 +1,10 @@
 import httpx
 from dependency_injector import containers, providers
 
+from src.adapters.job_sources import SearchProtocol
+from src.adapters.job_sources.jsearch import JSearchAdapter
 from src.clients.artifact_service import ArtifactServiceClient
 from src.core.config import Settings
-from src.features import find_jobs
 from src.shared.factory import Factory
 
 
@@ -12,7 +13,7 @@ class ClientsContainer(containers.DeclarativeContainer):
     """The app's settings"""
 
     job_sources = providers.Singleton(
-        Factory[find_jobs.SearchProtocol], {"jsearch": find_jobs.JSearchAdapter}
+        Factory[SearchProtocol], {"jsearch": JSearchAdapter}
     )
     """Job sources by name, each created once"""
 

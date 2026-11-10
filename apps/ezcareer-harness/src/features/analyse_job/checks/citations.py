@@ -1,6 +1,7 @@
 from src.features.analyse_job.enums import Match
-from src.features.analyse_job.schemas import JobRequirements, PostingLine
+from src.features.analyse_job.schemas import JobRequirements
 from src.shared.checks import CheckError, CheckRule
+from src.shared.jobs import PostingLine
 from src.shared.profile import ProfileFact
 
 

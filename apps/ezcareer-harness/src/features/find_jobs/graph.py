@@ -9,13 +9,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.agents import AgentOverride
 from src.core.config import get_settings
-from src.features.find_jobs.adapters import SearchProtocol
 from src.features.find_jobs.configurations import CHECKS, FindJobsConfigurations
 from src.features.find_jobs.ranking import matched_jobs
-from src.features.find_jobs.schemas import JobPosting, MatchedJob, RankedJobs
-from src.features.find_jobs.tools import search_jobs_tool
+from src.features.find_jobs.schemas import MatchedJob, RankedJobs
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
-from src.shared.factory import Factory
+from src.shared.jobs import JobPosting
 from src.shared.profile import Preferences, Profile, ProfileFact
 
 
@@ -77,13 +75,13 @@ def _output(state: FindJobsState) -> dict:
 
 def build_graph(
     agent: CompiledStateGraph,
-    job_sources: Factory[SearchProtocol],
     checkpointer: Checkpointer = None,
 ) -> CompiledStateGraph:
-    """The find-jobs workflow run on agent, with the configurations and job
-    sources the settings name; checkpointer keeps its runs"""
-    settings = get_settings()
-    configurations = settings.graph_profile("find-jobs").load(FindJobsConfigurations)
+    """The find-jobs workflow run on agent, with the configurations the settings
+    name; checkpointer keeps its runs"""
+    configurations = (
+        get_settings().graph_profile("find-jobs").load(FindJobsConfigurations)
+    )
     checks = [CHECKS[name] for name in configurations.checks]
 
     def check(state: FindJobsState) -> CheckRound:
@@ -116,16 +114,7 @@ def build_graph(
     graph.add_node("brief", _brief)
     graph.add_node(
         "agent",
-        agent.with_config(
-            AgentOverride(
-                response_format=RankedJobs,
-                tools=(
-                    search_jobs_tool(
-                        [job_sources.create(name) for name in settings.job_sources]
-                    ),
-                ),
-            ).config()
-        ),
+        agent.with_config(AgentOverride(response_format=RankedJobs).config()),
     )
     graph.add_node("check", check)
     graph.add_node("output", _output)

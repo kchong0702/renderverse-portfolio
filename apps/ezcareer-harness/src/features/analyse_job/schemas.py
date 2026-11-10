@@ -1,23 +1,12 @@
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from src.features.analyse_job.enums import FilterKind, Importance, Match
-from src.shared.profile import CountryCode, FactRef, Salary, WorkMode
+from src.features.analyse_job.enums import Importance, Match
+from src.shared.jobs import PostingLine
+from src.shared.profile import CountryCode, FactRef, FilterKind, Salary, WorkMode
 from src.shared.url import Url
 
 _WEIGHTS = {Importance.REQUIRED: 2, Importance.NICE_TO_HAVE: 1}
 _CREDITS = {Match.MET: 1.0, Match.PARTLY: 0.5, Match.NOT_MET: 0.0}
-
-
-class PostingLine(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid", frozen=True, use_attribute_docstrings=True
-    )
-
-    id: int
-    """Line number, counted from 1"""
-
-    text: str
-    """The line's text; untrusted"""
 
 
 class Requirement(BaseModel):

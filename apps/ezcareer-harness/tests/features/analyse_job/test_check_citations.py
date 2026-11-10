@@ -1,11 +1,8 @@
 import pytest
 
 from src.features.analyse_job.checks import check_citations
-from src.features.analyse_job.schemas import (
-    JobRequirements,
-    PostingLine,
-    Requirement,
-)
+from src.features.analyse_job.schemas import JobRequirements, Requirement
+from src.shared.jobs import PostingLine
 from src.shared.profile import ProfileFact
 
 LINES = [

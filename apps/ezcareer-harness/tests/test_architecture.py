@@ -5,7 +5,7 @@ SRC = Path(__file__).resolve().parents[1] / "src"
 
 # Features never import each other; find_jobs runs analyse_job through its barrel
 BARRELS = {"find_jobs": {"src.features.analyse_job"}}
-LAYERS_WITHOUT_FEATURES = ("agents", "clients", "shared", "tools")
+LAYERS_WITHOUT_FEATURES = ("adapters", "agents", "clients", "shared", "tools")
 
 
 def _module_name(path: Path, root: Path) -> str:
@@ -82,6 +82,7 @@ def test_boundary_check_catches_cross_feature_imports(tmp_path: Path):
         "features/analyse_job/nodes/rate.py": "",
         "features/analyse_job/graph.py": "from ..find_jobs import graph\n",
         "tools/render.py": "import src.features.write_document\n",
+        "adapters/job_sources/protocol.py": "from src.features.find_jobs.schemas import JobPosting\n",
         "agents/job_finder.py": "from src.features import find_jobs\n",
         "app/container.py": "from src.features.find_jobs import graph\n",
     }
@@ -97,6 +98,7 @@ def test_boundary_check_catches_cross_feature_imports(tmp_path: Path):
         "src.features.find_jobs.nodes.fetch",
         "src.features.analyse_job.graph",
         "src.tools.render",
+        "src.adapters.job_sources.protocol",
         "src.agents.job_finder",
     }
 
@@ -133,3 +135,28 @@ def test_init_check_catches_logic(tmp_path: Path):
         "src/core/__init__.py:1",
         "src/shared/pool/__init__.py:4",
     ]
+
+
+def feature_tools(root: Path) -> list[str]:
+    return sorted(
+        str(path.relative_to(root.parent))
+        for path in root.glob("features/*/tools")
+        if any(path.glob("*.py"))
+    )
+
+
+def test_workflows_own_no_tools():
+    assert feature_tools(SRC) == []
+
+
+def test_tools_check_catches_a_features_tools(tmp_path: Path):
+    root = tmp_path / "src"
+    for folder in (
+        "find_jobs/tools",
+        "find_jobs/nodes",
+        "analyse_job/tools/__pycache__",
+    ):
+        (root / "features" / folder).mkdir(parents=True)
+    (root / "features/find_jobs/tools/__init__.py").write_text("")
+
+    assert feature_tools(root) == ["src/features/find_jobs/tools"]

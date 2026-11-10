@@ -1,6 +1,11 @@
-from src.features.analyse_job import FilterKind, countries_fit, work_mode_fits
-from src.features.find_jobs.schemas import JobPosting
-from src.shared.profile import Preferences, WorkMode
+from src.shared.jobs.types import JobPosting
+from src.shared.profile import (
+    FilterKind,
+    Preferences,
+    WorkMode,
+    countries_fit,
+    work_mode_fits,
+)
 
 
 def broken_filters(posting: JobPosting, preferences: Preferences) -> list[FilterKind]:

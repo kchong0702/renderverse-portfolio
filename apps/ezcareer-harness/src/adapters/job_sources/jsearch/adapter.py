@@ -1,9 +1,9 @@
 from circuitbreaker import CircuitBreaker
 
+from src.adapters.job_sources.jsearch.client import retryable, search
+from src.adapters.job_sources.jsearch.query import JSearchQuery
+from src.adapters.job_sources.protocol import SearchResult
 from src.core.config import get_settings
-from src.features.find_jobs.adapters.jsearch.client import retryable, search
-from src.features.find_jobs.adapters.jsearch.query import JSearchQuery
-from src.features.find_jobs.adapters.protocol import SearchResult
 
 
 class JSearchAdapter:

@@ -7,14 +7,14 @@ from langchain_core.tools import BaseTool, StructuredTool, ToolException
 from pydantic import BaseModel, ConfigDict, Field, create_model
 from pydantic.fields import FieldInfo
 
-from src.agents.job_finder import JobFinderState
-from src.features.find_jobs.adapters import (
+from src.adapters.job_sources import (
     SearchProtocol,
     SearchResult,
     SourceUnavailable,
 )
-from src.features.find_jobs.filters import broken_filters
-from src.features.find_jobs.schemas import JobPosting
+from src.agents.job_finder.state import JobFinderState
+from src.shared.factory import Factory
+from src.shared.jobs import JobPosting, broken_filters
 
 
 class _SearchJobsContent(BaseModel):
@@ -81,8 +81,12 @@ async def _search_jobs(
     ).model_dump_json(), jobs
 
 
-def search_jobs_tool(sources: Sequence[SearchProtocol]) -> BaseTool:
-    """search_jobs over the given job sources, each given only its own arguments"""
+def search_jobs_tool(
+    job_sources: Factory[SearchProtocol], names: Sequence[str]
+) -> BaseTool:
+    """search_jobs over the job sources called names, each given only its own
+    arguments"""
+    sources = [job_sources.create(name) for name in names]
     fields: dict[str, FieldInfo] = {}
     for source in sources:
         for name, field in source.query.model_fields.items():

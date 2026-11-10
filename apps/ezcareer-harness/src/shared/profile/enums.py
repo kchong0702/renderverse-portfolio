@@ -21,3 +21,20 @@ class SalaryPeriod(StrEnum):
 
     YEAR = "year"
     """Paid per year"""
+
+
+class FilterKind(StrEnum):
+    YEARS = "years"
+    """Years of experience overall"""
+
+    WORK_MODE = "work_mode"
+    """Onsite, hybrid or remote"""
+
+    LOCATION = "location"
+    """Countries the job is in"""
+
+    WORK_AUTHORISATION = "work_authorisation"
+    """Right to work without sponsorship"""
+
+    SALARY = "salary"
+    """Pay against the user's minimum"""

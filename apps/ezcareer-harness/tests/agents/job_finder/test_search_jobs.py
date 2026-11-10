@@ -10,10 +10,11 @@ from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import BaseModel
 
+from src.adapters.job_sources import SearchResult, SourceUnavailable
+from src.adapters.job_sources.jsearch import JSearchAdapter
+from src.agents.job_finder.tools import search_jobs_tool
 from src.core.config import reload_settings
-from src.features.find_jobs.adapters import SearchResult, SourceUnavailable
-from src.features.find_jobs.adapters.jsearch import JSearchAdapter
-from src.features.find_jobs.tools import search_jobs_tool
+from src.shared.factory import Factory
 from src.shared.profile import Preferences
 
 URL = "https://jsearch.p.rapidapi.com/search-v2"
@@ -99,7 +100,7 @@ def api_key(isolate_env, monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture
 def search_jobs(api_key) -> BaseTool:
-    return search_jobs_tool([JSearchAdapter()])
+    return search_jobs_tool(Factory({"jsearch": JSearchAdapter}), ["jsearch"])
 
 
 @respx.mock
@@ -283,13 +284,16 @@ async def test_a_bad_search_tells_the_agent_why_and_keeps_the_circuit_closed(
 async def test_tells_the_agent_a_source_has_no_key(isolate_env):
     reload_settings()
 
-    message = await _search(search_jobs_tool([JSearchAdapter()]), query="anything")
+    message = await _search(
+        search_jobs_tool(Factory({"jsearch": JSearchAdapter}), ["jsearch"]),
+        query="anything",
+    )
 
     assert "JSEARCH__API_KEY is not set" in message.text
 
 
 def test_the_model_reads_the_description_and_each_argument_once():
-    tool = search_jobs_tool([JSearchAdapter()])
+    tool = search_jobs_tool(Factory({"jsearch": JSearchAdapter}), ["jsearch"])
     definition = json.dumps(convert_to_openai_tool(tool))
     texts = [
         tool.description,
@@ -304,7 +308,9 @@ def test_the_model_reads_the_description_and_each_argument_once():
 @respx.mock
 async def test_one_unavailable_source_leaves_the_others_jobs(api_key):
     respx.get(URL).respond(200, text=RESPONSE)
-    tool = search_jobs_tool([JSearchAdapter(), _DownSource()])
+    tool = search_jobs_tool(
+        Factory({"jsearch": JSearchAdapter, "other": _DownSource}), ["jsearch", "other"]
+    )
 
     message = await _search(tool, query="backend engineer python")
 
@@ -313,7 +319,10 @@ async def test_one_unavailable_source_leaves_the_others_jobs(api_key):
 
 
 def test_sources_share_fields_named_alike():
-    tool = search_jobs_tool([JSearchAdapter(), _SalarySource()])
+    tool = search_jobs_tool(
+        Factory({"jsearch": JSearchAdapter, "salary": _SalarySource}),
+        ["jsearch", "salary"],
+    )
 
     properties = tool.tool_call_schema.model_json_schema()["properties"]
     assert "min_salary" in properties
@@ -322,4 +331,7 @@ def test_sources_share_fields_named_alike():
 
 def test_sources_that_disagree_on_a_field_are_refused():
     with pytest.raises(ValueError, match="'query'"):
-        search_jobs_tool([JSearchAdapter(), _ClashSource()])
+        search_jobs_tool(
+            Factory({"jsearch": JSearchAdapter, "clash": _ClashSource}),
+            ["jsearch", "clash"],
+        )

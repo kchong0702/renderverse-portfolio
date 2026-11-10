@@ -30,6 +30,7 @@ class Container(containers.DeclarativeContainer):
 
     job_finder = providers.Container(
         JobFinderContainer,
+        settings=settings,
         registry=registry,
         checkpointer=checkpointer,
         job_sources=clients.job_sources,

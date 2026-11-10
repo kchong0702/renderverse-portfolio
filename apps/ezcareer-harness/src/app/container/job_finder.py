@@ -2,12 +2,17 @@ from dependency_injector import containers, providers
 
 from src.agents import build_agent
 from src.agents.job_finder import JobFinderState
+from src.agents.job_finder.tools import search_jobs_tool
 from src.app.a2a import Executable
+from src.core.config import Settings
 from src.features import analyse_job, find_jobs
 from src.tools import read_profile_facts
 
 
 class JobFinderContainer(containers.DeclarativeContainer):
+    settings = providers.Dependency(instance_of=Settings)
+    """The app's settings"""
+
     registry = providers.Dependency(instance_of=dict)
     """Every registered agent, by name"""
 
@@ -22,6 +27,11 @@ class JobFinderContainer(containers.DeclarativeContainer):
         agent=registry.provided["job-finder"],
         response_formats=(analyse_job.JobRequirements, find_jobs.RankedJobs),
         tools=(read_profile_facts,),
+        skill_tools=providers.List(
+            providers.Callable(
+                search_jobs_tool, job_sources, settings.provided.job_sources
+            )
+        ),
         state_schema=JobFinderState,
     )
     """The job-finder agent, built once"""
@@ -54,7 +64,6 @@ class JobFinderContainer(containers.DeclarativeContainer):
         graph=providers.Singleton(
             find_jobs.build_graph,
             agent=agent,
-            job_sources=job_sources,
             checkpointer=checkpointer,
         ),
     )

@@ -2,7 +2,7 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from src.features.find_jobs.schemas import JobPosting
+from src.shared.jobs import JobPosting
 
 
 class SearchResult(BaseModel):

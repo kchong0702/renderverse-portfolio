@@ -10,12 +10,11 @@ from tenacity import (
     wait_exponential,
 )
 
+from src.adapters.job_sources.exceptions import SourceUnavailable
+from src.adapters.job_sources.jsearch.query import JSearchQuery
+from src.adapters.job_sources.protocol import SearchResult
 from src.core.config import JSearchSettings
-from src.features.analyse_job import PostingLine
-from src.features.find_jobs.adapters.exceptions import SourceUnavailable
-from src.features.find_jobs.adapters.jsearch.query import JSearchQuery
-from src.features.find_jobs.adapters.protocol import SearchResult
-from src.features.find_jobs.schemas import JobPosting
+from src.shared.jobs import JobPosting, PostingLine
 
 
 class _Job(BaseModel):

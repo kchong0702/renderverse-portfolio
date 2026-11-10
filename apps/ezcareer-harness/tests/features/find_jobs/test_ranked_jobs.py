@@ -1,9 +1,9 @@
 from datetime import UTC, datetime
 
-from src.features.analyse_job import PostingLine
 from src.features.find_jobs.checks import check_ranked_jobs
 from src.features.find_jobs.ranking import matched_jobs
 from src.features.find_jobs.schemas import JobPosting, RankedJobs
+from src.shared.jobs import PostingLine
 from src.shared.profile import Preferences, Profile, ProfileFact
 
 
