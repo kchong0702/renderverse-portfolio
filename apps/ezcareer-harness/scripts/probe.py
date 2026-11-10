@@ -30,32 +30,26 @@ CONTAINER = Container()
 
 
 async def _run_graph(name: str, task: object) -> object:
-    """Runs the container's graph served as name on the task, read as the graph's
-    input, in a thread of its own"""
+    """Runs the container's graph served as name on the task in a thread of its own,
+    answering each data request it pauses with from the task's fetch answers"""
     [graph] = [e.graph for e in CONTAINER.executables() if e.name == name]
-    return await graph.ainvoke(
-        graph.get_input_schema().model_validate(task),
-        {"configurable": {"thread_id": str(uuid4())}},
-    )
-
-
-async def _edit_document(task: object) -> object:
-    """Runs edit-document on the task, its input plus the document, lines and assets
-    that answer its document fetch, in a thread of its own"""
-    [graph] = [e.graph for e in CONTAINER.executables() if e.name == "edit-document"]
     fields = TypeAdapter(dict[str, JsonValue]).validate_python(task)
-    fetched = {
-        key: fields.pop(key) for key in ("document", "lines", "assets") if key in fields
-    }
+    answers = TypeAdapter(dict[str, JsonValue]).validate_python(fields.pop("fetch", {}))
     run: RunnableConfig = {"configurable": {"thread_id": str(uuid4())}}
-    await graph.ainvoke(graph.get_input_schema().model_validate(fields), run)
-    return await graph.ainvoke(Command(resume=fetched), run)
+    result = await graph.ainvoke(graph.get_input_schema().model_validate(fields), run)
+    while interrupts := result.get("__interrupt__"):
+        [request] = interrupts
+        asked = request.value.get("fetch") if isinstance(request.value, dict) else None
+        if asked not in answers:
+            raise ValueError(f"The task has no fetch answer for {request.value!r}")
+        result = await graph.ainvoke(Command(resume=answers[asked]), run)
+    return result
 
 
 WORKFLOWS: dict[str, RunWorkflow] = {
     "analyse-job": partial(_run_graph, "analyse-job"),
     "find-jobs": partial(_run_graph, "find-jobs"),
-    "edit-document": _edit_document,
+    "edit-document": partial(_run_graph, "edit-document"),
     "import-resume": partial(_run_graph, "import-resume"),
 }
 """Every workflow a probe can run, by name"""
@@ -126,7 +120,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m scripts.probe")
     parser.add_argument("--workflow", required=True, choices=sorted(WORKFLOWS))
     parser.add_argument(
-        "--task", required=True, type=Path, help="the workflow's input as JSON"
+        "--task",
+        required=True,
+        type=Path,
+        help="the workflow's input as JSON, with each data request's answer under fetch",
     )
     parser.add_argument(
         "--config",
