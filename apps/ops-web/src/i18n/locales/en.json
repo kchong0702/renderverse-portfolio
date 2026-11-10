@@ -780,6 +780,8 @@
       "message": "Reply",
       "send": "Send reply",
       "edit": "Edit",
+      "pickTimes": "Pick other times",
+      "timesFailed": "Free times could not be loaded: {{reason}}",
       "sent": "Reply sent.",
       "sendFailed": "Not sent: {{reason}}"
     },
