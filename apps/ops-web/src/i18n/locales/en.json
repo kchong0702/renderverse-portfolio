@@ -96,12 +96,19 @@
       "hoursRange": "{{start}} to {{end}}",
       "meetingGap": "Gap between meetings",
       "gap_one": "{{count}} minute",
-      "gap_other": "{{count}} minutes",
-      "aiModel": "AI model",
+      "gap_other": "{{count}} minutes"
+    },
+    "ai": {
+      "title": "AI",
+      "model": "Model",
+      "harnessDefault": "ezcareer-harness default",
+      "modelOption": "{{family}} · {{model}}",
+      "modelsLoading": "Loading models from ezcareer-harness…",
+      "modelsFailed": "Models could not be loaded: {{reason}}",
       "providers": {
         "claude": "Claude",
-        "openai": "OpenAI",
-        "glm": "GLM"
+        "glm": "GLM",
+        "openai": "OpenAI"
       }
     }
   },

@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import PageBody from "@/shared/components/PageBody";
 import PageHeader from "@/shared/components/PageHeader";
 import StateMessage from "@/shared/components/StateMessage";
+import AiPanel from "../components/AiPanel";
 import AutomationPanel from "../components/AutomationPanel";
 import ConnectionsPanel from "../components/ConnectionsPanel";
 import JobAgentPanel from "../components/JobAgentPanel";
@@ -59,7 +60,10 @@ export default function SettingsPage() {
             />
             <SchedulingPanel
               scheduling={settings.data.scheduling}
-              aiProvider={settings.data.ai_provider}
+              onChange={update.mutate}
+            />
+            <AiPanel
+              aiModel={settings.data.ai_model}
               onChange={update.mutate}
             />
           </div>
