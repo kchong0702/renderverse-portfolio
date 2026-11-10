@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import i18n from "@/i18n";
 import { useEffect } from "react";
 import type { Chat } from "../api/assistant";
 import {
@@ -48,7 +49,8 @@ export function useResumeTurns() {
         if (!turn) continue;
         const chat = { kind, id };
         if (turn.lastEventId) resume({ chat, lastEventId: turn.lastEventId });
-        else apply(chat, { status: "cancelled" });
+        else
+          apply(chat, { status: "failed", reason: i18n.t("assistant.ended") });
       }
   }, [apply, client, resume]);
 }
