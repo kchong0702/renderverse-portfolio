@@ -90,6 +90,14 @@ interface Render {
   artifact: string;
 }
 
+type LookTrait =
+  | "accent_band"
+  | "photo"
+  | "tinted_headings"
+  | "ruled_headings"
+  | "serif_font"
+  | "coloured_name";
+
 export interface DocumentImport {
   id: string;
   filename: string;
@@ -98,6 +106,11 @@ export interface DocumentImport {
   status: ImportStatus;
   document_id: string | null;
   error: string;
+  suggestion: {
+    template: string;
+    columns: 1 | 2;
+    traits: LookTrait[];
+  } | null;
   created_at: string;
 }
 

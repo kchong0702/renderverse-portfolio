@@ -60,6 +60,15 @@ export default function ImportLook({
   const template = picked ?? current.template;
   const size = sized ?? current.page_size;
   const look = familyOf(template);
+  const suggestion = upload.suggestion;
+  const suggested = suggestion && familyOf(suggestion.template);
+  const listed = (items: string[]) =>
+    items.length > 1
+      ? t("documents.importPage.facts.and", {
+          items: items.slice(0, -1).join(", "),
+          last: items.at(-1),
+        })
+      : items[0];
   const lookOf = (id: string) => ({
     ...record.body,
     design: {
@@ -117,13 +126,7 @@ export default function ImportLook({
               {kinds.length > 0
                 ? t("documents.importPage.facts.checked", {
                     count: cited(blocks),
-                    kinds:
-                      kinds.length > 1
-                        ? t("documents.importPage.facts.and", {
-                            items: kinds.slice(0, -1).join(", "),
-                            last: kinds.at(-1),
-                          })
-                        : kinds[0],
+                    kinds: listed(kinds),
                   })
                 : t("documents.importPage.facts.total", {
                     count: cited(blocks),
@@ -179,36 +182,47 @@ export default function ImportLook({
             </div>
           </div>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3.5">
-            {families.map((family) => (
-              <button
-                key={family.id}
-                type="button"
-                aria-pressed={family.id === look.id}
-                onClick={() => setPicked(family.id)}
-                className={cn(
-                  "bg-panel text-ink flex cursor-pointer flex-col gap-2.5 rounded-xl border p-2 text-left",
-                  family.id === look.id
-                    ? "border-amber shadow-[0_0_0_1px_var(--color-amber)]"
-                    : "border-hair",
-                )}
-              >
-                <ResumePreview
-                  aria-hidden="true"
-                  document={lookOf(
-                    family.id === look.id ? template : family.id,
+            {families.map((family) => {
+              const id =
+                family.id === look.id
+                  ? template
+                  : family.id === suggested?.id
+                    ? suggestion!.template
+                    : family.id;
+              return (
+                <button
+                  key={family.id}
+                  type="button"
+                  aria-pressed={family.id === look.id}
+                  onClick={() => setPicked(id)}
+                  className={cn(
+                    "bg-panel text-ink flex cursor-pointer flex-col gap-2.5 rounded-xl border p-2 text-left",
+                    family.id === look.id
+                      ? "border-amber shadow-[0_0_0_1px_var(--color-amber)]"
+                      : "border-hair",
                   )}
-                  className="border-hair-soft aspect-[4/3] w-full rounded-lg border"
-                />
-                <span className="flex flex-col gap-0.5 px-1 pb-1">
-                  <span className="text-sm/[1.6] font-semibold">
-                    {family.name}
+                >
+                  <ResumePreview
+                    aria-hidden="true"
+                    document={lookOf(id)}
+                    className="border-hair-soft aspect-[4/3] w-full rounded-lg border"
+                  />
+                  <span className="flex flex-col gap-0.5 px-1 pb-1">
+                    <span className="flex items-center gap-2 text-sm/[1.6] font-semibold">
+                      {family.name}
+                      {family.id === suggested?.id && (
+                        <span className="bg-warn-bg text-amber rounded-full px-2 py-px text-xs font-semibold">
+                          {t("documents.importPage.look.suggested")}
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-ink-3 text-[13px] leading-[1.4]">
+                      {family.description}
+                    </span>
                   </span>
-                  <span className="text-ink-3 text-[13px] leading-[1.4]">
-                    {family.description}
-                  </span>
-                </span>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         </section>
 
@@ -224,9 +238,30 @@ export default function ImportLook({
               })}
             </h2>
             <span className="text-ink-3 text-sm/[1.6]">
-              {t("documents.importPage.look.note", {
-                description: look.description,
-              })}
+              {suggestion?.template === template
+                ? t(
+                    suggestion.traits.length > 0
+                      ? "documents.importPage.look.becauseWith"
+                      : "documents.importPage.look.because",
+                    {
+                      file: t(
+                        upload.media_type === "application/pdf"
+                          ? "documents.importPage.look.files.pdf"
+                          : "documents.importPage.look.files.word",
+                      ),
+                      columns: t(
+                        `documents.importPage.look.columns.${suggestion.columns}`,
+                      ),
+                      traits: listed(
+                        suggestion.traits.map((trait) =>
+                          t(`documents.importPage.look.traits.${trait}`),
+                        ),
+                      ),
+                    },
+                  )
+                : t("documents.importPage.look.note", {
+                    description: look.description,
+                  })}
             </span>
           </div>
           <div className="bg-well flex justify-center rounded-[14px] p-6">
