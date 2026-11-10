@@ -84,6 +84,7 @@
       "empty": "Nothing due this week, and no new agent picks with a good fit.",
       "followUp": "Follow up with {{company}}",
       "noReply": "Applied, no reply yet",
+      "draftEmail": "Draft email",
       "days": "{{count}} days",
       "gaps_one": "{{count}} gap to prepare",
       "gaps_other": "{{count}} gaps to prepare",
