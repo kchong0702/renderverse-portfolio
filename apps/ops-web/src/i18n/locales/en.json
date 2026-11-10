@@ -404,8 +404,8 @@
         "rejected": "Rejected"
       },
       "update": "{{field}}: {{text}}",
-      "insertBlock": "Add a {{kind}} section",
-      "insertItem": "Add an item to {{parent}}",
+      "insertBlock": "Add a {{kind}} section: {{text}}",
+      "insertItem": "Add an item to {{parent}}: {{text}}",
       "move": "Move {{item}}: {{text}}",
       "delete": "Remove {{item}}: {{text}}",
       "hide": "Hide {{block}} from the page",

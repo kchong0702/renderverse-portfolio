@@ -154,6 +154,15 @@ export function newText(value: Json): string {
   return newText(value.text ?? null);
 }
 
+export function nodeText(node: Json | Block | undefined): string {
+  if (Array.isArray(node))
+    return node.map(nodeText).filter(Boolean).join(" · ");
+  if (typeof node !== "object" || node === null) return "";
+  if (typeof node.text === "string") return node.text;
+  if (typeof node.html === "string") return htmlToText(node.html);
+  return Object.values(node).map(nodeText).filter(Boolean).join(" · ");
+}
+
 export function nodeAt(blocks: Block[], path: string): Json {
   let node: Json = { blocks } as { [key: string]: Json };
   for (const key of path.split("/")) {
