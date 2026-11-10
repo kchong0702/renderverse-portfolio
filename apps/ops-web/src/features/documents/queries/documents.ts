@@ -6,19 +6,12 @@ import {
 import {
   cancelImport,
   createDocument,
-  decideChangeset,
-  deleteDocument,
   editDocument,
-  fetchChangesets,
   fetchDocument,
   fetchDocuments,
   fetchImports,
   fetchRender,
   fetchTemplates,
-  fetchVersions,
-  keepVersion,
-  renameDocument,
-  restoreVersion,
   setMaster,
   startImport,
   type DocumentKind,
@@ -34,26 +27,6 @@ export const documentQueryOptions = (id: string) =>
   queryOptions({
     queryKey: ["documents", id],
     queryFn: ({ signal }) => fetchDocument(id, signal),
-  });
-
-export const renderQueryOptions = (id: string, updatedAt: string) =>
-  queryOptions({
-    queryKey: ["documents", id, "render", updatedAt],
-    queryFn: ({ signal }) => fetchRender(id, signal),
-    staleTime: Infinity,
-    retry: false,
-  });
-
-export const versionsQueryOptions = (id: string) =>
-  queryOptions({
-    queryKey: ["documents", id, "versions"],
-    queryFn: ({ signal }) => fetchVersions(id, signal),
-  });
-
-export const changesetsQueryOptions = (id: string) =>
-  queryOptions({
-    queryKey: ["documents", id, "changesets"],
-    queryFn: ({ signal }) => fetchChangesets(id, signal),
   });
 
 export const templatesQueryOptions = (kind: DocumentKind) =>
@@ -82,65 +55,27 @@ export const createDocumentMutationOptions = mutationOptions({
     storeDocument(client, document),
 });
 
-export const renameDocumentMutationOptions = mutationOptions({
-  mutationFn: renameDocument,
-  onSuccess: (document, _rename, _result, { client }) =>
-    storeDocument(client, document),
-});
-
 export const editDocumentMutationOptions = mutationOptions({
+  mutationKey: ["documents", "edit"],
   mutationFn: editDocument,
+  scope: { id: "documents:edit" },
   onSuccess: (document, _edit, _result, { client }) =>
     storeDocument(client, document),
 });
 
+export const designDocumentMutationOptions = mutationOptions({
+  ...editDocumentMutationOptions,
+  mutationKey: ["documents", "design"],
+});
+
 export const setMasterMutationOptions = mutationOptions({
   mutationFn: setMaster,
-  onSuccess: (document, _id, _result, { client }) =>
-    storeDocument(client, document),
+  onSuccess: (_document, _id, _result, { client }) =>
+    client.invalidateQueries({ queryKey: documentsQueryOptions.queryKey }),
 });
 
-export const deleteDocumentMutationOptions = mutationOptions({
-  mutationFn: deleteDocument,
-  onSettled: (_deleted, _error, _id, _result, { client }) =>
-    client.invalidateQueries({
-      queryKey: documentsQueryOptions.queryKey,
-      exact: true,
-    }),
-});
-
-export const keepVersionMutationOptions = mutationOptions({
-  mutationFn: keepVersion,
-  onSettled: (_version, _error, { id }, _result, { client }) =>
-    client.invalidateQueries({ queryKey: versionsQueryOptions(id).queryKey }),
-});
-
-export const restoreVersionMutationOptions = mutationOptions({
-  mutationFn: restoreVersion,
-  onSuccess: (document, _restore, _result, { client }) =>
-    storeDocument(client, document),
-});
-
-export const decideChangesetMutationOptions = mutationOptions({
-  mutationFn: decideChangeset,
-  onSuccess: (changeset, { id }, _result, { client }) => {
-    const { queryKey } = changesetsQueryOptions(id);
-    client.setQueryData(queryKey, (changesets) =>
-      changesets?.map((c) => (c.id === changeset.id ? changeset : c)),
-    );
-  },
-  onSettled: (_changeset, _error, { id }, _result, { client }) =>
-    Promise.all([
-      client.invalidateQueries({
-        queryKey: documentQueryOptions(id).queryKey,
-        exact: true,
-      }),
-      client.invalidateQueries({ queryKey: versionsQueryOptions(id).queryKey }),
-      client.invalidateQueries({
-        queryKey: documentsQueryOptions.queryKey,
-        exact: true,
-      }),
-    ]),
+export const exportPdfMutationOptions = mutationOptions({
+  mutationFn: fetchRender,
 });
 
 export const startImportMutationOptions = mutationOptions({

@@ -231,7 +231,7 @@
   },
   "documents": {
     "pageTitle": "Documents",
-    "subtitle": "Résumés, CVs and cover letters, with the edits agents propose",
+    "subtitle": "Tailor with the assistant",
     "import": "Import résumé",
     "listFailed": "Documents could not load: {{reason}}",
     "loadFailed": "This document could not load: {{reason}}",
@@ -243,7 +243,7 @@
       "cv": "CVs"
     },
     "list": "Documents",
-    "new": "New",
+    "new": "+ New",
     "empty": {
       "resume": "No résumés yet. Import the one you have, or start a new one.",
       "cover_letter": "No cover letters yet. Start a new one.",
@@ -259,84 +259,145 @@
       "greeting": "Dear hiring manager,",
       "closing": "Yours sincerely,"
     },
-    "title": "Title",
     "master": "Master",
     "setMaster": "Set as master",
-    "delete": "Delete {{title}}",
-    "confirmDelete": "Delete {{title}} with all its versions? This cannot be undone.",
-    "save": {
-      "saving": "Saving…",
-      "failed": "Not saved: {{reason}}"
+    "export": "Export PDF",
+    "meta": "Edited {{when}}",
+    "check": {
+      "changes_one": "{{count}} change to review",
+      "changes_other": "{{count}} changes to review",
+      "pages_one": "Fits 1 page",
+      "pages_other": "{{count}} pages"
     },
-    "pendingChanges_one": "{{count}} change to review",
-    "pendingChanges_other": "{{count}} changes to review",
-    "updated": "Edited {{date}}",
+    "hint": "Click any text to edit it. Select words to format them. Drag the dotted handles to move blocks, even into another column, or click one for more.",
+    "status": {
+      "saving": "Saving…",
+      "failed": "Not saved: {{reason}}",
+      "runsOnto": "Runs onto page {{count}}",
+      "saved": "Saved · fits 1 page",
+      "fits": "Fits 1 page",
+      "exportFailed": "PDF not printed: {{reason}}"
+    },
+    "legend": {
+      "reworded": "Reworded by the assistant",
+      "keys": "Enter saves a line, or starts a new bullet · Esc undoes the line"
+    },
     "tools": "Document tools",
     "panels": {
-      "content": "Content",
       "design": "Design",
-      "changes": "Changes",
-      "changesCount": "Changes ({{count}})",
-      "versions": "Versions"
+      "entry": "Entry",
+      "entryDetails": "Entry details",
+      "assistant": "Assistant"
     },
-    "preview": {
-      "title": "PDF preview of {{title}}",
-      "printing": "Printing the preview…",
-      "failed": "Preview not printed: {{reason}}",
-      "unavailable": "The preview comes from artifact-service, which did not answer. Your edits are still saved.",
-      "pages_one": "{{count}} page",
-      "pages_other": "{{count}} pages",
-      "warnings_one": "{{count}} layout warning",
-      "warnings_other": "{{count}} layout warnings",
-      "export": "Export PDF"
-    },
-    "content": {
-      "hint": "Edit any line; it saves when you leave the field. The eye hides a section from the page without deleting it.",
-      "bold": "Bold",
-      "italic": "Italic",
-      "underline": "Underline",
-      "show": "Show {{block}} on the page",
-      "hide": "Hide {{block}} from the page"
-    },
-    "fields": {
-      "address": "Address line",
-      "authors": "Authors",
-      "awarder": "Awarded by",
-      "bullets": "Bullet",
-      "closing": "Closing",
-      "company": "Company",
-      "date": "Date",
-      "dates": "Dates",
-      "degree": "Degree",
-      "description": "Description",
-      "doi": "DOI",
-      "fluency": "Fluency",
-      "grade": "Grade",
-      "greeting": "Greeting",
-      "heading": "Heading",
-      "headline": "Headline",
-      "issuer": "Issued by",
-      "items": "Item",
-      "label": "Label",
-      "language": "Language",
-      "links": "Link",
-      "location": "Location",
-      "name": "Name",
-      "organization": "Organisation",
-      "paragraphs": "Paragraph",
-      "role": "Role",
-      "school": "School",
-      "subject": "Subject",
-      "subtitle": "Subtitle",
-      "tags": "Tag",
-      "text": "Text",
-      "title": "Title",
-      "url": "Address",
-      "value": "Contact",
-      "venue": "Venue"
+    "page": {
+      "select": "Select or drag {{label}}",
+      "dragTitle": "Drag to move, click to select",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveTo": "Move to",
+      "duplicate": "Duplicate",
+      "deleteSection": "Delete section",
+      "removePhoto": "Remove photo",
+      "entry": "Entry",
+      "entryLabel": "{{label}} entry",
+      "deleteEntry": "Delete entry",
+      "delete": "Delete",
+      "details": "Details",
+      "add": "+ Add {{noun}}",
+      "entryNoun": "entry",
+      "sectionBelow": "+ Section below",
+      "addSection": "Add a section",
+      "bullet": "+ Bullet",
+      "dragBullet": "Drag this bullet",
+      "dragBulletTitle": "Drag to move",
+      "pageStarts": "Page {{page}} starts here",
+      "format": {
+        "label": "Format selected text",
+        "bold": "Bold",
+        "italic": "Italic",
+        "underline": "Underline",
+        "smaller": "Smaller text",
+        "normal": "Normal text",
+        "larger": "Larger text",
+        "left": "Align left",
+        "center": "Centre",
+        "justify": "Justify"
+      },
+      "regions": {
+        "top": "Header",
+        "top-left": "Header left",
+        "top-center": "Header centre",
+        "top-right": "Header right",
+        "main": "Main column",
+        "side": "Sidebar"
+      },
+      "inserts": {
+        "projects": {
+          "label": "Projects",
+          "note": "Things you built, with links"
+        },
+        "certifications": {
+          "label": "Certifications",
+          "note": "Courses and certificates"
+        },
+        "languages": {
+          "label": "Languages",
+          "note": "Languages you speak"
+        },
+        "custom": {
+          "label": "Custom",
+          "note": "A paragraph with its own heading"
+        }
+      },
+      "new": {
+        "placeholders": {
+          "experience": {
+            "title": "Role",
+            "subtitle": "Organisation",
+            "dates": "Dates"
+          },
+          "education": {
+            "title": "Degree",
+            "subtitle": "Organisation",
+            "dates": "Dates"
+          },
+          "projects": {
+            "title": "Project name",
+            "subtitle": "What it is",
+            "dates": "Year"
+          },
+          "certifications": {
+            "title": "Certificate",
+            "subtitle": "Issuer",
+            "dates": "Year"
+          },
+          "awards": {
+            "title": "Award",
+            "subtitle": "Awarded by",
+            "dates": "Year"
+          },
+          "publications": {
+            "title": "Title",
+            "subtitle": "Venue",
+            "dates": "Year"
+          },
+          "custom": {
+            "title": "Title",
+            "subtitle": "Subtitle",
+            "dates": "Dates"
+          }
+        },
+        "entryBullet": "What you did and what it changed.",
+        "sectionBullet": "What it does and what you did.",
+        "languages": ["English", "Malay"],
+        "custom": {
+          "heading": "Custom",
+          "text": "A short paragraph about anything else worth knowing."
+        }
+      }
     },
     "blocks": {
-      "profile": "Name and headline",
+      "profile": "Name",
       "photo": "Photo",
       "contacts": "Contact details",
       "summary": "Summary",
@@ -348,7 +409,7 @@
       "certifications": "Certifications",
       "awards": "Awards",
       "publications": "Publications",
-      "custom": "Section",
+      "custom": "More",
       "recipient": "Recipient",
       "letter": "Letter"
     },
@@ -357,12 +418,17 @@
       "templateHint": "Your words stay the same whichever you pick.",
       "templatesFailed": "Templates come from artifact-service, which did not answer: {{reason}}",
       "accent": "Accent colour",
-      "accentColour": "Accent {{hex}}",
-      "templateAccent": "The template's colour",
+      "accents": {
+        "template": "Template colour",
+        "navy": "Navy",
+        "teal": "Teal",
+        "maroon": "Maroon",
+        "graphite": "Graphite"
+      },
+      "accentNote": "Colours the name, section titles and rules.",
       "text": "Text",
       "font": "Font",
       "templateFont": "Template font, {{font}}",
-      "templateFontPlain": "The template's font",
       "textSize": "Text size",
       "sizes": {
         "small": "Small",
@@ -376,6 +442,16 @@
       },
       "lineSpacing": "Line spacing",
       "layout": "Layout",
+      "columns": "Columns",
+      "columnCounts": {
+        "one": "One",
+        "two": "Two"
+      },
+      "sidebar": "Sidebar on the",
+      "sides": {
+        "left": "Left",
+        "right": "Right"
+      },
       "pageSize": "Page size",
       "pageSizes": {
         "a4": "A4",
@@ -384,7 +460,30 @@
       "margins": "Margins",
       "mm": "{{value}} mm",
       "sectionSpacing": "Space between sections",
-      "pt": "{{value}} pt"
+      "pt": "{{value}} pt",
+      "photo": "Photo",
+      "photoHint": "Optional. {{template}} puts it {{where}}, and you can drag it anywhere after.",
+      "photoWhere": {
+        "top": "at the top",
+        "side": "at the top of the sidebar",
+        "header": "in the header"
+      },
+      "photoNone": "Optional. {{template}} leaves the photo out.",
+      "photoMoved": "Drag it on the page to put it anywhere.",
+      "addPhoto": "Add photo",
+      "shape": "Shape",
+      "shapes": {
+        "circle": "Circle",
+        "rounded": "Rounded",
+        "square": "Square"
+      },
+      "size": "Size",
+      "photoSizes": {
+        "small": "S",
+        "medium": "M",
+        "large": "L"
+      },
+      "removePhoto": "Remove photo"
     },
     "fonts": {
       "inter": "Inter",
@@ -394,37 +493,33 @@
       "merriweather": "Merriweather",
       "eb-garamond": "EB Garamond"
     },
-    "changes": {
-      "empty": "No changes to review. When the assistant proposes changes to this document, they wait here for you to accept or reject.",
-      "loadFailed": "Changes could not load: {{reason}}",
-      "failed": "Not answered: {{reason}}",
-      "from": "From {{agent}} · {{date}}",
-      "accept": "Accept",
-      "reject": "Reject",
-      "status": {
-        "pending": "To review",
-        "accepted": "Accepted",
-        "rejected": "Rejected"
+    "entryPanel": {
+      "experience": "Experience entry",
+      "education": "Education entry",
+      "hint": "Every field of this entry, including ones the page doesn't show.",
+      "fields": {
+        "role": "Job title",
+        "company": "Company",
+        "degree": "Degree",
+        "school": "School",
+        "name": "Name",
+        "issuer": "Issued by",
+        "awarder": "Awarded by",
+        "title": "Title",
+        "venue": "Venue",
+        "subtitle": "Subtitle",
+        "dates": "Dates",
+        "location": "Location"
       },
-      "update": "{{field}}: {{text}}",
-      "insertBlock": "Add a {{kind}} section: {{text}}",
-      "insertItem": "Add an item to {{parent}}: {{text}}",
-      "move": "Move {{item}}: {{text}}",
-      "delete": "Remove {{item}}: {{text}}",
-      "hide": "Hide {{block}} from the page",
-      "show": "Show {{block}} on the page",
-      "design": "Change the design"
+      "locationPlaceholder": "Not shown on the page",
+      "source": "Facts come from: {{source}}",
+      "done": "Done"
     },
-    "versions": {
-      "label": "Name this version",
-      "labelPlaceholder": "Such as Sent to Lumen Pay",
-      "keep": "Keep version",
-      "hint": "Ops also keeps a version when a document is created and after you accept an agent's edits. Restoring replaces the current draft, so keep it first if you want it back.",
-      "failed": "Not done: {{reason}}",
-      "loadFailed": "Versions could not load: {{reason}}",
-      "name": "Version {{number}} · {{label}}",
-      "unlabelled": "No name",
-      "restore": "Restore"
+    "sources": {
+      "user": "you, on this page",
+      "agent": "the assistant",
+      "fact": "your profile",
+      "upload": "your uploaded résumé"
     },
     "importPage": {
       "title": "Import résumé",

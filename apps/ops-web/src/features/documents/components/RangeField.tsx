@@ -28,10 +28,10 @@ export default function RangeField({
   };
 
   return (
-    <label className="text-ink-3 flex flex-col gap-1.5 text-sm">
-      <span className="flex justify-between">
+    <label className="flex flex-col gap-1.5">
+      <span className="text-ink-3 flex justify-between text-[13px]">
         {label}
-        <span className="text-ink-2">{format(draft)}</span>
+        <span className="text-ink font-semibold">{format(draft)}</span>
       </span>
       <input
         type="range"
@@ -43,7 +43,7 @@ export default function RangeField({
         onPointerUp={save}
         onKeyUp={save}
         onBlur={save}
-        className="accent-amber"
+        className="accent-[#B45309]"
       />
     </label>
   );

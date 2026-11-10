@@ -1,4 +1,5 @@
-import { FileUp, Plus } from "lucide-react";
+import { Sparkle } from "lucide-react";
+import { lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMe } from "@/features/auth";
@@ -9,9 +10,10 @@ import StateMessage from "@/shared/components/StateMessage";
 import { Tab, TabList, Tabs } from "@/shared/components/Tabs";
 import { cn } from "@/shared/lib/cn";
 import type { DocumentKind } from "../api/documents";
-import DocumentWorkspace from "../components/DocumentWorkspace";
 import { useCreateDocument, useDocuments } from "../hooks/useDocuments";
 import { starterBody } from "../lib/starters";
+
+const DocumentWorkspace = lazy(() => import("../components/DocumentWorkspace"));
 
 const KINDS: DocumentKind[] = ["resume", "cover_letter", "cv"];
 
@@ -48,8 +50,8 @@ export default function DocumentsPage() {
         title={t("documents.pageTitle")}
         subtitle={t("documents.subtitle")}
         actions={
-          <Link to="/documents/import" className={buttonClass()}>
-            <FileUp size={16} />
+          <Link to="/documents/import" className={buttonClass("primary")}>
+            <Sparkle size={14} className="text-amber-soft" />
             {t("documents.import")}
           </Link>
         }
@@ -63,7 +65,7 @@ export default function DocumentsPage() {
           </StateMessage>
         ) : (
           <>
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="bg-panel border-hair shadow-card flex flex-wrap items-center gap-x-6 gap-y-3.5 rounded-xl border px-[18px] py-3.5">
               <Tabs
                 value={kind}
                 onValueChange={(next) => setParams({ kind: next })}
@@ -79,10 +81,11 @@ export default function DocumentsPage() {
                   ))}
                 </TabList>
               </Tabs>
+              <span aria-hidden="true" className="bg-hair w-px self-stretch" />
               <div
                 role="group"
                 aria-label={t("documents.list")}
-                className="flex flex-wrap gap-2"
+                className="flex flex-1 flex-wrap gap-2"
               >
                 {ofKind.map((d) => (
                   <button
@@ -94,7 +97,7 @@ export default function DocumentsPage() {
                       "inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-full border px-3.5 text-sm",
                       d.id === selected?.id
                         ? "bg-primary text-on-primary border-primary font-semibold"
-                        : "border-hair text-ink-2 font-medium",
+                        : "border-hair text-ink-2 bg-transparent font-medium",
                     )}
                   >
                     <span
@@ -111,9 +114,8 @@ export default function DocumentsPage() {
                   type="button"
                   disabled={create.isPending}
                   onClick={startNew}
-                  className="border-hair text-ink-2 inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-dashed px-3.5 text-sm font-medium disabled:opacity-60"
+                  className="border-hair text-ink-3 inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-full border border-dashed bg-transparent px-3.5 text-sm font-medium disabled:opacity-60"
                 >
-                  <Plus size={15} />
                   {t("documents.new")}
                 </button>
               </div>
@@ -124,7 +126,11 @@ export default function DocumentsPage() {
               </p>
             )}
             {selected ? (
-              <DocumentWorkspace key={selected.id} id={selected.id} />
+              <Suspense
+                fallback={<StateMessage>{t("common.loading")}</StateMessage>}
+              >
+                <DocumentWorkspace key={selected.id} id={selected.id} />
+              </Suspense>
             ) : (
               <StateMessage>{t(`documents.empty.${kind}`)}</StateMessage>
             )}
