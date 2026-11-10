@@ -70,6 +70,7 @@ from src.features.documents.schemas import (
     ImportRead,
     ImportResumeInput,
     ImportResumeOutput,
+    LineRead,
     VersionCreate,
     VersionRead,
 )
@@ -629,6 +630,7 @@ class DocumentService:
         return DocumentRead(
             **_summary(document, _pending(changesets)).model_dump(),
             body=document.body,
+            lines=[LineRead(id=line.id, text=line.text) for line in document.lines],
             pending_body=_applied(document.body, pending.changeset.edits)
             if pending
             else None,
