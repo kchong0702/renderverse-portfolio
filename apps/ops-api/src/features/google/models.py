@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, LargeBinary, String
+from sqlalchemy import ForeignKey, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base
@@ -22,6 +22,9 @@ class GoogleAccount(AuditMixin, Base):
 
     ciphertext: Mapped[bytes] = mapped_column(LargeBinary)
     """The offline refresh token, encrypted with Fernet under google.encryption_key"""
+
+    scopes: Mapped[str] = mapped_column(Text(), server_default="")
+    """Space-separated scopes the grant allows; empty for older grants"""
 
 
 __all__ = ["GoogleAccount"]

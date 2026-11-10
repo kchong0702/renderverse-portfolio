@@ -2,7 +2,7 @@ from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
 from cryptography.fernet import Fernet
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from src.core.auth.dependencies import current_user
 from src.core.auth.models import User
@@ -66,12 +66,35 @@ async def test_callback_stores_the_refresh_token_encrypted(app, client):
     assert account.email == "kelvin@gmail.com"
     assert b"refresh-1" not in account.ciphertext
     assert Fernet(ENCRYPTION_KEY).decrypt(account.ciphertext) == b"refresh-1"
+    assert account.scopes == GOOGLE_SCOPES
     assert await _google_connection(client) == {
         "id": "google",
         "status": "connected",
         "account": "kelvin@gmail.com",
         "quota": None,
     }
+
+
+async def test_a_grant_from_before_send_and_events_needs_reconnecting(app, client):
+    await connect_google(client)
+    async with app.state.session_factory() as session, session.begin():
+        await session.execute(
+            update(GoogleAccount).values(
+                scopes="https://www.googleapis.com/auth/gmail.readonly "
+                "https://www.googleapis.com/auth/calendar.readonly"
+            )
+        )
+
+    before = await _google_connection(client)
+    await connect_google(client)
+
+    assert before == {
+        "id": "google",
+        "status": "needs_reconnect",
+        "account": "kelvin@gmail.com",
+        "quota": None,
+    }
+    assert (await _google_connection(client))["status"] == "connected"
 
 
 async def test_connecting_again_replaces_the_token(app, client):

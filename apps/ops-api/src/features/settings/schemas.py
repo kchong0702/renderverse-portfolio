@@ -10,8 +10,10 @@ from src.clients.ezcareer import ModelChoice
 ConnectionId = Literal["google", "jsearch", "portfolio_site"]
 """An outside service Ops connects to"""
 
-ConnectionStatus = Literal["connected", "not_connected", "not_configured"]
-"""Whether a connection is set up; not_configured when the server lacks its keys"""
+ConnectionStatus = Literal[
+    "connected", "needs_reconnect", "not_connected", "not_configured"
+]
+"""Whether it works; needs_reconnect lacks a scope, not_configured lacks server keys"""
 
 
 class JobAgent(BaseModel):
