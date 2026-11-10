@@ -20,10 +20,8 @@ export default function CalendarPage() {
   const settings = useSettings();
   const google = settings.data?.connections.find(({ id }) => id === "google");
   const account = google?.status === "connected" ? google.account : null;
-  const week = params.get("week") ?? "";
-  const monday = mondayOf(
-    /^\d{4}-\d{2}-\d{2}$/.test(week) ? new Date(`${week}T00:00`) : new Date(),
-  );
+  const asked = new Date(`${params.get("week")}T00:00`);
+  const monday = mondayOf(isNaN(asked.getTime()) ? new Date() : asked);
   const today = startOfDay(new Date());
   const events = useEvents(monday, addDays(monday, 7), account !== null);
   const upcoming = useEvents(today, addDays(today, 14), account !== null);
