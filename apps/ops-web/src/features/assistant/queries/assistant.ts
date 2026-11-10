@@ -7,6 +7,7 @@ import {
   resumeTurn,
   sendMessage,
   type ChatMessage,
+  type Task,
   type TaskAnswer,
   type TurnCursor,
 } from "../api/assistant";
@@ -68,16 +69,8 @@ export const resumeTurnMutationOptions = mutationOptions({
 
 export const stopMutationOptions = mutationOptions({
   mutationKey: ["assistant", "stop"],
-  mutationFn: async ({
-    chatId,
-    taskId,
-  }: {
-    chatId: string;
-    taskId: string | null;
-  }) => {
-    if (taskId) await cancelTask({ chatId, taskId });
-  },
-  onSettled: () => {
+  mutationFn: (task: Task) => cancelTask(task),
+  onSuccess: () => {
     apply({ status: "cancelled" });
     streamController.abort();
   },
