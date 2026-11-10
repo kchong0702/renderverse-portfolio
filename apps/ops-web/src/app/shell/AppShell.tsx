@@ -10,7 +10,7 @@ export default function AppShell() {
   const { t } = useTranslation();
   const item = navItemAt(useLocation().pathname);
   const [best, runnerUp] =
-    useJobs().data?.filter((job) => job.status === "picked") ?? [];
+    useJobs().data?.jobs.filter((job) => job.status === "picked") ?? [];
   const followUp = useApplications().data?.find(
     (a) => followUpDays(a) !== null,
   );

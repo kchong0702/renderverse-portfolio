@@ -18,7 +18,7 @@ export default function JobsPage() {
   const jobs = useJobs();
   const tab: JobsTab =
     TABS.find((name) => name === params.get("tab")) ?? "picked";
-  const shown = jobs.data?.filter((job) => job.status === tab) ?? [];
+  const shown = jobs.data?.jobs.filter((job) => job.status === tab) ?? [];
   const selected =
     shown.find((job) => job.id === params.get("posting")) ?? shown[0];
 

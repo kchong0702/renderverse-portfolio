@@ -30,16 +30,24 @@ export interface Job {
   posted_at: string | null;
   status: JobStatus;
   analysis: FitAnalysis | null;
+  seen_at: string | null;
+}
+
+export interface JobList {
+  jobs: Job[];
+  new_count: number;
 }
 
 export interface JobUpdate {
   id: string;
-  status: JobStatus;
+  status?: JobStatus;
+  seen?: true;
 }
 
 const URL = "/ops-api/v1/jobs";
 
-export const fetchJobs = (signal?: AbortSignal) => http.get<Job[]>(URL, signal);
+export const fetchJobs = (signal?: AbortSignal) =>
+  http.get<JobList>(URL, signal);
 
 export const updateJob = ({ id, ...patch }: JobUpdate) =>
   http.patch<Job>(`${URL}/${id}`, patch);
