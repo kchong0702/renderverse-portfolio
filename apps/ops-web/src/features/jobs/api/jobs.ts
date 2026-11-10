@@ -1,4 +1,4 @@
-import { http } from "@/shared/api/http";
+import { ApiError, http } from "@/shared/api/http";
 
 export type JobStatus = "picked" | "saved" | "dismissed";
 export type Importance = "required" | "nice_to_have";
@@ -46,6 +46,13 @@ export interface JobSearch {
   posted_within: PostedWithin | null;
 }
 
+export interface JobRun {
+  found: number;
+  new: number;
+  scored_70: number;
+  finished_at: string;
+}
+
 export type RunResult<R> =
   { status: "completed"; reply: R } | { status: "failed"; reason: string };
 
@@ -59,6 +66,12 @@ const URL = "/ops-api/v1/jobs";
 
 export const fetchJobs = (signal?: AbortSignal) =>
   http.get<JobList>(URL, signal);
+
+export const fetchLatestRun = (signal?: AbortSignal) =>
+  http.get<JobRun>(`${URL}/runs/latest`, signal).catch((error: unknown) => {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  });
 
 export const updateJob = ({ id, ...patch }: JobUpdate) =>
   http.patch<Job>(`${URL}/${id}`, patch);

@@ -2,6 +2,7 @@ import { mutationOptions, queryOptions } from "@tanstack/react-query";
 import {
   analyseJob,
   fetchJobs,
+  fetchLatestRun,
   findJobs,
   updateJob,
   type JobUpdate,
@@ -10,6 +11,11 @@ import {
 export const jobsQueryOptions = queryOptions({
   queryKey: ["jobs"],
   queryFn: ({ signal }) => fetchJobs(signal),
+});
+
+export const latestRunQueryOptions = queryOptions({
+  queryKey: ["jobs", "runs", "latest"],
+  queryFn: ({ signal }) => fetchLatestRun(signal),
 });
 
 export const updateJobMutationOptions = mutationOptions({

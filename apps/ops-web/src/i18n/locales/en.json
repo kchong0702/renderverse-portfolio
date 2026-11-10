@@ -100,7 +100,8 @@
     },
     "agent": {
       "title": "Job agent",
-      "daily": "Daily at {{time}}"
+      "daily": "Daily at {{time}}",
+      "today": "Today: {{found}} found, {{new}} new, {{scored}} scored 70+"
     }
   },
   "jobs": {

@@ -3,11 +3,16 @@ import {
   analyseJobMutationOptions,
   findJobsMutationOptions,
   jobsQueryOptions,
+  latestRunQueryOptions,
   updateJobMutationOptions,
 } from "../queries/jobs";
 
 export function useJobs() {
   return useQuery(jobsQueryOptions);
+}
+
+export function useLatestJobRun() {
+  return useQuery(latestRunQueryOptions);
 }
 
 export function useUpdateJob() {
