@@ -69,9 +69,12 @@ class PostgresRunStore:
         return utcnow() - timedelta(seconds=self._settings.run_timeout_seconds)
 
     async def create(self, user_id: UUID, key: str) -> str:
-        """Open a new run of the user's for key and return its id; Conflict while key's
-        last run is still going and was active within run_timeout_seconds"""
+        """Open a new run of the user's for key and return its id, one create per key at
+        a time; Conflict while key's last run is still going and recently active"""
         async with self._factory() as session, session.begin():
+            await session.execute(
+                select(func.pg_advisory_xact_lock(func.hashtext(key)))
+            )
             running = await session.scalar(
                 select(AgentRun.id).where(
                     AgentRun.key == key,
@@ -158,6 +161,7 @@ class PostgresRunStore:
                 or run.finished_at is not None
                 or run.active_at <= self._alive_since()
             ):
+                self._changed.pop(run_id, None)
                 return
             with suppress(TimeoutError):
                 await asyncio.wait_for(

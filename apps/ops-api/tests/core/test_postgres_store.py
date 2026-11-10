@@ -56,3 +56,20 @@ async def test_a_run_whose_writer_went_silent_ends_and_frees_its_key(
         with pytest.raises(NotFound):
             await runs.latest("chat-1")
         assert await runs.create(postgres_user, "chat-1") != run_id
+
+
+async def test_two_processes_starting_the_same_chat_at_once_run_one_turn(
+    engine: AsyncEngine, postgres_user: UUID
+):
+    settings = EzcareerSettings()
+    async with (
+        aclosing(postgres_store(engine, settings)) as first,
+        aclosing(postgres_store(engine, settings)) as second,
+    ):
+        results = await asyncio.gather(
+            first.create(postgres_user, "chat-1"),
+            second.create(postgres_user, "chat-1"),
+            return_exceptions=True,
+        )
+
+    assert sorted(type(result).__name__ for result in results) == ["Conflict", "str"]

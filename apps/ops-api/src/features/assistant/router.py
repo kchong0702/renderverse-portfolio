@@ -6,7 +6,6 @@ from fastapi.sse import EventSourceResponse
 
 from src.clients.ezcareer import Answer
 from src.core.auth import CurrentUserDep
-from src.db.session import SessionDep
 from src.features.assistant.schemas import ChatMessage
 from src.features.assistant.service import AssistantService
 from src.features.profile import ProfileServiceDep
@@ -16,15 +15,13 @@ router = APIRouter(prefix="/assistant", tags=["assistant"])
 
 
 def get_assistant_service(
-    session: SessionDep,
     profile: ProfileServiceDep,
     settings: SettingsServiceDep,
     request: Request,
 ) -> AssistantService:
-    """The assistant service on the request's session, its profile and settings
-    services, the harness and the app's runner"""
+    """The assistant service on its profile and settings services, the harness and
+    the app's runner"""
     return AssistantService(
-        session,
         profile,
         settings,
         request.app.state.ezcareer,

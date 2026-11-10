@@ -3,8 +3,6 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.clients.ezcareer import Answer, EzcareerClient
 from src.core.runner import Runner
 from src.features.assistant.schemas import ChatMessage
@@ -17,15 +15,13 @@ _AGENT = "career-director"
 class AssistantService:
     def __init__(
         self,
-        session: AsyncSession,
         profile: ProfileService,
         settings: SettingsService,
         ezcareer: EzcareerClient,
         runner: Runner,
     ):
-        """Hold the session to commit before a turn runs, the profile, settings and
-        harness a turn uses, and the runner it runs on"""
-        self._session = session
+        """Hold the profile, settings and harness a turn uses, and the runner it runs
+        on"""
         self._profile = profile
         self._settings = settings
         self._ezcareer = ezcareer
@@ -39,7 +35,6 @@ class AssistantService:
         key = f"{user_id}:{chat_id}"
         data = await self._profile.agent_profile(user_id)
         metadata = await self._settings.run_metadata(user_id)
-        await self._session.commit()
         return await self._runner.start_task(
             user_id,
             key,
@@ -60,7 +55,6 @@ class AssistantService:
         the turn's events as they come; Conflict while a turn runs"""
         key = f"{user_id}:{chat_id}"
         metadata = await self._settings.run_metadata(user_id)
-        await self._session.commit()
         return await self._runner.start_task(
             user_id,
             key,

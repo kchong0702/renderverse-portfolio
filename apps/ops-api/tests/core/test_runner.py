@@ -22,8 +22,8 @@ async def _events(*numbers: int) -> AsyncIterator[BaseModel]:
         yield Event(n=n)
 
 
-async def _forever() -> AsyncIterator[BaseModel]:
-    await asyncio.Event().wait()
+async def _until(release: asyncio.Event) -> AsyncIterator[BaseModel]:
+    await release.wait()
     yield Event(n=0)
 
 
@@ -47,10 +47,12 @@ async def test_a_run_streams_each_event_with_its_id_and_a_retry_hint_first():
 
 async def test_a_key_runs_one_turn_at_a_time():
     runner = Runner(InMemoryRunStore(SETTINGS), SETTINGS)
-    await runner.start_task(uuid4(), "chat-1", _forever())
+    release = asyncio.Event()
+    await runner.start_task(uuid4(), "chat-1", _until(release))
 
     with pytest.raises(Conflict):
         await runner.start_task(uuid4(), "chat-1", _events(1))
+    release.set()
 
 
 async def test_resume_skips_what_the_client_saw_and_refuses_another_runs_id():
