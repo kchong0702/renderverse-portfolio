@@ -20,6 +20,10 @@ export function daysFromToday(value: string): number {
   );
 }
 
+export function daysLeftThisWeek(): number {
+  return (7 - new Date().getDay()) % 7;
+}
+
 export function relativeDay(value: string, language: string): string {
   return new Intl.RelativeTimeFormat(language, { numeric: "auto" }).format(
     daysFromToday(value),

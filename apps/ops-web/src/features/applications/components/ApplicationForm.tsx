@@ -5,8 +5,10 @@ import { buttonClass } from "@/shared/components/button";
 import { SelectField, TextField } from "@/shared/components/fields";
 import { cn } from "@/shared/lib/cn";
 import { localDateTime } from "@/shared/lib/dates";
-import type { ApplicationCreate } from "../api/applications";
+import type { ApplicationCreate, NextStepFormat } from "../api/applications";
 import { STAGES } from "../lib/stages";
+
+const FORMATS: NextStepFormat[] = ["video", "phone", "on_site"];
 
 interface ApplicationFormProps {
   application: ApplicationCreate;
@@ -35,6 +37,9 @@ export default function ApplicationForm({
     next_step_at: application.next_step_at
       ? localDateTime(new Date(application.next_step_at))
       : "",
+    next_step_due: application.next_step_due ?? "",
+    next_step_format: application.next_step_format ?? ("" as const),
+    next_step_location: application.next_step_location ?? "",
   });
   const set = (change: Partial<typeof draft>) =>
     setDraft((current) => ({ ...current, ...change }));
@@ -51,6 +56,9 @@ export default function ApplicationForm({
       next_step_at: draft.next_step_at
         ? new Date(draft.next_step_at).toISOString()
         : null,
+      next_step_due: draft.next_step_due || null,
+      next_step_format: draft.next_step_format || null,
+      next_step_location: draft.next_step_location.trim() || null,
     });
   };
 
@@ -127,6 +135,37 @@ export default function ApplicationForm({
           label={t("applications.form.nextStepAt")}
           value={draft.next_step_at}
           onChange={(event) => set({ next_step_at: event.target.value })}
+        />
+      </div>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(180px,100%),1fr))] gap-3.5">
+        <TextField
+          type="date"
+          label={t("applications.form.dueBy")}
+          value={draft.next_step_due}
+          onChange={(event) => set({ next_step_due: event.target.value })}
+        />
+        <SelectField
+          label={t("applications.form.format")}
+          value={draft.next_step_format}
+          options={[
+            { value: "", label: t("applications.form.noFormat") },
+            ...FORMATS.map((format) => ({
+              value: format,
+              label: t(`applications.form.formats.${format}`),
+            })),
+          ]}
+          onChange={(event) =>
+            set({
+              next_step_format:
+                FORMATS.find((format) => format === event.target.value) ?? "",
+            })
+          }
+        />
+        <TextField
+          label={t("applications.form.location")}
+          maxLength={200}
+          value={draft.next_step_location}
+          onChange={(event) => set({ next_step_location: event.target.value })}
         />
       </div>
       {error && (

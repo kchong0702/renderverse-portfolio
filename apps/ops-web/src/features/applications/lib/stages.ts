@@ -1,4 +1,4 @@
-import { daysFromToday } from "@/shared/lib/dates";
+import { daysFromToday, daysLeftThisWeek } from "@/shared/lib/dates";
 import type { Application, ApplicationStage } from "../api/applications";
 
 export const STAGES: ApplicationStage[] = [
@@ -29,6 +29,9 @@ export function isDue(application: Application): boolean {
     followUpDays(application) !== null ||
     (application.stage !== "closed" &&
       application.next_step_at !== null &&
-      new Date(application.next_step_at) <= endOfToday)
+      new Date(application.next_step_at) <= endOfToday) ||
+    (application.stage !== "closed" &&
+      application.next_step_due !== null &&
+      daysFromToday(application.next_step_due) <= daysLeftThisWeek())
   );
 }

@@ -126,6 +126,15 @@
       "nextStep": "Next step",
       "nextStepPlaceholder": "e.g. Technical interview",
       "nextStepAt": "When",
+      "dueBy": "Due by",
+      "format": "Format",
+      "noFormat": "Not set",
+      "formats": {
+        "video": "Video call",
+        "phone": "Phone call",
+        "on_site": "On site"
+      },
+      "location": "Location",
       "failed": "Not saved: {{reason}}",
       "saving": "Saving…",
       "save": "Save",
