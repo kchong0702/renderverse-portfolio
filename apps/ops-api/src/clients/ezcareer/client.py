@@ -35,6 +35,7 @@ from src.clients.ezcareer.schemas import (
     Failed,
     InputRequired,
     ModelCatalog,
+    NextScreen,
     Published,
     RecordUsage,
     Run,
@@ -92,12 +93,22 @@ def _usage(message: StatusMessage | None) -> Usage | None:
     )
 
 
-def _reason(status: TaskStatus) -> str:
-    """Why a task stopped, as the harness put it"""
-    return (
-        " ".join(part.text for part in status.message.parts if part.text)
-        if status.message
-        else status.state
+def _failed(status: TaskStatus) -> Failed:
+    """Why a task stopped, as the harness put it, with the screen a data part names"""
+    if status.message is None:
+        return Failed(reason=status.state)
+    parts = status.message.parts
+    screen = next(
+        (
+            p.data["next"]
+            for p in parts
+            if isinstance(p.data, dict) and p.data.get("next")
+        ),
+        None,
+    )
+    return Failed(
+        reason=" ".join(part.text for part in parts if part.text),
+        next=NextScreen.model_validate(screen) if screen else None,
     )
 
 
@@ -190,7 +201,7 @@ class EzcareerClient:
                             widget=Widget.model_validate(status.message.parts[0].data),
                         )
                     case _:
-                        return Failed(reason=_reason(status))
+                        return _failed(status)
         except (httpx2.HTTPError, ValueError) as error:
             raise ServiceUnavailable(
                 f"ezcareer-harness did not answer {executable}; try again later"
@@ -433,7 +444,7 @@ class EzcareerClient:
                                     return
                                 case "TASK_STATE_FAILED" | "TASK_STATE_REJECTED":
                                     ended = True
-                                    yield Failed(reason=_reason(status))
+                                    yield _failed(status)
                                     return
                 message = next_message
             ended = True
