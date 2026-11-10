@@ -1,11 +1,5 @@
-import {
-  MutationObserver,
-  mutationOptions,
-  queryOptions,
-} from "@tanstack/react-query";
-import i18n from "@/i18n";
+import { mutationOptions, queryOptions } from "@tanstack/react-query";
 import { ApiError } from "@/shared/api/http";
-import { queryClient } from "@/shared/api/queryClient";
 import {
   answerTask,
   cancelTask,
@@ -14,19 +8,20 @@ import {
   sendMessage,
   type ChatMessage,
   type TaskAnswer,
+  type TurnCursor,
 } from "../api/assistant";
 import { useAssistantStore } from "../state/assistantStore";
 
 const { add, apply, restore } = useAssistantStore.getState();
 
-let run = new AbortController();
+let streamController = new AbortController();
 
-const follow = () => {
-  run = new AbortController();
-  return run.signal;
+const newStreamSignal = () => {
+  streamController = new AbortController();
+  return streamController.signal;
 };
 
-const start = () => {
+const startTurn = () => {
   add({
     role: "assistant",
     taskId: null,
@@ -34,52 +29,42 @@ const start = () => {
     parts: [],
     outcome: null,
   });
-  return follow();
+  return newStreamSignal();
 };
 
-const settle = (_data: unknown, error: Error | null) =>
-  apply({
-    status: "failed",
-    reason: error?.message ?? i18n.t("assistant.interrupted"),
-  });
+const failTurn = (error: Error) =>
+  apply({ status: "failed", reason: error.message });
 
 export const sendMessageMutationOptions = mutationOptions({
   mutationKey: ["assistant", "send"],
-  mutationFn: (message: ChatMessage) => sendMessage(message, start(), apply),
+  mutationFn: (message: ChatMessage) =>
+    sendMessage(message, startTurn(), apply),
   onMutate: ({ text }) => add({ role: "user", text }),
-  onSettled: settle,
+  onError: failTurn,
 });
 
 export const answerTaskMutationOptions = mutationOptions({
   mutationKey: ["assistant", "answer"],
-  mutationFn: (answer: TaskAnswer) => answerTask(answer, start(), apply),
+  mutationFn: (answer: TaskAnswer) => answerTask(answer, startTurn(), apply),
   onMutate: ({ shown }) => {
     const previous = useAssistantStore.getState().entries;
     add({ role: "user", text: shown });
     return { previous };
   },
-  onError: (error, _answer, result) => {
-    if (error instanceof ApiError && result) restore(result.previous);
-  },
-  onSettled: settle,
+  onError: (error, _answer, result) =>
+    error instanceof ApiError && result
+      ? restore(result.previous)
+      : failTurn(error),
 });
 
-const resumeMutationOptions = mutationOptions({
+export const resumeTurnMutationOptions = mutationOptions({
   mutationKey: ["assistant", "resume"],
-  mutationFn: (turn: { chatId: string; lastEventId: string }) =>
-    resumeTurn(turn, follow(), apply),
-  onSettled: (data, error) =>
+  mutationFn: (turn: TurnCursor) => resumeTurn(turn, newStreamSignal(), apply),
+  onError: (error) =>
     error instanceof ApiError && error.status === 404
       ? apply({ status: "cancelled" })
-      : settle(data, error),
+      : failTurn(error),
 });
-
-const { chatId, entries } = useAssistantStore.getState();
-const pending = entries.at(-1);
-if (pending?.role === "assistant" && !pending.outcome && pending.lastEventId)
-  new MutationObserver(queryClient, resumeMutationOptions)
-    .mutate({ chatId, lastEventId: pending.lastEventId })
-    .catch(() => {});
 
 export const stopMutationOptions = mutationOptions({
   mutationKey: ["assistant", "stop"],
@@ -94,7 +79,7 @@ export const stopMutationOptions = mutationOptions({
   },
   onSettled: () => {
     apply({ status: "cancelled" });
-    run.abort();
+    streamController.abort();
   },
 });
 

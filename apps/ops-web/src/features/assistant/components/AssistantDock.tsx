@@ -16,10 +16,15 @@ import type { DocumentKind, Step, Widget } from "../api/assistant";
 import {
   useAnswerTask,
   useDocuments,
+  useResumeTurn,
   useSendMessage,
   useStop,
 } from "../hooks/useAssistant";
-import { useAssistantStore, type AssistantTurn } from "../state/assistantStore";
+import {
+  openTurn,
+  useAssistantStore,
+  type AssistantTurn,
+} from "../state/assistantStore";
 
 const fieldClass =
   "border-hair bg-ground text-ink min-h-10 rounded-lg border px-3 py-2 text-sm leading-normal disabled:opacity-60";
@@ -319,8 +324,9 @@ export default function AssistantDock({
   const newChat = useAssistantStore((state) => state.newChat);
   const send = useSendMessage();
   const stop = useStop();
+  useResumeTurn();
   const current = entries.at(-1);
-  const running = current?.role === "assistant" && current.outcome === null;
+  const running = openTurn(entries);
   const busy = useIsMutating({ mutationKey: ["assistant"] }) > 0;
   const [draft, setDraft] = useState("");
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -403,7 +409,7 @@ export default function AssistantDock({
               ref={transcriptRef}
               aria-label={t("assistant.conversation")}
               aria-live="polite"
-              aria-busy={running}
+              aria-busy={running !== undefined}
               onScroll={(event) => {
                 const { scrollHeight, scrollTop, clientHeight } =
                   event.currentTarget;
@@ -451,7 +457,7 @@ export default function AssistantDock({
               <button
                 type="button"
                 disabled={stop.isPending}
-                onClick={() => stop.mutate({ chatId, taskId: current.taskId })}
+                onClick={() => stop.mutate({ chatId, taskId: running.taskId })}
                 className={buttonClass()}
               >
                 {t("assistant.stop")}
