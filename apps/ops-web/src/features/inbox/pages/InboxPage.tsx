@@ -1,30 +1,34 @@
-import { RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
+import { useApplications } from "@/features/applications";
 import { GoogleNotice, useGoogleAccount } from "@/features/settings";
 import { ApiError } from "@/shared/api/http";
 import { buttonClass } from "@/shared/components/button";
 import PageBody from "@/shared/components/PageBody";
 import PageHeader from "@/shared/components/PageHeader";
 import StateMessage from "@/shared/components/StateMessage";
+import FollowUps from "../components/FollowUps";
 import MessageDetail from "../components/MessageDetail";
-import MessageList from "../components/MessageList";
+import ThreadList from "../components/ThreadList";
 import { useInbox } from "../hooks/useInbox";
+import { threadsOf } from "../lib/threads";
 
 export default function InboxPage() {
   const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
   const { settings, account, problem } = useGoogleAccount();
   const inbox = useInbox(account !== null);
+  const applications = useApplications();
+  const threads = threadsOf(inbox.data ?? [], applications.data ?? []);
   const selected =
-    inbox.data?.find((message) => message.id === params.get("message")) ??
-    inbox.data?.[0];
+    threads.find(({ thread_id }) => thread_id === params.get("thread")) ??
+    threads[0];
 
   return (
     <>
       <PageHeader
         title={t("inbox.title")}
-        subtitle={account && t("inbox.subtitle", { account })}
+        subtitle={account && t("inbox.subtitle")}
         actions={
           account && (
             <button
@@ -33,8 +37,7 @@ export default function InboxPage() {
               disabled={inbox.isFetching}
               onClick={() => void inbox.refetch()}
             >
-              <RefreshCw aria-hidden size={16} />
-              {t("inbox.refresh")}
+              {t("inbox.sync")}
             </button>
           )
         }
@@ -58,17 +61,33 @@ export default function InboxPage() {
               {t("inbox.loadFailed", { reason: inbox.error.message })}
             </StateMessage>
           )
-        ) : selected ? (
-          <div className="flex flex-wrap items-start gap-4">
-            <MessageList
-              messages={inbox.data}
-              selectedId={selected.id}
-              onSelect={(id) => setParams({ message: id })}
-            />
-            <MessageDetail message={selected} account={account} />
-          </div>
         ) : (
-          <StateMessage>{t("inbox.empty")}</StateMessage>
+          <div className="flex flex-wrap items-start gap-6">
+            <div className="flex max-w-[400px] min-w-0 flex-[1_1_320px] flex-col gap-4">
+              {applications.isError ? (
+                <StateMessage tone="error">
+                  {t("applications.loadFailed", {
+                    reason: applications.error.message,
+                  })}
+                </StateMessage>
+              ) : (
+                settings.data.automation.follow_up_reminders &&
+                applications.data && (
+                  <FollowUps applications={applications.data} />
+                )
+              )}
+              {selected ? (
+                <ThreadList
+                  threads={threads}
+                  selectedId={selected.thread_id}
+                  onSelect={(thread) => setParams({ thread })}
+                />
+              ) : (
+                <StateMessage>{t("inbox.empty")}</StateMessage>
+              )}
+            </div>
+            {selected && <MessageDetail thread={selected} account={account} />}
+          </div>
         )}
       </PageBody>
     </>
