@@ -2,15 +2,19 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from cryptography.fernet import Fernet, InvalidToken
+from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.ezcareer import (
     EzcareerClient,
+    JSearchMetadata,
     ModelCatalog,
     ModelChoice,
     RunMetadata,
 )
-from src.core.exceptions import InvalidInput
+from src.core.config import JSearchSettings
+from src.core.exceptions import Conflict, InvalidInput, ServiceUnavailable
 from src.features.settings.models import UserSettings
 from src.features.settings.repository import SettingsRepository
 from src.features.settings.schemas import (
@@ -18,6 +22,7 @@ from src.features.settings.schemas import (
     Connection,
     JobAgent,
     Scheduling,
+    SearchQuota,
     SettingsRead,
     SettingsUpdate,
 )
@@ -30,11 +35,24 @@ _JOB_AGENT_COLUMNS = {
 }
 
 
-def _connections() -> list[Connection]:
-    """Every connection stays unconnected until its integration lands"""
+def _connections(settings: UserSettings) -> list[Connection]:
+    """JSearch from the stored key and its last quota; the others wait for their
+    integrations"""
     return [
         Connection(id="google", status="not_connected"),
-        Connection(id="jsearch", status="not_connected"),
+        Connection(
+            id="jsearch",
+            status="connected"
+            if settings.jsearch_ciphertext is not None
+            else "not_connected",
+            quota=SearchQuota(
+                remaining=settings.jsearch_quota_remaining,
+                limit=settings.jsearch_quota_limit,
+            )
+            if settings.jsearch_quota_remaining is not None
+            and settings.jsearch_quota_limit is not None
+            else None,
+        ),
         Connection(id="portfolio_site", status="not_connected"),
     ]
 
@@ -60,16 +78,28 @@ def _to_read(settings: UserSettings) -> SettingsRead:
         ai_model=ModelChoice(family=settings.ai_family, model=settings.ai_model)
         if settings.ai_family is not None and settings.ai_model is not None
         else None,
-        connections=_connections(),
+        connections=_connections(settings),
     )
 
 
 class SettingsService:
-    def __init__(self, session: AsyncSession, ezcareer: EzcareerClient):
-        """Read and write the settings through a repository on the session, and list
-        the models ezcareer-harness serves"""
+    def __init__(
+        self, session: AsyncSession, ezcareer: EzcareerClient, jsearch: JSearchSettings
+    ):
+        """Read and write the settings through a repository on the session, list the
+        models ezcareer-harness serves, and keep the key that encrypts JSearch keys"""
         self._repository = SettingsRepository(session)
         self._ezcareer = ezcareer
+        self._jsearch = jsearch
+
+    def _fernet(self) -> Fernet:
+        """The cipher for JSearch keys; ServiceUnavailable until the server has one"""
+        if not self._jsearch.encryption_key.get_secret_value():
+            raise ServiceUnavailable(
+                "JSearch keys are not set up on the server: set "
+                "OPS_API_JSEARCH__ENCRYPTION_KEY"
+            )
+        return Fernet(self._jsearch.encryption_key.get_secret_value())
 
     async def get(self, user_id: UUID) -> SettingsRead:
         """The user's settings, created with the defaults on first read"""
@@ -107,14 +137,59 @@ class SettingsService:
         """The models a user can pick from, as ezcareer-harness lists them"""
         return await self._ezcareer.models()
 
-    async def run_metadata(self, user_id: UUID) -> RunMetadata | None:
-        """The user's chosen model for a harness run; None when they picked none"""
-        settings = await self._repository.get(user_id)
-        if settings is None or settings.ai_family is None or settings.ai_model is None:
-            return None
-        return RunMetadata(
-            model=ModelChoice(family=settings.ai_family, model=settings.ai_model)
+    async def connect_jsearch(self, user_id: UUID, api_key: SecretStr) -> SettingsRead:
+        """Store the user's JSearch key, encrypted, in place of any earlier one, whose
+        quota no longer applies"""
+        settings = await self._load(user_id)
+        settings.jsearch_ciphertext = self._fernet().encrypt(
+            api_key.get_secret_value().encode()
         )
+        settings.jsearch_quota_remaining = None
+        settings.jsearch_quota_limit = None
+        return _to_read(settings)
+
+    async def disconnect_jsearch(self, user_id: UUID) -> SettingsRead:
+        """Forget the user's JSearch key and its quota; a no-op if none is stored"""
+        settings = await self._load(user_id)
+        settings.jsearch_ciphertext = None
+        settings.jsearch_quota_remaining = None
+        settings.jsearch_quota_limit = None
+        return _to_read(settings)
+
+    async def record_quota(self, user_id: UUID, quota: SearchQuota | None) -> None:
+        """Keep the quota a find run read on the user's JSearch key; a run on the
+        server's key leaves it"""
+        settings = await self._load(user_id)
+        if settings.jsearch_ciphertext is not None:
+            settings.jsearch_quota_remaining = quota.remaining if quota else None
+            settings.jsearch_quota_limit = quota.limit if quota else None
+
+    async def run_metadata(self, user_id: UUID) -> RunMetadata | None:
+        """The user's chosen model and JSearch key for a harness run; None when they
+        set neither; Conflict when the stored key can no longer be read"""
+        settings = await self._repository.get(user_id)
+        if settings is None:
+            return None
+        try:
+            jsearch = (
+                JSearchMetadata(
+                    api_key=self._fernet().decrypt(settings.jsearch_ciphertext).decode()
+                )
+                if settings.jsearch_ciphertext is not None
+                else None
+            )
+        except InvalidToken as error:
+            raise Conflict(
+                "Ops can no longer read your JSearch key; change it in Settings"
+            ) from error
+        model = (
+            ModelChoice(family=settings.ai_family, model=settings.ai_model)
+            if settings.ai_family is not None and settings.ai_model is not None
+            else None
+        )
+        if model is None and jsearch is None:
+            return None
+        return RunMetadata(model=model, jsearch=jsearch)
 
     async def _load(self, user_id: UUID) -> UserSettings:
         settings = await self._repository.get(user_id)

@@ -15,6 +15,7 @@ from starlette.responses import RedirectResponse, Response
 
 PREFIX = "/ops-api/v1"
 OWNER = "owner@example.com"
+JSEARCH_ENCRYPTION_KEY = "pcmpLWT8lLZJmPF7IsUqBimTLFLTgPGcQmjx82jBz9M="
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -23,6 +24,7 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ["OPS_API_EZCAREER__URL"] = "http://harness.test/ezcareer"
     os.environ["OPS_API_EZCAREER__STORES"] = "memory"
     os.environ["OPS_API_ARTIFACT__URL"] = "http://artifact.test/artifact-service"
+    os.environ["OPS_API_JSEARCH__ENCRYPTION_KEY"] = JSEARCH_ENCRYPTION_KEY
 
 
 class FakeProvider:

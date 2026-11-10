@@ -31,9 +31,19 @@ class ModelChoice(BaseModel):
     """A model ezcareer-harness offers for that provider"""
 
 
+class JSearchMetadata(BaseModel):
+    api_key: str
+    """The user's RapidAPI key, which search_jobs uses in place of the server's"""
+
+
 class RunMetadata(BaseModel):
-    model: ModelChoice
-    """The model the user picked"""
+    model: ModelChoice | None = Field(default=None, exclude_if=lambda v: v is None)
+    """The model the user picked; None leaves it to ezcareer-harness"""
+
+    jsearch: JSearchMetadata | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    """The user's own JSearch key; None searches with the server's"""
 
 
 class Widget(BaseModel):
@@ -244,6 +254,7 @@ __all__ = [
     "Failed",
     "FamilyModels",
     "InputRequired",
+    "JSearchMetadata",
     "ModelCatalog",
     "ModelChoice",
     "Published",
