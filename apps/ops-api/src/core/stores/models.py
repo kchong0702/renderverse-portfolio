@@ -16,11 +16,6 @@ class AgentRun(UserScopedMixin, Base):
     key: Mapped[str] = mapped_column(String(200), index=True)
     """What the run belongs to, such as a user's chat"""
 
-    started_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
-    """When the run started"""
-
     active_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     """When the run last started or added an event"""
 

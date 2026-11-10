@@ -23,7 +23,6 @@ def upgrade() -> None:
         "agent_runs",
         sa.Column("id", sa.String(length=32), nullable=False),
         sa.Column("key", sa.String(length=200), nullable=False),
-        sa.Column("started_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("active_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("user_id", sa.Uuid(), nullable=False),
