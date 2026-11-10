@@ -1,13 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { isStepDue, type Application } from "@/features/applications";
 import { cn } from "@/shared/lib/cn";
-import { dayMonth } from "@/shared/lib/dates";
-import {
-  daysAgo,
-  daysLeftThisWeek,
-  hasReached,
-  sentSince,
-} from "../lib/pipeline";
+import { dayMonth, daysLeftThisWeek } from "@/shared/lib/dates";
+import { daysAgo, hasReached, sentSince } from "../lib/pipeline";
 
 interface KpisProps {
   applications: Application[];
@@ -20,7 +15,7 @@ export default function Kpis({ applications, sent, days }: KpisProps) {
   const replied = sent.filter((a) => hasReached(a, "replied")).length;
   const interviews = sent.filter((a) => hasReached(a, "interview")).length;
   const offers = sent.filter((a) => hasReached(a, "offer"));
-  const nextOffer = offers.find((a) => a.next_step_at)?.next_step_at;
+  const nextOffer = offers.find((a) => a.next_step_due)?.next_step_due;
 
   const kpis = [
     {
@@ -67,7 +62,7 @@ export default function Kpis({ applications, sent, days }: KpisProps) {
       note:
         nextOffer &&
         t("dashboard.kpis.decideBy", {
-          when: dayMonth(new Date(nextOffer), i18n.language),
+          when: dayMonth(new Date(`${nextOffer}T00:00`), i18n.language),
         }),
       ink: "text-ok",
     },

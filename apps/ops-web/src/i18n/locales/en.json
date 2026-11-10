@@ -91,7 +91,12 @@
       "new": "New",
       "fromAgent": "From the agent · fit {{fit}}",
       "open": "Open",
-      "review": "Review"
+      "review": "Review",
+      "formats": {
+        "video": "video call",
+        "phone": "phone call",
+        "on_site": "on site"
+      }
     },
     "agent": {
       "title": "Job agent",

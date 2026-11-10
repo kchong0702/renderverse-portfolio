@@ -20,10 +20,6 @@ export function daysAgo(days: number): string {
   return localDateTime(at).slice(0, 10);
 }
 
-export function daysLeftThisWeek(): number {
-  return (7 - new Date().getDay()) % 7;
-}
-
 export function sentSince(
   applications: Application[],
   since: string | null,
