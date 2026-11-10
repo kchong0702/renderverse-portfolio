@@ -11,12 +11,16 @@ from src.features.jobs.models import Job
 
 class JobRepository(Repository):
     async def jobs(self, user_id: UUID) -> Sequence[Job]:
-        """The user's jobs, newest posting first"""
+        """The user's jobs, best fit first; unanalysed ones last, newest posting first"""
         return (
             await self._session.scalars(
                 select(Job)
                 .where(Job.user_id == user_id)
-                .order_by(Job.posted_at.desc().nulls_last(), Job.created_at.desc())
+                .order_by(
+                    Job.analysis["fit"].as_integer().desc().nulls_last(),
+                    Job.posted_at.desc().nulls_last(),
+                    Job.created_at.desc(),
+                )
             )
         ).all()
 
