@@ -1,15 +1,23 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from functools import partial
 from uuid import UUID
 
-from src.clients.ezcareer import Answer, EzcareerClient
+from pydantic import BaseModel, ValidationError
+
+from src.clients.ezcareer import Answer, EzcareerClient, Published, RunEvent
+from src.core.exceptions import InvalidInput, NotFound
+from src.core.logging import get_logger
 from src.core.runner import Runner
 from src.features.assistant.schemas import ChatMessage
+from src.features.documents import ChangesetArtifact, DocumentService
 from src.features.profile import ProfileService
 from src.features.settings import SettingsService
 
 _AGENT = "career-director"
+
+logger = get_logger(__name__)
 
 
 class AssistantService:
@@ -17,15 +25,38 @@ class AssistantService:
         self,
         profile: ProfileService,
         settings: SettingsService,
+        documents: DocumentService,
         ezcareer: EzcareerClient,
         runner: Runner,
     ):
-        """Hold the profile, settings and harness a turn uses, and the runner it runs
-        on"""
+        """Hold the profile, settings, documents and harness a turn uses, and the
+        runner it runs on"""
         self._profile = profile
         self._settings = settings
+        self._documents = documents
         self._ezcareer = ezcareer
         self._runner = runner
+
+    async def _turn(
+        self, user_id: UUID, events: AsyncIterator[RunEvent[str]]
+    ) -> AsyncIterator[BaseModel]:
+        """A turn's events as the browser gets them: a changeset career-director
+        publishes is stored and announced, and other published artifacts are not sent"""
+        async for event in events:
+            if not isinstance(event, Published):
+                yield event
+            elif event.name == "changeset":
+                try:
+                    artifact = ChangesetArtifact.model_validate(event.data)
+                    proposed = await self._documents.propose_from_run(
+                        user_id, artifact.document_id, artifact.changeset
+                    )
+                except ValidationError as error:
+                    logger.warning("changeset_skipped", reason=str(error))
+                except (NotFound, InvalidInput) as error:
+                    logger.warning("changeset_skipped", reason=error.message)
+                else:
+                    yield proposed
 
     async def send(
         self, user_id: UUID, chat_id: UUID, message: ChatMessage
@@ -39,14 +70,20 @@ class AssistantService:
             user_id,
             thread_id,
             _AGENT,
-            self._ezcareer.stream(
-                _AGENT,
-                str,
-                user_id=user_id,
-                context_id=thread_id,
-                text=message.text,
-                data=data,
-                metadata=metadata,
+            self._turn(
+                user_id,
+                self._ezcareer.stream(
+                    _AGENT,
+                    str,
+                    user_id=user_id,
+                    context_id=thread_id,
+                    text=message.text,
+                    data=data,
+                    metadata=metadata,
+                    answer_data_request=partial(
+                        self._documents.answer_data_request, user_id
+                    ),
+                ),
             ),
         )
 
@@ -61,14 +98,20 @@ class AssistantService:
             user_id,
             thread_id,
             _AGENT,
-            self._ezcareer.stream_resume(
-                _AGENT,
-                str,
-                user_id=user_id,
-                context_id=thread_id,
-                task_id=task_id,
-                answer=answer,
-                metadata=metadata,
+            self._turn(
+                user_id,
+                self._ezcareer.stream_resume(
+                    _AGENT,
+                    str,
+                    user_id=user_id,
+                    context_id=thread_id,
+                    task_id=task_id,
+                    answer=answer,
+                    metadata=metadata,
+                    answer_data_request=partial(
+                        self._documents.answer_data_request, user_id
+                    ),
+                ),
             ),
         )
 

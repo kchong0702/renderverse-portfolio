@@ -2,7 +2,8 @@ from typing import Annotated
 from uuid import UUID
 
 from document_schema import Changeset, DocumentKind, TemplateSpec
-from fastapi import APIRouter, Depends, Request, UploadFile, status
+from fastapi import APIRouter, Depends, Header, Request, UploadFile, status
+from fastapi.sse import EventSourceResponse
 
 from src.clients.artifact import Render
 from src.clients.ezcareer import Answer, Run
@@ -17,6 +18,7 @@ from src.features.documents.schemas import (
     DocumentRead,
     DocumentSummary,
     DocumentUpdate,
+    EditReply,
     EditRequest,
     ImportRead,
     VersionCreate,
@@ -35,15 +37,17 @@ def get_document_service(
     settings: SettingsServiceDep,
     request: Request,
 ) -> DocumentService:
-    """The documents service on the request's database session, and the profile
-    and settings services"""
+    """The documents service on the request's database session, the profile and
+    settings services, the harness and the app's runner"""
     return DocumentService(
         session,
+        request.app.state.session_factory,
         request.app.state.artifact,
         get_settings().documents,
         profile,
         settings,
         request.app.state.ezcareer,
+        request.app.state.runner,
     )
 
 
@@ -246,9 +250,9 @@ async def request_edit(
     request: EditRequest,
     user: CurrentUserDep,
     service: DocumentServiceDep,
-) -> Run[ChangesetRead]:
-    """Ask edit-document for a change: its changeset is stored for review, or it
-    asks back with a widget, or fails"""
+) -> Run[EditReply]:
+    """Ask edit-document for a change: it replies, with any changeset it proposes
+    stored for review, or asks back with a widget, or fails"""
     return await service.request_edit(user.id, document_id, request_id, request)
 
 
@@ -260,6 +264,57 @@ async def answer_edit(
     answer: Answer,
     user: CurrentUserDep,
     service: DocumentServiceDep,
-) -> Run[ChangesetRead]:
+) -> Run[EditReply]:
     """Answer the widget a paused edit request asked; the run goes on"""
     return await service.answer_edit(user.id, document_id, request_id, task_id, answer)
+
+
+@router.post("/{document_id}/chat")
+async def chat(
+    document_id: UUID,
+    message: EditRequest,
+    user: CurrentUserDep,
+    service: DocumentServiceDep,
+) -> EventSourceResponse:
+    """Ask edit-document about the document and stream the turn: it starts, thinks,
+    writes and runs steps, announces any edits it stored for review, then replies,
+    asks back, fails or is stopped"""
+    return EventSourceResponse(await service.chat(user.id, document_id, message))
+
+
+@router.post("/{document_id}/chat/tasks/{task_id}/answer")
+async def answer_chat(
+    document_id: UUID,
+    task_id: str,
+    answer: Answer,
+    user: CurrentUserDep,
+    service: DocumentServiceDep,
+) -> EventSourceResponse:
+    """Answer the widget a paused chat turn asked, and stream the rest of it"""
+    return EventSourceResponse(
+        await service.answer_chat(user.id, document_id, task_id, answer)
+    )
+
+
+@router.get("/{document_id}/chat/stream")
+async def resume_chat(
+    document_id: UUID,
+    user: CurrentUserDep,
+    service: DocumentServiceDep,
+    last_event_id: Annotated[str | None, Header()] = None,
+) -> EventSourceResponse:
+    """Resume the chat's turn after the Last-Event-ID the client last saw"""
+    return EventSourceResponse(
+        await service.resume_chat(user.id, document_id, last_event_id)
+    )
+
+
+@router.post(
+    "/{document_id}/chat/tasks/{task_id}/cancel",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def cancel_chat(
+    document_id: UUID, task_id: str, user: CurrentUserDep, service: DocumentServiceDep
+) -> None:
+    """Stop the chat's running turn; the user's Stop button"""
+    await service.cancel_chat(user.id, document_id, task_id)

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from datetime import timedelta
+from functools import partial
 from pathlib import PurePath
 from uuid import UUID, uuid4
 
@@ -14,16 +15,21 @@ from document_schema import (
     TemplateSpec,
     apply_edits,
 )
-from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel, TypeAdapter, ValidationError
+from rapidfuzz import fuzz, process, utils
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.clients.artifact import ArtifactClient, Render
 from src.clients.ezcareer import (
     Answer,
     Completed,
+    DataRequest,
     EzcareerClient,
     Failed,
     InputRequired,
+    Published,
     Run,
+    RunEvent,
 )
 from src.core.config import DocumentsSettings
 from src.core.exceptions import (
@@ -32,7 +38,10 @@ from src.core.exceptions import (
     NotFound,
     ServiceUnavailable,
 )
+from src.core.logging import get_logger
+from src.core.runner import Runner
 from src.db.base import utcnow
+from src.db.session import session_scope
 from src.features.documents.enums import ImportStatus
 from src.features.documents.models import (
     Document,
@@ -43,15 +52,23 @@ from src.features.documents.models import (
 from src.features.documents.repository import DocumentRepository
 from src.features.documents.schemas import (
     ChangesetDecision,
+    ChangesetProposed,
     ChangesetRead,
+    DocumentAnswer,
     DocumentCreate,
     DocumentEdits,
+    DocumentMatch,
     DocumentRead,
+    DocumentRequest,
+    DocumentsAnswer,
+    DocumentsRequest,
     DocumentSummary,
     DocumentUpdate,
     EditDocumentInput,
     EditDocumentOutput,
+    EditReply,
     EditRequest,
+    FetchError,
     ImportRead,
     ImportResumeInput,
     ImportResumeOutput,
@@ -60,6 +77,8 @@ from src.features.documents.schemas import (
 )
 from src.features.profile import ProfileService
 from src.features.settings import SettingsService
+
+logger = get_logger(__name__)
 
 
 def _pending(changesets: Sequence[DocumentChangeset]) -> int:
@@ -95,25 +114,67 @@ def _summary(document: Document, pending_changesets: int) -> DocumentSummary:
     )
 
 
+async def _load(
+    repository: DocumentRepository, user_id: UUID, document_id: UUID
+) -> Document:
+    """The user's document, or NotFound"""
+    document = await repository.owned(Document, user_id, document_id)
+    if document is None:
+        raise NotFound("No such document")
+    return document
+
+
+async def _propose(
+    repository: DocumentRepository, document: Document, changeset: Changeset
+) -> DocumentChangeset:
+    """Store an agent's changeset for the user to accept or reject, adding its edits to
+    the one still pending; it must be pending and its edits fit the current draft"""
+    if changeset.status is not ChangesetStatus.PENDING:
+        raise InvalidInput("A new changeset must be pending")
+    pending = _waiting(await repository.changesets([document.id]))
+    edits = [*(pending.changeset.edits if pending else []), *changeset.edits]
+    try:
+        apply_edits(document.body, edits)
+    except ValueError as error:
+        raise InvalidInput(str(error)) from error
+    if pending:
+        pending.changeset = pending.changeset.model_copy(
+            update={"edits": edits, "reason": changeset.reason}
+        )
+        await repository.flush()
+        return pending
+    return await repository.add(
+        DocumentChangeset(
+            user_id=document.user_id,
+            document_id=document.id,
+            changeset=changeset,
+        )
+    )
+
+
 class DocumentService:
     def __init__(
         self,
         session: AsyncSession,
+        factory: async_sessionmaker[AsyncSession],
         artifact: ArtifactClient,
         limits: DocumentsSettings,
         profile: ProfileService,
         settings: SettingsService,
         ezcareer: EzcareerClient,
+        runner: Runner,
     ):
-        """Hold the session to commit on and a repository on it, artifact-service, the
-        documents limit, the profile the agents read, the user's model and the harness"""
+        """Hold the session, its repository and a factory for sessions runs outlive,
+        artifact-service, the documents limit, and what the agents use and run on"""
         self._session = session
         self._repository = DocumentRepository(session)
+        self._factory = factory
         self._artifact = artifact
         self._limits = limits
         self._profile = profile
         self._settings = settings
         self._ezcareer = ezcareer
+        self._runner = runner
 
     async def _make_room(self, user_id: UUID, kind: DocumentKind) -> None:
         """Conflict when the user already keeps the most documents of this kind"""
@@ -135,7 +196,7 @@ class DocumentService:
 
     async def get(self, user_id: UUID, document_id: UUID) -> DocumentRead:
         """One document with its current draft"""
-        return await self._read(await self._load(user_id, document_id))
+        return await self._read(await _load(self._repository, user_id, document_id))
 
     async def create(self, user_id: UUID, create: DocumentCreate) -> DocumentRead:
         """Store a new document and keep its first draft as version 1; Conflict when
@@ -156,7 +217,7 @@ class DocumentService:
         self, user_id: UUID, document_id: UUID, patch: DocumentUpdate
     ) -> DocumentRead:
         """Rename a document"""
-        document = await self._load(user_id, document_id)
+        document = await _load(self._repository, user_id, document_id)
         if patch.title is not None:
             document.title = patch.title
         return await self._read(document)
@@ -165,7 +226,7 @@ class DocumentService:
         self, user_id: UUID, document_id: UUID, edits: DocumentEdits
     ) -> DocumentRead:
         """Make the user's own edits to the current draft"""
-        document = await self._load(user_id, document_id)
+        document = await _load(self._repository, user_id, document_id)
         try:
             document.body = apply_edits(document.body, edits.edits)
         except ValueError as error:
@@ -174,14 +235,16 @@ class DocumentService:
 
     async def set_master(self, user_id: UUID, document_id: UUID) -> DocumentRead:
         """Make a document the master of its kind, in place of any other"""
-        document = await self._load(user_id, document_id)
+        document = await _load(self._repository, user_id, document_id)
         await self._repository.clear_master(user_id, document.kind)
         document.master = True
         return await self._read(document)
 
     async def delete(self, user_id: UUID, document_id: UUID) -> None:
         """Remove a document with its versions and changesets"""
-        await self._repository.delete(await self._load(user_id, document_id))
+        await self._repository.delete(
+            await _load(self._repository, user_id, document_id)
+        )
 
     async def templates(self, kind: DocumentKind) -> list[TemplateSpec]:
         """The templates a document of this kind can be printed with"""
@@ -190,12 +253,12 @@ class DocumentService:
     async def render(self, user_id: UUID, document_id: UUID) -> Render:
         """The current draft printed as a PDF, with how its pages came out"""
         return await self._artifact.render(
-            (await self._load(user_id, document_id)).body
+            (await _load(self._repository, user_id, document_id)).body
         )
 
     async def versions(self, user_id: UUID, document_id: UUID) -> list[VersionRead]:
         """Every kept version of a document, the latest first"""
-        document = await self._load(user_id, document_id)
+        document = await _load(self._repository, user_id, document_id)
         return [
             VersionRead.model_validate(version, from_attributes=True)
             for version in await self._repository.versions(document.id)
@@ -205,7 +268,7 @@ class DocumentService:
         self, user_id: UUID, document_id: UUID, create: VersionCreate
     ) -> VersionRead:
         """Keep the current draft as the next version"""
-        document = await self._load(user_id, document_id)
+        document = await _load(self._repository, user_id, document_id)
         version = await self._keep(document, create.label)
         return VersionRead.model_validate(version, from_attributes=True)
 
@@ -214,7 +277,7 @@ class DocumentService:
     ) -> DocumentRead:
         """Keep the current draft as a version, then put a kept version back as the
         draft"""
-        document = await self._load(user_id, document_id)
+        document = await _load(self._repository, user_id, document_id)
         version = await self._repository.version(document.id, version_id)
         if version is None:
             raise NotFound("No such version")
@@ -224,7 +287,7 @@ class DocumentService:
 
     async def changesets(self, user_id: UUID, document_id: UUID) -> list[ChangesetRead]:
         """Every changeset proposed for a document, the latest first"""
-        document = await self._load(user_id, document_id)
+        document = await _load(self._repository, user_id, document_id)
         return [
             ChangesetRead.model_validate(row, from_attributes=True)
             for row in await self._repository.changesets([document.id])
@@ -235,27 +298,10 @@ class DocumentService:
     ) -> ChangesetRead:
         """Store an agent's changeset for the user to accept or reject, adding its edits
         to the one still pending; the edits must apply to the current draft"""
-        document = await self._load(user_id, document_id)
-        if changeset.status is not ChangesetStatus.PENDING:
-            raise InvalidInput("A new changeset must be pending")
-        pending = _waiting(await self._repository.changesets([document.id]))
-        edits = [*(pending.changeset.edits if pending else []), *changeset.edits]
-        try:
-            apply_edits(document.body, edits)
-        except ValueError as error:
-            raise InvalidInput(str(error)) from error
-        if pending:
-            pending.changeset = pending.changeset.model_copy(
-                update={"edits": edits, "reason": changeset.reason}
-            )
-            await self._repository.flush()
-            return ChangesetRead.model_validate(pending, from_attributes=True)
-        row = await self._repository.add(
-            DocumentChangeset(
-                user_id=user_id,
-                document_id=document.id,
-                changeset=changeset,
-            )
+        row = await _propose(
+            self._repository,
+            await _load(self._repository, user_id, document_id),
+            changeset,
         )
         return ChangesetRead.model_validate(row, from_attributes=True)
 
@@ -264,7 +310,7 @@ class DocumentService:
     ) -> ChangesetRead:
         """Take one edit out of a pending changeset, closing it as rejected when none
         is left; Conflict when the edits left no longer fit the draft"""
-        document = await self._load(user_id, document_id)
+        document = await _load(self._repository, user_id, document_id)
         row = await self._repository.changeset(document.id, changeset_id)
         if row is None or not 0 <= index < len(row.changeset.edits):
             raise NotFound("No such edit")
@@ -285,6 +331,73 @@ class DocumentService:
             row.changeset = row.changeset.model_copy(update={"edits": edits})
         return ChangesetRead.model_validate(row, from_attributes=True)
 
+    async def propose_from_run(
+        self, user_id: UUID, document_id: UUID, changeset: Changeset
+    ) -> ChangesetProposed:
+        """Store a changeset a run proposed, as propose does, on a session of its own
+        since the run outlives the request's"""
+        async for session in session_scope(self._factory):
+            repository = DocumentRepository(session)
+            document = await _load(repository, user_id, document_id)
+            row = await _propose(repository, document, changeset)
+            proposed = ChangesetProposed(
+                document_id=document.id,
+                title=document.title,
+                changeset_id=row.id,
+                edits=len(row.changeset.edits),
+            )
+        return proposed
+
+    async def answer_data_request(
+        self, user_id: UUID, request: DataRequest
+    ) -> DocumentsAnswer | DocumentAnswer | FetchError:
+        """Answer a paused run's request for the user's documents, the best match for
+        a name first, or for one document, on a session of its own"""
+        try:
+            parsed = TypeAdapter(DocumentsRequest | DocumentRequest).validate_python(
+                request.model_dump()
+            )
+        except ValidationError as error:
+            return FetchError(error=str(error))
+        async for session in session_scope(self._factory):
+            repository = DocumentRepository(session)
+            match parsed:
+                case DocumentRequest(id=document_id):
+                    document = await repository.owned(Document, user_id, document_id)
+                    answer = (
+                        DocumentAnswer(document=document.body, lines=document.lines)
+                        if document
+                        else FetchError(error="No such document")
+                    )
+                case DocumentsRequest(name=name, kind=kind):
+                    documents = [
+                        d
+                        for d in await repository.documents(user_id)
+                        if kind is None or d.kind is kind
+                    ]
+                    if name:
+                        documents = [
+                            documents[index]
+                            for _, _, index in process.extract(
+                                name,
+                                [
+                                    f"{d.title} {d.kind.value.replace('_', ' ')}"
+                                    for d in documents
+                                ],
+                                scorer=fuzz.partial_token_sort_ratio,
+                                processor=utils.default_process,
+                                score_cutoff=70,
+                                limit=None,
+                            )
+                        ]
+                    answer = DocumentsAnswer(
+                        documents=[
+                            DocumentMatch.model_validate(d, from_attributes=True)
+                            for d in documents
+                        ]
+                    )
+        return answer
+
     async def decide(
         self,
         user_id: UUID,
@@ -294,7 +407,7 @@ class DocumentService:
     ) -> ChangesetRead:
         """Accept a changeset, applying every edit to the draft and keeping a version,
         or reject it; Conflict once it is answered or when its edits no longer fit"""
-        document = await self._load(user_id, document_id)
+        document = await _load(self._repository, user_id, document_id)
         row = await self._repository.changeset(document.id, changeset_id)
         if row is None:
             raise NotFound("No such changeset")
@@ -320,13 +433,12 @@ class DocumentService:
         document_id: UUID,
         request_id: UUID,
         request: EditRequest,
-    ) -> Run[ChangesetRead]:
-        """Run edit-document on the user's request; the changeset it proposes is
-        stored for the user to answer, or it asks back with a widget, or fails"""
-        document = await self._load(user_id, document_id)
+    ) -> Run[EditReply]:
+        """Run edit-document on the user's request; it replies with any changeset it
+        proposes stored for the user to answer, or asks back with a widget, or fails"""
+        await _load(self._repository, user_id, document_id)
         data = EditDocumentInput(
-            document=document.body,
-            lines=document.lines,
+            document_id=document_id,
             facts=(await self._profile.agent_profile(user_id)).facts,
         )
         metadata = await self._settings.run_metadata(user_id)
@@ -342,6 +454,7 @@ class DocumentService:
                 text=request.text,
                 data=data,
                 metadata=metadata,
+                answer_data_request=partial(self.answer_data_request, user_id),
             ),
         )
 
@@ -352,9 +465,9 @@ class DocumentService:
         request_id: UUID,
         task_id: str,
         answer: Answer,
-    ) -> Run[ChangesetRead]:
+    ) -> Run[EditReply]:
         """Answer the widget a paused edit-document run asked, and run it on"""
-        await self._load(user_id, document_id)
+        await _load(self._repository, user_id, document_id)
         metadata = await self._settings.run_metadata(user_id)
         await self._session.commit()
         return await self._store_proposal(
@@ -368,7 +481,108 @@ class DocumentService:
                 task_id=task_id,
                 answer=answer,
                 metadata=metadata,
+                answer_data_request=partial(self.answer_data_request, user_id),
             ),
+        )
+
+    async def _chat_events(
+        self,
+        user_id: UUID,
+        document_id: UUID,
+        events: AsyncIterator[RunEvent[EditDocumentOutput]],
+    ) -> AsyncIterator[BaseModel]:
+        """A chat turn's events as the browser gets them: a changeset the run
+        proposes is stored and announced before its reply, which ends the turn"""
+        async for event in events:
+            if isinstance(event, Completed):
+                if event.reply.changeset:
+                    try:
+                        proposed = await self.propose_from_run(
+                            user_id, document_id, event.reply.changeset
+                        )
+                    except (NotFound, InvalidInput) as error:
+                        logger.warning("changeset_skipped", reason=error.message)
+                    else:
+                        yield proposed
+                yield Completed(reply=event.reply.reply)
+            elif not isinstance(event, Published):
+                yield event
+
+    async def chat(
+        self, user_id: UUID, document_id: UUID, message: EditRequest
+    ) -> AsyncIterator[str]:
+        """Start a turn of the document's chat and return its events as they come;
+        Conflict while a turn runs"""
+        context_id = f"{user_id}:document:{document_id}"
+        await _load(self._repository, user_id, document_id)
+        data = EditDocumentInput(
+            document_id=document_id,
+            facts=(await self._profile.agent_profile(user_id)).facts,
+        )
+        metadata = await self._settings.run_metadata(user_id)
+        await self._session.commit()
+        return await self._runner.start_task(
+            user_id,
+            context_id,
+            "edit-document",
+            self._chat_events(
+                user_id,
+                document_id,
+                self._ezcareer.stream(
+                    "edit-document",
+                    EditDocumentOutput,
+                    user_id=user_id,
+                    context_id=context_id,
+                    text=message.text,
+                    data=data,
+                    metadata=metadata,
+                    answer_data_request=partial(self.answer_data_request, user_id),
+                ),
+            ),
+        )
+
+    async def answer_chat(
+        self, user_id: UUID, document_id: UUID, task_id: str, answer: Answer
+    ) -> AsyncIterator[str]:
+        """Answer the widget a paused turn of the document's chat asked and return the
+        rest of the turn's events as they come; Conflict while a turn runs"""
+        context_id = f"{user_id}:document:{document_id}"
+        await _load(self._repository, user_id, document_id)
+        metadata = await self._settings.run_metadata(user_id)
+        await self._session.commit()
+        return await self._runner.start_task(
+            user_id,
+            context_id,
+            "edit-document",
+            self._chat_events(
+                user_id,
+                document_id,
+                self._ezcareer.stream_resume(
+                    "edit-document",
+                    EditDocumentOutput,
+                    user_id=user_id,
+                    context_id=context_id,
+                    task_id=task_id,
+                    answer=answer,
+                    metadata=metadata,
+                    answer_data_request=partial(self.answer_data_request, user_id),
+                ),
+            ),
+        )
+
+    async def resume_chat(
+        self, user_id: UUID, document_id: UUID, last_event_id: str | None
+    ) -> AsyncIterator[str]:
+        """The document chat's current turn after the Last-Event-ID the client last
+        saw; NotFound when there is none to resume"""
+        return await self._runner.resume(
+            f"{user_id}:document:{document_id}", last_event_id
+        )
+
+    async def cancel_chat(self, user_id: UUID, document_id: UUID, task_id: str) -> None:
+        """Stop the running turn of the document's chat"""
+        await self._ezcareer.cancel(
+            "edit-document", task_id, f"{user_id}:document:{document_id}"
         )
 
     async def imports(self, user_id: UUID) -> list[ImportRead]:
@@ -431,19 +645,25 @@ class DocumentService:
             raise
         match run:
             case Completed(reply=reply):
-                document = await self._repository.add(
-                    Document(
-                        user_id=user_id,
-                        kind=reply.document.kind,
-                        title=PurePath(row.filename).stem[:200] or "Résumé",
-                        body=reply.document,
-                        lines=reply.lines,
+                try:
+                    await self._make_room(user_id, reply.document.kind)
+                except Conflict as error:
+                    row.status = ImportStatus.FAILED
+                    row.error = error.message
+                else:
+                    document = await self._repository.add(
+                        Document(
+                            user_id=user_id,
+                            kind=reply.document.kind,
+                            title=PurePath(row.filename).stem[:200] or "Résumé",
+                            body=reply.document,
+                            lines=reply.lines,
+                        )
                     )
-                )
-                await self._keep(document, "Imported")
-                row.status = ImportStatus.DONE
-                row.document_id = document.id
-                row.error = ""
+                    await self._keep(document, "Imported")
+                    row.status = ImportStatus.DONE
+                    row.document_id = document.id
+                    row.error = ""
             case InputRequired():
                 row.status = ImportStatus.FAILED
                 row.error = "import-resume asked for input ops cannot give"
@@ -460,13 +680,6 @@ class DocumentService:
             raise NotFound("No such import")
         await self._repository.delete(row)
 
-    async def _load(self, user_id: UUID, document_id: UUID) -> Document:
-        """The user's document, or NotFound"""
-        document = await self._repository.owned(Document, user_id, document_id)
-        if document is None:
-            raise NotFound("No such document")
-        return document
-
     async def _read(self, document: Document) -> DocumentRead:
         """The document as the API returns it, flushed so updated_at is current"""
         await self._repository.flush()
@@ -482,12 +695,19 @@ class DocumentService:
 
     async def _store_proposal(
         self, user_id: UUID, document_id: UUID, run: Run[EditDocumentOutput]
-    ) -> Run[ChangesetRead]:
-        """Store a finished edit-document run's changeset; a widget or a failure
-        goes back as it is"""
+    ) -> Run[EditReply]:
+        """Store the changeset a finished edit-document run proposed, if any; a
+        widget or a failure goes back as it is"""
         if isinstance(run, Completed):
             return Completed(
-                reply=await self.propose(user_id, document_id, run.reply.changeset)
+                reply=EditReply(
+                    reply=run.reply.reply,
+                    changeset=await self.propose(
+                        user_id, document_id, run.reply.changeset
+                    )
+                    if run.reply.changeset
+                    else None,
+                )
             )
         return run
 

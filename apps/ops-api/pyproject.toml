@@ -19,6 +19,7 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "python-dotenv>=1.2.4",
     "python-multipart>=0.0.33",
+    "rapidfuzz==3.14.6",
     "sqlalchemy[asyncio]>=2.1.6",
     "structlog>=26.1.0",
     "uvicorn[standard]>=0.54.0",

@@ -35,6 +35,7 @@ from src.clients.ezcareer.schemas import (
     Failed,
     InputRequired,
     ModelCatalog,
+    Published,
     RecordUsage,
     Run,
     RunEvent,
@@ -377,6 +378,9 @@ class EzcareerClient:
                                 yield Text(turn=artifact.artifact_id, text=text)
                             elif artifact.name == executable:
                                 [reply_part] = artifact.parts
+                            else:
+                                [part] = artifact.parts
+                                yield Published(name=artifact.name, data=part.data)
                         elif update := result.status_update:
                             status = update.status
                             match status.state:

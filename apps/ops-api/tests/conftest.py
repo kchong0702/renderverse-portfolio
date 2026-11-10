@@ -113,6 +113,66 @@ def a2a_sent(harness: FakeHarness) -> list[dict]:
     return [json.loads(request.content) for request in harness.received]
 
 
+def stream_task() -> dict:
+    """The task SendStreamingMessage sends first"""
+    return {
+        "result": {
+            "task": {
+                "id": "task-1",
+                "contextId": "context-1",
+                "status": {"state": "TASK_STATE_SUBMITTED"},
+            }
+        }
+    }
+
+
+def stream_status(state: str, parts: list[dict] | None = None) -> dict:
+    """A status update of task-1, with a message when parts are given"""
+    status: dict = {"state": f"TASK_STATE_{state}"}
+    if parts is not None:
+        status["message"] = {"messageId": "m", "role": "ROLE_AGENT", "parts": parts}
+    return {
+        "result": {
+            "statusUpdate": {
+                "taskId": "task-1",
+                "contextId": "context-1",
+                "status": status,
+            }
+        }
+    }
+
+
+def stream_chunk(artifact_id: str, name: str, part: dict) -> dict:
+    """An artifact update of task-1"""
+    return {
+        "result": {
+            "artifactUpdate": {
+                "taskId": "task-1",
+                "contextId": "context-1",
+                "artifact": {"artifactId": artifact_id, "name": name, "parts": [part]},
+            }
+        }
+    }
+
+
+def sse_events(response) -> list[dict]:
+    """The run events an SSE response carried"""
+    return [
+        json.loads(line.removeprefix("data: "))
+        for line in response.text.splitlines()
+        if line.startswith("data: ")
+    ]
+
+
+def sse_ids(response) -> list[str]:
+    """The SSE event ids a response carried"""
+    return [
+        line.removeprefix("id: ")
+        for line in response.text.splitlines()
+        if line.startswith("id: ")
+    ]
+
+
 class FakeArtifact:
     def __init__(self):
         """One template for every kind; records each render it is asked for"""
