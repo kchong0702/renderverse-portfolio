@@ -27,14 +27,12 @@ function receivedLabel(
 interface ThreadListProps {
   threads: Thread[];
   selectedId: string;
-  addsInterviews: boolean;
   onSelect: (threadId: string) => void;
 }
 
 export default function ThreadList({
   threads,
   selectedId,
-  addsInterviews,
   onSelect,
 }: ThreadListProps) {
   const { t, i18n } = useTranslation();
@@ -87,7 +85,7 @@ export default function ThreadList({
                   ? t("inbox.state.needsReply")
                   : thread.state === "interview"
                     ? t(
-                        addsInterviews
+                        thread.on_calendar
                           ? "inbox.state.added"
                           : "inbox.state.interview",
                       )
