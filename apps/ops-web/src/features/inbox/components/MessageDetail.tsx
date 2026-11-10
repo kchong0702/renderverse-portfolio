@@ -1,6 +1,8 @@
 import { ExternalLink } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
+import { GoogleNotice } from "@/features/settings";
+import { ApiError } from "@/shared/api/http";
 import { buttonClass } from "@/shared/components/button";
 import StateMessage from "@/shared/components/StateMessage";
 import type { InboxMessage } from "../api/inbox";
@@ -48,9 +50,13 @@ export default function MessageDetail({
       {detail.isPending ? (
         <p className="text-ink-3 m-0 text-sm">{t("common.loading")}</p>
       ) : detail.isError ? (
-        <StateMessage tone="error">
-          {t("inbox.messageFailed", { reason: detail.error.message })}
-        </StateMessage>
+        detail.error instanceof ApiError && detail.error.status === 409 ? (
+          <GoogleNotice problem="expired" next="/inbox" />
+        ) : (
+          <StateMessage tone="error">
+            {t("inbox.messageFailed", { reason: detail.error.message })}
+          </StateMessage>
+        )
       ) : (
         <p className="text-ink-2 m-0 max-w-[72ch] break-words whitespace-pre-line">
           {detail.data.body || message.snippet}
