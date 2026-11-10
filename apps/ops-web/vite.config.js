@@ -8,9 +8,28 @@ export default ({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
   return defineConfig({
-    plugins: [react(), tailwindcss(), eslint()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      eslint({ include: ["src/**/*.{js,jsx,ts,tsx}"] }),
+    ],
     resolve: {
-      alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+      alias: [
+        {
+          find: "@",
+          replacement: fileURLToPath(new URL("./src", import.meta.url)),
+        },
+        {
+          find: /^@renderverse\/document-renderer$/,
+          replacement: fileURLToPath(
+            new URL(
+              "../../packages/document-renderer/src/index.ts",
+              import.meta.url,
+            ),
+          ),
+        },
+      ],
+      dedupe: ["react", "react-dom"],
     },
     server: {
       port: Number(env.VITE_PORT) || 5174,
