@@ -80,9 +80,9 @@ async def test_a_message_streams_career_directors_turn_with_the_profile(
     assert response.headers["content-type"].startswith("text/event-stream")
     assert sse_events(response) == [
         {"status": "started", "task_id": "task-1"},
-        {"status": "step", "step": STEP | {"status": "running"}},
+        {"status": "step", "step": STEP | {"status": "running", "detail": None}},
         {"status": "thinking", "turn": "thinking-1", "text": "Look for remote roles."},
-        {"status": "step", "step": STEP | {"status": "done"}},
+        {"status": "step", "step": STEP | {"status": "done", "detail": None}},
         {"status": "text", "turn": "text-2", "text": "Two "},
         {"status": "text", "turn": "text-2", "text": "fit."},
         {"status": "completed", "reply": "Two fit."},
@@ -187,6 +187,7 @@ async def test_a_failed_task_streams_its_reason(client, harness):
     assert sse_events(response)[-1] == {
         "status": "failed",
         "reason": "Ran out of steps before finishing",
+        "next": None,
     }
 
 
@@ -198,6 +199,39 @@ async def test_a_stopped_turn_streams_that_it_was_cancelled(client, harness):
     assert sse_events(response)[-1] == {"status": "cancelled"}
 
 
+async def test_a_step_streams_its_detail(client, harness):
+    done = STEP | {"status": "done", "detail": "1 cover letter"}
+    harness.outcomes = [
+        [stream_task(), stream_status("WORKING", [{"data": {"step": done}}])]
+        + _replied("Found it.")[1:]
+    ]
+
+    response = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
+
+    assert sse_events(response)[1] == {"status": "step", "step": done}
+
+
+async def test_a_refusal_streams_the_screen_to_add_what_it_lacks(client, harness):
+    portfolio = {"label": "Add a fact in Portfolio", "screen": "portfolio"}
+    harness.outcomes = [
+        [
+            stream_task(),
+            stream_status(
+                "FAILED",
+                [{"text": "No fact backs this claim."}, {"data": {"next": portfolio}}],
+            ),
+        ]
+    ]
+
+    response = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
+
+    assert sse_events(response)[-1] == {
+        "status": "failed",
+        "reason": "No fact backs this claim.",
+        "next": portfolio,
+    }
+
+
 async def test_answering_a_task_the_harness_lost_streams_its_reason(client, harness):
     reason = "Task task-1 not found"
     harness.outcomes = [[{"error": {"code": -32001, "message": reason}}]]
@@ -206,7 +240,9 @@ async def test_answering_a_task_the_harness_lost_streams_its_reason(client, harn
         f"{CHAT}/tasks/task-1/answer", json={"input": "The queue one"}
     )
 
-    assert sse_events(response) == [{"status": "failed", "reason": reason}]
+    assert sse_events(response) == [
+        {"status": "failed", "reason": reason, "next": None}
+    ]
 
 
 async def test_an_unreachable_harness_streams_a_clear_reason(client, harness):
@@ -219,6 +255,7 @@ async def test_an_unreachable_harness_streams_a_clear_reason(client, harness):
         {
             "status": "failed",
             "reason": "ezcareer-harness did not answer career-director; try again later",
+            "next": None,
         }
     ]
 
@@ -234,6 +271,7 @@ async def test_a_reply_ops_api_cannot_read_streams_the_same_reason(client, harne
     assert sse_events(response)[-1] == {
         "status": "failed",
         "reason": "ezcareer-harness did not answer career-director; try again later",
+        "next": None,
     }
 
 
