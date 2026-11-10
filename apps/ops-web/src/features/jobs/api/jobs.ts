@@ -38,6 +38,14 @@ export interface JobList {
   new_count: number;
 }
 
+export type PostedWithin = "day" | "week" | "month";
+
+export interface JobSearch {
+  query: string | null;
+  location: string | null;
+  posted_within: PostedWithin | null;
+}
+
 export type RunResult<R> =
   { status: "completed"; reply: R } | { status: "failed"; reason: string };
 
@@ -55,7 +63,8 @@ export const fetchJobs = (signal?: AbortSignal) =>
 export const updateJob = ({ id, ...patch }: JobUpdate) =>
   http.patch<Job>(`${URL}/${id}`, patch);
 
-export const findJobs = () => http.post<RunResult<Job[]>>(`${URL}/find`);
+export const findJobs = (search: JobSearch) =>
+  http.post<RunResult<Job[]>>(`${URL}/find`, search);
 
 export const analyseJob = (id: string) =>
   http.post<RunResult<Job>>(`${URL}/${id}/analyse`);

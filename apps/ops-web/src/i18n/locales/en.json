@@ -114,6 +114,18 @@
     "found_one": "The job agent found {{count}} job.",
     "found_other": "The job agent found {{count}} jobs.",
     "loadFailed": "Jobs could not be loaded: {{reason}}",
+    "search": {
+      "label": "Search jobs",
+      "keywords": "Keywords",
+      "location": "Location",
+      "postedWithin": "Posted within",
+      "posted": {
+        "week": "Past week",
+        "day": "Past day",
+        "month": "Past month"
+      },
+      "submit": "Search"
+    },
     "tabs": {
       "label": "Job lists",
       "picked": "Agent picks",
