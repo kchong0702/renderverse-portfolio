@@ -75,8 +75,17 @@ class StatusMessage(BaseModel):
 
 
 class TaskStatus(BaseModel):
-    state: str
-    """TASK_STATE_COMPLETED, TASK_STATE_INPUT_REQUIRED, TASK_STATE_FAILED and others"""
+    state: Literal[
+        "TASK_STATE_SUBMITTED",
+        "TASK_STATE_WORKING",
+        "TASK_STATE_INPUT_REQUIRED",
+        "TASK_STATE_AUTH_REQUIRED",
+        "TASK_STATE_COMPLETED",
+        "TASK_STATE_CANCELED",
+        "TASK_STATE_FAILED",
+        "TASK_STATE_REJECTED",
+    ]
+    """Where the task stands, as A2A 1.0 names it"""
 
     message: StatusMessage | None = None
     """What the executor said with the state"""
