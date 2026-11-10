@@ -14,6 +14,26 @@ const toneClass = (event: CalendarEvent) =>
     ? "bg-warn-bg border-amber text-ink"
     : "bg-chip border-hair text-ink-3";
 
+function sideBySide<T extends { from: number; to: number }>(slots: T[]) {
+  const placed: (T & { column: number; columns: number })[] = [];
+  let cluster: typeof placed = [];
+  let ends: number[] = [];
+  for (const slot of [...slots].sort((a, b) => a.from - b.from)) {
+    if (slot.from >= Math.max(...ends)) {
+      cluster = [];
+      ends = [];
+    }
+    const free = ends.findIndex((end) => end <= slot.from);
+    const column = free === -1 ? ends.length : free;
+    ends[column] = slot.to;
+    const item = { ...slot, column, columns: 0 };
+    cluster.push(item);
+    placed.push(item);
+    for (const member of cluster) member.columns = ends.length;
+  }
+  return placed;
+}
+
 interface WeekGridProps {
   monday: Date;
   events: CalendarEvent[];
@@ -129,21 +149,22 @@ export default function WeekGrid({
               backgroundSize: `100% ${HOUR_PX}px`,
             }}
           >
-            {timed
-              .filter((slot) => slot.day === isoDay(day))
-              .map(({ event, from, to, label }) => (
+            {sideBySide(timed.filter((slot) => slot.day === isoDay(day))).map(
+              ({ event, from, to, label, column, columns }) => (
                 <a
                   key={event.id}
                   href={event.url}
                   target="_blank"
                   rel="noreferrer"
                   className={cn(
-                    "absolute inset-x-1 flex flex-col overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-xs no-underline",
+                    "absolute flex flex-col overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-xs no-underline",
                     toneClass(event),
                   )}
                   style={{
                     top: (from - first) * HOUR_PX,
                     height: Math.max(36, (to - from) * HOUR_PX - 4),
+                    left: `calc(${(100 * column) / columns}% + 4px)`,
+                    width: `calc(${100 / columns}% - 8px)`,
                   }}
                 >
                   <span className="truncate font-semibold">
@@ -151,7 +172,8 @@ export default function WeekGrid({
                   </span>
                   <span className="truncate">{label}</span>
                 </a>
-              ))}
+              ),
+            )}
           </div>
         ))}
       </div>
