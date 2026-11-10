@@ -1,4 +1,3 @@
-import type { TFunction } from "i18next";
 import type { ReactNode } from "react";
 import type { IconType } from "react-icons";
 import {
@@ -13,7 +12,7 @@ import {
 import { BlockElement, Text } from "../editing/context";
 import type { Contact, ContactKind } from "../generated/document";
 import type { ContactsStyle } from "../generated/template";
-import type { BlockProps } from "../types";
+import type { BlockProps, Translate } from "../types";
 
 const contactIcons: Record<ContactKind, IconType> = {
   email: FaEnvelope,
@@ -52,7 +51,7 @@ const ContactValue = ({
 
 const contactStyles: Record<
   ContactsStyle,
-  (props: { items: Contact[]; path: string; t: TFunction }) => ReactNode
+  (props: { items: Contact[]; path: string; t: Translate }) => ReactNode
 > = {
   line: ({ items, path }) => (
     <ul className="dr-contacts-line">
