@@ -3,16 +3,6 @@ import { useTranslation } from "react-i18next";
 import { SelectField } from "@/shared/components/fields";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
-
-const COUNTRIES = [...LETTERS]
-  .flatMap((first) => [...LETTERS].map((second) => first + second))
-  .map((code) => ({ code, name: regionNames.of(code) ?? code }))
-  .filter(
-    ({ code, name }) =>
-      name !== code && !/^(AC|CP|DG|EA|EU|EZ|IC|QO|TA|UN|ZZ)$/.test(code),
-  )
-  .sort((a, b) => a.name.localeCompare(b.name));
 
 interface CountryPickerProps {
   label: string;
@@ -27,7 +17,18 @@ export default function CountryPicker({
   value,
   onChange,
 }: CountryPickerProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const regionNames = new Intl.DisplayNames([i18n.language], {
+    type: "region",
+  });
+  const countries = [...LETTERS]
+    .flatMap((first) => [...LETTERS].map((second) => first + second))
+    .map((code) => ({ code, name: regionNames.of(code) ?? code }))
+    .filter(
+      ({ code, name }) =>
+        name !== code && !/^(AC|CP|DG|EA|EU|EZ|IC|QO|TA|UN|ZZ)$/.test(code),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name, i18n.language));
 
   return (
     <div className="flex flex-col gap-2">
@@ -36,9 +37,9 @@ export default function CountryPicker({
         value=""
         options={[
           { value: "", label: t("portfolio.preferences.addCountry") },
-          ...COUNTRIES.filter(({ code }) => !value.includes(code)).map(
-            ({ code, name }) => ({ value: code, label: name }),
-          ),
+          ...countries
+            .filter(({ code }) => !value.includes(code))
+            .map(({ code, name }) => ({ value: code, label: name })),
         ]}
         onChange={(event) =>
           event.target.value && onChange([...value, event.target.value])
