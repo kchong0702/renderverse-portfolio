@@ -58,7 +58,7 @@ def _reject(request: httpx.Request) -> httpx.Response:
     return httpx.Response(422)
 
 
-async def test_the_passing_draft_is_printed_in_the_default_template():
+async def test_the_passing_draft_is_printed_in_the_suggested_template():
     requests: list[httpx.Request] = []
 
     result = await build_graph(
@@ -70,7 +70,8 @@ async def test_the_passing_draft_is_printed_in_the_default_template():
     body = json.loads(request.content)
     assert "template" not in body
     assert body["document"] == result["document"].model_dump(mode="json")
-    assert result["document"].design.template == "classic"
+    assert result["document"].design.template == result["suggestion"].template
+    assert result["suggestion"].template == "classic"
     assert result["pdf"] == "JVBERg=="
     assert result["report"].pages == 1
     assert [line.id for line in result["lines"]] == ["p1.s1", "p1.s2"]
