@@ -48,14 +48,17 @@ class CalendarService:
         found = await self._client.events(token, start, end)
         return [_event(event) for event in found.items if event.status != "cancelled"]
 
-    async def create(self, user_id: UUID, event: EventCreate) -> CalendarEvent:
-        """Add an event to the primary calendar"""
+    async def create(
+        self, user_id: UUID, event: EventCreate, event_id: str | None = None
+    ) -> CalendarEvent:
+        """Add an event to the primary calendar, under event_id when given"""
         if event.end <= event.start:
             raise InvalidInput("The event must end after it starts")
         token = await self._google.access_token(user_id)
         created = await self._client.create_event(
             token,
             NewEvent(
+                id=event_id,
                 summary=event.title,
                 start=EventTime(date_time=event.start),
                 end=EventTime(date_time=event.end),

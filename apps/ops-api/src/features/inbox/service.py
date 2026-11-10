@@ -4,9 +4,11 @@ import asyncio
 import html
 import re
 from base64 import urlsafe_b64encode
+from contextlib import suppress
 from datetime import UTC, timedelta
 from email.message import EmailMessage
 from email.utils import parseaddr
+from hashlib import sha256
 from html.parser import HTMLParser
 from uuid import UUID, uuid4
 
@@ -30,6 +32,7 @@ from src.clients.google import (
 )
 from src.core.config import GoogleSettings, get_settings
 from src.core.exceptions import (
+    AlreadyExists,
     InvalidInput,
     NotFound,
     ServiceException,
@@ -270,18 +273,21 @@ class InboxService:
             start = aware(thread.interview_start)
             if start <= utcnow():
                 continue
-            event = await self._calendar.create(
-                user_id,
-                EventCreate(
-                    title=message.payload.header("Subject") or "Interview",
-                    start=start,
-                    end=aware(thread.interview_end)
-                    if thread.interview_end
-                    else start + timedelta(minutes=self._config.interview_minutes),
-                    location=thread.interview_location,
-                ),
-            )
-            thread.event_id = event.id
+            event_id = sha256(f"{user_id}:{message.thread_id}".encode()).hexdigest()
+            with suppress(AlreadyExists):
+                await self._calendar.create(
+                    user_id,
+                    EventCreate(
+                        title=message.payload.header("Subject") or "Interview",
+                        start=start,
+                        end=aware(thread.interview_end)
+                        if thread.interview_end
+                        else start + timedelta(minutes=self._config.interview_minutes),
+                        location=thread.interview_location,
+                    ),
+                    event_id,
+                )
+            thread.event_id = event_id
 
     async def messages(self, user_id: UUID) -> InboxList:
         """The newest emails that match the job-search query with their threads'

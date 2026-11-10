@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from base64 import b64encode, urlsafe_b64encode
 from collections.abc import AsyncIterator, Callable
 from tempfile import TemporaryDirectory
@@ -266,7 +267,7 @@ class FakeGoogle:
         return httpx2.Response(200, json={"access_token": "access-2"})
 
     def _write(self, request: httpx2.Request) -> httpx2.Response:
-        """Send an email or add an event, unless the grant is read-only"""
+        """Send an email or add an event as Google does unless the grant is read-only"""
         if self.read_only:
             return httpx2.Response(
                 403, json={"error": {"errors": [{"reason": "insufficientPermissions"}]}}
@@ -275,6 +276,27 @@ class FakeGoogle:
         if request.url.path == "/gmail/v1/users/me/messages/send":
             self.sent.append(body)
             return httpx2.Response(200, json={"id": f"sent-{len(self.sent)}"})
+        if "id" in body and not re.fullmatch("[a-v0-9]{5,1024}", body["id"]):
+            return httpx2.Response(
+                400, json={"error": {"errors": [{"reason": "invalid"}]}}
+            )
+        if "id" in body and body["id"] in [e.get("id") for e in self.created]:
+            return httpx2.Response(
+                409,
+                json={
+                    "error": {
+                        "code": 409,
+                        "message": "The requested identifier already exists.",
+                        "errors": [
+                            {
+                                "domain": "global",
+                                "reason": "duplicate",
+                                "message": "The requested identifier already exists.",
+                            }
+                        ],
+                    }
+                },
+            )
         self.created.append(body)
         return httpx2.Response(
             200,

@@ -20,7 +20,7 @@ from src.clients.google.schemas import (
     Tokens,
 )
 from src.core.config import GoogleSettings
-from src.core.exceptions import Conflict, NotFound, ServiceUnavailable
+from src.core.exceptions import AlreadyExists, Conflict, NotFound, ServiceUnavailable
 from src.core.logging import get_logger
 
 SCOPES = (
@@ -136,6 +136,8 @@ class GoogleClient:
             raise Conflict(MISSING_SCOPE)
         if response.status_code == 404:
             raise NotFound("Google has no such item")
+        if response.status_code == 409 and b"duplicate" in response.content:
+            raise AlreadyExists("Google already has an item with this id")
         return _parse(response, model)
 
     def authorize_url(self, state: str) -> str:
