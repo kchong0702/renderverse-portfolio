@@ -1,7 +1,7 @@
 import { RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import { GoogleNotice, useSettings } from "@/features/settings";
+import { GoogleNotice, useGoogleAccount } from "@/features/settings";
 import { ApiError } from "@/shared/api/http";
 import { buttonClass } from "@/shared/components/button";
 import PageBody from "@/shared/components/PageBody";
@@ -14,9 +14,7 @@ import { useInbox } from "../hooks/useInbox";
 export default function InboxPage() {
   const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
-  const settings = useSettings();
-  const google = settings.data?.connections.find(({ id }) => id === "google");
-  const account = google?.status === "connected" ? google.account : null;
+  const { settings, account, problem } = useGoogleAccount();
   const inbox = useInbox(account !== null);
   const selected =
     inbox.data?.find((message) => message.id === params.get("message")) ??
@@ -49,14 +47,7 @@ export default function InboxPage() {
             {t("inbox.loadFailed", { reason: settings.error.message })}
           </StateMessage>
         ) : account === null ? (
-          <GoogleNotice
-            problem={
-              google?.status === "not_configured"
-                ? "not_configured"
-                : "not_connected"
-            }
-            next="/inbox"
-          />
+          <GoogleNotice problem={problem} next="/inbox" />
         ) : inbox.isPending ? (
           <StateMessage>{t("common.loading")}</StateMessage>
         ) : inbox.isError ? (

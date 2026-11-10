@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import { GoogleNotice, useSettings } from "@/features/settings";
+import { GoogleNotice, useGoogleAccount } from "@/features/settings";
 import { ApiError } from "@/shared/api/http";
 import { buttonClass } from "@/shared/components/button";
 import PageBody from "@/shared/components/PageBody";
@@ -17,9 +17,7 @@ export default function CalendarPage() {
   const { t, i18n } = useTranslation();
   const headingId = useId();
   const [params, setParams] = useSearchParams();
-  const settings = useSettings();
-  const google = settings.data?.connections.find(({ id }) => id === "google");
-  const account = google?.status === "connected" ? google.account : null;
+  const { settings, account, problem } = useGoogleAccount();
   const asked = new Date(`${params.get("week")}T00:00`);
   const monday = mondayOf(isNaN(asked.getTime()) ? new Date() : asked);
   const today = startOfDay(new Date());
@@ -70,14 +68,7 @@ export default function CalendarPage() {
             {t("calendar.loadFailed", { reason: settings.error.message })}
           </StateMessage>
         ) : account === null ? (
-          <GoogleNotice
-            problem={
-              google?.status === "not_configured"
-                ? "not_configured"
-                : "not_connected"
-            }
-            next="/calendar"
-          />
+          <GoogleNotice problem={problem} next="/calendar" />
         ) : failed instanceof ApiError && failed.status === 409 ? (
           <GoogleNotice problem="expired" next="/calendar" />
         ) : (
