@@ -1,10 +1,10 @@
-import asyncio
 import json
+from uuid import UUID
 
 import httpx2
 from pydantic import BaseModel
 
-from src.clients.ezcareer import Answer, EzcareerClient, RunStream
+from src.clients.ezcareer import Answer, EzcareerClient
 from src.clients.ezcareer.schemas import Completed, DataRequest, Started
 from src.core.config import get_settings
 from tests.conftest import PREFIX
@@ -378,20 +378,12 @@ async def test_nothing_resumes_from_another_run_or_an_idle_chat(client, harness)
 
 async def test_a_chat_takes_no_new_message_while_its_turn_runs(app, client, harness):
     me = (await client.get(f"{PREFIX}/me")).json()
-    blocked = asyncio.Event()
-
-    async def running():
-        """A turn that has not ended"""
-        await blocked.wait()
-        yield Started(task_id="task-1")
-
-    app.state.runs[f"{me['id']}:{CHAT_ID}"] = RunStream(running(), 2000)
+    await app.state.run_store.start(UUID(me["id"]), f"{me['id']}:{CHAT_ID}")
 
     response = await client.post(f"{CHAT}/messages", json={"text": "Again"})
 
     assert response.status_code == 409
     assert harness.received == []
-    blocked.set()
 
 
 class _Documents(BaseModel):

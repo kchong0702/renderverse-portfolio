@@ -1,5 +1,4 @@
 from src.clients.ezcareer.client import EzcareerClient
-from src.clients.ezcareer.run_stream import RunStream
 from src.clients.ezcareer.schemas import (
     Answer,
     Completed,
@@ -28,6 +27,5 @@ __all__ = [
     "Run",
     "RunEvent",
     "RunMetadata",
-    "RunStream",
     "Widget",
 ]
