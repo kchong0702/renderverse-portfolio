@@ -49,7 +49,7 @@ class GoogleService:
         except InvalidToken as error:
             raise Conflict(RECONNECT) from error
 
-    async def account(self, user_id: UUID) -> str | None:
+    async def email(self, user_id: UUID) -> str | None:
         """The connected Gmail address, or None when Google is not connected"""
         account = await self._repository.get(user_id)
         return account.email if account is not None else None
