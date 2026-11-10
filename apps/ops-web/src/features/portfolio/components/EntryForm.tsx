@@ -6,7 +6,7 @@ import {
   TextAreaField,
   TextField,
 } from "@/shared/components/fields";
-import type { EntryKind, EntryWrite } from "../api/profile";
+import type { EntryKind, EntryWrite, YearMonth } from "../api/profile";
 
 interface EntryFormProps {
   kind: EntryKind;
@@ -42,8 +42,10 @@ export default function EntryForm({
       title: draft.title.trim(),
       organisation: draft.organisation.trim(),
       location: draft.location.trim(),
-      start: draft.start || null,
-      end: draft.ongoing ? "present" : draft.end || null,
+      start: (draft.start || null) as YearMonth | null,
+      end: draft.ongoing
+        ? "present"
+        : ((draft.end || null) as YearMonth | null),
       summary: draft.summary.trim(),
       highlights: draft.highlights
         .split("\n")
