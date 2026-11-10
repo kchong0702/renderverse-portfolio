@@ -31,7 +31,9 @@ export default function DashboardPage() {
     PERIODS.find((name) => name === params.get("period")) ?? "30d";
   const days = PERIOD_DAYS[period];
   const picks = jobs.data?.filter((job) => job.status === "picked") ?? [];
-  const bestPicks = picks.filter((job) => (job.analysis?.fit ?? 0) >= 70);
+  const bestPicks = picks.filter((job) =>
+    ["good", "excellent"].includes(job.analysis?.band ?? ""),
+  );
   const sent = sentSince(
     applications.data ?? [],
     days === null ? null : daysAgo(days),
