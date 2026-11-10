@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Header, Request, UploadFile, status
 from fastapi.sse import EventSourceResponse
 
 from src.clients.artifact import Render
-from src.clients.ezcareer import Answer, Run
+from src.clients.ezcareer import Answer
 from src.core.auth import CurrentUserDep
 from src.core.config import get_settings
 from src.db.session import SessionDep
@@ -15,11 +15,10 @@ from src.features.documents.schemas import (
     ChangesetRead,
     DocumentCreate,
     DocumentEdits,
+    DocumentMessage,
     DocumentRead,
     DocumentSummary,
     DocumentUpdate,
-    EditReply,
-    EditRequest,
     ImportRead,
     VersionCreate,
     VersionRead,
@@ -243,36 +242,10 @@ async def decide_changeset(
     return await service.decide(user.id, document_id, changeset_id, decision)
 
 
-@router.post("/{document_id}/edit-requests/{request_id}")
-async def request_edit(
-    document_id: UUID,
-    request_id: UUID,
-    request: EditRequest,
-    user: CurrentUserDep,
-    service: DocumentServiceDep,
-) -> Run[EditReply]:
-    """Ask edit-document for a change: it replies, with any changeset it proposes
-    stored for review, or asks back with a widget, or fails"""
-    return await service.request_edit(user.id, document_id, request_id, request)
-
-
-@router.post("/{document_id}/edit-requests/{request_id}/tasks/{task_id}/answer")
-async def answer_edit(
-    document_id: UUID,
-    request_id: UUID,
-    task_id: str,
-    answer: Answer,
-    user: CurrentUserDep,
-    service: DocumentServiceDep,
-) -> Run[EditReply]:
-    """Answer the widget a paused edit request asked; the run goes on"""
-    return await service.answer_edit(user.id, document_id, request_id, task_id, answer)
-
-
-@router.post("/{document_id}/chat")
+@router.post("/{document_id}/chat/messages")
 async def chat(
     document_id: UUID,
-    message: EditRequest,
+    message: DocumentMessage,
     user: CurrentUserDep,
     service: DocumentServiceDep,
 ) -> EventSourceResponse:
