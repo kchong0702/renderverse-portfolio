@@ -2,12 +2,16 @@ import { Calendar } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { isStepDue, type Application } from "@/features/applications";
+import {
+  followUpDays,
+  isStepDue,
+  type Application,
+} from "@/features/applications";
 import type { Job } from "@/features/jobs";
 import { buttonClass } from "@/shared/components/button";
 import { cn } from "@/shared/lib/cn";
 import { relativeDay } from "@/shared/lib/dates";
-import { daysAgo } from "../lib/pipeline";
+import { daysLeftThisWeek } from "../lib/pipeline";
 
 interface Row {
   key: string;
@@ -15,27 +19,37 @@ interface Row {
   whenInk: string;
   title: string;
   detail: string;
-  action: string;
-  to: string;
+  action?: { label: string; to: string };
 }
 
 interface NextStepsProps {
   applications: Application[];
+  jobs: Job[];
   picks: Job[];
 }
 
-export default function NextSteps({ applications, picks }: NextStepsProps) {
+export default function NextSteps({
+  applications,
+  jobs,
+  picks,
+}: NextStepsProps) {
   const { t, i18n } = useTranslation();
   const headingId = useId();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const weekAgo = daysAgo(7);
 
   const rows: Row[] = [
     ...applications
-      .filter((a) => isStepDue(a, 7))
+      .filter((a) => isStepDue(a, daysLeftThisWeek()))
+      .sort((a, b) => a.next_step_at.localeCompare(b.next_step_at))
       .map((a) => {
         const at = new Date(a.next_step_at);
+        const gaps =
+          jobs
+            .find((job) => job.id === a.job_id)
+            ?.analysis?.requirements.filter((r) => r.match === "not_met")
+            .length ?? 0;
+        const interview = a.stage === "interview";
         return {
           key: a.id,
           when:
@@ -49,36 +63,44 @@ export default function NextSteps({ applications, picks }: NextStepsProps) {
                 }).format(at),
           whenInk: at < today ? "text-warn" : "text-amber",
           title: [a.company, a.next_step].filter(Boolean).join(" · "),
-          detail: a.role,
-          action: t("dashboard.next.open"),
-          to: `/applications?edit=${a.id}`,
+          detail: [
+            a.role,
+            interview && gaps > 0 && t("dashboard.next.gaps", { count: gaps }),
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          action: interview
+            ? { label: t("dashboard.next.prepare"), to: "/documents" }
+            : {
+                label: t("dashboard.next.open"),
+                to: `/applications?edit=${a.id}`,
+              },
         };
       }),
-    ...applications
-      .filter(
-        (a): a is Application & { applied_on: string } =>
-          a.stage === "applied" &&
-          a.next_step_at === null &&
-          a.applied_on !== null &&
-          a.applied_on <= weekAgo,
-      )
-      .map((a) => ({
-        key: a.id,
-        when: relativeDay(a.applied_on, i18n.language),
-        whenInk: "text-warn",
-        title: t("dashboard.next.followUp", { company: a.company }),
-        detail: [a.role, t("dashboard.next.noReply")].join(" · "),
-        action: t("dashboard.next.open"),
-        to: `/applications?edit=${a.id}`,
-      })),
+    ...applications.flatMap((a) => {
+      const days = followUpDays(a);
+      return days === null
+        ? []
+        : [
+            {
+              key: a.id,
+              when: t("dashboard.next.days", { count: days }),
+              whenInk: "text-warn",
+              title: t("dashboard.next.followUp", { company: a.company }),
+              detail: t("dashboard.next.noReply"),
+            },
+          ];
+    }),
     ...picks.slice(0, 3).map((job) => ({
       key: job.id,
       when: t("dashboard.next.new"),
       whenInk: "text-ok",
       title: [job.company, job.title].filter(Boolean).join(" · "),
       detail: t("dashboard.next.fromAgent", { fit: job.analysis?.fit }),
-      action: t("dashboard.next.review"),
-      to: `/jobs?posting=${job.id}`,
+      action: {
+        label: t("dashboard.next.review"),
+        to: `/jobs?posting=${job.id}`,
+      },
     })),
   ];
 
@@ -107,18 +129,20 @@ export default function NextSteps({ applications, picks }: NextStepsProps) {
         rows.map((row) => (
           <div
             key={row.key}
-            className="border-hair-soft flex flex-wrap items-center gap-x-5 gap-y-2 border-b py-4 last:border-b-0 last:pb-0"
+            className="border-hair-soft flex items-center gap-5 border-b py-4"
           >
             <span className={cn("min-w-[88px] text-sm", row.whenInk)}>
               {row.when}
             </span>
-            <span className="flex min-w-0 flex-[1_1_200px] flex-col">
+            <span className="flex min-w-0 flex-1 flex-col">
               <span className="font-semibold">{row.title}</span>
               <span className="text-ink-3 text-sm">{row.detail}</span>
             </span>
-            <Link to={row.to} className={buttonClass()}>
-              {row.action}
-            </Link>
+            {row.action && (
+              <Link to={row.action.to} className={buttonClass()}>
+                {row.action.label}
+              </Link>
+            )}
           </div>
         ))
       )}
