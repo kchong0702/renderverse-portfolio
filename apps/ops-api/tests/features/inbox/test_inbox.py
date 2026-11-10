@@ -67,6 +67,17 @@ async def test_inbox_lists_the_job_search_emails(client, google):
     assert google.refreshed_with == ["refresh-1"]
 
 
+async def test_a_message_deleted_after_the_search_is_left_out(client, google):
+    await connect_google(client)
+    google.messages = {"m1": _message("m1", "Final round with Lumen Pay", [])}
+    google.deleted = ["gone"]
+
+    response = await client.get(f"{PREFIX}/inbox")
+
+    assert response.status_code == 200
+    assert [message["id"] for message in response.json()] == ["m1"]
+
+
 async def test_a_message_has_its_plain_text_body(client, google):
     await connect_google(client)
     google.messages = {
