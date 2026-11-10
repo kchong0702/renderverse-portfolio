@@ -3,6 +3,7 @@ import PageBody from "@/shared/components/PageBody";
 import PageHeader from "@/shared/components/PageHeader";
 import StateMessage from "@/shared/components/StateMessage";
 import AiPanel from "../components/AiPanel";
+import AppearancePanel from "../components/AppearancePanel";
 import AutomationPanel from "../components/AutomationPanel";
 import ConnectionsPanel from "../components/ConnectionsPanel";
 import JobAgentPanel from "../components/JobAgentPanel";
@@ -66,6 +67,7 @@ export default function SettingsPage() {
               aiModel={settings.data.ai_model}
               onChange={update.mutate}
             />
+            <AppearancePanel />
           </div>
         )}
       </PageBody>
