@@ -145,6 +145,7 @@
     "thinking": "Thinking…",
     "thought": "Thought",
     "stopped": "Stopped",
+    "ended": "This reply ended while the page was closed",
     "connectionLost": "The connection to the assistant was lost",
     "stepStatus": {
       "running": "Running",

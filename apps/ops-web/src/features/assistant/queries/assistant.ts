@@ -1,4 +1,5 @@
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
+import i18n from "@/i18n";
 import { ApiError } from "@/shared/api/http";
 import {
   answerTask,
@@ -63,7 +64,7 @@ export const resumeTurnMutationOptions = mutationOptions({
   mutationFn: (turn: TurnCursor) => resumeTurn(turn, newStreamSignal(), apply),
   onError: (error) =>
     error instanceof ApiError && error.status === 404
-      ? apply({ status: "cancelled" })
+      ? apply({ status: "failed", reason: i18n.t("assistant.ended") })
       : failTurn(error),
 });
 
