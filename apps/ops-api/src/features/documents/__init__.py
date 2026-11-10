@@ -1,4 +1,5 @@
-from src.features.documents.router import router
+from src.features.documents.router import DocumentServiceDep, router
+from src.features.documents.schemas import ChangesetArtifact
 from src.features.documents.service import DocumentService
 
-__all__ = ["DocumentService", "router"]
+__all__ = ["ChangesetArtifact", "DocumentService", "DocumentServiceDep", "router"]

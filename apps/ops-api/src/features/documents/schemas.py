@@ -38,7 +38,7 @@ class DocumentEdits(BaseModel):
     """The user's own edits, made in order"""
 
 
-class DocumentSummary(BaseModel):
+class DocumentMatch(BaseModel):
     id: UUID
     """The document's id"""
 
@@ -51,11 +51,13 @@ class DocumentSummary(BaseModel):
     master: bool
     """The one of its kind that tailored copies start from"""
 
-    pending_changesets: int
-    """Agent changesets waiting for the user to accept or reject"""
-
     updated_at: datetime
     """When it last changed"""
+
+
+class DocumentSummary(DocumentMatch):
+    pending_changesets: int
+    """Agent changesets waiting for the user to accept or reject"""
 
 
 class DocumentRead(DocumentSummary):
@@ -133,19 +135,89 @@ class EditRequest(BaseModel):
 
 
 class EditDocumentInput(BaseModel):
-    document: AnyDocument
-    """The draft as it is now"""
-
-    lines: list[SourceLine]
-    """The imported file's lines; empty for a document not imported"""
+    document_id: UUID
+    """The document to edit, which edit-document fetches from ops-api"""
 
     facts: list[ProfileFact]
     """The user's profile facts the edits may cite"""
 
 
 class EditDocumentOutput(BaseModel):
+    reply: str
+    """What career-consultant tells the user"""
+
+    changeset: Changeset | None
+    """The checked edits it proposes; None when it only answered"""
+
+
+class EditReply(BaseModel):
+    reply: str
+    """What career-consultant tells the user"""
+
+    changeset: ChangesetRead | None
+    """Its edits, stored for the user to review; None when it only answered"""
+
+
+class DocumentsRequest(BaseModel):
+    fetch: Literal["documents"]
+    """A paused run asks for the user's documents"""
+
+    name: str | None = None
+    """Words of the title the user used, such as nortwind; None lists them all"""
+
+    kind: DocumentKind | None = None
+    """Only documents of this kind; every kind when None"""
+
+
+class DocumentRequest(BaseModel):
+    fetch: Literal["document"]
+    """A paused run asks for one of the user's documents"""
+
+    id: UUID
+    """The document"""
+
+
+class DocumentsAnswer(BaseModel):
+    documents: list[DocumentMatch]
+    """The user's documents, the best match first"""
+
+
+class DocumentAnswer(BaseModel):
+    document: AnyDocument
+    """The current draft; its assets' bytes are not sent, as ops-api keeps none"""
+
+    lines: list[SourceLine]
+    """The imported file's lines; empty for a document not imported"""
+
+
+class FetchError(BaseModel):
+    error: str
+    """Why ops-api cannot answer, such as No such document"""
+
+
+class ChangesetArtifact(BaseModel):
+    document_id: UUID
+    """The document the edits are for"""
+
     changeset: Changeset
-    """The checked edits edit-document proposes"""
+    """The edits career-director proposes"""
+
+
+class ChangesetProposed(BaseModel):
+    status: Literal["changeset"] = "changeset"
+    """A run proposed edits, stored for the user to review"""
+
+    document_id: UUID
+    """The document the edits are for"""
+
+    title: str
+    """The document's name"""
+
+    changeset_id: UUID
+    """The stored changeset"""
+
+    edits: int
+    """How many edits it holds"""
 
 
 class ImportResumeInput(BaseModel):
@@ -167,16 +239,25 @@ class ImportResumeOutput(BaseModel):
 
 
 __all__ = [
+    "ChangesetArtifact",
     "ChangesetDecision",
+    "ChangesetProposed",
     "ChangesetRead",
+    "DocumentAnswer",
     "DocumentCreate",
     "DocumentEdits",
+    "DocumentMatch",
     "DocumentRead",
+    "DocumentRequest",
     "DocumentSummary",
     "DocumentUpdate",
+    "DocumentsAnswer",
+    "DocumentsRequest",
     "EditDocumentInput",
     "EditDocumentOutput",
+    "EditReply",
     "EditRequest",
+    "FetchError",
     "ImportRead",
     "ImportResumeInput",
     "ImportResumeOutput",

@@ -5,7 +5,7 @@ from typing import Literal
 from uuid import UUID
 
 from document_schema import DocumentKind
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from src.clients.ezcareer.types import ModelFamily
 
@@ -162,6 +162,18 @@ class StepUpdate(BaseModel):
     """The step as it stands"""
 
 
+class Published(BaseModel):
+    status: Literal["published"] = "published"
+    """The run published an artifact other than its reply, its thinking or its
+    text"""
+
+    name: str
+    """The artifact's name, such as changeset"""
+
+    data: JsonValue
+    """The artifact's one data part"""
+
+
 class Cancelled(BaseModel):
     status: Literal["cancelled"] = "cancelled"
     """The user stopped the run"""
@@ -214,6 +226,7 @@ type RunEvent[R] = (
     | Thinking
     | Text
     | StepUpdate
+    | Published
     | Completed[R]
     | InputRequired
     | Failed
@@ -233,6 +246,7 @@ __all__ = [
     "InputRequired",
     "ModelCatalog",
     "ModelChoice",
+    "Published",
     "RecordUsage",
     "Run",
     "RunEvent",

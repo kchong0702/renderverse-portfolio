@@ -57,6 +57,22 @@ WIDGET = {
 PDF = b"%PDF-1.7 resume \xfb\xff"
 
 
+def _fetches(document_id: str) -> dict:
+    """edit-document pausing to fetch the document from ops-api"""
+    return a2a_task(
+        "INPUT_REQUIRED",
+        status_parts=[{"data": {"fetch": "document", "id": document_id}}],
+    )
+
+
+def _edited(reply: str, changeset: dict | None) -> dict:
+    """edit-document's reply, with the changeset it proposes if any"""
+    return a2a_task(
+        "COMPLETED",
+        artifact_parts=[{"data": {"reply": reply, "changeset": changeset}}],
+    )
+
+
 async def _import(client, harness, outcome):
     """Upload a résumé and read it with import-resume answering outcome"""
     uploaded = await client.post(
@@ -174,13 +190,16 @@ async def test_a_read_that_outlived_the_run_timeout_can_be_claimed_again(
     assert read.json()["status"] == "done"
 
 
-async def test_an_edit_request_stores_the_changeset_for_review(client, harness):
+async def test_an_edit_request_fetches_the_document_and_stores_the_changeset(
+    client, harness
+):
     read = await _import(client, harness, _imported())
     document_id = read.json()["document_id"]
     facts = (await client.get(f"{PREFIX}/profile/agent")).json()["facts"]
     me = (await client.get(f"{PREFIX}/me")).json()
     harness.outcomes = [
-        a2a_task("COMPLETED", artifact_parts=[{"data": {"changeset": CHANGESET}}])
+        _fetches(document_id),
+        _edited("I matched the headline to Northwind.", CHANGESET),
     ]
     document = (await client.get(f"{DOCUMENTS}/{document_id}")).json()
 
@@ -191,16 +210,22 @@ async def test_an_edit_request_stores_the_changeset_for_review(client, harness):
 
     assert response.status_code == 200
     assert response.json()["status"] == "completed"
-    assert response.json()["reply"]["changeset"]["status"] == "pending"
+    reply = response.json()["reply"]
+    assert reply["reply"] == "I matched the headline to Northwind."
+    assert reply["changeset"]["changeset"]["status"] == "pending"
     listed = (await client.get(f"{DOCUMENTS}/{document_id}/changesets")).json()
-    assert [c["id"] for c in listed] == [response.json()["reply"]["id"]]
+    assert [c["id"] for c in listed] == [reply["changeset"]["id"]]
     assert (await client.get(DOCUMENTS)).json()[0]["pending_changesets"] == 1
-    edit = a2a_sent(harness)[1]["params"]["message"]
+    edit, fetched = (sent["params"]["message"] for sent in a2a_sent(harness)[1:])
     assert harness.received[1].url.path == "/ezcareer/a2a/edit-document"
     assert edit["contextId"] == f"{me['id']}:{REQUEST_ID}"
     assert edit["parts"] == [
         {"text": "Tailor it for Northwind Labs"},
-        {"data": {"document": document["body"], "lines": LINES, "facts": facts}},
+        {"data": {"document_id": document_id, "facts": facts}},
+    ]
+    assert fetched["taskId"] == "task-1"
+    assert fetched["parts"] == [
+        {"data": {"document": document["body"], "lines": LINES}}
     ]
 
 
@@ -210,8 +235,9 @@ async def test_an_edit_request_asks_back_and_the_answer_resumes_it(client, harne
     ).json()
     url = f"{DOCUMENTS}/{document['id']}/edit-requests/{REQUEST_ID}"
     harness.outcomes = [
+        _fetches(document["id"]),
         a2a_task("INPUT_REQUIRED", status_parts=[{"data": WIDGET}]),
-        a2a_task("COMPLETED", artifact_parts=[{"data": {"changeset": CHANGESET}}]),
+        _edited("Kafka at Acme is not in your profile yet.", None),
     ]
 
     asked = await client.post(url, json={"text": "Add Kafka"})
@@ -230,10 +256,16 @@ async def test_an_edit_request_asks_back_and_the_answer_resumes_it(client, harne
             "kind": None,
         },
     }
-    assert done.json()["status"] == "completed"
-    assert done.json()["reply"]["changeset"]["id"] == "tailor-1"
-    first, resume = (sent["params"]["message"] for sent in a2a_sent(harness))
-    assert first["parts"][1]["data"]["lines"] == []
+    assert done.json() == {
+        "status": "completed",
+        "reply": {
+            "reply": "Kafka at Acme is not in your profile yet.",
+            "changeset": None,
+        },
+    }
+    assert (await client.get(f"{DOCUMENTS}/{document['id']}/changesets")).json() == []
+    first, fetched, resume = (sent["params"]["message"] for sent in a2a_sent(harness))
+    assert fetched["parts"][0]["data"]["lines"] == []
     assert resume["taskId"] == "task-1"
     assert resume["contextId"] == first["contextId"]
     assert resume["parts"] == [{"data": {"input": "Acme", "accept": None}}]
@@ -246,7 +278,7 @@ async def test_each_run_carries_the_users_model(client, harness):
     url = f"{DOCUMENTS}/{read.json()['document_id']}/edit-requests/{REQUEST_ID}"
     harness.outcomes = [
         a2a_task("INPUT_REQUIRED", status_parts=[{"data": WIDGET}]),
-        a2a_task("COMPLETED", artifact_parts=[{"data": {"changeset": CHANGESET}}]),
+        _edited("Added it.", CHANGESET),
     ]
 
     await client.post(url, json={"text": "Add Kafka"})
@@ -271,3 +303,21 @@ async def test_a_failed_edit_request_returns_its_reason(client, harness):
 
     assert response.json() == {"status": "failed", "reason": reason}
     assert (await client.get(f"{DOCUMENTS}/{document['id']}/changesets")).json() == []
+
+
+async def test_an_import_past_the_documents_limit_fails_with_the_reason(
+    client, harness
+):
+    for number in range(10):
+        await client.post(
+            DOCUMENTS, json={"title": f"Résumé {number}", "body": IMPORTED}
+        )
+
+    read = await _import(client, harness, _imported())
+
+    assert read.json()["status"] == "failed"
+    assert read.json()["error"] == (
+        "You already keep 10 resume documents. Delete one to add another."
+    )
+    assert read.json()["document_id"] is None
+    assert len((await client.get(DOCUMENTS)).json()) == 10
