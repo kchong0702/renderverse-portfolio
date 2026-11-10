@@ -28,6 +28,12 @@ function GoogleAction({ connection }: { connection: Connection }) {
         {t("settings.connections.google.connect")}
       </a>
     );
+  if (connection.status === "needs_reconnect")
+    return (
+      <a href={googleConnectUrl("/settings")} className={buttonClass()}>
+        {t("googleNotice.reconnect")}
+      </a>
+    );
   return (
     <span className="flex flex-col items-end gap-1">
       <button
@@ -81,9 +87,12 @@ export default function ConnectionsPanel({
                 <span
                   className={cn(
                     "text-[14px] break-words",
-                    connection.status === "connected"
-                      ? "text-ok"
-                      : "text-ink-3",
+                    {
+                      connected: "text-ok",
+                      needs_reconnect: "text-warn",
+                      not_connected: "text-ink-3",
+                      not_configured: "text-ink-3",
+                    }[connection.status],
                   )}
                 >
                   {connection.id === "google" &&

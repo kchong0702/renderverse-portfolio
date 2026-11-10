@@ -32,7 +32,7 @@ export interface SearchQuota {
 
 export interface Connection {
   id: ConnectionId;
-  status: "connected" | "not_connected" | "not_configured";
+  status: "connected" | "needs_reconnect" | "not_connected" | "not_configured";
   quota: SearchQuota | null;
   account: string | null;
 }

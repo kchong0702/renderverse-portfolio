@@ -662,6 +662,7 @@
       },
       "status": {
         "connected": "Connected",
+        "needs_reconnect": "Ops now sends email and adds Calendar events, which your Google connection does not allow yet",
         "not_connected": "Not connected yet",
         "not_configured": "Not set up on the server yet"
       },

@@ -17,7 +17,7 @@ export function useGoogleAccount() {
   const google = settings.data?.connections.find(({ id }) => id === "google");
   return {
     settings,
-    account: google?.status === "connected" ? google.account : null,
+    account: google?.account ?? null,
     problem:
       google?.status === "not_configured"
         ? ("not_configured" as const)
