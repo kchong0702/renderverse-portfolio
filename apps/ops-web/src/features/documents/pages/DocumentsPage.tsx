@@ -101,7 +101,7 @@ export default function DocumentsPage() {
                       aria-hidden="true"
                       className={cn(
                         "size-2 rounded-full",
-                        d.pending_edits > 0 ? "bg-warn" : "bg-ok",
+                        d.pending_changesets > 0 ? "bg-warn" : "bg-ok",
                       )}
                     />
                     {d.title}

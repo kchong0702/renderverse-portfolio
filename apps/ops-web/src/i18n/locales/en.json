@@ -268,8 +268,8 @@
       "saving": "Saving…",
       "failed": "Not saved: {{reason}}"
     },
-    "pendingEdits_one": "{{count}} edit to review",
-    "pendingEdits_other": "{{count}} edits to review",
+    "pendingChanges_one": "{{count}} change to review",
+    "pendingChanges_other": "{{count}} changes to review",
     "updated": "Edited {{date}}",
     "tools": "Document tools",
     "panels": {
@@ -392,7 +392,7 @@
       "eb-garamond": "EB Garamond"
     },
     "changes": {
-      "empty": "No edits to review. When the assistant tailors this document, each edit it proposes waits here for you. That arrives with the edit-document workflow, which is not connected yet.",
+      "empty": "No changes to review. When the assistant proposes changes to this document, they wait here for you to accept or reject.",
       "loadFailed": "Changes could not load: {{reason}}",
       "failed": "Not answered: {{reason}}",
       "from": "From {{agent}} · {{date}}",
