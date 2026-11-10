@@ -6,15 +6,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.ezcareer import Completed, EzcareerClient, Failed, InputRequired
 from src.core.exceptions import InvalidInput, NotFound, ServiceUnavailable
-from src.features.jobs.models import Job
+from src.db.base import utcnow
+from src.features.jobs.enums import JobStatus
+from src.features.jobs.models import Job, JobRun
 from src.features.jobs.repository import JobRepository
 from src.features.jobs.schemas import (
     AnalyseJobInput,
     AnalyseJobOutput,
+    FindJobsInput,
     FindJobsOutput,
     FitAnalysis,
     JobCreate,
+    JobList,
     JobRead,
+    JobRunRead,
+    JobSearch,
     JobUpdate,
 )
 from src.features.profile import ProfileService
@@ -37,12 +43,19 @@ class JobService:
         self._settings = settings
         self._ezcareer = ezcareer
 
-    async def jobs(self, user_id: UUID) -> list[JobRead]:
-        """Every job, best fit first; unanalysed ones last, newest first"""
-        return [
+    async def jobs(self, user_id: UUID) -> JobList:
+        """Every job, best fit first, unanalysed ones last and newest first, with how
+        many picks are new"""
+        jobs = [
             JobRead.model_validate(job, from_attributes=True)
             for job in await self._repository.jobs(user_id)
         ]
+        return JobList(
+            jobs=jobs,
+            new_count=sum(
+                job.status == JobStatus.PICKED and job.seen_at is None for job in jobs
+            ),
+        )
 
     async def job(self, user_id: UUID, job_id: UUID) -> JobRead:
         """One of the user's jobs; NotFound when it is not theirs"""
@@ -67,11 +80,14 @@ class JobService:
         return JobRead.model_validate(row, from_attributes=True), stored is None
 
     async def update(self, user_id: UUID, job_id: UUID, patch: JobUpdate) -> JobRead:
-        """Save, dismiss or return a job to the picks"""
+        """Save, dismiss or return a job to the picks, or mark it opened"""
         row = await self._repository.owned(Job, user_id, job_id)
         if row is None:
             raise NotFound("No such job")
-        row.status = patch.status
+        if patch.status is not None:
+            row.status = patch.status
+        if patch.seen and row.seen_at is None:
+            row.seen_at = utcnow()
         return JobRead.model_validate(row, from_attributes=True)
 
     async def analyse(
@@ -84,9 +100,18 @@ class JobService:
         row.analysis = analysis
         return JobRead.model_validate(row, from_attributes=True)
 
-    async def find(self, user_id: UUID) -> Completed[list[JobRead]] | Failed:
-        """Run find-jobs on the profile and store each job it found as a pick
-        with its analysis; a job found again keeps its status"""
+    async def latest_run(self, user_id: UUID) -> JobRunRead:
+        """What the user's most recent find run found; NotFound before the first"""
+        run = await self._repository.latest_run(user_id)
+        if run is None:
+            raise NotFound("The job agent has not run yet")
+        return JobRunRead.model_validate(run, from_attributes=True)
+
+    async def find(
+        self, user_id: UUID, search: JobSearch | None
+    ) -> Completed[list[JobRead]] | Failed:
+        """Run find-jobs on the profile and the search, store each job it found as a
+        pick with its analysis, and record the run's counts"""
         profile = await self._profile.agent_profile(user_id)
         metadata = await self._settings.run_metadata(user_id)
         await self._session.commit()
@@ -95,35 +120,42 @@ class JobService:
             FindJobsOutput,
             user_id=user_id,
             context_id=f"{user_id}:{uuid4()}",
-            data=profile,
+            data=FindJobsInput(
+                facts=profile.facts, preferences=profile.preferences, search=search
+            ),
             metadata=metadata,
         )
         match run:
             case Completed(reply=reply):
-                return Completed(
-                    reply=[
-                        (
-                            await self.add(
-                                user_id,
-                                JobCreate(
-                                    external_id=job.posting.id,
-                                    source="JSearch",
-                                    title=job.posting.title,
-                                    company=job.posting.company,
-                                    location=f"{job.posting.location}, remote"
-                                    if job.posting.remote
-                                    else job.posting.location,
-                                    url=job.posting.apply_url,
-                                    posted_at=job.posting.posted_at,
-                                    analysis=FitAnalysis(
-                                        fit=job.fit, requirements=job.requirements
-                                    ),
-                                ),
-                            )
-                        )[0]
-                        for job in reply.jobs
-                    ]
+                added = [
+                    await self.add(
+                        user_id,
+                        JobCreate(
+                            external_id=job.posting.id,
+                            source="JSearch",
+                            title=job.posting.title,
+                            company=job.posting.company,
+                            location=f"{job.posting.location}, remote"
+                            if job.posting.remote
+                            else job.posting.location,
+                            url=job.posting.apply_url,
+                            posted_at=job.posting.posted_at,
+                            analysis=FitAnalysis(
+                                fit=job.fit, requirements=job.requirements
+                            ),
+                        ),
+                    )
+                    for job in reply.jobs
+                ]
+                await self._repository.add(
+                    JobRun(
+                        user_id=user_id,
+                        found=len(added),
+                        new=sum(created for _, created in added),
+                        scored_70=sum(job.fit >= 70 for job in reply.jobs),
+                    )
                 )
+                return Completed(reply=[job for job, _ in added])
             case InputRequired():
                 raise ServiceUnavailable("find-jobs asked for input ops cannot give")
             case Failed():

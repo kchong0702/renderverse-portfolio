@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select
 
 from src.db.repository import Repository
-from src.features.jobs.models import Job
+from src.features.jobs.models import Job, JobRun
 
 
 class JobRepository(Repository):
@@ -28,6 +28,15 @@ class JobRepository(Repository):
         """The user's job with this id at its source, if stored"""
         return await self._session.scalar(
             select(Job).where(Job.user_id == user_id, Job.external_id == external_id)
+        )
+
+    async def latest_run(self, user_id: UUID) -> JobRun | None:
+        """The user's most recent find run, if any"""
+        return await self._session.scalar(
+            select(JobRun)
+            .where(JobRun.user_id == user_id)
+            .order_by(JobRun.finished_at.desc())
+            .limit(1)
         )
 
 

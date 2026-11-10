@@ -6,7 +6,7 @@ from pydantic import TypeAdapter
 from sqlalchemy import DateTime, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.db.base import Base, EnumString, PydanticJson
+from src.db.base import Base, EnumString, PydanticJson, utcnow
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 from src.features.jobs.enums import JobStatus
 from src.features.jobs.schemas import FitAnalysis
@@ -53,5 +53,28 @@ class Job(IdMixin, UserScopedMixin, AuditMixin, Base):
     )
     """How the posting fits the profile; None until analysed"""
 
+    seen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+    """When the user first opened the job; None while it is new"""
 
-__all__ = ["Job"]
+
+class JobRun(IdMixin, UserScopedMixin, AuditMixin, Base):
+    __tablename__ = "job_runs"
+
+    found: Mapped[int]
+    """How many jobs the find run returned"""
+
+    new: Mapped[int]
+    """How many of them were not stored before"""
+
+    scored_70: Mapped[int]
+    """How many of them fit 70 or more"""
+
+    finished_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    """When the run ended"""
+
+
+__all__ = ["Job", "JobRun"]

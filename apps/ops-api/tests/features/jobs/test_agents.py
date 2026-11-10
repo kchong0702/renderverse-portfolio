@@ -70,13 +70,82 @@ async def test_run_agent_now_stores_each_job_found_as_a_pick(client, harness):
     assert job["url"] == "https://jobs.example.com/1"
     assert job["status"] == "picked"
     assert job["analysis"] == {"fit": 67, "band": "possible", "requirements": READ_BACK}
-    assert [j["id"] for j in (await client.get(JOBS)).json()] == [job["id"]]
+    assert [j["id"] for j in (await client.get(JOBS)).json()["jobs"]] == [job["id"]]
     [request] = harness.received
     assert request.url.path == "/ezcareer/a2a/find-jobs"
     message = a2a_sent(harness)[0]["params"]["message"]
     assert message["contextId"].startswith(f"{me['id']}:")
-    assert message["parts"] == [{"data": agent_profile}]
+    assert message["parts"] == [{"data": {**agent_profile, "search": None}}]
     assert "metadata" not in a2a_sent(harness)[0]["params"]
+
+
+async def test_the_search_sent_reaches_find_jobs(client, harness):
+    agent_profile = (await client.get(f"{PREFIX}/profile/agent")).json()
+    search = {"query": "Staff engineer", "location": "Remote", "posted_within": "week"}
+    harness.outcomes = [
+        a2a_task("COMPLETED", artifact_parts=[{"data": {"jobs": []}}]),
+        a2a_task("COMPLETED", artifact_parts=[{"data": {"jobs": []}}]),
+    ]
+
+    await client.post(f"{JOBS}/find", json=search)
+    await client.post(f"{JOBS}/find", json={"posted_within": "day"})
+
+    assert [sent["params"]["message"]["parts"] for sent in a2a_sent(harness)] == [
+        [{"data": {**agent_profile, "search": search}}],
+        [
+            {
+                "data": {
+                    **agent_profile,
+                    "search": {"query": None, "location": None, "posted_within": "day"},
+                }
+            }
+        ],
+    ]
+
+
+async def test_a_search_find_jobs_cannot_run_is_refused(client, harness):
+    response = await client.post(f"{JOBS}/find", json={"posted_within": "year"})
+
+    assert response.status_code == 422
+    assert harness.received == []
+
+
+async def test_each_find_run_records_what_it_found(client, harness):
+    strong = {
+        **MATCHED,
+        "posting": {**MATCHED["posting"], "id": "jsearch-2"},
+        "fit": 70,
+    }
+    harness.outcomes = [
+        a2a_task("COMPLETED", artifact_parts=[{"data": {"jobs": [MATCHED]}}]),
+        a2a_task("COMPLETED", artifact_parts=[{"data": {"jobs": [MATCHED, strong]}}]),
+    ]
+    assert (await client.get(f"{JOBS}/runs/latest")).status_code == 404
+
+    await client.post(f"{JOBS}/find")
+    first = (await client.get(f"{JOBS}/runs/latest")).json()
+    await client.post(f"{JOBS}/find")
+    second = (await client.get(f"{JOBS}/runs/latest")).json()
+
+    assert {k: first[k] for k in ("found", "new", "scored_70")} == {
+        "found": 1,
+        "new": 1,
+        "scored_70": 0,
+    }
+    assert {k: second[k] for k in ("found", "new", "scored_70")} == {
+        "found": 2,
+        "new": 1,
+        "scored_70": 1,
+    }
+    assert second["finished_at"] > first["finished_at"]
+
+
+async def test_a_failed_find_run_records_no_counts(client, harness):
+    harness.outcomes = [a2a_task("FAILED", status_parts=[{"text": "JSearch is down"}])]
+
+    await client.post(f"{JOBS}/find")
+
+    assert (await client.get(f"{JOBS}/runs/latest")).status_code == 404
 
 
 async def test_each_run_carries_the_users_model(client, harness):
@@ -112,7 +181,7 @@ async def test_a_job_found_again_keeps_its_status(client, harness):
     again = await client.post(f"{JOBS}/find")
 
     assert [j["status"] for j in again.json()["reply"]] == ["dismissed"]
-    assert len((await client.get(JOBS)).json()) == 1
+    assert len((await client.get(JOBS)).json()["jobs"]) == 1
     first, second = (sent["params"]["message"] for sent in a2a_sent(harness))
     assert first["contextId"] != second["contextId"]
 
@@ -124,7 +193,7 @@ async def test_a_failed_search_returns_its_reason_and_stores_nothing(client, har
     response = await client.post(f"{JOBS}/find")
 
     assert response.json() == {"status": "failed", "reason": reason}
-    assert (await client.get(JOBS)).json() == []
+    assert (await client.get(JOBS)).json()["jobs"] == []
 
 
 async def test_analysing_a_job_stores_the_analysis(client, harness):
@@ -146,7 +215,7 @@ async def test_analysing_a_job_stores_the_analysis(client, harness):
         "status": "completed",
         "reply": {**job, "analysis": analysis},
     }
-    assert (await client.get(JOBS)).json()[0]["analysis"] == analysis
+    assert (await client.get(JOBS)).json()["jobs"][0]["analysis"] == analysis
     [request] = harness.received
     assert request.url.path == "/ezcareer/a2a/analyse-job"
     assert a2a_sent(harness)[0]["params"]["message"]["parts"] == [
@@ -175,7 +244,7 @@ async def test_a_failed_analysis_returns_its_reason_and_keeps_the_job(client, ha
     response = await client.post(f"{JOBS}/{job['id']}/analyse")
 
     assert response.json() == {"status": "failed", "reason": reason}
-    assert (await client.get(JOBS)).json() == [job]
+    assert (await client.get(JOBS)).json()["jobs"] == [job]
 
 
 async def test_an_unreadable_analysis_gives_a_clear_error(client, harness):
@@ -191,4 +260,4 @@ async def test_an_unreadable_analysis_gives_a_clear_error(client, harness):
     response = await client.post(f"{JOBS}/{job['id']}/analyse")
 
     assert response.status_code == 503
-    assert (await client.get(JOBS)).json() == [job]
+    assert (await client.get(JOBS)).json()["jobs"] == [job]
