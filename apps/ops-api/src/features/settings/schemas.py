@@ -38,6 +38,12 @@ class Automation(BaseModel):
     suggest_replies: bool
     """Read employer replies and suggest an answer"""
 
+    add_interview_invites: bool
+    """Add each interview an email confirms to Google Calendar"""
+
+    offer_free_slots: bool
+    """Offer free calendar slots in a suggested reply"""
+
 
 class Scheduling(BaseModel):
     work_day_start: time
@@ -117,6 +123,12 @@ class AutomationUpdate(BaseModel):
 
     suggest_replies: bool | None = None
     """Turn suggested replies on or off; None leaves it unchanged"""
+
+    add_interview_invites: bool | None = None
+    """Turn adding interviews to the calendar on or off; None leaves it unchanged"""
+
+    offer_free_slots: bool | None = None
+    """Turn offering free slots on or off; None leaves it unchanged"""
 
 
 class SchedulingUpdate(BaseModel):
