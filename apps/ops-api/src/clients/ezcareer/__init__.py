@@ -1,6 +1,6 @@
-from src.integrations.ezcareer.client import EzcareerClient
-from src.integrations.ezcareer.run_stream import RunStream
-from src.integrations.ezcareer.schemas import (
+from src.clients.ezcareer.client import EzcareerClient
+from src.clients.ezcareer.run_stream import RunStream
+from src.clients.ezcareer.schemas import (
     Answer,
     Completed,
     Failed,
@@ -13,7 +13,7 @@ from src.integrations.ezcareer.schemas import (
     RunMetadata,
     Widget,
 )
-from src.integrations.ezcareer.types import ModelFamily
+from src.clients.ezcareer.types import ModelFamily
 
 __all__ = [
     "Answer",

@@ -9,9 +9,7 @@ import anyio
 import httpx2
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from src.core.config import EzcareerSettings
-from src.core.exceptions import NotFound, ServiceUnavailable
-from src.integrations.ezcareer.a2a import (
+from src.clients.ezcareer.a2a import (
     DataPart,
     Message,
     SendMessageError,
@@ -26,13 +24,13 @@ from src.integrations.ezcareer.a2a import (
     TaskSuccess,
     TextPart,
 )
-from src.integrations.ezcareer.schemas import (
+from src.clients.ezcareer.schemas import (
     Answer,
+    AnswerDataRequest,
     Cancelled,
     Completed,
+    DataRequest,
     Failed,
-    Fetch,
-    FetchRequest,
     InputRequired,
     ModelCatalog,
     Run,
@@ -44,6 +42,8 @@ from src.integrations.ezcareer.schemas import (
     Thinking,
     Widget,
 )
+from src.core.config import EzcareerSettings
+from src.core.exceptions import NotFound, ServiceUnavailable
 
 
 def _new_message(context_id: str, text: str, data: BaseModel) -> Message:
@@ -67,11 +67,11 @@ def _answer_message(context_id: str, task_id: str, answer: BaseModel) -> Message
     )
 
 
-def _fetch_request(status: TaskStatus) -> FetchRequest | None:
+def _data_request(status: TaskStatus) -> DataRequest | None:
     """The data request a paused task asks ops-api for, or None for a user widget"""
     data = status.message.parts[0].data if status.message else None
     return (
-        FetchRequest.model_validate(data)
+        DataRequest.model_validate(data)
         if isinstance(data, dict) and "fetch" in data
         else None
     )
@@ -117,10 +117,10 @@ class EzcareerClient:
         reply: type[R],
         message: Message,
         metadata: RunMetadata | None,
-        fetch: Fetch | None,
+        answer_data_request: AnswerDataRequest | None,
     ) -> Run[R]:
         """POST an A2A SendMessage, with metadata on the request, answering any data
-        request the task pauses with through fetch, and read how the task ended"""
+        request the task pauses with through answer_data_request, and read how the task ended"""
         try:
             while True:
                 response = await self._http.post(
@@ -149,11 +149,13 @@ class EzcareerClient:
                                 part.data if part.text is None else part.text
                             )
                         )
-                    case "TASK_STATE_INPUT_REQUIRED" if fetch and (
-                        request := _fetch_request(status)
+                    case "TASK_STATE_INPUT_REQUIRED" if answer_data_request and (
+                        request := _data_request(status)
                     ):
                         message = _answer_message(
-                            message.context_id, task.id, await fetch(request)
+                            message.context_id,
+                            task.id,
+                            await answer_data_request(request),
                         )
                     case "TASK_STATE_INPUT_REQUIRED" if status.message:
                         return InputRequired(
@@ -176,7 +178,7 @@ class EzcareerClient:
         data: BaseModel,
         metadata: RunMetadata | None,
         text: str = "",
-        fetch: Fetch | None = None,
+        answer_data_request: AnswerDataRequest | None = None,
     ) -> Run[R]:
         """Run a harness executable on the user's text and its input data, on the
         model metadata names; context_id scopes the task to one user"""
@@ -185,7 +187,7 @@ class EzcareerClient:
             reply,
             _new_message(context_id, text, data),
             metadata,
-            fetch,
+            answer_data_request,
         )
 
     async def resume[R](
@@ -197,7 +199,7 @@ class EzcareerClient:
         task_id: str,
         answer: Answer,
         metadata: RunMetadata | None,
-        fetch: Fetch | None = None,
+        answer_data_request: AnswerDataRequest | None = None,
     ) -> Run[R]:
         """Send the user's answer to a paused task, which runs on from there on the
         model metadata names"""
@@ -206,7 +208,7 @@ class EzcareerClient:
             reply,
             _answer_message(context_id, task_id, answer),
             metadata,
-            fetch,
+            answer_data_request,
         )
 
     def stream[R](
@@ -218,12 +220,16 @@ class EzcareerClient:
         data: BaseModel,
         metadata: RunMetadata | None,
         text: str = "",
-        fetch: Fetch | None = None,
+        answer_data_request: AnswerDataRequest | None = None,
     ) -> AsyncIterator[RunEvent[R]]:
         """Run a harness executable as send does, streaming its start, thinking, text
         and steps, then how it ended"""
         return self._stream(
-            executable, reply, _new_message(context_id, text, data), metadata, fetch
+            executable,
+            reply,
+            _new_message(context_id, text, data),
+            metadata,
+            answer_data_request,
         )
 
     def stream_resume[R](
@@ -235,7 +241,7 @@ class EzcareerClient:
         task_id: str,
         answer: Answer,
         metadata: RunMetadata | None,
-        fetch: Fetch | None = None,
+        answer_data_request: AnswerDataRequest | None = None,
     ) -> AsyncIterator[RunEvent[R]]:
         """Answer a paused task as resume does, streaming the rest of its run"""
         return self._stream(
@@ -243,7 +249,7 @@ class EzcareerClient:
             reply,
             _answer_message(context_id, task_id, answer),
             metadata,
-            fetch,
+            answer_data_request,
         )
 
     async def cancel(self, executable: str, task_id: str, context_id: str) -> None:
@@ -284,10 +290,10 @@ class EzcareerClient:
         reply: type[R],
         message: Message,
         metadata: RunMetadata | None,
-        fetch: Fetch | None,
+        answer_data_request: AnswerDataRequest | None,
     ) -> AsyncIterator[RunEvent[R]]:
         """POST an A2A SendStreamingMessage and turn its events into run events,
-        answering any data request through fetch; a stream closed early cancels the
+        answering any data request through answer_data_request; a stream closed early cancels the
         task"""
         task_id = ""
         ended = False
@@ -355,13 +361,14 @@ class EzcareerClient:
                                         )
                                     )
                                     return
-                                case "TASK_STATE_INPUT_REQUIRED" if fetch and (
-                                    fetched := _fetch_request(status)
+                                case "TASK_STATE_INPUT_REQUIRED" if (
+                                    answer_data_request
+                                    and (asked := _data_request(status))
                                 ):
                                     next_message = _answer_message(
                                         message.context_id,
                                         update.task_id,
-                                        await fetch(fetched),
+                                        await answer_data_request(asked),
                                     )
                                 case "TASK_STATE_INPUT_REQUIRED" if status.message:
                                     ended = True

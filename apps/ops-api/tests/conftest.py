@@ -86,11 +86,11 @@ async def _app(
 ) -> AsyncIterator[FastAPI]:
     from src.app.app import create_app
     from src.app.container import Container
+    from src.clients.ezcareer import EzcareerClient
     from src.core.config import reload_settings
     from src.db import models  # noqa: F401
     from src.db.base import Base
     from src.db.session import create_session_factory
-    from src.integrations.ezcareer import EzcareerClient
 
     settings = reload_settings()
     engine = create_async_engine(

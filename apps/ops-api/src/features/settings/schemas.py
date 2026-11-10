@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from src.integrations.ezcareer import ModelChoice
+from src.clients.ezcareer import ModelChoice
 
 ConnectionId = Literal["google", "jsearch", "portfolio_site"]
 """An outside service Ops connects to"""

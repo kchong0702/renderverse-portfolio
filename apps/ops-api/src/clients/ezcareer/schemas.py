@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.integrations.ezcareer.types import ModelFamily
+from src.clients.ezcareer.types import ModelFamily
 
 
 class FamilyModels(BaseModel):
@@ -96,7 +96,7 @@ type Run[R] = Completed[R] | InputRequired | Failed
 """How a run of a harness executable ended"""
 
 
-class FetchRequest(BaseModel):
+class DataRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     fetch: str
@@ -104,7 +104,7 @@ class FetchRequest(BaseModel):
     arguments"""
 
 
-type Fetch = Callable[[FetchRequest], Awaitable[BaseModel]]
+type AnswerDataRequest = Callable[[DataRequest], Awaitable[BaseModel]]
 """Answers the data request a run paused with, for the user the run is for"""
 
 
@@ -180,12 +180,12 @@ type RunEvent[R] = (
 
 __all__ = [
     "Answer",
+    "AnswerDataRequest",
     "Cancelled",
     "Completed",
+    "DataRequest",
     "Failed",
     "FamilyModels",
-    "Fetch",
-    "FetchRequest",
     "InputRequired",
     "ModelCatalog",
     "ModelChoice",

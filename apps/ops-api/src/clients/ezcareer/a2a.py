@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, SerializeAsAny
 from pydantic.alias_generators import to_camel
 
-from src.integrations.ezcareer.schemas import RunMetadata, Step
+from src.clients.ezcareer.schemas import RunMetadata, Step
 
 
 class TextPart(BaseModel):

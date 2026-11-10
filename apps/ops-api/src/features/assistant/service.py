@@ -5,12 +5,12 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.clients.ezcareer import Answer, EzcareerClient, RunEvent, RunStream
 from src.core.config import EzcareerSettings
 from src.core.exceptions import Conflict, NotFound
 from src.features.assistant.schemas import ChatMessage
 from src.features.profile import ProfileService
 from src.features.settings import SettingsService
-from src.integrations.ezcareer import Answer, EzcareerClient, RunEvent, RunStream
 
 _AGENT = "career-director"
 
