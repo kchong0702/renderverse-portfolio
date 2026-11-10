@@ -169,6 +169,16 @@
       "status": {
         "connected": "Connected",
         "not_connected": "Not connected yet"
+      },
+      "quota": "Connected · {{remaining}} of {{limit}} searches left this month",
+      "jsearch": {
+        "change": "Change key",
+        "add": "Add key",
+        "key": "JSearch API key",
+        "save": "Save key",
+        "cancel": "Cancel",
+        "remove": "Remove key",
+        "failed": "Not saved: {{reason}}"
       }
     },
     "jobAgent": {
