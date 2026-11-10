@@ -85,6 +85,7 @@ async def test_adding_a_job_again_refreshes_it_and_keeps_its_status(client):
         JOBS, json={**NORTHWIND, "title": "Lead Backend Engineer", "analysis": None}
     )
 
+    assert again.status_code == 200
     assert again.json()["id"] == job["id"]
     assert again.json()["status"] == "saved"
     assert again.json()["analysis"] is None

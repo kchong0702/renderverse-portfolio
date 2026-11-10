@@ -31,9 +31,9 @@ class JobService:
             raise NotFound("No such job")
         return JobRead.model_validate(row, from_attributes=True)
 
-    async def add(self, user_id: UUID, job: JobCreate) -> JobRead:
-        """Store a posting; one already stored under its external_id is refreshed
-        in place and keeps its status, so the agent can add it again safely"""
+    async def add(self, user_id: UUID, job: JobCreate) -> tuple[JobRead, bool]:
+        """Store a posting, and whether it is new; one already stored under its
+        external_id is refreshed in place and keeps its status"""
         stored = (
             await self._repository.job_at_source(user_id, job.external_id)
             if job.external_id
@@ -44,7 +44,7 @@ class JobService:
             setattr(row, field, value)
         row.analysis = job.analysis
         await self._repository.add(row)
-        return JobRead.model_validate(row, from_attributes=True)
+        return JobRead.model_validate(row, from_attributes=True), stored is None
 
     async def update(self, user_id: UUID, job_id: UUID, patch: JobUpdate) -> JobRead:
         """Save, dismiss or return a job to the picks"""
