@@ -135,7 +135,6 @@ export const useAssistantStore = create<AssistantState>()(
     }),
     {
       name: "ops:assistant",
-      version: 1,
       storage: createJSONStorage(() => sessionStorage),
       partialize: ({ chatId, entries }) => ({
         chatId,
