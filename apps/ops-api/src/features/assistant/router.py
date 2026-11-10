@@ -2,16 +2,17 @@ from collections.abc import AsyncIterable
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request, status
-from fastapi.sse import EventSourceResponse
+from fastapi import APIRouter, Depends, Header, Request, status
+from fastapi.sse import EventSourceResponse, ServerSentEvent
 
 from src.core.auth import CurrentUserDep
+from src.core.config import get_settings
 from src.db.session import SessionDep
 from src.features.assistant.schemas import ChatMessage
 from src.features.assistant.service import AssistantService
 from src.features.profile import ProfileServiceDep
 from src.features.settings import SettingsServiceDep
-from src.integrations.ezcareer import Answer, RunEvent
+from src.integrations.ezcareer import Answer, RunStream
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 
@@ -22,24 +23,61 @@ def get_assistant_service(
     settings: SettingsServiceDep,
     request: Request,
 ) -> AssistantService:
-    """The assistant service on the request's session and its profile and settings
-    services"""
-    return AssistantService(session, profile, settings, request.app.state.ezcareer)
+    """The assistant service on the request's session, its profile and settings
+    services, and the app's running turns"""
+    return AssistantService(
+        session,
+        profile,
+        settings,
+        request.app.state.ezcareer,
+        request.app.state.runs,
+        get_settings().ezcareer,
+    )
 
 
 AssistantServiceDep = Annotated[AssistantService, Depends(get_assistant_service)]
 
 
-@router.post("/chats/{chat_id}/messages", response_class=EventSourceResponse)
-async def send_message(
+async def start_turn(
     chat_id: UUID,
     message: ChatMessage,
     user: CurrentUserDep,
     service: AssistantServiceDep,
-) -> AsyncIterable[RunEvent[str]]:
+) -> RunStream:
+    """The turn a message starts, its profile read and committed before the response
+    streams"""
+    return await service.send(user.id, chat_id, message)
+
+
+async def answer_turn(
+    chat_id: UUID,
+    task_id: str,
+    answer: Answer,
+    user: CurrentUserDep,
+    service: AssistantServiceDep,
+) -> RunStream:
+    """The rest of the paused turn an answer resumes, read and committed before the
+    response streams"""
+    return await service.answer(user.id, chat_id, task_id, answer)
+
+
+def resume_turn(
+    chat_id: UUID,
+    user: CurrentUserDep,
+    service: AssistantServiceDep,
+    last_event_id: Annotated[str | None, Header()] = None,
+) -> tuple[RunStream, int]:
+    """The chat's current turn and how many of its events the client already has"""
+    return service.resume(user.id, chat_id, last_event_id)
+
+
+@router.post("/chats/{chat_id}/messages", response_class=EventSourceResponse)
+async def send_message(
+    run: Annotated[RunStream, Depends(start_turn)],
+) -> AsyncIterable[ServerSentEvent]:
     """Ask career-director something in one chat and stream the turn: it starts,
     thinks, writes and runs steps, then replies, asks back, fails or is stopped"""
-    async for event in await service.send(user.id, chat_id, message):
+    async for event in run.stream():
         yield event
 
 
@@ -47,14 +85,21 @@ async def send_message(
     "/chats/{chat_id}/tasks/{task_id}/answer", response_class=EventSourceResponse
 )
 async def answer_task(
-    chat_id: UUID,
-    task_id: str,
-    answer: Answer,
-    user: CurrentUserDep,
-    service: AssistantServiceDep,
-) -> AsyncIterable[RunEvent[str]]:
+    run: Annotated[RunStream, Depends(answer_turn)],
+) -> AsyncIterable[ServerSentEvent]:
     """Answer the widget a paused turn of the chat asked, and stream the rest of it"""
-    async for event in await service.answer(user.id, chat_id, task_id, answer):
+    async for event in run.stream():
+        yield event
+
+
+@router.get("/chats/{chat_id}/stream", response_class=EventSourceResponse)
+async def resume_chat(
+    resumed: Annotated[tuple[RunStream, int], Depends(resume_turn)],
+) -> AsyncIterable[ServerSentEvent]:
+    """Resume the chat's turn after the Last-Event-ID the client last saw; the turn
+    kept running while the connection was down"""
+    run, after = resumed
+    async for event in run.stream(after):
         yield event
 
 

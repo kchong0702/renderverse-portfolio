@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.integrations.ezcareer.types import ModelFamily
 
@@ -49,6 +50,12 @@ class Widget(BaseModel):
     cancel_btn: str | None = None
     """Text of the cancel button; shown only when set"""
 
+    choose: Literal["document"] | None = None
+    """What the user picks instead of typing; the app lists their documents"""
+
+    kind: Literal["resume", "cv", "cover_letter"] | None = None
+    """The kind of document to list for choose; every kind when None"""
+
 
 class Answer(BaseModel):
     input: str | None = None
@@ -87,6 +94,18 @@ class Failed(BaseModel):
 
 type Run[R] = Completed[R] | InputRequired | Failed
 """How a run of a harness executable ended"""
+
+
+class FetchRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    fetch: str
+    """What a paused run asks ops-api for, such as documents; the rest are its
+    arguments"""
+
+
+type Fetch = Callable[[FetchRequest], Awaitable[BaseModel]]
+"""Answers the data request a run paused with, for the user the run is for"""
 
 
 class Started(BaseModel):
@@ -165,6 +184,8 @@ __all__ = [
     "Completed",
     "Failed",
     "FamilyModels",
+    "Fetch",
+    "FetchRequest",
     "InputRequired",
     "ModelCatalog",
     "ModelChoice",
