@@ -64,12 +64,12 @@ class DocumentService:
         with artifact-service, and keep at most limits' documents of each kind"""
         self._repository = DocumentRepository(session)
         self._artifact = artifact
-        self._max_per_kind = limits.max_per_kind
+        self._limits = limits
 
     async def _make_room(self, user_id: UUID, kind: DocumentKind) -> None:
         """Conflict when the user already keeps the most documents of this kind"""
         kept = sum(d.kind is kind for d in await self._repository.documents(user_id))
-        if kept >= self._max_per_kind:
+        if kept >= self._limits.max_per_kind:
             raise Conflict(
                 f"You already keep {kept} {kind.value.replace('_', ' ')} documents."
                 " Delete one to add another."
@@ -163,11 +163,13 @@ class DocumentService:
     async def restore(
         self, user_id: UUID, document_id: UUID, version_id: UUID
     ) -> DocumentRead:
-        """Put a kept version back as the current draft"""
+        """Keep the current draft as a version, then put a kept version back as the
+        draft"""
         document = await self._load(user_id, document_id)
         version = await self._repository.version(document.id, version_id)
         if version is None:
             raise NotFound("No such version")
+        await self._keep(document, f"Before restoring version {version.number}")
         document.body = version.body
         return await self._read(document)
 
@@ -182,8 +184,8 @@ class DocumentService:
     async def propose(
         self, user_id: UUID, document_id: UUID, changeset: Changeset
     ) -> ChangesetRead:
-        """Store an agent's changeset for the user to accept or reject;
-        it must apply to the current draft"""
+        """Store an agent's changeset for the user to accept or reject, closing any
+        older one still pending; it must apply to the current draft"""
         document = await self._load(user_id, document_id)
         if changeset.status is not ChangesetStatus.PENDING:
             raise InvalidInput("A new changeset must be pending")
@@ -191,6 +193,11 @@ class DocumentService:
             apply_edits(document.body, changeset.edits)
         except ValueError as error:
             raise InvalidInput(str(error)) from error
+        for older in await self._repository.changesets([document.id]):
+            if older.changeset.status is ChangesetStatus.PENDING:
+                older.changeset = older.changeset.model_copy(
+                    update={"status": ChangesetStatus.REJECTED}
+                )
         row = await self._repository.add(
             DocumentChangeset(
                 user_id=user_id,
@@ -213,6 +220,8 @@ class DocumentService:
         row = await self._repository.changeset(document.id, changeset_id)
         if row is None:
             raise NotFound("No such changeset")
+        if row.changeset.status is decision.status:
+            return ChangesetRead.model_validate(row, from_attributes=True)
         if row.changeset.status is not ChangesetStatus.PENDING:
             raise Conflict("This changeset is already answered")
         if decision.status is ChangesetStatus.ACCEPTED:
@@ -239,13 +248,13 @@ class DocumentService:
     ) -> ImportRead:
         """Store an uploaded PDF or Word résumé as a pending import;
         nothing reads it until import-resume is wired in"""
-        if media_type not in {
-            "application/pdf",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        }:
+        if media_type not in self._limits.upload_types:
             raise InvalidInput("Upload a PDF or Word (.docx) file")
-        if not content or len(content) > 10 * 1024 * 1024:
-            raise InvalidInput("The file must be between 1 byte and 10 MB")
+        if not content or len(content) > self._limits.max_upload_bytes:
+            raise InvalidInput(
+                f"The file must be between 1 byte and "
+                f"{self._limits.max_upload_bytes // (1024 * 1024)} MB"
+            )
         row = await self._repository.add(
             DocumentImport(
                 user_id=user_id,
@@ -257,7 +266,7 @@ class DocumentService:
         )
         return ImportRead.model_validate(row, from_attributes=True)
 
-    async def cancel_import(self, user_id: UUID, import_id: UUID) -> None:
+    async def delete_import(self, user_id: UUID, import_id: UUID) -> None:
         """Remove an import and its file; a draft it made stays"""
         row = await self._repository.owned(DocumentImport, user_id, import_id)
         if row is None:

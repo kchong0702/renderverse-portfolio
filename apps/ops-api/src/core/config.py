@@ -90,6 +90,17 @@ class DocumentsSettings(BaseModel):
     max_per_kind: int = Field(default=10, gt=0)
     """How many résumés, CVs or cover letters a user keeps at most, each"""
 
+    max_upload_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
+    """The largest résumé file a user may upload"""
+
+    upload_types: frozenset[str] = frozenset(
+        {
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }
+    )
+    """The media types an uploaded résumé may have: PDF or Word"""
+
 
 class OAuthClientSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
