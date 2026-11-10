@@ -1,7 +1,9 @@
 from base64 import b64decode
 from uuid import UUID
 
+import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from src.core.auth.models import User
 from src.features.documents.models import Document, DocumentImport
@@ -293,6 +295,22 @@ async def test_an_edit_the_user_has_since_removed_conflicts(client):
     assert listed[0]["changeset"]["status"] == "pending"
     draft = (await client.get(url)).json()
     assert _block(draft, "sum")["text"]["html"] == "Backend engineer."
+
+
+async def test_a_user_keeps_one_master_of_each_kind(app, client):
+    first = await _create(client)
+    second = await _create(client, title="Second résumé")
+    await client.put(f"{DOCUMENTS}/{first['id']}/master")
+    await client.put(f"{DOCUMENTS}/{second['id']}/master")
+
+    async with app.state.session_factory() as session:
+        stored = await session.get(Document, UUID(first["id"]))
+        stored.master = True
+        with pytest.raises(IntegrityError):
+            await session.commit()
+
+    masters = [d["title"] for d in (await client.get(DOCUMENTS)).json() if d["master"]]
+    assert masters == ["Second résumé"]
 
 
 async def test_documents_of_another_user_are_not_found(app, client):
