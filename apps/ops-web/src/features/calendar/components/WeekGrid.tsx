@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/cn";
 import type { CalendarEvent } from "../api/calendar";
-import { addDays, eventTime, isInterview, isoDay } from "../lib/dates";
+import { addDays, eventTime, isoDay } from "../lib/dates";
+import { isInterview } from "../lib/interview";
 
 const HOUR_PX = 56;
 
