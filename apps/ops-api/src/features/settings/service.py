@@ -48,6 +48,8 @@ def _to_read(settings: UserSettings, connections: list[Connection]) -> SettingsR
             tailor_strong_matches=settings.tailor_strong_matches,
             follow_up_reminders=settings.follow_up_reminders,
             suggest_replies=settings.suggest_replies,
+            add_interview_invites=settings.add_interview_invites,
+            offer_free_slots=settings.offer_free_slots,
         ),
         scheduling=Scheduling(
             work_day_start=settings.work_day_start,

@@ -19,6 +19,8 @@ async def test_defaults_on_first_read(client):
         "tailor_strong_matches": True,
         "follow_up_reminders": True,
         "suggest_replies": True,
+        "add_interview_invites": True,
+        "offer_free_slots": True,
     }
     assert body["scheduling"] == {
         "work_day_start": "09:00:00",
@@ -38,7 +40,7 @@ async def test_patch_changes_only_the_fields_sent(client):
         f"{PREFIX}/settings",
         json={
             "job_agent": {"query": "Backend engineer, Python", "min_score": 80},
-            "automation": {"suggest_replies": False},
+            "automation": {"suggest_replies": False, "offer_free_slots": False},
         },
     )
 
@@ -48,6 +50,8 @@ async def test_patch_changes_only_the_fields_sent(client):
     assert body["job_agent"]["min_score"] == 80
     assert body["job_agent"]["run_at"] == "08:00:00"
     assert body["automation"]["suggest_replies"] is False
+    assert body["automation"]["offer_free_slots"] is False
+    assert body["automation"]["add_interview_invites"] is True
     assert body["automation"]["follow_up_reminders"] is True
 
     reread = await client.get(f"{PREFIX}/settings")
