@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from src.features.applications.enums import ApplicationStage
+from src.features.applications.enums import ApplicationStage, NextStepFormat
 
 
 class ApplicationWrite(BaseModel):
@@ -26,6 +26,15 @@ class ApplicationWrite(BaseModel):
 
     next_step_at: datetime | None = None
     """When the next step is due or booked"""
+
+    next_step_due: date | None = None
+    """The day the next step must be done by, such as a take-home's deadline"""
+
+    next_step_format: NextStepFormat | None = None
+    """Whether the next step is a video call, a phone call or on site"""
+
+    next_step_location: str | None = Field(default=None, max_length=200)
+    """Where the next step happens, such as an address or a meeting link"""
 
 
 class ApplicationCreate(ApplicationWrite):

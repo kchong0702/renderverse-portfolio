@@ -55,6 +55,30 @@ async def test_applications_add_list_replace_and_delete(client):
     assert [a["id"] for a in (await client.get(APPLICATIONS)).json()] == [harbor["id"]]
 
 
+async def test_a_next_step_keeps_its_due_day_format_and_location(client):
+    harbor = (await client.post(APPLICATIONS, json=HARBOR)).json()
+    details = {
+        "next_step_due": "2026-11-14",
+        "next_step_format": "on_site",
+        "next_step_location": "Level 12, Menara Harbor, Kuala Lumpur",
+    }
+    assert {key: harbor[key] for key in details} == dict.fromkeys(details)
+    interview = {**HARBOR, "next_step": "Onsite loop", **details}
+
+    replaced = await client.put(f"{APPLICATIONS}/{harbor['id']}", json=interview)
+
+    assert replaced.json() == {**replaced.json(), **interview}
+    [listed] = (await client.get(APPLICATIONS)).json()
+    assert {key: listed[key] for key in details} == details
+    cleared = await client.put(f"{APPLICATIONS}/{harbor['id']}", json=HARBOR)
+    assert cleared.json()["next_step_format"] is None
+    refused = await client.put(
+        f"{APPLICATIONS}/{harbor['id']}",
+        json={**interview, "next_step_format": "carrier_pigeon"},
+    )
+    assert refused.status_code == 422
+
+
 async def test_application_for_a_job_takes_the_jobs_fit(client):
     job = (
         await client.post(
