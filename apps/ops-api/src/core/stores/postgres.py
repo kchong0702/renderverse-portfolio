@@ -54,6 +54,10 @@ class PostgresRunStore:
         if changed := self._changed.pop(run_id, None):
             changed.set()
 
+    def _dropped(self, connection: asyncpg.Connection) -> None:
+        """Forget the listening connection once it closes, so the next read reopens it"""
+        self._listener = None
+
     async def _listen(self) -> None:
         """Open this process's listening connection once"""
         async with self._opening:
@@ -62,6 +66,7 @@ class PostgresRunStore:
                     self._dsn.render_as_string(hide_password=False)
                 )
                 await listener.add_listener(_CHANNEL, self._notified)
+                listener.add_termination_listener(self._dropped)
                 self._listener = listener
 
     def _alive_since(self) -> datetime:
