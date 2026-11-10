@@ -85,7 +85,8 @@ async def test_a_message_has_its_plain_text_body(client, google):
                 {
                     "mimeType": "text/html",
                     "body": _data(
-                        "<style>p{}</style><p>Your offer</p><p>Salary &amp; start</p>"
+                        "<style>p{}</style><p>Your offer</p>"
+                        "<p>Salary &amp; start<br/>Monday</p><script>x()</script>"
                     ),
                 }
             ],
@@ -98,7 +99,7 @@ async def test_a_message_has_its_plain_text_body(client, google):
     assert plain.status_code == 200
     assert plain.json()["body"] == "Could you share times?"
     assert plain.json()["to"] == "kelvin@gmail.com"
-    assert html_only.json()["body"] == "Your offer\nSalary & start"
+    assert html_only.json()["body"] == "Your offer\nSalary & start\nMonday"
 
 
 async def test_an_unknown_message_is_not_found(client):
