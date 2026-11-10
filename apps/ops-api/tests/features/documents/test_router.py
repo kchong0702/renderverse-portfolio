@@ -410,6 +410,7 @@ async def test_an_upload_is_stored_as_a_pending_import(app, client):
     assert created.json()["status"] == "pending"
     assert created.json()["size"] == len(pdf)
     assert created.json()["document_id"] is None
+    assert created.json()["suggestion"] is None
     assert [
         i["filename"] for i in (await client.get(f"{DOCUMENTS}/imports")).json()
     ] == ["kelvin-chong-resume.pdf"]
