@@ -4,7 +4,16 @@ from datetime import UTC, datetime
 import pytest
 
 from src.features.calendar import service as calendar_service
-from tests.conftest import PREFIX, a2a_sent, a2a_task, connect_google
+from tests.conftest import (
+    PREFIX,
+    a2a_sent,
+    a2a_task,
+    connect_google,
+    sse_events,
+    stream_chunk,
+    stream_status,
+    stream_task,
+)
 
 INBOX = f"{PREFIX}/inbox"
 
@@ -257,3 +266,81 @@ async def test_a_follow_up_for_an_unknown_application_is_not_found(
 
     assert response.status_code == 404
     assert harness.received == []
+
+
+async def _fetched(client, harness, request: dict) -> dict:
+    """What ops-api answered career-director's draft_reply pausing with this request"""
+    harness.outcomes = [
+        [stream_task(), stream_status("INPUT_REQUIRED", [{"data": request}])],
+        [
+            stream_chunk("a-1", "career-director", {"text": "Drafted."}),
+            stream_status("COMPLETED"),
+        ],
+    ]
+    response = await client.post(
+        f"{PREFIX}/assistant/chats/9b2d6f3e-1c4a-4e8b-9f0d-2a7c5e1b3d4f/messages",
+        json={"text": "Draft a reply to t-1"},
+    )
+    assert sse_events(response)[-1] == {"status": "completed", "reply": "Drafted."}
+    [part] = a2a_sent(harness)[-1]["params"]["message"]["parts"]
+    return part["data"]
+
+
+async def test_career_director_fetches_the_thread_it_drafts_a_reply_to(
+    client, google, harness
+):
+    await connect_google(client)
+    google.messages = {"m1": THREAD}
+
+    answer = await _fetched(client, harness, {"fetch": "thread", "id": "t-1"})
+
+    assert answer == {
+        "thread": {
+            "subject": "Final round",
+            "messages": [
+                {
+                    "sender": "Aisha Rahman <aisha@lumenpay.com>",
+                    "sent_at": "2025-11-09T01:12:00Z",
+                    "text": "Could you share times?",
+                }
+            ],
+        }
+    }
+
+
+async def test_a_thread_ops_cannot_read_is_answered_with_why(client, google, harness):
+    unconnected = await _fetched(client, harness, {"fetch": "thread", "id": "t-1"})
+    await connect_google(client)
+    missing = await _fetched(client, harness, {"fetch": "thread", "id": "t-9"})
+    unsafe = await _fetched(client, harness, {"fetch": "thread", "id": "../profile"})
+
+    assert unconnected == {"error": "Connect a Google account in Settings first"}
+    assert missing == {"error": "Google has no such item"}
+    assert list(unsafe) == ["error"]
+
+
+async def test_career_director_fetches_free_slots_for_the_days_it_asks(
+    client, google, harness
+):
+    await connect_google(client)
+    google.events = EVENTS
+
+    answer = await _fetched(client, harness, {"fetch": "free_slots", "days": 3})
+
+    assert answer == {"free_slots": FREE[:3], "timezone": "Asia/Kuala_Lumpur"}
+    [params] = google.calendar_params
+    assert params["timeMax"] == ["2026-11-14T12:00:00+00:00"]
+
+
+async def test_career_director_gets_no_free_slots_with_the_rule_off(
+    client, google, harness
+):
+    await connect_google(client)
+    await client.patch(
+        f"{PREFIX}/settings", json={"automation": {"offer_free_slots": False}}
+    )
+    google.events = EVENTS
+
+    answer = await _fetched(client, harness, {"fetch": "free_slots", "days": 3})
+
+    assert answer == {"free_slots": [], "timezone": "Asia/Kuala_Lumpur"}
