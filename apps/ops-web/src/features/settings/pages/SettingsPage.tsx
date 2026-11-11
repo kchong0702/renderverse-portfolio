@@ -2,11 +2,11 @@ import { useTranslation } from "react-i18next";
 import PageBody from "@/shared/components/PageBody";
 import PageHeader from "@/shared/components/PageHeader";
 import StateMessage from "@/shared/components/StateMessage";
-import AiPanel from "../components/AiPanel";
 import AutomationPanel from "../components/AutomationPanel";
 import ConnectionsPanel from "../components/ConnectionsPanel";
 import JobAgentPanel from "../components/JobAgentPanel";
 import SchedulingPanel from "../components/SchedulingPanel";
+import SystemPanel from "../components/SystemPanel";
 import { useSettings, useUpdateSettings } from "../hooks/useSettings";
 
 export default function SettingsPage() {
@@ -49,23 +49,27 @@ export default function SettingsPage() {
           </StateMessage>
         ) : (
           <div className="grid grid-cols-[repeat(auto-fit,minmax(min(420px,100%),1fr))] items-start gap-6">
-            <ConnectionsPanel connections={settings.data.connections} />
-            <JobAgentPanel
-              jobAgent={settings.data.job_agent}
-              onChange={update.mutate}
-            />
-            <AutomationPanel
-              automation={settings.data.automation}
-              onChange={update.mutate}
-            />
-            <SchedulingPanel
-              scheduling={settings.data.scheduling}
-              onChange={update.mutate}
-            />
-            <AiPanel
-              aiModel={settings.data.ai_model}
-              onChange={update.mutate}
-            />
+            <div className="flex flex-col gap-6">
+              <ConnectionsPanel connections={settings.data.connections} />
+              <AutomationPanel
+                automation={settings.data.automation}
+                onChange={update.mutate}
+              />
+            </div>
+            <div className="flex flex-col gap-6">
+              <JobAgentPanel
+                jobAgent={settings.data.job_agent}
+                onChange={update.mutate}
+              />
+              <SchedulingPanel
+                scheduling={settings.data.scheduling}
+                onChange={update.mutate}
+              />
+              <SystemPanel
+                aiModel={settings.data.ai_model}
+                onChange={update.mutate}
+              />
+            </div>
           </div>
         )}
       </PageBody>

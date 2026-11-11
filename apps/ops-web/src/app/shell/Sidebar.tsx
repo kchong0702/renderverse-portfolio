@@ -2,14 +2,14 @@ import { Sparkle } from "lucide-react";
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
-import { SignOutButton, useMe } from "@/features/auth";
+import { AccountMenu, useMe } from "@/features/auth";
+import { useProfile } from "@/features/portfolio";
 import { cn } from "@/shared/lib/cn";
 import { navGroups, useNavBadges } from "./nav";
-import ThemeToggle from "./ThemeToggle";
 
-function initials(email: string): string {
-  const name = email.split("@")[0];
-  const parts = name.split(/[._-]+/).filter(Boolean);
+function initials(nameOrEmail: string): string {
+  const name = nameOrEmail.split("@")[0];
+  const parts = name.split(/[\s._-]+/).filter(Boolean);
   return (
     parts.length > 1 ? parts[0][0] + parts[1][0] : name.slice(0, 2)
   ).toUpperCase();
@@ -18,6 +18,8 @@ function initials(email: string): string {
 export default function Sidebar() {
   const { t } = useTranslation();
   const { data: me } = useMe();
+  const { data: profile } = useProfile();
+  const name = profile?.name || me?.email;
   const badges = useNavBadges();
 
   return (
@@ -30,18 +32,20 @@ export default function Sidebar() {
           <Sparkle size={16} />
         </span>
         <span className="flex flex-col">
-          <span className="text-[17px] leading-tight font-bold">
+          <span className="text-[17px] leading-[1.2] font-bold">
             {t("shell.product")}
           </span>
-          <span className="text-side-muted text-xs">{t("shell.space")}</span>
+          <span className="text-side-muted text-xs/[1.6]">
+            {t("shell.space")}
+          </span>
         </span>
       </div>
 
-      <div className="flex flex-col gap-0.5 px-3.5 py-3">
+      <div className="flex flex-col gap-0.5 overflow-y-auto overscroll-none px-3.5 py-3">
         {navGroups.map((group, index) => (
           <Fragment key={group.heading ?? index}>
             {group.heading && (
-              <span className="text-side-muted px-3 pt-[18px] pb-1.5 text-xs font-medium">
+              <span className="text-side-muted px-3 pt-[18px] pb-1.5 text-xs/[1.6] font-medium">
                 {t(`nav.groups.${group.heading}`)}
               </span>
             )}
@@ -55,7 +59,7 @@ export default function Sidebar() {
                     "flex min-h-10 items-center gap-3 rounded-lg px-3 no-underline",
                     isActive
                       ? "bg-side-on text-side-on-ink font-semibold"
-                      : "text-side-muted hover:text-side-ink font-medium",
+                      : "text-side-muted font-medium",
                   )
                 }
               >
@@ -73,7 +77,7 @@ export default function Sidebar() {
                     {badges[key] && (
                       <span
                         className={cn(
-                          "rounded-full px-2 py-px text-xs font-medium",
+                          "rounded-full px-2 py-px text-xs/[1.6] font-medium",
                           isActive
                             ? "bg-side-badge-on text-side-on-ink"
                             : "bg-side-badge text-side-muted",
@@ -90,23 +94,27 @@ export default function Sidebar() {
         ))}
       </div>
 
-      <div className="min-h-4 flex-1" />
+      <div className="mb-3 min-h-4 flex-1" />
 
-      <div className="border-side-line bg-side-foot flex items-center gap-3 border-t px-[22px] py-4">
+      <AccountMenu>
         <span
           aria-hidden="true"
           className="border-side-on-border text-amber-soft flex size-9 shrink-0 items-center justify-center rounded-full border text-[13px] font-semibold"
         >
-          {me ? initials(me.email) : ""}
+          {name ? initials(name) : ""}
         </span>
-        <span className="min-w-0 truncate text-[13px] font-semibold">
-          {me?.email}
+        <span className="flex w-0 flex-1 flex-col">
+          <span className="text-[13px] font-semibold">{name}</span>
+          {profile?.headline && (
+            <span
+              title={profile.headline}
+              className="text-side-muted truncate text-[11px]/[1.6]"
+            >
+              {profile.headline}
+            </span>
+          )}
         </span>
-        <span className="ml-auto flex">
-          <ThemeToggle />
-          <SignOutButton />
-        </span>
-      </div>
+      </AccountMenu>
     </nav>
   );
 }
