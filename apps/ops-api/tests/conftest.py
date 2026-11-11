@@ -44,6 +44,7 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ["OPS_API_GOOGLE__CLIENT_ID"] = "client.test"
     os.environ["OPS_API_GOOGLE__CLIENT_SECRET"] = "client-secret"
     os.environ["OPS_API_GOOGLE__ENCRYPTION_KEY"] = ENCRYPTION_KEY
+    os.environ["OPS_API_PORTFOLIO__SITE_URL"] = ""
 
 
 class FakeProvider:
