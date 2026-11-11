@@ -31,6 +31,7 @@ export interface Step {
   parent: string | null;
   name: string;
   status: "running" | "done" | "failed" | "waiting";
+  detail: string | null;
 }
 
 export type Outcome =

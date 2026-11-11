@@ -70,10 +70,20 @@ const actionIcons: Partial<Record<string, LucideIcon>> = {
   find_jobs: SearchAction,
   search_jobs: SearchAction,
   analyse_job: SearchAction,
+  search_threads: SearchAction,
   edit_document: EditAction,
   propose_changeset: EditAction,
   agent: EditAction,
 };
+
+const quietSteps = new Set([
+  "choose_document",
+  "write_todos",
+  "ls",
+  "read_file",
+  "glob",
+  "grep",
+]);
 
 function DocumentChoices({
   kind,
@@ -277,6 +287,8 @@ function Timeline({
             </li>
           );
         const Icon = actionIcons[part.step.name] ?? FileText;
+        const label = done[part.step.name] ?? t("assistant.anyDone");
+        const { detail } = part.step;
         const substeps = part.substeps.filter(
           (substep) =>
             substep.status === "done" &&
@@ -288,7 +300,12 @@ function Timeline({
               <span className="text-ink-3 flex">
                 <Icon size={13} strokeWidth={2} />
               </span>
-              {done[part.step.name]}
+              {label}
+              {detail && !label.includes(detail) && (
+                <span className="text-ink-3">
+                  {t("assistant.stepDetail", { detail })}
+                </span>
+              )}
             </span>
             {substeps.length > 0 && (
               <span className="ml-[21px] flex flex-col gap-1">
@@ -322,9 +339,13 @@ function Working({
   const { t } = useTranslation();
   const shown = turn.parts.filter(
     (part): part is StepPart =>
-      part.kind === "step" && Boolean(steps[part.step.name]),
+      part.kind === "step" && !quietSteps.has(part.step.name),
   );
-  const current = shown.filter((part) => part.step.status === "running").at(-1);
+  const current = shown
+    .filter(
+      ({ step }) => step.status === "running" || step.status === "waiting",
+    )
+    .at(-1);
   const rows = shown.filter((part) => part.step.status === "done");
   const currentSubsteps =
     current?.substeps.filter(
@@ -341,17 +362,25 @@ function Working({
       <p role="status" className="m-0 flex items-center gap-2 text-sm">
         <LoaderCircle size={14} className="text-ink-3 animate-spin" />
         <span className="shimmer font-medium">
-          {current ? steps[current.step.name] : t("assistant.thinking")}
+          {current
+            ? (steps[current.step.name] ?? t("assistant.anyStep"))
+            : t("assistant.thinking")}
         </span>
       </p>
       {(rows.length > 0 || currentSubsteps.length > 0) && (
         <div className="border-hair text-ink-3 ml-1.5 flex flex-col gap-[7px] border-l pl-[15px] text-[13px]">
-          {rows.map((part) => (
-            <span key={part.step.id} className="flex items-center gap-2">
-              <Check size={13} strokeWidth={2.4} className="text-ok" />
-              {done[part.step.name]}
-            </span>
-          ))}
+          {rows.map(({ step }) => {
+            const label = done[step.name] ?? t("assistant.anyDone");
+            return (
+              <span key={step.id} className="flex items-center gap-2">
+                <Check size={13} strokeWidth={2.4} className="text-ok" />
+                {label}
+                {step.detail &&
+                  !label.includes(step.detail) &&
+                  ` ${t("assistant.stepDetail", { detail: step.detail })}`}
+              </span>
+            );
+          })}
           {current &&
             currentSubsteps.map((substep) =>
               substep.status === "done" ? (
@@ -420,7 +449,7 @@ function Turn({
       (part.kind === "thinking" && Boolean(part.text.trim())) ||
       (part.kind === "step" &&
         part.step.status === "done" &&
-        Boolean(done[part.step.name])),
+        !quietSteps.has(part.step.name)),
   );
   const timelineId = useId();
 
