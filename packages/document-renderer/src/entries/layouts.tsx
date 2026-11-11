@@ -1,31 +1,31 @@
 import type { ReactNode } from "react";
 import type { EntryLayout } from "../generated/template";
 import { EntryDetails, EntryMeta, EntryTitle } from "./details";
-import type { EntryView } from "../types";
+import type { EntryProps } from "../types";
 
-const TitleFirst = ({ entry }: { entry: EntryView }) => (
+const TitleFirst = (props: EntryProps) => (
   <>
     <div className="dr-entry-head">
-      <EntryTitle entry={entry} />
-      <EntryMeta entry={entry} />
+      <EntryTitle {...props} />
+      <EntryMeta {...props} />
     </div>
-    <EntryDetails entry={entry} />
+    <EntryDetails {...props} />
   </>
 );
 
 export const entryLayouts: Record<
   EntryLayout,
-  (props: { entry: EntryView }) => ReactNode
+  (props: EntryProps) => ReactNode
 > = {
   inline: TitleFirst,
-  "dates-left": ({ entry }) => (
+  "dates-left": (props) => (
     <>
-      <EntryMeta entry={entry} />
+      <EntryMeta {...props} />
       <div className="dr-entry-body">
         <div className="dr-entry-head">
-          <EntryTitle entry={entry} />
+          <EntryTitle {...props} />
         </div>
-        <EntryDetails entry={entry} />
+        <EntryDetails {...props} />
       </div>
     </>
   ),

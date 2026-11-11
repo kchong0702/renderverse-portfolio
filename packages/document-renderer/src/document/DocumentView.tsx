@@ -1,5 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useContext, type CSSProperties, type ReactNode } from "react";
 import { blocks } from "../blocks";
+import { EditingContext } from "../editing/context";
 import { defaults } from "../generated/defaults";
 import type { AnyDocument, Design, Font } from "../generated/document";
 import type { TemplateSpec } from "../generated/template";
@@ -72,6 +73,7 @@ export function DocumentView({
   template,
   assetUrl,
 }: DocumentViewProps) {
+  const { Region } = useContext(EditingContext);
   const design = designOf(document);
   const regions = place(document, template);
   const rowCount = rowCountOf(regions);
@@ -116,37 +118,36 @@ export function DocumentView({
           "--bleed-top": area.row === 1 ? "var(--margin)" : "0mm",
         };
         return (
-          <section
+          <Region
             key={region.region}
-            className="dr-region"
-            data-region={region.region}
-            data-flows={region.flows}
-            data-band={fillsPageHeight(region, rowCount)}
-            data-fill={spec.fill}
-            data-divider={spec.divider ?? undefined}
-            data-align={spec.align}
-            data-title={spec.title}
-            data-skills={spec.skills}
-            data-floats={
-              ctx.photo !== "top" &&
-              region.blocks.some((block) => block.kind === "photo")
-            }
-            style={
-              {
+            region={region.region}
+            props={{
+              className: "dr-region",
+              "data-region": region.region,
+              "data-flows": region.flows,
+              "data-band": fillsPageHeight(region, rowCount),
+              "data-fill": spec.fill,
+              "data-divider": spec.divider ?? undefined,
+              "data-align": spec.align,
+              "data-title": spec.title,
+              "data-skills": spec.skills,
+              "data-floats":
+                ctx.photo !== "top" &&
+                region.blocks.some((block) => block.kind === "photo"),
+              style: {
                 gridColumn: `${area.column} / span ${area.span}`,
                 gridRow: `${area.row} / span ${area.rows}`,
                 ...bleed,
-              } as CSSProperties
-            }
-          >
-            {region.blocks.map((block) => {
-              const Block = blocks[block.kind] as (props: {
-                block: AnyBlock;
-                ctx: Context;
-              }) => ReactNode;
-              return <Block key={block.id} block={block} ctx={ctx} />;
-            })}
-          </section>
+              } as CSSProperties,
+              children: region.blocks.map((block) => {
+                const Block = blocks[block.kind] as (props: {
+                  block: AnyBlock;
+                  ctx: Context;
+                }) => ReactNode;
+                return <Block key={block.id} block={block} ctx={ctx} />;
+              }),
+            }}
+          />
         );
       })}
     </div>

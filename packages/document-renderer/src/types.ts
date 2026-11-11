@@ -1,4 +1,3 @@
-import type { TFunction } from "i18next";
 import type {
   AnyDocument,
   Bullet,
@@ -8,12 +7,14 @@ import type {
 import type { PhotoSpot } from "./generated/template";
 import type { AnyBlock, Spec } from "./layout/place";
 
+export type Translate = (key: string) => string;
+
 export interface Context {
   document: AnyDocument;
   spec: Spec;
   photo: PhotoSpot;
   assetUrl: (hash: string) => string;
-  t: TFunction;
+  t: Translate;
 }
 
 export type Block<K extends AnyBlock["kind"]> = Extract<AnyBlock, { kind: K }>;
@@ -48,4 +49,17 @@ export interface EntryView {
   bullets?: Bullet[];
   links?: Link[];
   tags?: string[];
+}
+
+export interface EntryFields {
+  title: string;
+  subtitle: string;
+  dates: string;
+  place?: string;
+}
+
+export interface EntryProps {
+  entry: EntryView;
+  path: string;
+  fields: EntryFields;
 }

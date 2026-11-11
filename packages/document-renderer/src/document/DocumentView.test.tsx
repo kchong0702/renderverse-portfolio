@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import { DocumentView, pageCss } from "./DocumentView";
+import { EditingContext, readOnly } from "../editing/context";
 import { templates } from "../templates";
 import { resume } from "../../tests/fixtures";
 
@@ -51,4 +52,39 @@ test("a template without a photo spot leaves the photo off", () => {
   expect(html(resume(), { ...templates.classic, photo: "none" })).not.toContain(
     "dr-photo",
   );
+});
+
+test("an editor gets every field's update_field path", () => {
+  const out = renderToStaticMarkup(
+    <EditingContext.Provider
+      value={{
+        ...readOnly,
+        Text: ({ path, text }) => <span data-path={path}>{text}</span>,
+        RichText: ({ path }) => <div data-path={path} />,
+        Bullet: ({ path, bullet }) => (
+          <li data-path={`${path}/bullets/${bullet.id}/text`} />
+        ),
+      }}
+    >
+      <DocumentView
+        document={resume()}
+        template={templates.classic}
+        assetUrl={(hash) => `assets/${hash}`}
+      />
+    </EditingContext.Provider>,
+  );
+
+  for (const path of [
+    "blocks/profile/name",
+    "blocks/contacts/items/c1/value",
+    "blocks/sum/heading",
+    "blocks/sum/text",
+    "blocks/exp/items/acme/role",
+    "blocks/exp/items/acme/company",
+    "blocks/exp/items/acme/dates/text",
+    "blocks/exp/items/acme/bullets/b1/text",
+    "blocks/sk/items/s1/label",
+    "blocks/sk/items/s1/items/t1/text",
+  ])
+    expect(out).toContain(`data-path="${path}"`);
 });

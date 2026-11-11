@@ -3,7 +3,7 @@ import { SelectField } from "@/shared/components/fields";
 import Panel from "@/shared/components/Panel";
 import type { JobAgent, SettingsPatch } from "../api/settings";
 import { MIN_SCORES, RUN_TIMES, hhmm, withCurrent } from "../lib/options";
-import DraftTextField from "./DraftTextField";
+import DraftTextField from "@/shared/components/DraftTextField";
 
 interface JobAgentPanelProps {
   jobAgent: JobAgent;
