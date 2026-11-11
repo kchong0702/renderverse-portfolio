@@ -6,16 +6,18 @@ import {
 import {
   cancelImport,
   createDocument,
+  decideChangeset,
   deleteDocument,
   editDocument,
+  fetchChangesets,
   fetchDocument,
   fetchDocuments,
   fetchImports,
   fetchRender,
-  fetchTemplates,
+  readImport,
   setMaster,
   startImport,
-  type DocumentKind,
+  undoChangesetEdit,
   type DocumentRecord,
 } from "../api/documents";
 
@@ -30,16 +32,17 @@ export const documentQueryOptions = (id: string) =>
     queryFn: ({ signal }) => fetchDocument(id, signal),
   });
 
-export const templatesQueryOptions = (kind: DocumentKind) =>
+export const changesetsQueryOptions = (id: string) =>
   queryOptions({
-    queryKey: ["documents", "templates", kind],
-    queryFn: ({ signal }) => fetchTemplates(kind, signal),
-    staleTime: Infinity,
+    queryKey: ["documents", id, "changesets"],
+    queryFn: ({ signal }) => fetchChangesets(id, signal),
   });
 
 export const importsQueryOptions = queryOptions({
   queryKey: ["documents", "imports"],
   queryFn: ({ signal }) => fetchImports(signal),
+  refetchInterval: ({ state }) =>
+    state.data?.[0]?.status === "running" ? 5000 : false,
 });
 
 function storeDocument(client: QueryClient, document: DocumentRecord) {
@@ -67,6 +70,30 @@ export const editDocumentMutationOptions = mutationOptions({
 export const designDocumentMutationOptions = mutationOptions({
   ...editDocumentMutationOptions,
   mutationKey: ["documents", "design"],
+});
+
+const refreshDocument = (client: QueryClient, id: string) =>
+  client.invalidateQueries({ queryKey: documentQueryOptions(id).queryKey });
+
+export const undoEditMutationOptions = mutationOptions({
+  mutationKey: ["documents", "edit", "undo"],
+  mutationFn: undoChangesetEdit,
+  scope: { id: "documents:edit" },
+  onSettled: (_undone, _error, { id }, _result, { client }) =>
+    refreshDocument(client, id),
+});
+
+export const decideChangesetMutationOptions = mutationOptions({
+  mutationFn: decideChangeset,
+  scope: { id: "documents:edit" },
+  onSettled: (_decided, _error, { id }, _result, { client }) =>
+    Promise.all([
+      refreshDocument(client, id),
+      client.invalidateQueries({
+        queryKey: documentsQueryOptions.queryKey,
+        exact: true,
+      }),
+    ]),
 });
 
 export const deleteDocumentMutationOptions = mutationOptions({
@@ -98,4 +125,17 @@ export const cancelImportMutationOptions = mutationOptions({
   mutationFn: cancelImport,
   onSettled: (_cancelled, _error, _id, _result, { client }) =>
     client.invalidateQueries({ queryKey: importsQueryOptions.queryKey }),
+});
+
+export const readImportMutationOptions = mutationOptions({
+  mutationKey: ["documents", "imports", "read"],
+  mutationFn: readImport,
+  onSettled: (_import, _error, _id, _result, { client }) =>
+    Promise.all([
+      client.invalidateQueries({ queryKey: importsQueryOptions.queryKey }),
+      client.invalidateQueries({
+        queryKey: documentsQueryOptions.queryKey,
+        exact: true,
+      }),
+    ]),
 });

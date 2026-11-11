@@ -1,22 +1,31 @@
-import { useIsMutating } from "@tanstack/react-query";
 import {
-  CircleCheck,
-  CirclePause,
-  CircleStop,
-  CircleX,
+  ArrowUp,
+  Check,
+  ChevronRight,
+  CircleAlert,
+  FileCheck,
+  FileText,
   LoaderCircle,
   Sparkle,
-  SquarePen,
+  createLucideIcon,
+  type LucideIcon,
 } from "lucide-react";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import Badge from "@/shared/components/Badge";
 import { buttonClass } from "@/shared/components/button";
-import type { DocumentKind, Step, Widget } from "../api/assistant";
+import { cn } from "@/shared/lib/cn";
+import {
+  MAX_RECONNECTS,
+  type DocumentKind,
+  type Widget,
+} from "../api/assistant";
 import {
   useAnswerTask,
+  useChat,
   useDocuments,
-  useResumeTurn,
+  useResumeTurns,
   useSendMessage,
   useStop,
 } from "../hooks/useAssistant";
@@ -24,12 +33,59 @@ import {
   openTurn,
   useAssistantStore,
   type AssistantTurn,
+  type ChatEntry,
+  type Part,
 } from "../state/assistantStore";
 
-const fieldClass =
-  "border-hair bg-ground text-ink min-h-10 rounded-lg border px-3 py-2 text-sm leading-normal disabled:opacity-60";
+const NO_ENTRIES: ChatEntry[] = [];
 
-function DocumentPills({
+const StopSquare = createLucideIcon("StopSquare", [
+  [
+    "rect",
+    {
+      x: "5",
+      y: "5",
+      width: "14",
+      height: "14",
+      rx: "2",
+      fill: "currentColor",
+      stroke: "none",
+      key: "0",
+    },
+  ],
+]);
+
+const SearchAction = createLucideIcon("SearchAction", [
+  ["circle", { cx: "11", cy: "11", r: "7", key: "0" }],
+  ["path", { d: "m20 20-3.5-3.5", key: "1" }],
+]);
+
+const EditAction = createLucideIcon("EditAction", [
+  ["path", { d: "M12 20h9", key: "0" }],
+  ["path", { d: "M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z", key: "1" }],
+]);
+
+const actionIcons: Partial<Record<string, LucideIcon>> = {
+  find_documents: SearchAction,
+  find_jobs: SearchAction,
+  search_jobs: SearchAction,
+  analyse_job: SearchAction,
+  search_threads: SearchAction,
+  edit_document: EditAction,
+  propose_changeset: EditAction,
+  agent: EditAction,
+};
+
+const quietSteps = new Set([
+  "choose_document",
+  "write_todos",
+  "ls",
+  "read_file",
+  "glob",
+  "grep",
+]);
+
+function DocumentChoices({
   kind,
   disabled,
   onPick,
@@ -69,26 +125,36 @@ function DocumentPills({
     );
 
   return (
-    <ul
-      aria-label={t("assistant.documents.label")}
-      className="m-0 flex list-none flex-wrap gap-2 p-0"
+    <div
+      role="group"
+      aria-label={t(`assistant.documents.groups.${kind ?? "all"}`)}
+      className="flex flex-col gap-2"
     >
       {choices.map((document) => (
-        <li key={document.id}>
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => onPick(document.title)}
-            className="border-hair text-ink hover:bg-chip flex min-h-9 cursor-pointer items-center gap-2 rounded-full border bg-transparent px-3 text-[13px] disabled:cursor-default disabled:opacity-60"
-          >
-            {document.title}
-            {document.master && (
-              <Badge>{t("assistant.documents.master")}</Badge>
-            )}
-          </button>
-        </li>
+        <button
+          key={document.id}
+          type="button"
+          disabled={disabled}
+          onClick={() => onPick(document.title)}
+          className="border-hair bg-panel text-ink flex min-h-12 cursor-pointer items-center gap-2.5 rounded-xl border px-3.5 text-left text-sm disabled:cursor-default disabled:opacity-60"
+        >
+          <FileText size={16} className="text-ink-3 shrink-0" />
+          <span className="flex-1 font-medium">{document.title}</span>
+          {document.master ? (
+            <Badge tone="accent">{t("assistant.documents.master")}</Badge>
+          ) : (
+            <span className="text-ink-3 text-xs">
+              {t("assistant.documents.edited", {
+                date: new Intl.DateTimeFormat(i18n.language, {
+                  day: "numeric",
+                  month: "short",
+                }).format(new Date(document.updated_at)),
+              })}
+            </span>
+          )}
+        </button>
       ))}
-    </ul>
+    </div>
   );
 }
 
@@ -96,216 +162,422 @@ function ChatWidget({
   taskId,
   widget,
   live,
+  answer,
 }: {
   taskId: string;
   widget: Widget;
   live: boolean;
+  answer: ReturnType<typeof useAnswerTask>;
 }) {
   const { t } = useTranslation();
-  const answer = useAnswerTask();
-  const chatId = useAssistantStore((state) => state.chatId);
-  const [input, setInput] = useState("");
-  const labelId = useId();
-  const choosesDocument = widget.choose === "document";
-  const asksInput = widget.input_placeholder !== null || choosesDocument;
-  const cancelLabel = widget.cancel_btn;
+  const chat = useChat();
+  const typed =
+    widget.input_placeholder !== null || widget.choose === "document";
 
   return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        answer.mutate({
-          chatId,
-          taskId,
-          answer: { input: input.trim() || undefined, accept: true },
-          shown: input.trim() || widget.submit_btn || t("assistant.send"),
-        });
-      }}
-      className="border-hair flex flex-col gap-2 self-stretch rounded-xl border p-3"
-    >
-      {widget.label && (
-        <p id={labelId} className="text-ink m-0 text-sm">
-          {widget.label}
-        </p>
+    <>
+      {widget.label && <p className="text-ink m-0 text-sm">{widget.label}</p>}
+      {live && widget.input_value !== null && (
+        <input
+          disabled
+          value={widget.input_value}
+          aria-label={widget.label ?? undefined}
+          className="border-hair bg-ground text-ink min-h-10 rounded-lg border px-3 py-2 text-sm disabled:opacity-60"
+        />
       )}
-      {live && (
-        <>
-          {widget.input_value !== null && (
-            <input
-              disabled
-              value={widget.input_value}
-              aria-labelledby={labelId}
-              className={fieldClass}
-            />
-          )}
-          {choosesDocument && (
-            <DocumentPills
-              kind={widget.kind}
+      {live && widget.choose === "document" && (
+        <DocumentChoices
+          kind={widget.kind}
+          disabled={answer.isPending}
+          onPick={(title) =>
+            answer.mutate({
+              chat,
+              taskId,
+              answer: { input: title },
+              shown: title,
+            })
+          }
+        />
+      )}
+      {live && !typed && (
+        <span className="flex gap-2">
+          <button
+            type="button"
+            disabled={answer.isPending}
+            onClick={() =>
+              answer.mutate({
+                chat,
+                taskId,
+                answer: { accept: true },
+                shown: widget.submit_btn ?? t("assistant.send"),
+              })
+            }
+            className={buttonClass("primary")}
+          >
+            {widget.submit_btn ?? t("assistant.send")}
+          </button>
+          {widget.cancel_btn !== null && (
+            <button
+              type="button"
               disabled={answer.isPending}
-              onPick={(title) =>
+              onClick={() =>
                 answer.mutate({
-                  chatId,
+                  chat,
                   taskId,
-                  answer: { input: title },
-                  shown: title,
+                  answer: { accept: false },
+                  shown: widget.cancel_btn ?? "",
                 })
               }
-            />
-          )}
-          {asksInput && (
-            <input
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              placeholder={
-                widget.input_placeholder ?? t("assistant.documents.typeTitle")
-              }
-              aria-labelledby={labelId}
-              disabled={answer.isPending}
-              className={fieldClass}
-            />
-          )}
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={answer.isPending || (asksInput && !input.trim())}
-              className={buttonClass("primary")}
+              className={buttonClass()}
             >
-              {widget.submit_btn ?? t("assistant.send")}
+              {widget.cancel_btn}
             </button>
-            {cancelLabel !== null && (
-              <button
-                type="button"
-                disabled={answer.isPending}
-                onClick={() =>
-                  answer.mutate({
-                    chatId,
-                    taskId,
-                    answer: { accept: false },
-                    shown: cancelLabel,
-                  })
-                }
-                className={buttonClass()}
-              >
-                {cancelLabel}
-              </button>
-            )}
-          </div>
-          {answer.error && (
-            <p role="alert" className="text-crit m-0 text-[13px]">
-              {t("assistant.answerFailed", { reason: answer.error.message })}
-            </p>
           )}
-        </>
+        </span>
       )}
-    </form>
+      {live && answer.error && (
+        <p role="alert" className="text-crit m-0 text-[13px]">
+          {t("assistant.answerFailed", { reason: answer.error.message })}
+        </p>
+      )}
+    </>
   );
 }
 
-const stepIcons = {
-  running: <LoaderCircle size={14} className="text-ink-3 animate-spin" />,
-  done: <CircleCheck size={14} className="text-ok" />,
-  failed: <CircleX size={14} className="text-crit" />,
-  waiting: <CirclePause size={14} className="text-amber" />,
-  stopped: <CircleStop size={14} className="text-ink-3" />,
-} satisfies Record<Step["status"] | "stopped", ReactNode>;
+type StepPart = Extract<Part, { kind: "step" }>;
 
-function StepRow({
-  step,
-  label,
-  ended,
+type Activity = Extract<Part, { kind: "thinking" | "step" }>;
+
+type Labels = Partial<Record<string, string>>;
+
+function duration({ startedAt, endedAt }: AssistantTurn) {
+  const seconds = Math.max(
+    1,
+    Math.round(((endedAt ?? startedAt) - startedAt) / 1000),
+  );
+  return seconds < 60
+    ? `${seconds}s`
+    : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
+
+function Timeline({
+  id,
+  activity,
+  done,
+  doneSubsteps,
 }: {
-  step: Step;
-  label: string;
-  ended: boolean;
+  id: string;
+  activity: Activity[];
+  done: Labels;
+  doneSubsteps: Partial<Record<string, Labels>>;
 }) {
   const { t } = useTranslation();
-  const status = ended && step.status === "running" ? "stopped" : step.status;
 
   return (
-    <span className="flex items-center gap-2">
-      <span
-        role="img"
-        aria-label={t(`assistant.stepStatus.${status}`)}
-        className="flex"
-      >
-        {stepIcons[status]}
-      </span>
-      {label}
-    </span>
+    <ol
+      id={id}
+      aria-label={t("assistant.whatItDid")}
+      className="border-hair text-ink-3 m-0 -mt-1 ml-1.5 flex list-none flex-col gap-2.5 border-l p-0 pl-[15px] text-[13px]"
+    >
+      {activity.map((part, index) => {
+        if (part.kind === "thinking")
+          return (
+            <li key={index} className="whitespace-pre-wrap">
+              {part.text}
+            </li>
+          );
+        const Icon = actionIcons[part.step.name] ?? FileText;
+        const label = done[part.step.name] ?? t("assistant.anyDone");
+        const { detail } = part.step;
+        const substeps = part.substeps.filter(
+          (substep) =>
+            substep.status === "done" &&
+            doneSubsteps[part.step.name]?.[substep.name],
+        );
+        return (
+          <li key={part.step.id} className="flex flex-col gap-1.5">
+            <span className="text-ink-2 flex items-center gap-2">
+              <span className="text-ink-3 flex">
+                <Icon size={13} strokeWidth={2} />
+              </span>
+              {label}
+              {detail && !label.includes(detail) && (
+                <span className="text-ink-3">
+                  {t("assistant.stepDetail", { detail })}
+                </span>
+              )}
+            </span>
+            {substeps.length > 0 && (
+              <span className="ml-[21px] flex flex-col gap-1">
+                {substeps.map((substep) => (
+                  <span key={substep.id}>
+                    {doneSubsteps[part.step.name]?.[substep.name]}
+                  </span>
+                ))}
+              </span>
+            )}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
-function Turn({ turn, last }: { turn: AssistantTurn; last: boolean }) {
+function Working({
+  turn,
+  steps,
+  substeps,
+  done,
+  doneSubsteps,
+}: {
+  turn: AssistantTurn;
+  steps: Labels;
+  substeps: Partial<Record<string, Labels>>;
+  done: Labels;
+  doneSubsteps: Partial<Record<string, Labels>>;
+}) {
   const { t } = useTranslation();
-  const tools: Partial<
-    Record<string, { label: string; steps: Partial<Record<string, string>> }>
-  > = t("assistant.tools", { returnObjects: true });
-  const running = turn.outcome === null;
-  const end = turn.parts.at(-1);
+  const shown = turn.parts.filter(
+    (part): part is StepPart =>
+      part.kind === "step" && !quietSteps.has(part.step.name),
+  );
+  const current = shown
+    .filter(
+      ({ step }) => step.status === "running" || step.status === "waiting",
+    )
+    .at(-1);
+  const rows = shown.filter((part) => part.step.status === "done");
+  const currentSubsteps =
+    current?.substeps.filter(
+      (substep) =>
+        (substep.status === "done" &&
+          doneSubsteps[current.step.name]?.[substep.name]) ||
+        (substep.status === "running" &&
+          substeps[current.step.name]?.[substep.name]),
+    ) ?? [];
+  const thought = turn.parts.filter((part) => part.kind === "thinking").at(-1);
 
   return (
-    <div className="flex flex-col gap-2">
-      {turn.parts.map((part, index) =>
-        part.kind === "thinking" ? (
-          <details key={index} className="text-ink-3 text-[13px]">
-            <summary className="cursor-pointer">
-              {running && part === end
-                ? t("assistant.thinking")
-                : t("assistant.thought")}
-            </summary>
-            <p className="border-hair m-0 mt-1 border-l pl-3 whitespace-pre-wrap">
+    <div className="flex flex-col gap-2.5">
+      <p role="status" className="m-0 flex items-center gap-2 text-sm">
+        <LoaderCircle size={14} className="text-ink-3 animate-spin" />
+        <span className="shimmer font-medium">
+          {current
+            ? (steps[current.step.name] ?? t("assistant.anyStep"))
+            : t("assistant.thinking")}
+        </span>
+      </p>
+      {(rows.length > 0 || currentSubsteps.length > 0) && (
+        <div className="border-hair text-ink-3 ml-1.5 flex flex-col gap-[7px] border-l pl-[15px] text-[13px]">
+          {rows.map(({ step }) => {
+            const label = done[step.name] ?? t("assistant.anyDone");
+            return (
+              <span key={step.id} className="flex items-center gap-2">
+                <Check size={13} strokeWidth={2.4} className="text-ok" />
+                {label}
+                {step.detail &&
+                  !label.includes(step.detail) &&
+                  ` ${t("assistant.stepDetail", { detail: step.detail })}`}
+              </span>
+            );
+          })}
+          {current &&
+            currentSubsteps.map((substep) =>
+              substep.status === "done" ? (
+                <span key={substep.id} className="flex items-center gap-2">
+                  <Check size={13} strokeWidth={2.4} className="text-ok" />
+                  {doneSubsteps[current.step.name]?.[substep.name]}
+                </span>
+              ) : (
+                <span
+                  key={substep.id}
+                  className="text-ink-2 flex items-center gap-2"
+                >
+                  <LoaderCircle
+                    size={13}
+                    strokeWidth={2.4}
+                    className="animate-spin"
+                  />
+                  {substeps[current.step.name]?.[substep.name]}
+                </span>
+              ),
+            )}
+        </div>
+      )}
+      {thought && (
+        <p className="text-ink-3 m-0 mt-0.5 line-clamp-2 text-[13px] italic">
+          {thought.text.trim()}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Turn({
+  turn,
+  last,
+  answer,
+  onRetry,
+}: {
+  turn: AssistantTurn;
+  last: boolean;
+  answer: ReturnType<typeof useAnswerTask>;
+  onRetry?: () => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const steps: Labels = t("assistant.steps", { returnObjects: true });
+  const substeps: Partial<Record<string, Labels>> = t("assistant.substeps", {
+    returnObjects: true,
+  });
+  const changeset = turn.parts.find((part) => part.kind === "changeset");
+  const done: Labels = {
+    ...t("assistant.done", { returnObjects: true }),
+    ...(changeset?.kind === "changeset" && {
+      edit_document: t("assistant.edited", {
+        title: changeset.changeset.title,
+      }),
+    }),
+  };
+  const doneSubsteps: Partial<Record<string, Labels>> = t(
+    "assistant.doneSubsteps",
+    { returnObjects: true },
+  );
+  const running = turn.outcome === null;
+  const activity = turn.parts.filter(
+    (part): part is Activity =>
+      (part.kind === "thinking" && Boolean(part.text.trim())) ||
+      (part.kind === "step" &&
+        part.step.status === "done" &&
+        !quietSteps.has(part.step.name)),
+  );
+  const timelineId = useId();
+
+  return (
+    <div className="flex flex-col gap-3.5">
+      {running
+        ? (turn.reconnecting === 0 || turn.parts.length > 0) && (
+            <Working
+              turn={turn}
+              steps={steps}
+              substeps={substeps}
+              done={done}
+              doneSubsteps={doneSubsteps}
+            />
+          )
+        : activity.length > 0 && (
+            <>
+              <button
+                type="button"
+                aria-expanded={open}
+                aria-controls={timelineId}
+                onClick={() => setOpen(!open)}
+                className="text-ink-3 flex cursor-pointer items-center gap-1.5 self-start border-0 bg-transparent px-0 py-1 text-[13px] font-medium"
+              >
+                {t("assistant.thoughtFor", { duration: duration(turn) })}
+                <ChevronRight
+                  size={14}
+                  strokeWidth={2}
+                  className={
+                    open
+                      ? "rotate-90 transition-transform"
+                      : "transition-transform"
+                  }
+                />
+              </button>
+              {open && (
+                <Timeline
+                  id={timelineId}
+                  activity={activity}
+                  done={done}
+                  doneSubsteps={doneSubsteps}
+                />
+              )}
+            </>
+          )}
+      {turn.parts.map(
+        (part, index) =>
+          part.kind === "text" && (
+            <p key={index} className="text-ink m-0 text-sm whitespace-pre-wrap">
               {part.text}
             </p>
-          </details>
-        ) : part.kind === "text" ? (
-          <p
-            key={index}
-            className="text-ink m-0 max-w-[85%] text-sm whitespace-pre-wrap"
-          >
-            {part.text}
-          </p>
-        ) : (
-          <div
-            key={index}
-            className="text-ink-2 flex flex-col gap-1 text-[13px]"
-          >
-            <StepRow
-              step={part.step}
-              ended={!running}
-              label={tools[part.step.name]?.label ?? part.step.name}
-            />
-            {part.substeps.map((substep) => {
-              const label = tools[part.step.name]?.steps[substep.name];
-              return (
-                label && (
-                  <span key={substep.id} className="text-ink-3 pl-[22px]">
-                    <StepRow step={substep} label={label} ended={!running} />
-                  </span>
-                )
-              );
-            })}
-          </div>
-        ),
+          ),
       )}
-      {running &&
-        (!end || (end.kind === "step" && end.step.status !== "running")) && (
-          <p role="status" className="text-ink-3 m-0 text-[13px]">
-            {t("assistant.thinking")}
-          </p>
-        )}
+      {turn.parts.map(
+        (part, index) =>
+          part.kind === "changeset" && (
+            <div
+              key={index}
+              className="border-hair bg-well flex items-center gap-2.5 rounded-xl border px-3 py-2.5"
+            >
+              <FileCheck size={16} className="text-amber shrink-0" />
+              <span className="flex flex-1 flex-col leading-tight">
+                <span className="text-ink text-sm font-semibold">
+                  {t("assistant.editsToReview", {
+                    count: part.changeset.edits,
+                  })}
+                </span>
+                <span className="text-ink-3 text-xs">
+                  {part.changeset.title}
+                </span>
+              </span>
+              <Link
+                to={`/documents?doc=${part.changeset.document_id}&panel=changes`}
+                className="bg-primary text-on-primary flex min-h-9 items-center rounded-full px-3.5 text-[13px] font-semibold no-underline"
+              >
+                {t("assistant.review")}
+              </Link>
+            </div>
+          ),
+      )}
+      {running && turn.reconnecting > 0 && (
+        <div role="status" className="flex flex-col gap-3.5 text-[13px]">
+          <span className="text-ink-2 flex items-center gap-2">
+            <LoaderCircle size={14} className="text-warn animate-spin" />
+            {t("assistant.reconnecting", {
+              attempt: turn.reconnecting,
+              max: MAX_RECONNECTS,
+            })}
+          </span>
+          <span className="text-ink-3">{t("assistant.keepsRunning")}</span>
+        </div>
+      )}
       {turn.outcome?.status === "input_required" ? (
         <ChatWidget
           taskId={turn.outcome.task_id}
           widget={turn.outcome.widget}
           live={last}
+          answer={answer}
         />
       ) : turn.outcome?.status === "failed" ? (
-        <p className="text-crit m-0 text-[13px]">
-          {t("assistant.failed", { reason: turn.outcome.reason })}
-        </p>
+        <div
+          role="alert"
+          className="bg-crit-bg flex items-start gap-2.5 rounded-xl px-3 py-2.5"
+        >
+          <CircleAlert
+            size={15}
+            strokeWidth={2}
+            className="text-crit mt-0.5 shrink-0"
+          />
+          <span className="flex flex-1 flex-col gap-2">
+            <span className="text-ink text-[13px]">{turn.outcome.reason}</span>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="text-ink-3 min-h-8 cursor-pointer self-start rounded-full border-0 bg-transparent px-3 text-[13px] font-medium"
+              >
+                {t("assistant.tryAgain")}
+              </button>
+            )}
+          </span>
+        </div>
       ) : (
         turn.outcome?.status === "cancelled" && (
-          <p className="text-ink-3 m-0 text-[13px]">{t("assistant.stopped")}</p>
+          <span className="border-hair text-ink-3 flex items-center gap-1.5 self-start rounded-full border px-2.5 py-0.5 text-xs font-medium">
+            <StopSquare size={10} />
+            {t("assistant.youStopped")}
+          </span>
         )
       )}
     </div>
@@ -322,20 +594,43 @@ export default function AssistantDock({
   const { t, i18n } = useTranslation();
   const open = useAssistantStore((state) => state.open);
   const setOpen = useAssistantStore((state) => state.setOpen);
-  const entries = useAssistantStore((state) => state.entries);
-  const chatId = useAssistantStore((state) => state.chatId);
-  const newChat = useAssistantStore((state) => state.newChat);
+  const document = useAssistantStore((state) => state.document);
+  const chat = useChat();
+  const entries = useAssistantStore(
+    (state) => state.chats[chat.kind][chat.id] ?? NO_ENTRIES,
+  );
+  const documentKind = useDocuments().data?.find(
+    ({ id }) => id === document?.id,
+  )?.kind;
   const send = useSendMessage();
+  const answer = useAnswerTask();
   const stop = useStop();
-  useResumeTurn();
+  useResumeTurns();
   const current = entries.at(-1);
+  const asked = entries.at(-2);
+  const retryable =
+    asked?.role === "user" && !asked.answered ? asked : undefined;
   const running = openTurn(entries);
-  const busy = useIsMutating({ mutationKey: ["assistant"] }) > 0;
+  const outcome = current?.role === "assistant" ? current.outcome : null;
+  const asking =
+    outcome?.status === "input_required" &&
+    (outcome.widget.input_placeholder !== null ||
+      outcome.widget.choose === "document")
+      ? outcome
+      : undefined;
   const [draft, setDraft] = useState("");
   const toggleRef = useRef<HTMLButtonElement>(null);
   const transcriptRef = useRef<HTMLOListElement>(null);
   const pinned = useRef(true);
   const panelId = useId();
+  const empty = entries.length === 0;
+  const placeholder = asking
+    ? (asking.widget.input_placeholder ?? t("assistant.documents.typeTitle"))
+    : document
+      ? t(`assistant.placeholders.${documentKind ?? "document"}`)
+      : empty
+        ? t("assistant.placeholder")
+        : t("assistant.followUp");
 
   useEffect(() => {
     if (pinned.current)
@@ -349,10 +644,17 @@ export default function AssistantDock({
     toggleRef.current?.focus();
   };
 
-  const ask = (text: string) => {
-    if (!text.trim() || busy) return;
+  const submit = (text: string) => {
+    if (!text.trim() || running || answer.isPending) return;
     pinned.current = true;
-    send.mutate({ chatId, text: text.trim() });
+    if (asking)
+      answer.mutate({
+        chat,
+        taskId: asking.task_id,
+        answer: { input: text.trim(), accept: true },
+        shown: text.trim(),
+      });
+    else send.mutate({ chat, text: text.trim() });
     setDraft("");
   };
 
@@ -365,42 +667,52 @@ export default function AssistantDock({
         <section
           id={panelId}
           aria-label={t("assistant.title")}
-          className="bg-panel border-hair shadow-float flex w-[360px] max-w-[calc(100vw-56px)] flex-col rounded-2xl border"
+          className={cn(
+            "bg-panel border-hair shadow-float flex w-[360px] max-w-[calc(100vw-56px)] flex-col rounded-2xl border",
+            !empty && "h-[min(720px,calc(100vh-136px))] overflow-hidden",
+          )}
         >
-          <div className="border-hair-soft flex flex-col gap-0.5 border-b px-[18px] py-4">
-            <span className="flex items-center gap-2 font-semibold">
+          {empty ? (
+            <div className="border-hair-soft flex flex-col gap-0.5 border-b px-[18px] py-4">
+              <span className="flex items-center gap-2 font-semibold">
+                <span className="text-amber flex">
+                  <Sparkle size={16} />
+                </span>
+                {t("assistant.title")}
+              </span>
+              <span className="text-ink-3 text-[13px]">
+                {document
+                  ? t("assistant.aboutDocument", { title: document.title })
+                  : topic
+                    ? t("assistant.askAbout", {
+                        topic: topic.toLocaleLowerCase(i18n.language),
+                      })
+                    : t("assistant.askAnything")}
+              </span>
+            </div>
+          ) : (
+            <header className="border-hair-soft flex items-center gap-2 border-b px-4 py-3.5">
               <span className="text-amber flex">
                 <Sparkle size={16} />
               </span>
-              {t("assistant.title")}
-              {entries.length > 0 && (
-                <button
-                  type="button"
-                  onClick={newChat}
-                  disabled={busy}
-                  aria-label={t("assistant.newChat")}
-                  title={t("assistant.newChat")}
-                  className="text-ink-3 hover:text-ink ml-auto flex cursor-pointer rounded-md border-0 bg-transparent p-1 disabled:opacity-60"
-                >
-                  <SquarePen size={16} />
-                </button>
-              )}
-            </span>
-            <span className="text-ink-3 text-[13px]">
-              {topic
-                ? t("assistant.askAbout", {
-                    topic: topic.toLocaleLowerCase(i18n.language),
-                  })
-                : t("assistant.askAnything")}
-            </span>
-          </div>
-          {entries.length === 0 && !busy ? (
+              <span className="flex-1 font-semibold">
+                {t("assistant.title")}
+              </span>
+              <span className="text-ink-3 text-xs">
+                {document?.title ?? topic}
+              </span>
+            </header>
+          )}
+          {empty ? (
             <div className="flex flex-col gap-2 px-[18px] py-4">
-              {suggestions.map((suggestion) => (
+              {(document
+                ? t("assistant.documentSuggestions", { returnObjects: true })
+                : suggestions
+              ).map((suggestion) => (
                 <button
                   key={suggestion}
                   type="button"
-                  onClick={() => ask(suggestion)}
+                  onClick={() => submit(suggestion)}
                   className="border-hair text-ink-2 min-h-9 cursor-pointer rounded-[10px] border bg-transparent px-3 py-2 text-left text-[13px]"
                 >
                   {suggestion}
@@ -418,63 +730,102 @@ export default function AssistantDock({
                   event.currentTarget;
                 pinned.current = scrollHeight - scrollTop - clientHeight < 32;
               }}
-              className="m-0 flex max-h-[min(420px,50vh)] list-none flex-col gap-3 overflow-y-auto px-[18px] py-4"
+              className="m-0 flex min-h-0 flex-1 list-none flex-col gap-3.5 overflow-y-auto px-4 py-[18px]"
             >
               {entries.map((entry, index) => (
-                <li key={index} className="flex flex-col">
-                  {entry.role === "user" ? (
-                    <p className="bg-chip text-ink m-0 max-w-[85%] self-end rounded-xl px-3 py-2 text-sm whitespace-pre-wrap">
-                      {entry.text}
-                    </p>
-                  ) : (
-                    <Turn turn={entry} last={entry === current} />
+                <Fragment key={index}>
+                  {entry.role === "user" && index > 0 && !entry.answered && (
+                    <li
+                      role="presentation"
+                      className="bg-hair-soft my-1 h-px shrink-0"
+                    />
                   )}
-                </li>
+                  <li className="flex flex-col">
+                    {entry.role === "user" ? (
+                      <p className="bg-bubble text-ink m-0 max-w-[85%] self-end rounded-2xl rounded-br-[4px] px-[13px] py-[9px] text-sm whitespace-pre-wrap">
+                        {entry.text}
+                      </p>
+                    ) : (
+                      <Turn
+                        turn={entry}
+                        last={entry === current}
+                        answer={answer}
+                        onRetry={
+                          entry === current && retryable?.role === "user"
+                            ? () => submit(retryable.text)
+                            : undefined
+                        }
+                      />
+                    )}
+                  </li>
+                </Fragment>
               ))}
             </ol>
           )}
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              ask(draft);
+              submit(draft);
             }}
-            className="flex items-end gap-2 px-[18px] pb-[18px]"
+            className={
+              empty
+                ? "flex items-end gap-2 px-[18px] pb-[18px]"
+                : "border-hair-soft flex items-end gap-2 border-t p-3"
+            }
           >
             <label className="flex flex-1">
-              <span className="sr-only">{t("assistant.message")}</span>
+              <span className="sr-only">
+                {asking ? placeholder : t("assistant.message")}
+              </span>
               <textarea
-                rows={2}
+                rows={empty ? 2 : 1}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
-                    ask(draft);
+                    submit(draft);
                   }
                 }}
-                placeholder={t("assistant.placeholder")}
-                className="border-hair bg-ground text-ink min-h-10 flex-1 resize-none rounded-lg border px-3 py-2 text-sm leading-normal"
+                placeholder={placeholder}
+                className={
+                  empty
+                    ? "border-hair bg-ground text-ink min-h-10 flex-1 resize-none rounded-lg border px-3 py-2 text-sm leading-normal"
+                    : "border-hair bg-ground text-ink min-h-11 flex-1 resize-none rounded-[22px] border px-4 py-[11px] text-sm leading-normal"
+                }
               />
             </label>
             {running ? (
               <button
                 type="button"
+                aria-label={t("assistant.stop")}
+                title={t("assistant.stop")}
                 disabled={stop.isPending || !running.taskId}
                 onClick={() =>
                   running.taskId &&
-                  stop.mutate({ chatId, taskId: running.taskId })
+                  stop.mutate({ chat, taskId: running.taskId })
                 }
-                className={buttonClass()}
+                className="bg-primary text-on-primary flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 disabled:opacity-60"
               >
-                {t("assistant.stop")}
+                <StopSquare size={14} />
+              </button>
+            ) : empty ? (
+              <button
+                type="submit"
+                disabled={!draft.trim()}
+                className={buttonClass("primary")}
+              >
+                {t("assistant.send")}
               </button>
             ) : (
               <button
                 type="submit"
-                disabled={busy || !draft.trim()}
-                className={buttonClass("primary")}
+                aria-label={t("assistant.send")}
+                title={t("assistant.send")}
+                disabled={!draft.trim() || answer.isPending}
+                className="bg-primary text-on-primary flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 disabled:cursor-default disabled:opacity-40"
               >
-                {t("assistant.send")}
+                <ArrowUp size={16} strokeWidth={2.2} />
               </button>
             )}
           </form>

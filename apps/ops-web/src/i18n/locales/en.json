@@ -436,7 +436,6 @@
       "templateChange": "Change",
       "templateDone": "Done",
       "templateHint": "Your words stay the same whichever you pick.",
-      "templatesFailed": "Templates come from artifact-service, which did not answer: {{reason}}",
       "accent": "Accent colour",
       "accents": {
         "template": "Template colour",
@@ -539,7 +538,8 @@
       "user": "you, on this page",
       "agent": "the assistant",
       "fact": "your profile",
-      "upload": "your uploaded résumé"
+      "upload": "your uploaded résumé",
+      "line": "“{{text}}” in your uploaded résumé"
     },
     "importPage": {
       "title": "Import résumé",
@@ -554,23 +554,82 @@
         "hint": "A PDF or Word (.docx) file, up to 10 MB. Every fact will link back to the line it came from.",
         "choose": "Choose a file",
         "uploading": "Uploading…",
-        "failed": "Not uploaded: {{reason}}"
+        "failed": "Not uploaded: {{reason}}",
+        "reading": "Reading…"
       },
       "loadFailed": "Imports could not load: {{reason}}",
-      "files": "Uploaded files",
-      "pending": "Your file is stored. Reading it into an editable draft arrives with the import-resume workflow, which is not connected yet, so imports wait here until then.",
-      "status": {
-        "pending": "Waiting to be read",
-        "running": "Reading…",
-        "done": "Draft ready",
-        "failed": "Could not read"
-      },
-      "uploaded": "{{size}} KB · uploaded {{date}}",
-      "open": "Open the draft",
+      "reading": "Reading your résumé and checking every value against the line it came from. This can take a few minutes.",
+      "readFailed": "Not read: {{reason}}",
+      "retry": "Try again",
       "cancel": "Cancel import",
       "look": {
         "title": "Choose a look",
-        "hint": "Once the draft is ready you pick one of these, and you can switch any time from the document's Design tab."
+        "hint": "Each preview is your own résumé. You can switch any time from the document's Design tab.",
+        "picked": "{{name}} on {{size}}",
+        "note": "{{description}} Your facts and wording stay the same.",
+        "page": "Page 1 of your résumé in the {{name}} theme",
+        "use": "Use {{name}}",
+        "suggested": "Suggested",
+        "because": "Suggested because your {{file}} is {{columns}}.",
+        "becauseWith": "Suggested because your {{file}} is {{columns}} with {{traits}}.",
+        "files": {
+          "pdf": "PDF",
+          "word": "Word file"
+        },
+        "columns": {
+          "1": "one column",
+          "2": "two columns"
+        },
+        "traits": {
+          "accent_band": "a coloured band",
+          "photo": "a photo",
+          "tinted_headings": "tinted headings",
+          "ruled_headings": "ruled headings",
+          "serif_font": "a serif font",
+          "coloured_name": "a coloured name"
+        }
+      },
+      "facts": {
+        "checked_one": "{{count}} fact checked: {{kinds}}",
+        "checked_other": "{{count}} facts checked: {{kinds}}",
+        "total_one": "{{count}} fact checked",
+        "total_other": "{{count}} facts checked",
+        "role_one": "{{count}} role",
+        "role_other": "{{count}} roles",
+        "achievement_one": "{{count}} achievement",
+        "achievement_other": "{{count}} achievements",
+        "skill_one": "{{count}} skill",
+        "skill_other": "{{count}} skills",
+        "degree_one": "{{count}} degree",
+        "degree_other": "{{count}} degrees",
+        "and": "{{items}} and {{last}}",
+        "pdf": "Every fact links back to the line it came from in your PDF.",
+        "word": "Every fact links back to the line it came from in your Word file.",
+        "review": "Review facts"
+      }
+    },
+    "assistant": {
+      "conversation": "Conversation",
+      "from": "From {{source}}",
+      "undo": "Undo",
+      "undoFailed": "Not undone: {{reason}}",
+      "accepted": "Approve",
+      "rejected": "Reject",
+      "decideFailed": "Not done: {{reason}}",
+      "placeholder": "Ask for a change, or paste a job posting",
+      "prompts": [
+        "Shorten to one page",
+        "Write a cover letter",
+        "Match posting keywords"
+      ],
+      "changes": {
+        "update_field": "Clears a field",
+        "insert_item": "Adds a line",
+        "insert_block": "Adds a section",
+        "move": "Moves a line",
+        "delete": "Removes a line",
+        "update_visibility": "Shows or hides a section",
+        "update_design": "Changes the design"
       }
     }
   },
@@ -691,61 +750,128 @@
     "close": "Close assistant",
     "askAbout": "Ask about {{topic}}, or anything in your job search",
     "askAnything": "Ask anything in your job search",
+    "aboutDocument": "Talking about {{title}}",
     "message": "Message the assistant",
     "placeholder": "Ask anything",
+    "followUp": "Ask a follow-up",
+    "placeholders": {
+      "resume": "Ask about this résumé",
+      "cv": "Ask about this CV",
+      "cover_letter": "Ask about this cover letter",
+      "document": "Ask about this document"
+    },
     "send": "Send",
     "stop": "Stop",
-    "newChat": "New chat",
     "conversation": "Conversation with the assistant",
     "thinking": "Thinking…",
-    "thought": "Thought",
-    "stopped": "Stopped",
+    "thoughtFor": "Thought for {{duration}}",
+    "whatItDid": "What the assistant did",
+    "reconnecting": "Connection dropped. Reconnecting, try {{attempt}} of {{max}}…",
+    "keepsRunning": "The reply keeps running on the server, and nothing you've seen is lost.",
+    "youStopped": "You stopped this reply",
     "ended": "This reply ended while the page was closed",
+    "tryAgain": "Try again",
     "connectionLost": "The connection to the assistant was lost",
-    "stepStatus": {
-      "running": "Running",
-      "done": "Done",
-      "failed": "Failed",
-      "waiting": "Waiting for you",
-      "stopped": "Stopped"
+    "steps": {
+      "find_documents": "Searching your documents",
+      "edit_document": "Editing your document",
+      "analyse_job": "Analysing the job posting",
+      "find_jobs": "Finding jobs",
+      "search_jobs": "Searching job boards",
+      "read_profile_facts": "Reading your profile",
+      "read_pdf_lines": "Reading your PDF",
+      "propose_changeset": "Drafting the edits",
+      "list_design_options": "Looking at templates",
+      "load": "Reading the document",
+      "agent": "Drafting the edits",
+      "page_fit": "Fitting it to the page",
+      "search_threads": "Searching your email",
+      "read_thread": "Reading the email thread",
+      "read_free_slots": "Checking your calendar",
+      "handoff_to_child": "Handing the chat over",
+      "handoff_to_parent": "Handing the chat back"
     },
-    "tools": {
+    "anyStep": "Using a tool",
+    "substeps": {
       "analyse_job": {
-        "label": "Analysing the job posting",
-        "steps": {
-          "fetch": "Reading the posting",
-          "agent": "Weighing it against your profile",
-          "check": "Checking the analysis",
-          "output": "Writing up the analysis"
-        }
+        "fetch": "Reading the posting",
+        "agent": "Weighing it against your profile",
+        "check": "Checking the analysis"
       },
       "find_jobs": {
-        "label": "Finding jobs",
-        "steps": {
-          "brief": "Reading your preferences",
-          "agent": "Searching job boards",
-          "check": "Checking the matches",
-          "output": "Ranking the jobs"
-        }
+        "brief": "Reading your preferences",
+        "agent": "Searching job boards",
+        "check": "Checking the matches",
+        "output": "Ranking the jobs"
       },
       "edit_document": {
-        "label": "Editing your document",
-        "steps": {
-          "brief": "Reading the document",
-          "agent": "Drafting the changes",
-          "validate": "Checking the changes",
-          "page_fit": "Fitting it to the page"
-        }
+        "load": "Reading the document",
+        "agent": "Drafting the edits",
+        "page_fit": "Fitting it to the page"
       }
     },
     "failed": "That did not work: {{reason}}",
+    "done": {
+      "find_documents": "Searched your documents",
+      "edit_document": "Edited your document",
+      "analyse_job": "Analysed the job posting",
+      "find_jobs": "Found jobs",
+      "search_jobs": "Searched job boards",
+      "read_profile_facts": "Read your profile",
+      "read_pdf_lines": "Read your PDF",
+      "propose_changeset": "Drafted the edits",
+      "list_design_options": "Looked at templates",
+      "load": "Read the document",
+      "agent": "Drafted the edits",
+      "page_fit": "Checked it still fits its pages",
+      "search_threads": "Searched your email",
+      "read_thread": "Read the email thread",
+      "read_free_slots": "Checked your calendar",
+      "handoff_to_child": "Handed the chat over",
+      "handoff_to_parent": "Handed the chat back"
+    },
+    "anyDone": "Used a tool",
+    "stepDetail": "· {{detail}}",
+    "doneSubsteps": {
+      "analyse_job": {
+        "fetch": "Read the posting",
+        "agent": "Weighed it against your profile",
+        "check": "Checked the analysis"
+      },
+      "find_jobs": {
+        "brief": "Read your preferences",
+        "agent": "Searched job boards",
+        "check": "Checked the matches",
+        "output": "Ranked the jobs"
+      },
+      "edit_document": {
+        "load": "Read the document",
+        "agent": "Drafted the edits",
+        "page_fit": "Checked it still fits its pages"
+      }
+    },
+    "edited": "Edited {{title}}",
+    "editsToReview_one": "{{count}} edit to review",
+    "editsToReview_other": "{{count}} edits to review",
     "answerFailed": "Your answer was not sent: {{reason}}",
+    "review": "Review",
+    "documentSuggestions": [
+      "Shorten this to one page",
+      "Tighten the summary",
+      "Tailor this for a job I saved"
+    ],
     "documents": {
-      "label": "Your documents",
+      "groups": {
+        "resume": "Your résumés",
+        "cv": "Your CVs",
+        "cover_letter": "Your cover letters",
+        "all": "Your documents"
+      },
       "loading": "Loading your documents…",
       "failed": "Your documents did not load: {{reason}}",
       "empty": "You have no documents to pick from yet",
       "master": "Master",
+      "edited": "Edited {{date}}",
       "typeTitle": "Or type the document's title"
     },
     "suggestions": {

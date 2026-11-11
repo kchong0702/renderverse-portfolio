@@ -1,83 +1,125 @@
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
 import i18n from "@/i18n";
 import { ApiError } from "@/shared/api/http";
+import { queryClient } from "@/shared/api/queryClient";
 import {
   answerTask,
   cancelTask,
   fetchDocuments,
   resumeTurn,
   sendMessage,
+  type Chat,
   type ChatMessage,
+  type RunEvent,
   type Task,
   type TaskAnswer,
   type TurnCursor,
 } from "../api/assistant";
 import { useAssistantStore } from "../state/assistantStore";
 
-const { add, apply, restore } = useAssistantStore.getState();
+export const documentsQueryOptions = queryOptions({
+  queryKey: ["documents"],
+  queryFn: ({ signal }) => fetchDocuments(signal),
+});
 
-let streamController = new AbortController();
+const { add, apply, reconnect, restore } = useAssistantStore.getState();
 
-const newStreamSignal = () => {
-  streamController = new AbortController();
-  return streamController.signal;
+const streamControllers = new Map<string, AbortController>();
+
+const newStreamSignal = (chat: Chat) => {
+  const controller = new AbortController();
+  streamControllers.set(chat.id, controller);
+  return controller.signal;
 };
 
-const startTurn = () => {
-  add({
+const startTurn = (chat: Chat) => {
+  add(chat, {
     role: "assistant",
     taskId: null,
     lastEventId: null,
     parts: [],
     outcome: null,
+    startedAt: Date.now(),
+    endedAt: null,
+    reconnecting: 0,
   });
-  return newStreamSignal();
+  return newStreamSignal(chat);
 };
 
-const failTurn = (error: Error) =>
-  apply({ status: "failed", reason: error.message });
+const receive = (chat: Chat) => (event: RunEvent, id?: string) => {
+  apply(chat, event, id);
+  if (event.status !== "changeset") return;
+  const document = [...documentsQueryOptions.queryKey, event.document_id];
+  void Promise.all([
+    queryClient.invalidateQueries({ queryKey: [...document, "changesets"] }),
+    queryClient.invalidateQueries({ queryKey: document, exact: true }),
+    queryClient.invalidateQueries({
+      queryKey: documentsQueryOptions.queryKey,
+      exact: true,
+    }),
+  ]);
+};
+
+const failTurn = (error: Error, { chat }: { chat: Chat }) =>
+  apply(chat, { status: "failed", reason: error.message });
 
 export const sendMessageMutationOptions = mutationOptions({
   mutationKey: ["assistant", "send"],
   mutationFn: (message: ChatMessage) =>
-    sendMessage(message, startTurn(), apply),
-  onMutate: ({ text }) => add({ role: "user", text }),
+    sendMessage(
+      message,
+      startTurn(message.chat),
+      receive(message.chat),
+      (attempt) => reconnect(message.chat, attempt),
+    ),
+  onMutate: ({ chat, text }) => add(chat, { role: "user", text }),
   onError: failTurn,
 });
 
 export const answerTaskMutationOptions = mutationOptions({
   mutationKey: ["assistant", "answer"],
-  mutationFn: (answer: TaskAnswer) => answerTask(answer, startTurn(), apply),
-  onMutate: ({ shown }) => {
-    const previous = useAssistantStore.getState().entries;
-    add({ role: "user", text: shown });
+  mutationFn: (answer: TaskAnswer) =>
+    answerTask(
+      answer,
+      startTurn(answer.chat),
+      receive(answer.chat),
+      (attempt) => reconnect(answer.chat, attempt),
+    ),
+  onMutate: ({ chat, shown }) => {
+    const previous =
+      useAssistantStore.getState().chats[chat.kind][chat.id] ?? [];
+    add(chat, { role: "user", text: shown, answered: true });
     return { previous };
   },
-  onError: (error, _answer, result) =>
+  onError: (error, answer, result) =>
     error instanceof ApiError && result
-      ? restore(result.previous)
-      : failTurn(error),
+      ? restore(answer.chat, result.previous)
+      : failTurn(error, answer),
 });
 
 export const resumeTurnMutationOptions = mutationOptions({
   mutationKey: ["assistant", "resume"],
-  mutationFn: (turn: TurnCursor) => resumeTurn(turn, newStreamSignal(), apply),
-  onError: (error) =>
+  mutationFn: (turn: TurnCursor) =>
+    resumeTurn(
+      turn,
+      newStreamSignal(turn.chat),
+      receive(turn.chat),
+      (attempt) => reconnect(turn.chat, attempt),
+    ),
+  onError: (error, turn) =>
     error instanceof ApiError && error.status === 404
-      ? apply({ status: "failed", reason: i18n.t("assistant.ended") })
-      : failTurn(error),
+      ? apply(turn.chat, {
+          status: "failed",
+          reason: i18n.t("assistant.ended"),
+        })
+      : failTurn(error, turn),
 });
 
 export const stopMutationOptions = mutationOptions({
   mutationKey: ["assistant", "stop"],
   mutationFn: (task: Task) => cancelTask(task),
-  onSuccess: () => {
-    apply({ status: "cancelled" });
-    streamController.abort();
+  onSuccess: (_stopped, { chat }) => {
+    apply(chat, { status: "cancelled" });
+    streamControllers.get(chat.id)?.abort();
   },
-});
-
-export const documentsQueryOptions = queryOptions({
-  queryKey: ["documents"],
-  queryFn: ({ signal }) => fetchDocuments(signal),
 });

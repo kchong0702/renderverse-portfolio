@@ -22,6 +22,7 @@ import type {
   Value,
 } from "@renderverse/document-renderer";
 import { http } from "@/shared/api/http";
+import { config } from "@/shared/config";
 
 export type DocumentKind = AnyDocument["kind"];
 export type ImportStatus = "pending" | "running" | "done" | "failed";
@@ -64,20 +65,39 @@ export interface DocumentSummary {
   updated_at: string;
 }
 
+type StoredDocument = AnyDocument & { design: Required<Design> };
+
 export interface DocumentRecord extends DocumentSummary {
-  body: AnyDocument & { design: Required<Design> };
+  body: StoredDocument;
+  lines: { id: string; text: string }[];
+  pending_body: StoredDocument | null;
 }
 
-export interface TemplateSpec {
+export interface Changeset {
   id: string;
-  name: string;
-  description: string;
-  accent: string;
+  agent: string;
+  edits: Edit[];
+  reason: string;
+  status: "pending" | "accepted" | "rejected";
+}
+
+export interface ChangesetRecord {
+  id: string;
+  changeset: Changeset;
+  created_at: string;
 }
 
 interface Render {
   artifact: string;
 }
+
+type LookTrait =
+  | "accent_band"
+  | "photo"
+  | "tinted_headings"
+  | "ruled_headings"
+  | "serif_font"
+  | "coloured_name";
 
 export interface DocumentImport {
   id: string;
@@ -87,10 +107,15 @@ export interface DocumentImport {
   status: ImportStatus;
   document_id: string | null;
   error: string;
+  suggestion: {
+    template: string;
+    columns: 1 | 2;
+    traits: LookTrait[];
+  } | null;
   created_at: string;
 }
 
-const URL = "/ops-api/v1/documents";
+const URL = `${config.opsApiUrl}/documents`;
 
 export const fetchDocuments = (signal?: AbortSignal) =>
   http.get<DocumentSummary[]>(URL, signal);
@@ -112,8 +137,31 @@ export const setMaster = (id: string) =>
 export const fetchRender = (id: string) =>
   http.get<Render>(`${URL}/${id}/render`);
 
-export const fetchTemplates = (kind: DocumentKind, signal?: AbortSignal) =>
-  http.get<TemplateSpec[]>(`${URL}/templates?kind=${kind}`, signal);
+export const fetchChangesets = (id: string, signal?: AbortSignal) =>
+  http.get<ChangesetRecord[]>(`${URL}/${id}/changesets`, signal);
+
+export const decideChangeset = ({
+  id,
+  changesetId,
+  status,
+}: {
+  id: string;
+  changesetId: string;
+  status: "accepted" | "rejected";
+}) =>
+  http.put<ChangesetRecord>(`${URL}/${id}/changesets/${changesetId}`, {
+    status,
+  });
+
+export const undoChangesetEdit = ({
+  id,
+  changesetId,
+  index,
+}: {
+  id: string;
+  changesetId: string;
+  index: number;
+}) => http.delete(`${URL}/${id}/changesets/${changesetId}/edits/${index}`);
 
 export const fetchImports = (signal?: AbortSignal) =>
   http.get<DocumentImport[]>(`${URL}/imports`, signal);
@@ -125,3 +173,6 @@ export const startImport = (file: File) => {
 };
 
 export const cancelImport = (id: string) => http.delete(`${URL}/imports/${id}`);
+
+export const readImport = (id: string) =>
+  http.post<DocumentImport>(`${URL}/imports/${id}/read`);

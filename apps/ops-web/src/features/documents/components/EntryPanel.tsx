@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { buttonClass } from "@/shared/components/button";
 import type { DocumentRecord, Edit } from "../api/documents";
 import { entryAt, partsOf, valueOf } from "../lib/items";
-import { sourceKey } from "../lib/sources";
+import { sourceName } from "../lib/sources";
 import { useEditorStore } from "../state/editorStore";
 
 function LiveField({
@@ -124,7 +124,7 @@ export default function EntryPanel({
       {origin && (
         <span className="text-ink-3 text-[13px]">
           {t("documents.entryPanel.source", {
-            source: t(`documents.sources.${sourceKey(origin)}`),
+            source: sourceName(t, origin, document.lines),
           })}
         </span>
       )}

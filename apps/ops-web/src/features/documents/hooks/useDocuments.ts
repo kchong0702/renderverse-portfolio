@@ -1,8 +1,11 @@
 import { useMutation, useMutationState, useQuery } from "@tanstack/react-query";
-import type { DocumentKind, Edit } from "../api/documents";
+import type { Edit } from "../api/documents";
+import { overlaps, pathOf } from "../lib/changes";
 import {
   cancelImportMutationOptions,
+  changesetsQueryOptions,
   createDocumentMutationOptions,
+  decideChangesetMutationOptions,
   deleteDocumentMutationOptions,
   designDocumentMutationOptions,
   documentQueryOptions,
@@ -10,9 +13,10 @@ import {
   editDocumentMutationOptions,
   exportPdfMutationOptions,
   importsQueryOptions,
+  readImportMutationOptions,
   setMasterMutationOptions,
   startImportMutationOptions,
-  templatesQueryOptions,
+  undoEditMutationOptions,
 } from "../queries/documents";
 
 export function useDocuments() {
@@ -21,10 +25,6 @@ export function useDocuments() {
 
 export function useDocument(id: string) {
   return useQuery(documentQueryOptions(id));
-}
-
-export function useTemplates(kind: DocumentKind) {
-  return useQuery(templatesQueryOptions(kind));
 }
 
 export function useImports() {
@@ -72,4 +72,48 @@ export function useStartImport() {
 
 export function useCancelImport() {
   return useMutation(cancelImportMutationOptions);
+}
+
+export function useReadImport() {
+  return useMutation(readImportMutationOptions);
+}
+
+export function useChangesets(id: string) {
+  return useQuery(changesetsQueryOptions(id));
+}
+
+export function usePendingChangeset(id: string) {
+  return useChangesets(id).data?.find(
+    ({ changeset }) => changeset.status === "pending",
+  );
+}
+
+export function useDecideChangeset() {
+  return useMutation(decideChangesetMutationOptions);
+}
+
+export function useUndoEdit() {
+  return useMutation(undoEditMutationOptions);
+}
+
+export function useSave(id: string) {
+  const { mutate: edit } = useEditDocument();
+  const { mutate: undo } = useUndoEdit();
+  const pending = usePendingChangeset(id);
+  return (edits: Edit[]) => {
+    const superseded = (pending?.changeset.edits ?? []).flatMap(
+      (proposed, index) => {
+        const path = pathOf(proposed);
+        return path &&
+          edits.some(
+            (own) => own.kind === "update_field" && overlaps(own.path, path),
+          )
+          ? [index]
+          : [];
+      },
+    );
+    for (const index of superseded.reverse())
+      undo({ id, changesetId: pending!.id, index });
+    edit({ id, edits });
+  };
 }

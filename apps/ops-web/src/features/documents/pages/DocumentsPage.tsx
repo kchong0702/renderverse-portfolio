@@ -1,7 +1,8 @@
 import { Sparkle } from "lucide-react";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
+import { useAssistantStore } from "@/features/assistant";
 import { useMe } from "@/features/auth";
 import { buttonClass } from "@/shared/components/button";
 import PageBody from "@/shared/components/PageBody";
@@ -23,9 +24,18 @@ export default function DocumentsPage() {
   const documents = useDocuments();
   const create = useCreateDocument();
   const { data: me } = useMe();
-  const kind = KINDS.find((k) => k === params.get("kind")) ?? "resume";
+  const setDocument = useAssistantStore((state) => state.setDocument);
+  const kind =
+    KINDS.find((k) => k === params.get("kind")) ??
+    documents.data?.find((d) => d.id === params.get("doc"))?.kind ??
+    "resume";
   const ofKind = documents.data?.filter((d) => d.kind === kind) ?? [];
   const selected = ofKind.find((d) => d.id === params.get("doc")) ?? ofKind[0];
+
+  useEffect(() => {
+    setDocument(selected ?? null);
+    return () => setDocument(null);
+  }, [selected, setDocument]);
 
   const startNew = () =>
     create.mutate(

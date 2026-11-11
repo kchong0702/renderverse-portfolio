@@ -10,7 +10,9 @@ import Underline from "@tiptap/extension-underline";
 import { UndoRedo } from "@tiptap/extensions";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { useEffect, useRef } from "react";
+import { isPending } from "../lib/changes";
 import { useEditorStore } from "../state/editorStore";
+import { REWORDED } from "./ui/chrome";
 import { usePage } from "./ui/PageContext";
 
 const Size = Mark.create({
@@ -49,8 +51,6 @@ const EXTENSIONS = [
   Size,
   UndoRedo,
 ];
-
-const REWORDED = "rgba(245, 158, 11, 0.24)";
 
 const inner = (html: string) => html.replace(/^<p>/, "").replace(/<\/p>$/, "");
 
@@ -153,11 +153,7 @@ export default function RichTextField({
         margin: "0 -2px",
         borderRadius: 2,
         textAlign: value.align ?? undefined,
-        background: (value.src ?? []).some((source) =>
-          source.startsWith("agent:"),
-        )
-          ? REWORDED
-          : undefined,
+        background: isPending(page.pending, path) ? REWORDED : undefined,
       }}
     />
   );

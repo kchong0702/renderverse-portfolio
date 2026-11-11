@@ -1,11 +1,18 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import type { Outcome, RunEvent, Step } from "../api/assistant";
+import type {
+  Changeset,
+  Chat,
+  Outcome,
+  RunEvent,
+  Step,
+} from "../api/assistant";
 
 export type Part =
   | { kind: "thinking"; turn: string; text: string }
   | { kind: "text"; turn: string; text: string }
-  | { kind: "step"; step: Step; substeps: Step[] };
+  | { kind: "step"; step: Step; substeps: Step[] }
+  | { kind: "changeset"; changeset: Changeset };
 
 export interface AssistantTurn {
   role: "assistant";
@@ -13,9 +20,13 @@ export interface AssistantTurn {
   lastEventId: string | null;
   parts: Part[];
   outcome: Outcome | null;
+  startedAt: number;
+  endedAt: number | null;
+  reconnecting: number;
 }
 
-export type ChatEntry = { role: "user"; text: string } | AssistantTurn;
+export type ChatEntry =
+  { role: "user"; text: string; answered?: boolean } | AssistantTurn;
 
 const upsert = (steps: Step[], step: Step) =>
   steps.some(({ id }) => id === step.id)
@@ -70,11 +81,17 @@ function applyEvent(turn: AssistantTurn, event: RunEvent): AssistantTurn {
             parts: [...turn.parts, { kind: "step", step, substeps: [] }],
           };
     }
+    case "changeset":
+      return {
+        ...turn,
+        parts: [...turn.parts, { kind: "changeset", changeset: event }],
+      };
     case "completed": {
       const written = turn.parts.filter((part) => part.kind === "text").at(-1);
       return {
         ...turn,
         outcome: event,
+        endedAt: Date.now(),
         parts:
           !event.reply.trim() ||
           (written?.kind === "text" &&
@@ -87,20 +104,39 @@ function applyEvent(turn: AssistantTurn, event: RunEvent): AssistantTurn {
       };
     }
     default:
-      return { ...turn, outcome: event };
+      return { ...turn, outcome: event, endedAt: Date.now() };
   }
 }
+
+export interface ShownDocument {
+  id: string;
+  title: string;
+}
+
+type Chats = Record<Chat["kind"], Partial<Record<string, ChatEntry[]>>>;
 
 interface AssistantState {
   open: boolean;
   setOpen: (open: boolean) => void;
   chatId: string;
-  entries: ChatEntry[];
-  add: (entry: ChatEntry) => void;
-  apply: (event: RunEvent, id?: string) => void;
-  restore: (entries: ChatEntry[]) => void;
-  newChat: () => void;
+  document: ShownDocument | null;
+  setDocument: (document: ShownDocument | null) => void;
+  chats: Chats;
+  add: (chat: Chat, entry: ChatEntry) => void;
+  apply: (chat: Chat, event: RunEvent, id?: string) => void;
+  reconnect: (chat: Chat, attempt: number) => void;
+  restore: (chat: Chat, entries: ChatEntry[]) => void;
+  reset: () => void;
 }
+
+const withEntries = (
+  chats: Chats,
+  { kind, id }: Chat,
+  update: (entries: ChatEntry[]) => ChatEntry[],
+): Chats => ({
+  ...chats,
+  [kind]: { ...chats[kind], [id]: update(chats[kind][id] ?? []) },
+});
 
 export const openTurn = (entries: ChatEntry[]) => {
   const last = entries.at(-1);
@@ -113,37 +149,54 @@ export const useAssistantStore = create<AssistantState>()(
       open: false,
       setOpen: (open) => set({ open }),
       chatId: crypto.randomUUID(),
-      entries: [],
-      add: (entry) => set((state) => ({ entries: [...state.entries, entry] })),
-      apply: (event, id) =>
-        set(({ entries }) => {
-          const last = openTurn(entries);
-          return last
-            ? {
-                entries: [
+      document: null,
+      setDocument: (document) => set({ document }),
+      chats: { assistant: {}, document: {} },
+      add: (chat, entry) =>
+        set(({ chats }) => ({
+          chats: withEntries(chats, chat, (entries) => [...entries, entry]),
+        })),
+      apply: (chat, event, id) =>
+        set(({ chats }) => ({
+          chats: withEntries(chats, chat, (entries) => {
+            const last = openTurn(entries);
+            return last
+              ? [
                   ...entries.slice(0, -1),
                   {
                     ...applyEvent(last, event),
                     lastEventId: id ?? last.lastEventId,
+                    reconnecting: 0,
                   },
-                ],
-              }
-            : {};
+                ]
+              : entries;
+          }),
+        })),
+      reconnect: (chat, attempt) =>
+        set(({ chats }) => ({
+          chats: withEntries(chats, chat, (entries) => {
+            const last = openTurn(entries);
+            return last
+              ? [...entries.slice(0, -1), { ...last, reconnecting: attempt }]
+              : entries;
+          }),
+        })),
+      restore: (chat, entries) =>
+        set(({ chats }) => ({
+          chats: withEntries(chats, chat, () => entries),
+        })),
+      reset: () =>
+        set({
+          open: false,
+          chatId: crypto.randomUUID(),
+          document: null,
+          chats: { assistant: {}, document: {} },
         }),
-      restore: (entries) => set({ entries }),
-      newChat: () => set({ chatId: crypto.randomUUID(), entries: [] }),
     }),
     {
       name: "ops:assistant",
       storage: createJSONStorage(() => sessionStorage),
-      partialize: ({ chatId, entries }) => ({
-        chatId,
-        entries: entries.map((entry) =>
-          entry.role === "assistant" && !entry.outcome && !entry.lastEventId
-            ? { ...entry, outcome: { status: "cancelled" as const } }
-            : entry,
-        ),
-      }),
+      partialize: ({ chatId, chats }) => ({ chatId, chats }),
     },
   ),
 );

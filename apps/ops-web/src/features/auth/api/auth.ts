@@ -1,6 +1,7 @@
 import { http } from "@/shared/api/http";
+import { config } from "@/shared/config";
 
-const base = "/ops-api/v1";
+const base = config.opsApiUrl;
 
 export interface Me {
   id: string;

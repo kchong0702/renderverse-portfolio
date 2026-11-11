@@ -1,5 +1,6 @@
 import i18n from "@/i18n";
 import { ApiError, http, stream } from "@/shared/api/http";
+import { config } from "@/shared/config";
 
 export type DocumentKind = "resume" | "cv" | "cover_letter";
 
@@ -8,6 +9,7 @@ export interface DocumentSummary {
   kind: DocumentKind;
   title: string;
   master: boolean;
+  updated_at: string;
 }
 
 export interface Widget {
@@ -30,6 +32,7 @@ export interface Step {
   parent: string | null;
   name: string;
   status: "running" | "done" | "failed" | "waiting";
+  detail: string | null;
 }
 
 export type Outcome =
@@ -38,40 +41,55 @@ export type Outcome =
   | { status: "failed"; reason: string }
   | { status: "cancelled" };
 
+export interface Changeset {
+  document_id: string;
+  title: string;
+  changeset_id: string;
+  edits: number;
+}
+
 export type RunEvent =
   | { status: "started"; task_id: string }
   | { status: "thinking"; turn: string; text: string }
   | { status: "text"; turn: string; text: string }
   | { status: "step"; step: Step }
+  | ({ status: "changeset" } & Changeset)
   | Outcome;
 
+export interface Chat {
+  kind: "assistant" | "document";
+  id: string;
+}
+
 export interface ChatMessage {
-  chatId: string;
+  chat: Chat;
   text: string;
 }
 
 export interface TaskAnswer {
-  chatId: string;
+  chat: Chat;
   taskId: string;
   answer: Answer;
   shown: string;
 }
 
 export interface TurnCursor {
-  chatId: string;
+  chat: Chat;
   lastEventId: string;
 }
 
 export interface Task {
-  chatId: string;
+  chat: Chat;
   taskId: string;
 }
 
 type OnEvent = (event: RunEvent, id: string | undefined) => void;
 
-const URL = "/ops-api/v1/assistant";
+type OnReconnect = (attempt: number) => void;
 
-const MAX_RECONNECTS = 5;
+const URL = config.opsApiUrl;
+
+export const MAX_RECONNECTS = 5;
 
 const DEFAULT_RETRY_MS = 2000;
 
@@ -84,17 +102,22 @@ const TERMINAL: ReadonlySet<RunEvent["status"]> = new Set([
   "cancelled",
 ]);
 
-const taskUrl = ({ chatId, taskId }: Task) =>
-  `${URL}/chats/${chatId}/tasks/${encodeURIComponent(taskId)}`;
+const chatUrl = ({ kind, id }: Chat) =>
+  kind === "document"
+    ? `${URL}/documents/${id}/chat`
+    : `${URL}/assistant/chats/${id}`;
+
+const taskUrl = ({ chat, taskId }: Task) =>
+  `${chatUrl(chat)}/tasks/${encodeURIComponent(taskId)}`;
 
 const openChatStream = (
-  chatId: string,
+  chat: Chat,
   lastEventId: string | null,
   signal: AbortSignal,
   onRetry: (ms: number) => void,
 ) =>
   stream(
-    `${URL}/chats/${chatId}/stream`,
+    `${chatUrl(chat)}/stream`,
     {
       headers: lastEventId ? { "Last-Event-ID": lastEventId } : undefined,
       signal,
@@ -116,11 +139,12 @@ const wait = (ms: number, signal: AbortSignal) =>
   });
 
 async function streamTurn(
-  chatId: string,
+  chat: Chat,
   request: { url: string; body: unknown } | null,
   lastEventId: string | null,
   signal: AbortSignal,
   onEvent: OnEvent,
+  onReconnect: OnReconnect,
 ): Promise<void> {
   let retryMs = DEFAULT_RETRY_MS;
   let reconnects = 0;
@@ -134,7 +158,7 @@ async function streamTurn(
         { method: "POST", body: JSON.stringify(request.body), signal },
         onRetry,
       )
-    : await openChatStream(chatId, lastEventId, signal, onRetry);
+    : await openChatStream(chat, lastEventId, signal, onRetry);
   for (;;) {
     if (reader) {
       try {
@@ -154,8 +178,9 @@ async function streamTurn(
 
     if (++reconnects > MAX_RECONNECTS)
       throw new Error(i18n.t("assistant.connectionLost"));
+    onReconnect(reconnects);
     await wait(Math.min(retryMs * 2 ** (reconnects - 1), MAX_RETRY_MS), signal);
-    reader = await openChatStream(chatId, lastEventId, signal, onRetry).catch(
+    reader = await openChatStream(chat, lastEventId, signal, onRetry).catch(
       (error: unknown) => {
         if (signal.aborted || error instanceof ApiError) throw error;
         return null;
@@ -165,39 +190,47 @@ async function streamTurn(
 }
 
 export const sendMessage = (
-  { chatId, ...message }: ChatMessage,
+  { chat, text }: ChatMessage,
   signal: AbortSignal,
   onEvent: OnEvent,
+  onReconnect: OnReconnect,
 ) =>
   streamTurn(
-    chatId,
-    { url: `${URL}/chats/${chatId}/messages`, body: message },
+    chat,
+    {
+      url: `${chatUrl(chat)}/messages`,
+      body: { text },
+    },
     null,
     signal,
     onEvent,
+    onReconnect,
   );
 
 export const answerTask = (
   { answer, ...task }: TaskAnswer,
   signal: AbortSignal,
   onEvent: OnEvent,
+  onReconnect: OnReconnect,
 ) =>
   streamTurn(
-    task.chatId,
+    task.chat,
     { url: `${taskUrl(task)}/answer`, body: answer },
     null,
     signal,
     onEvent,
+    onReconnect,
   );
 
 export const resumeTurn = (
-  { chatId, lastEventId }: TurnCursor,
+  { chat, lastEventId }: TurnCursor,
   signal: AbortSignal,
   onEvent: OnEvent,
-) => streamTurn(chatId, null, lastEventId, signal, onEvent);
+  onReconnect: OnReconnect,
+) => streamTurn(chat, null, lastEventId, signal, onEvent, onReconnect);
 
 export const cancelTask = (task: Task) =>
   http.post<void>(`${taskUrl(task)}/cancel`);
 
 export const fetchDocuments = (signal?: AbortSignal) =>
-  http.get<DocumentSummary[]>("/ops-api/v1/documents", signal);
+  http.get<DocumentSummary[]>(`${URL}/documents`, signal);

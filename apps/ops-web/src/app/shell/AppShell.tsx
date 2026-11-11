@@ -8,7 +8,8 @@ import Sidebar from "./Sidebar";
 
 export default function AppShell() {
   const { t } = useTranslation();
-  const item = navItemAt(useLocation().pathname);
+  const { pathname } = useLocation();
+  const item = navItemAt(pathname);
   const [best, runnerUp] =
     useJobs().data?.jobs.filter((job) => job.status === "picked") ?? [];
   const followUp = useApplications().data?.find(
@@ -21,38 +22,40 @@ export default function AppShell() {
       <main className="flex min-w-0 flex-[999_1_560px] flex-col">
         <Outlet />
       </main>
-      <AssistantDock
-        topic={item && t(`nav.items.${item.key}`)}
-        suggestions={
-          item?.key === "jobs"
-            ? [
-                runnerUp &&
-                  t("assistant.suggestions.jobs.compare", {
-                    first: best.company,
-                    second: runnerUp.company,
-                  }),
-                runnerUp &&
-                  t("assistant.suggestions.jobs.raiseFit", {
-                    title: runnerUp.title,
-                  }),
-                t("assistant.suggestions.jobs.similar"),
-              ].filter((suggestion) => suggestion !== undefined)
-            : item?.key === "applications"
+      {pathname !== "/documents" && (
+        <AssistantDock
+          topic={item && t(`nav.items.${item.key}`)}
+          suggestions={
+            item?.key === "jobs"
               ? [
-                  followUp &&
-                    t("assistant.suggestions.applications.followUp", {
-                      company: followUp.company,
+                  runnerUp &&
+                    t("assistant.suggestions.jobs.compare", {
+                      first: best.company,
+                      second: runnerUp.company,
                     }),
-                  t("assistant.suggestions.applications.offers"),
-                  t("assistant.suggestions.applications.summary"),
+                  runnerUp &&
+                    t("assistant.suggestions.jobs.raiseFit", {
+                      title: runnerUp.title,
+                    }),
+                  t("assistant.suggestions.jobs.similar"),
                 ].filter((suggestion) => suggestion !== undefined)
-              : item
-                ? t(`assistant.suggestions.${item.key}`, {
-                    returnObjects: true,
-                  })
-                : []
-        }
-      />
+              : item?.key === "applications"
+                ? [
+                    followUp &&
+                      t("assistant.suggestions.applications.followUp", {
+                        company: followUp.company,
+                      }),
+                    t("assistant.suggestions.applications.offers"),
+                    t("assistant.suggestions.applications.summary"),
+                  ].filter((suggestion) => suggestion !== undefined)
+                : item
+                  ? t(`assistant.suggestions.${item.key}`, {
+                      returnObjects: true,
+                    })
+                  : []
+          }
+        />
+      )}
     </div>
   );
 }
