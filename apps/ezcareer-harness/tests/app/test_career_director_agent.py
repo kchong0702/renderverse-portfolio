@@ -296,6 +296,18 @@ def test_a_workflows_question_reaches_the_user_and_their_answer_finishes_the_tur
     assert len(director.requests) == 2
 
 
+def _steps(events: list[dict[str, JsonValue]]) -> list[dict[str, JsonValue]]:
+    return [
+        e["statusUpdate"]["status"]["message"]["parts"][0]["data"]["step"]
+        for e in events
+        if "step"
+        in e.get("statusUpdate", {})
+        .get("status", {})
+        .get("message", {"parts": [{}]})["parts"][0]
+        .get("data", {})
+    ]
+
+
 @respx.mock
 def test_career_director_streams_its_thinking_steps_and_reply():
     respx.get(analyse_job.URL).respond(200, html=analyse_job.POSTING)
@@ -324,11 +336,7 @@ def test_career_director_streams_its_thinking_steps_and_reply():
         ],
     )
 
-    steps = [
-        e["statusUpdate"]["status"]["message"]["parts"][0]["data"]["step"]
-        for e in events
-        if "message" in e.get("statusUpdate", {}).get("status", {})
-    ]
+    steps = _steps(events)
     call = steps[0]["id"]
     assert [(s["name"], s["status"], s["parent"]) for s in steps] == [
         ("analyse_job", "running", None),
@@ -355,17 +363,17 @@ def test_career_director_streams_its_thinking_steps_and_reply():
         ("career-director", "It fits 67%."),
     ]
     assert events[-1]["statusUpdate"]["status"]["state"] == "TASK_STATE_COMPLETED"
-
-
-def _steps(events: list[dict[str, JsonValue]]) -> list[dict[str, JsonValue]]:
-    return [
-        e["statusUpdate"]["status"]["message"]["parts"][0]["data"]["step"]
+    assert [
+        (usage["agent"], usage["node"], usage["provider"], usage["model"])
         for e in events
-        if "step"
-        in e.get("statusUpdate", {})
+        for part in e.get("statusUpdate", {})
         .get("status", {})
-        .get("message", {"parts": [{}]})["parts"][0]
-        .get("data", {})
+        .get("message", {"parts": []})["parts"]
+        if "usage" in (usage := part.get("data", {})) and (usage := usage["usage"])
+    ] == [
+        ("career-director", "model", "openai", "gpt-6-luna"),
+        ("job-finder", "model", "glm", "glm-5.3"),
+        ("career-director", "model", "openai", "gpt-6-luna"),
     ]
 
 

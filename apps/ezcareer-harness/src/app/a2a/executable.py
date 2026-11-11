@@ -28,6 +28,7 @@ from src.clients.llm_providers import llm_provider
 from src.core.config import Family, get_settings
 from src.core.errors import ExecuteError
 from src.core.types import NextStep
+from src.core.usage import UsageReporter
 from src.shared.run_context import RunContext
 
 
@@ -271,7 +272,18 @@ class LanggraphExecutor(AgentExecutor):
                         "thread_id": context.context_id
                         if self.executable.kind == "agent"
                         else context.task_id
-                    }
+                    },
+                    "callbacks": [
+                        UsageReporter(
+                            lambda usage: updater.update_status(
+                                TaskState.TASK_STATE_WORKING,
+                                updater.new_agent_message(
+                                    [new_data_part({"usage": usage.model_dump()})]
+                                ),
+                            ),
+                            self.executable.name,
+                        )
+                    ],
                 },
                 context=RunContext(
                     model=llm_provider(metadata.model.family, metadata.model.model)
