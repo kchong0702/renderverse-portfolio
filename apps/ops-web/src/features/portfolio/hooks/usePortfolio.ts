@@ -6,8 +6,8 @@ import {
   releasesQueryOptions,
 } from "../queries/portfolio";
 
-export function useDraft() {
-  return useQuery(draftQueryOptions);
+export function useDraft(enabled = true) {
+  return useQuery({ ...draftQueryOptions, enabled });
 }
 
 export function useReleases() {

@@ -2,7 +2,7 @@ import { Sparkle } from "lucide-react";
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
-import { AccountMenu, useMe } from "@/features/auth";
+import { AccountMenu, useIsAdmin, useMe } from "@/features/auth";
 import { useProfile } from "@/features/portfolio";
 import { cn } from "@/shared/lib/cn";
 import { navGroups, useNavBadges } from "./nav";
@@ -21,6 +21,7 @@ export default function Sidebar() {
   const { data: profile } = useProfile();
   const name = profile?.name || me?.email;
   const badges = useNavBadges();
+  const isAdmin = useIsAdmin();
 
   return (
     <nav
@@ -49,47 +50,49 @@ export default function Sidebar() {
                 {t(`nav.groups.${group.heading}`)}
               </span>
             )}
-            {group.items.map(({ key, path, icon: Icon }) => (
-              <NavLink
-                key={key}
-                to={path}
-                end={path === "/"}
-                className={({ isActive }) =>
-                  cn(
-                    "flex min-h-10 items-center gap-3 rounded-lg px-3 no-underline",
-                    isActive
-                      ? "bg-side-on text-side-on-ink font-semibold"
-                      : "text-side-muted font-medium",
-                  )
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    <span
-                      className={cn(
-                        "flex",
-                        isActive ? "text-amber-soft" : "text-side-muted",
-                      )}
-                    >
-                      <Icon />
-                    </span>
-                    <span className="flex-1">{t(`nav.items.${key}`)}</span>
-                    {badges[key] && (
+            {group.items
+              .filter(({ key }) => key !== "portfolio" || isAdmin)
+              .map(({ key, path, icon: Icon }) => (
+                <NavLink
+                  key={key}
+                  to={path}
+                  end={path === "/"}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex min-h-10 items-center gap-3 rounded-lg px-3 no-underline",
+                      isActive
+                        ? "bg-side-on text-side-on-ink font-semibold"
+                        : "text-side-muted font-medium",
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
                       <span
                         className={cn(
-                          "rounded-full px-2 py-px text-xs/[1.6] font-medium",
-                          isActive
-                            ? "bg-side-badge-on text-side-on-ink"
-                            : "bg-side-badge text-side-muted",
+                          "flex",
+                          isActive ? "text-amber-soft" : "text-side-muted",
                         )}
                       >
-                        {badges[key]}
+                        <Icon />
                       </span>
-                    )}
-                  </>
-                )}
-              </NavLink>
-            ))}
+                      <span className="flex-1">{t(`nav.items.${key}`)}</span>
+                      {badges[key] && (
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-px text-xs/[1.6] font-medium",
+                            isActive
+                              ? "bg-side-badge-on text-side-on-ink"
+                              : "bg-side-badge text-side-muted",
+                          )}
+                        >
+                          {badges[key]}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              ))}
           </Fragment>
         ))}
       </div>

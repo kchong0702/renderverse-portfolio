@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useIsAdmin } from "@/features/auth";
 import { useDraft } from "@/features/portfolio";
 import { buttonClass } from "@/shared/components/button";
 import { TextField } from "@/shared/components/fields";
@@ -64,7 +65,8 @@ export default function ConnectionsPanel({
   const { t } = useTranslation();
   const connect = useConnectJsearch();
   const disconnect = useDisconnectJsearch();
-  const site = useDraft().data?.site_url;
+  const isAdmin = useIsAdmin();
+  const site = useDraft(isAdmin).data?.site_url;
   const [apiKey, setApiKey] = useState<string | null>(null);
   const close = () => {
     setApiKey(null);
@@ -74,7 +76,8 @@ export default function ConnectionsPanel({
 
   return (
     <Panel title={t("settings.connections.title")}>
-      {[...connections]
+      {connections
+        .filter(({ id }) => id !== "portfolio_site" || isAdmin)
         .sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id))
         .map((connection) => (
           <div

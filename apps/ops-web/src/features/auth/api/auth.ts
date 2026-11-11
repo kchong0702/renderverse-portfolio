@@ -6,6 +6,7 @@ const base = config.opsApiUrl;
 export interface Me {
   id: string;
   email: string;
+  role: "admin" | "user";
 }
 
 export interface SignInMethods {
