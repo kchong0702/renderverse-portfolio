@@ -10,6 +10,10 @@ export function useMe() {
   return useQuery(meQueryOptions);
 }
 
+export function useIsAdmin() {
+  return useMe().data?.role === "admin";
+}
+
 export function useSignInMethods() {
   return useQuery(signInMethodsQueryOptions);
 }
