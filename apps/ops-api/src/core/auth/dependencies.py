@@ -5,11 +5,12 @@ from typing import Annotated
 from fastapi import Cookie, Depends, Request
 
 from src.app.actor import set_actor, user_actor
+from src.core.auth.enums import Role
 from src.core.auth.models import User
 from src.core.auth.oauth_providers import AuthlibAdapter, Provider
 from src.core.auth.service import AuthService
 from src.core.config import get_settings
-from src.core.exceptions import Unauthorized
+from src.core.exceptions import Forbidden, Unauthorized
 from src.db.session import SessionDep
 
 SESSION_COOKIE = "ops_session"
@@ -50,11 +51,23 @@ async def current_user(
 
 CurrentUserDep = Annotated[User, Depends(current_user)]
 
+
+async def admin_user(user: CurrentUserDep) -> User:
+    """The signed-in caller, who must be an admin"""
+    if user.role is not Role.ADMIN:
+        raise Forbidden("Only the admin can use the portfolio")
+    return user
+
+
+AdminDep = Annotated[User, Depends(admin_user)]
+
 __all__ = [
     "SESSION_COOKIE",
+    "AdminDep",
     "AuthServiceDep",
     "CurrentUserDep",
     "OAuthProvidersDep",
+    "admin_user",
     "current_user",
     "get_auth_service",
     "get_oauth_providers",

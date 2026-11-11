@@ -1,9 +1,17 @@
 import json
+import re
 from pathlib import Path
 from uuid import uuid4
 
-from src.core.config import reload_settings
-from tests.conftest import PREFIX
+import pytest
+from sqlalchemy import update
+
+from src.core.auth.enums import Role
+from src.core.auth.models import User
+from src.core.auth.service import AuthService
+from src.core.config import get_settings, reload_settings
+from src.features.portfolio.router import router as portfolio_router
+from tests.conftest import OWNER, PREFIX
 
 PORTFOLIO = f"{PREFIX}/portfolio"
 PROFILE = f"{PREFIX}/profile"
@@ -189,6 +197,41 @@ async def test_every_portfolio_route_needs_a_session(auth_client):
     ):
         response = await auth_client.request(method, f"{PORTFOLIO}/{path}")
         assert response.status_code == 401, path
+
+
+@pytest.mark.parametrize(
+    ("role", "forbidden"), [(Role.USER, True), (Role.ADMIN, False)]
+)
+async def test_only_an_admin_can_use_a_portfolio_route(
+    auth_app, auth_client, role, forbidden
+):
+    async with auth_app.state.session_factory() as session:
+        await AuthService(session, get_settings().auth).set_password(OWNER, "p" * 12)
+        await session.execute(update(User).values(role=role))
+        await session.commit()
+    await auth_client.post(
+        f"{PREFIX}/auth/password", json={"email": OWNER, "password": "p" * 12}
+    )
+    values = {"sha256": "0" * 64, "slot": "image"}
+    routes = [
+        (
+            method,
+            re.sub(r"{(\w+)}", lambda m: values.get(m[1], str(uuid4())), route.path),
+        )
+        for route in portfolio_router.routes
+        for method in route.methods
+    ]
+
+    answers = {
+        (method, path): (await auth_client.request(method, f"{PREFIX}{path}", json={}))
+        for method, path in routes
+    }
+
+    assert len(answers) == 11
+    for route, response in answers.items():
+        assert (response.status_code == 403) is forbidden, route
+        if forbidden:
+            assert response.json()["detail"] == "Only the admin can use the portfolio"
 
 
 async def test_draft_names_the_site_once_its_url_is_set(client, monkeypatch):

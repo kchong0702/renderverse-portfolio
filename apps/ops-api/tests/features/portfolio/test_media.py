@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import text
 
 from src.core.auth.dependencies import current_user
+from src.core.auth.enums import Role
 from src.core.auth.models import User
 from src.features.portfolio.models import PortfolioRelease
 from tests.conftest import PREFIX, _client
@@ -239,7 +240,7 @@ async def test_another_user_with_the_same_file_cannot_take_or_delete_yours(
     app, client, tmp_path
 ):
     async with app.state.session_factory() as session:
-        other = User(email="other@example.com")
+        other = User(email="other@example.com", role=Role.ADMIN)
         session.add(other)
         await session.commit()
     project = await _project(client)
@@ -270,7 +271,10 @@ async def test_each_user_publishes_and_rolls_back_only_their_own_site(
     app, client, tmp_path
 ):
     async with app.state.session_factory() as session:
-        users = [User(email="ada@example.com"), User(email="bob@example.com")]
+        users = [
+            User(email="ada@example.com", role=Role.ADMIN),
+            User(email="bob@example.com", role=Role.ADMIN),
+        ]
         session.add_all(users)
         await session.commit()
 
