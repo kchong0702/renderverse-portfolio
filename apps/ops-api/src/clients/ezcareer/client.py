@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import suppress
 from typing import Literal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import anyio
 import httpx2
@@ -16,6 +16,7 @@ from src.clients.ezcareer.a2a import (
     SendMessageParams,
     SendMessageRequest,
     SendMessageSuccess,
+    StatusMessage,
     StepData,
     StreamSuccess,
     TaskIdParams,
@@ -23,6 +24,7 @@ from src.clients.ezcareer.a2a import (
     TaskStatus,
     TaskSuccess,
     TextPart,
+    UsageData,
 )
 from src.clients.ezcareer.schemas import (
     Answer,
@@ -33,6 +35,7 @@ from src.clients.ezcareer.schemas import (
     Failed,
     InputRequired,
     ModelCatalog,
+    RecordUsage,
     Run,
     RunEvent,
     RunMetadata,
@@ -40,6 +43,7 @@ from src.clients.ezcareer.schemas import (
     StepUpdate,
     Text,
     Thinking,
+    Usage,
     Widget,
 )
 from src.core.config import EzcareerSettings
@@ -77,6 +81,16 @@ def _data_request(status: TaskStatus) -> DataRequest | None:
     )
 
 
+def _usage(message: StatusMessage | None) -> Usage | None:
+    """The model call's usage a status message carries, if it carries one"""
+    data = message.parts[0].data if message else None
+    return (
+        UsageData.model_validate(data).usage
+        if isinstance(data, dict) and "usage" in data
+        else None
+    )
+
+
 def _reason(status: TaskStatus) -> str:
     """Why a task stopped, as the harness put it"""
     return (
@@ -90,15 +104,18 @@ class EzcareerClient:
     def __init__(
         self,
         settings: EzcareerSettings,
+        record_usage: RecordUsage,
         transport: httpx2.AsyncBaseTransport | None = None,
     ):
-        """One HTTP client for the app's lifetime; tests pass a mock transport"""
+        """One HTTP client for the app's lifetime, keeping each model call's usage with
+        record_usage; tests pass a mock transport"""
         self._http = httpx2.AsyncClient(
             base_url=settings.url,
             timeout=settings.timeout_seconds,
             transport=transport,
         )
         self._run_timeout = settings.run_timeout_seconds
+        self._record_usage = record_usage
 
     async def models(self) -> ModelCatalog:
         """The models ezcareer-harness offers, by provider"""
@@ -115,12 +132,15 @@ class EzcareerClient:
         self,
         executable: str,
         reply: type[R],
+        user_id: UUID,
         message: Message,
         metadata: RunMetadata | None,
         answer_data_request: AnswerDataRequest | None,
     ) -> Run[R]:
         """POST an A2A SendMessage, with metadata on the request, answering any data
-        request the task pauses with, and read how the task ended"""
+        request the task pauses with, keeping the usage its history reports, and read
+        how the task ended"""
+        recorded: set[str] = set()
         try:
             while True:
                 response = await self._http.post(
@@ -139,6 +159,12 @@ class EzcareerClient:
                 if isinstance(outcome, SendMessageError):
                     return Failed(reason=outcome.error.message)
                 task = outcome.result.task
+                for entry in task.history:
+                    if entry.message_id not in recorded and (usage := _usage(entry)):
+                        recorded.add(entry.message_id)
+                        await self._record_usage(
+                            user_id, message.context_id, task.id, usage
+                        )
                 status = task.status
                 match status.state:
                     case "TASK_STATE_COMPLETED":
@@ -174,6 +200,7 @@ class EzcareerClient:
         executable: str,
         reply: type[R],
         *,
+        user_id: UUID,
         context_id: str,
         data: BaseModel,
         metadata: RunMetadata | None,
@@ -185,6 +212,7 @@ class EzcareerClient:
         return await self._send_message(
             executable,
             reply,
+            user_id,
             _new_message(context_id, text, data),
             metadata,
             answer_data_request,
@@ -195,6 +223,7 @@ class EzcareerClient:
         executable: str,
         reply: type[R],
         *,
+        user_id: UUID,
         context_id: str,
         task_id: str,
         answer: Answer,
@@ -206,6 +235,7 @@ class EzcareerClient:
         return await self._send_message(
             executable,
             reply,
+            user_id,
             _answer_message(context_id, task_id, answer),
             metadata,
             answer_data_request,
@@ -216,6 +246,7 @@ class EzcareerClient:
         executable: str,
         reply: type[R],
         *,
+        user_id: UUID,
         context_id: str,
         data: BaseModel,
         metadata: RunMetadata | None,
@@ -227,6 +258,7 @@ class EzcareerClient:
         return self._stream(
             executable,
             reply,
+            user_id,
             _new_message(context_id, text, data),
             metadata,
             answer_data_request,
@@ -237,6 +269,7 @@ class EzcareerClient:
         executable: str,
         reply: type[R],
         *,
+        user_id: UUID,
         context_id: str,
         task_id: str,
         answer: Answer,
@@ -247,6 +280,7 @@ class EzcareerClient:
         return self._stream(
             executable,
             reply,
+            user_id,
             _answer_message(context_id, task_id, answer),
             metadata,
             answer_data_request,
@@ -288,12 +322,14 @@ class EzcareerClient:
         self,
         executable: str,
         reply: type[R],
+        user_id: UUID,
         message: Message,
         metadata: RunMetadata | None,
         answer_data_request: AnswerDataRequest | None,
     ) -> AsyncIterator[RunEvent[R]]:
         """POST an A2A SendStreamingMessage and turn its events into run events,
-        answering any data request; a stream closed early cancels the task"""
+        answering any data request and keeping each model call's usage; a stream
+        closed early cancels the task"""
         task_id = ""
         ended = False
         reply_part = None
@@ -344,6 +380,15 @@ class EzcareerClient:
                         elif update := result.status_update:
                             status = update.status
                             match status.state:
+                                case "TASK_STATE_WORKING" if usage := _usage(
+                                    status.message
+                                ):
+                                    await self._record_usage(
+                                        user_id,
+                                        message.context_id,
+                                        update.task_id,
+                                        usage,
+                                    )
                                 case "TASK_STATE_WORKING" if status.message:
                                     yield StepUpdate(
                                         step=StepData.model_validate(

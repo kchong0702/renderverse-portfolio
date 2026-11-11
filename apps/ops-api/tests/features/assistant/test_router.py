@@ -1,12 +1,14 @@
 import json
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx2
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from src.clients.ezcareer import Answer, EzcareerClient
 from src.clients.ezcareer.schemas import Completed, DataRequest, Started
 from src.core.config import get_settings
+from src.core.stores import AgentModelCall
 from tests.conftest import PREFIX
 
 ASSISTANT = f"{PREFIX}/assistant"
@@ -81,6 +83,10 @@ def _events(response) -> list[dict]:
         for line in response.text.splitlines()
         if line.startswith("data: ")
     ]
+
+
+async def _ignore_usage(*args: object) -> None:
+    """Drops a model call's usage"""
 
 
 def _sent(harness) -> list[dict]:
@@ -309,10 +315,13 @@ async def test_stop_leaves_another_chats_task_alone(client, harness):
 async def test_a_stream_closed_before_the_turn_ends_cancels_its_task(harness):
     cancelled = {"id": "task-1", "status": {"state": "TASK_STATE_CANCELED"}}
     harness.outcomes = [[_task(), _status("WORKING")], {"result": cancelled}]
-    ezcareer = EzcareerClient(get_settings().ezcareer, httpx2.MockTransport(harness))
+    ezcareer = EzcareerClient(
+        get_settings().ezcareer, _ignore_usage, httpx2.MockTransport(harness)
+    )
     run = ezcareer.stream(
         "career-director",
         str,
+        user_id=uuid4(),
         context_id="u:c",
         data=Answer(),
         metadata=None,
@@ -414,13 +423,16 @@ async def test_a_stream_answers_the_data_requests_its_run_pauses_with(harness):
             _status("COMPLETED"),
         ],
     ]
-    ezcareer = EzcareerClient(get_settings().ezcareer, httpx2.MockTransport(harness))
+    ezcareer = EzcareerClient(
+        get_settings().ezcareer, _ignore_usage, httpx2.MockTransport(harness)
+    )
 
     events = [
         event
         async for event in ezcareer.stream(
             "career-director",
             str,
+            user_id=uuid4(),
             context_id="u:c",
             data=Answer(),
             metadata=None,
@@ -471,11 +483,14 @@ async def test_a_blocking_run_answers_its_data_requests_too(harness):
         }
     }
     harness.outcomes = [paused, done]
-    ezcareer = EzcareerClient(get_settings().ezcareer, httpx2.MockTransport(harness))
+    ezcareer = EzcareerClient(
+        get_settings().ezcareer, _ignore_usage, httpx2.MockTransport(harness)
+    )
 
     run = await ezcareer.send(
         "edit-document",
         str,
+        user_id=uuid4(),
         context_id="u:c",
         data=Answer(),
         metadata=None,
@@ -486,3 +501,120 @@ async def test_a_blocking_run_answers_its_data_requests_too(harness):
     assert _sent(harness)[1]["params"]["message"]["parts"] == [
         {"data": {"documents": ["nw"]}}
     ]
+
+
+USAGE = {
+    "provider": "claude",
+    "model": "claude-sonnet-5-5",
+    "agent": "career-director",
+    "node": "model",
+    "input_tokens": 1000.0,
+    "output_tokens": 200.0,
+    "cache_read_tokens": 600.0,
+    "cache_write_tokens": 100.0,
+    "reasoning_tokens": 50.0,
+    "latency_ms": 1200.0,
+    "stop_reason": "end_turn",
+    "request_id": None,
+}
+
+
+async def test_a_turn_keeps_each_model_calls_usage_as_its_user_and_never_streams_it(
+    app, client, harness
+):
+    me = (await client.get(f"{PREFIX}/me")).json()
+    harness.outcomes = [
+        [
+            _task(),
+            _status("WORKING", [{"data": {"usage": USAGE}}]),
+            _chunk("a-1", "career-director", {"text": "Hi."}),
+            _status("COMPLETED"),
+        ]
+    ]
+
+    response = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
+
+    assert [e["status"] for e in _events(response)] == ["started", "completed"]
+    async with app.state.container.session_factory()() as session:
+        [call] = (await session.scalars(select(AgentModelCall))).all()
+    assert (call.user_id, call.thread_id, call.task_id) == (
+        UUID(me["id"]),
+        f"{me['id']}:{CHAT_ID}",
+        "task-1",
+    )
+    assert (call.agent, call.node, call.provider, call.model) == (
+        "career-director",
+        "model",
+        "claude",
+        "claude-sonnet-5-5",
+    )
+    assert (
+        call.input_tokens,
+        call.output_tokens,
+        call.cache_read_tokens,
+        call.cache_write_tokens,
+        call.reasoning_tokens,
+        call.latency_ms,
+        call.stop_reason,
+        call.provider_request_id,
+    ) == (1000, 200, 600, 100, 50, 1200, "end_turn", None)
+    assert call.created_by == f"user:{me['id']}"
+
+
+async def test_a_blocking_run_keeps_each_usage_its_history_reports_once(harness):
+    kept: list[tuple[str, str, str]] = []
+
+    async def record(user_id: UUID, thread_id: str, task_id: str, usage) -> None:
+        kept.append((thread_id, task_id, usage.model))
+
+    async def answer(request: DataRequest) -> _Documents:
+        return _Documents(documents=[])
+
+    def usage(message_id: str, model: str) -> dict:
+        return {
+            "messageId": message_id,
+            "role": "ROLE_AGENT",
+            "parts": [{"data": {"usage": {**USAGE, "model": model}}}],
+        }
+
+    asked = {
+        "messageId": "ask",
+        "role": "ROLE_AGENT",
+        "parts": [{"data": {"fetch": "documents"}}],
+    }
+    paused = {
+        "result": {
+            "task": {
+                "id": "task-1",
+                "status": {"state": "TASK_STATE_INPUT_REQUIRED", "message": asked},
+                "history": [usage("u-1", "first")],
+            }
+        }
+    }
+    done = {
+        "result": {
+            "task": {
+                "id": "task-1",
+                "status": {"state": "TASK_STATE_COMPLETED"},
+                "artifacts": [{"name": "edit-document", "parts": [{"text": "ok"}]}],
+                "history": [usage("u-1", "first"), asked, usage("u-2", "second")],
+            }
+        }
+    }
+    harness.outcomes = [paused, done]
+    ezcareer = EzcareerClient(
+        get_settings().ezcareer, record, httpx2.MockTransport(harness)
+    )
+
+    run = await ezcareer.send(
+        "edit-document",
+        str,
+        user_id=uuid4(),
+        context_id="u:c",
+        data=Answer(),
+        metadata=None,
+        answer_data_request=answer,
+    )
+
+    assert run == Completed(reply="ok")
+    assert kept == [("u:c", "task-1", "first"), ("u:c", "task-1", "second")]

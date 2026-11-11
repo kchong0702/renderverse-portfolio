@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -165,6 +166,48 @@ class Cancelled(BaseModel):
     """The user stopped the run"""
 
 
+class Usage(BaseModel):
+    provider: str
+    """The model's family, such as claude"""
+
+    model: str
+    """The model the call asked for"""
+
+    agent: str
+    """The harness agent whose model made the call"""
+
+    node: str
+    """The graph node that made the call"""
+
+    input_tokens: int
+    """Input tokens, cache reads and writes included"""
+
+    output_tokens: int
+    """Output tokens, reasoning included"""
+
+    cache_read_tokens: int
+    """Input tokens read from the prompt cache"""
+
+    cache_write_tokens: int
+    """Input tokens written to the prompt cache"""
+
+    reasoning_tokens: int
+    """Output tokens spent reasoning"""
+
+    latency_ms: int
+    """How long the call took"""
+
+    stop_reason: str | None
+    """Why the provider stopped"""
+
+    request_id: str | None
+    """The provider's id for the response"""
+
+
+type RecordUsage = Callable[[UUID, str, str, Usage], Awaitable[None]]
+"""Keeps a user's model call, given the thread and A2A task it ran in"""
+
+
 type RunEvent[R] = (
     Started
     | Thinking
@@ -189,6 +232,7 @@ __all__ = [
     "InputRequired",
     "ModelCatalog",
     "ModelChoice",
+    "RecordUsage",
     "Run",
     "RunEvent",
     "RunMetadata",
@@ -197,5 +241,6 @@ __all__ = [
     "StepUpdate",
     "Text",
     "Thinking",
+    "Usage",
     "Widget",
 ]

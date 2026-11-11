@@ -39,6 +39,42 @@ stream_retry_ms = 2000
 replay_ttl_seconds = 60
 stores = "postgres"
 
+[[ezcareer.prices]]
+provider = "claude"
+model = "claude-opus-5-5"
+effective_from = 2026-11-11
+input_per_mtok = "4"
+output_per_mtok = "20"
+cache_read_per_mtok = "0.2"
+cache_write_per_mtok = "5"
+
+[[ezcareer.prices]]
+provider = "claude"
+model = "claude-sonnet-5-5"
+effective_from = 2026-11-11
+input_per_mtok = "2"
+output_per_mtok = "10"
+cache_read_per_mtok = "0.1"
+cache_write_per_mtok = "2.5"
+
+[[ezcareer.prices]]
+provider = "openai"
+model = "gpt-6-luna"
+effective_from = 2026-11-11
+input_per_mtok = "0.1"
+output_per_mtok = "0.5"
+cache_read_per_mtok = "0.01"
+cache_write_per_mtok = "0.125"
+
+[[ezcareer.prices]]
+provider = "glm"
+model = "glm-5.3"
+effective_from = 2026-11-11
+input_per_mtok = "1.4"
+output_per_mtok = "4.4"
+cache_read_per_mtok = "0.26"
+cache_write_per_mtok = "0"
+
 [observability]
 service_name = "ops-api"
 log_level = "INFO"

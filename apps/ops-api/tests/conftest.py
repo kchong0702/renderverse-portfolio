@@ -89,6 +89,7 @@ async def _app(
     from src.app.container import Container
     from src.clients.ezcareer import EzcareerClient
     from src.core.config import reload_settings
+    from src.core.stores import UsageLedger
     from src.db import models  # noqa: F401
     from src.db.base import Base
     from src.db.session import create_session_factory
@@ -102,13 +103,18 @@ async def _app(
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
 
+    session_factory = create_session_factory(engine)
     container = Container()
     container.engine.override(providers.Object(engine))
-    container.session_factory.override(providers.Object(create_session_factory(engine)))
+    container.session_factory.override(providers.Object(session_factory))
     container.oauth_providers.override(providers.Object(oauth_providers or {}))
     container.ezcareer.override(
         providers.Object(
-            EzcareerClient(settings.ezcareer, httpx2.MockTransport(harness))
+            EzcareerClient(
+                settings.ezcareer,
+                UsageLedger(session_factory, settings.ezcareer).record,
+                httpx2.MockTransport(harness),
+            )
         )
     )
 

@@ -4,7 +4,7 @@ from src.clients.ezcareer import EzcareerClient
 from src.core.auth.oauth_providers import build_providers
 from src.core.config import get_settings
 from src.core.runner import Runner
-from src.core.stores import InMemoryRunStore, PostgresRunStore
+from src.core.stores import InMemoryRunStore, PostgresRunStore, UsageLedger
 from src.db.session import create_engine, create_session_factory
 
 
@@ -19,7 +19,17 @@ class Container(containers.DeclarativeContainer):
         build_providers, settings=settings.provided.auth
     )
 
-    ezcareer = providers.Singleton(EzcareerClient, settings=settings.provided.ezcareer)
+    ledger = providers.Singleton(
+        UsageLedger,
+        session_factory=session_factory,
+        settings=settings.provided.ezcareer,
+    )
+
+    ezcareer = providers.Singleton(
+        EzcareerClient,
+        settings=settings.provided.ezcareer,
+        record_usage=ledger.provided.record,
+    )
 
     store = providers.Selector(
         settings.provided.ezcareer.stores,

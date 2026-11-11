@@ -42,6 +42,7 @@ class AssistantService:
             self._ezcareer.stream(
                 _AGENT,
                 str,
+                user_id=user_id,
                 context_id=thread_id,
                 text=message.text,
                 data=data,
@@ -63,6 +64,7 @@ class AssistantService:
             self._ezcareer.stream_resume(
                 _AGENT,
                 str,
+                user_id=user_id,
                 context_id=thread_id,
                 task_id=task_id,
                 answer=answer,
