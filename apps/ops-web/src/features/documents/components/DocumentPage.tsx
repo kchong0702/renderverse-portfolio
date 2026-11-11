@@ -27,8 +27,6 @@ import RichTextField from "./RichTextField";
 
 const PX_PER_MM = 96 / 25.4;
 
-const MAX_PAGE_PX = 640;
-
 const RichField = (props: { path: string; value: RichValue }) => (
   <RichTextField {...props} className="dr-rich" />
 );
@@ -75,7 +73,7 @@ export default function DocumentPage({
   const design = record.body.design;
   const template = templates[design.template] ?? templates.classic;
   const [width, height] = PAGE_MM[design.page_size];
-  const zoom = Math.min(available, MAX_PAGE_PX) / (width * PX_PER_MM);
+  const zoom = Math.min(available / (width * PX_PER_MM), 1);
   const perPage = (height - 2 * design.margins_mm) * PX_PER_MM;
 
   useLayoutEffect(() => {

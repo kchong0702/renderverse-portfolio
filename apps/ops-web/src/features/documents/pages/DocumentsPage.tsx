@@ -56,7 +56,7 @@ export default function DocumentsPage() {
           </Link>
         }
       />
-      <PageBody>
+      <PageBody wide>
         {documents.isPending ? (
           <StateMessage>{t("common.loading")}</StateMessage>
         ) : documents.isError ? (
