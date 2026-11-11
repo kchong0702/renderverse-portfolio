@@ -1,4 +1,5 @@
 from src.core.exceptions.service import (
+    AlreadyExists,
     Conflict,
     Forbidden,
     InvalidInput,
@@ -10,6 +11,7 @@ from src.core.exceptions.service import (
 )
 
 __all__ = [
+    "AlreadyExists",
     "Conflict",
     "Forbidden",
     "InvalidInput",

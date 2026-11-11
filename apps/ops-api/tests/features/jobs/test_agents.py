@@ -192,8 +192,26 @@ async def test_a_failed_search_returns_its_reason_and_stores_nothing(client, har
 
     response = await client.post(f"{JOBS}/find")
 
-    assert response.json() == {"status": "failed", "reason": reason}
+    assert response.json() == {"status": "failed", "reason": reason, "next": None}
     assert (await client.get(JOBS)).json()["jobs"] == []
+
+
+async def test_a_refused_search_returns_the_screen_to_fix_it(client, harness):
+    settings = {"label": "Add a JSearch key in Settings", "screen": "settings"}
+    harness.outcomes = [
+        a2a_task(
+            "FAILED",
+            status_parts=[{"text": "No JSearch key"}, {"data": {"next": settings}}],
+        )
+    ]
+
+    response = await client.post(f"{JOBS}/find")
+
+    assert response.json() == {
+        "status": "failed",
+        "reason": "No JSearch key",
+        "next": settings,
+    }
 
 
 async def test_analysing_a_job_stores_the_analysis(client, harness):
@@ -243,7 +261,7 @@ async def test_a_failed_analysis_returns_its_reason_and_keeps_the_job(client, ha
 
     response = await client.post(f"{JOBS}/{job['id']}/analyse")
 
-    assert response.json() == {"status": "failed", "reason": reason}
+    assert response.json() == {"status": "failed", "reason": reason, "next": None}
     assert (await client.get(JOBS)).json()["jobs"] == [job]
 
 

@@ -82,6 +82,19 @@ output_per_mtok = "4.4"
 cache_read_per_mtok = "0.26"
 cache_write_per_mtok = "0"
 
+[google]
+scopes = [
+  "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
+]
+redirect_uri = "http://localhost:5174/ops-api/v1/integrations/google/callback"
+timeout_seconds = 10
+inbox_limit = 25
+calendar_max_days = 62
+calendar_max_events = 250
+
 [observability]
 service_name = "ops-api"
 log_level = "INFO"

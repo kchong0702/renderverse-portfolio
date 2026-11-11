@@ -96,12 +96,23 @@ class InputRequired(BaseModel):
     """What to ask the user"""
 
 
+class NextScreen(BaseModel):
+    label: str
+    """The button's text, such as Add a fact in Portfolio"""
+
+    screen: Literal["portfolio", "documents", "jobs", "settings"]
+    """The screen the button opens"""
+
+
 class Failed(BaseModel):
     status: Literal["failed"] = "failed"
     """The run stopped without a reply"""
 
     reason: str
     """Why, as ezcareer-harness put it"""
+
+    next: NextScreen | None = None
+    """Where the user adds what the run lacked; None when nothing would help"""
 
 
 type Run[R] = Completed[R] | InputRequired | Failed
@@ -162,6 +173,9 @@ class Step(BaseModel):
 
     status: Literal["running", "done", "failed", "waiting"]
     """Where the step is"""
+
+    detail: str | None = None
+    """Its result or target in plain words, such as 1 cover letter; None when unset"""
 
 
 class StepUpdate(BaseModel):
@@ -257,6 +271,7 @@ __all__ = [
     "JSearchMetadata",
     "ModelCatalog",
     "ModelChoice",
+    "NextScreen",
     "Published",
     "RecordUsage",
     "Run",

@@ -1,7 +1,13 @@
+import asyncio
+
+import pytest
+from sqlalchemy import text
+
 from src.core.auth.models import User
 from src.core.config import get_settings
 from src.features.settings.models import UserSettings
-from tests.conftest import PREFIX
+from tests.conftest import PREFIX, _client
+from tests.core.conftest import DATABASE_URL
 
 
 async def test_defaults_on_first_read(client):
@@ -19,6 +25,8 @@ async def test_defaults_on_first_read(client):
         "tailor_strong_matches": True,
         "follow_up_reminders": True,
         "suggest_replies": True,
+        "add_interview_invites": True,
+        "offer_free_slots": True,
     }
     assert body["scheduling"] == {
         "work_day_start": "09:00:00",
@@ -38,7 +46,7 @@ async def test_patch_changes_only_the_fields_sent(client):
         f"{PREFIX}/settings",
         json={
             "job_agent": {"query": "Backend engineer, Python", "min_score": 80},
-            "automation": {"suggest_replies": False},
+            "automation": {"suggest_replies": False, "offer_free_slots": False},
         },
     )
 
@@ -48,6 +56,8 @@ async def test_patch_changes_only_the_fields_sent(client):
     assert body["job_agent"]["min_score"] == 80
     assert body["job_agent"]["run_at"] == "08:00:00"
     assert body["automation"]["suggest_replies"] is False
+    assert body["automation"]["offer_free_slots"] is False
+    assert body["automation"]["add_interview_invites"] is True
     assert body["automation"]["follow_up_reminders"] is True
 
     reread = await client.get(f"{PREFIX}/settings")
@@ -79,3 +89,28 @@ async def test_rows_record_who_created_and_changed_them(app, client):
     assert row is not None
     assert row.created_by == "system"
     assert row.updated_by == f"user:{user.id}"
+
+
+@pytest.mark.postgres
+@pytest.mark.skipif(not DATABASE_URL, reason="OPS_API_TEST_DATABASE_URL is not set")
+async def test_a_first_read_that_overlaps_another_gets_the_defaults(postgres_app):
+    async with (
+        postgres_app.state.session_factory() as other,
+        _client(postgres_app) as client,
+    ):
+        user = User(email=get_settings().auth.dev_email)
+        other.add(user)
+        await other.commit()
+        other.add(UserSettings(user_id=user.id))
+        await other.flush()
+        reading = asyncio.create_task(client.get(f"{PREFIX}/settings"))
+        async with asyncio.timeout(5):
+            while not await other.scalar(
+                text("SELECT count(*) FROM pg_locks WHERE NOT granted")
+            ):
+                await asyncio.sleep(0.01)
+        await other.commit()
+        response = await reading
+
+    assert response.status_code == 200
+    assert response.json()["job_agent"]["min_score"] == 70

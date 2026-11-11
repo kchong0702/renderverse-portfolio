@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,7 +12,7 @@ from src.core.auth.passwords import MIN_PASSWORD_LENGTH, hash_password, verify_p
 from src.core.auth.repository import AuthRepository
 from src.core.config import AuthSettings
 from src.core.exceptions import Forbidden, InvalidInput, TooManyRequests, Unauthorized
-from src.db.base import utcnow
+from src.db.base import as_utc, utcnow
 
 _RENEW_AFTER = timedelta(hours=1)
 
@@ -26,11 +26,6 @@ def normalise_email(email: str) -> str:
 
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
-
-
-def _aware(moment: datetime) -> datetime:
-    """SQLite hands back naive datetimes; stored values are UTC"""
-    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 class AuthService:
@@ -113,7 +108,7 @@ class AuthService:
         user = await self._repository.user(session.user_id)
         if user is None or not self.is_allowed(user.email):
             return None
-        if now - _aware(session.last_seen_at) > _RENEW_AFTER:
+        if now - as_utc(session.last_seen_at) > _RENEW_AFTER:
             session.last_seen_at = now
             session.expires_at = now + self._idle_timeout
         return user

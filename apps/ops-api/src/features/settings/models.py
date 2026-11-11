@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import time
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, LargeBinary, String, Time
+from sqlalchemy import ForeignKey, LargeBinary, String, Time, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.clients.ezcareer import ModelFamily
@@ -28,6 +28,10 @@ class UserSettings(AuditMixin, Base):
     tailor_strong_matches: Mapped[bool] = mapped_column(default=True)
     follow_up_reminders: Mapped[bool] = mapped_column(default=True)
     suggest_replies: Mapped[bool] = mapped_column(default=True)
+    add_interview_invites: Mapped[bool] = mapped_column(
+        default=True, server_default=true()
+    )
+    offer_free_slots: Mapped[bool] = mapped_column(default=True, server_default=true())
 
     work_day_start: Mapped[time] = mapped_column(Time(), default=time(9, 0))
     work_day_end: Mapped[time] = mapped_column(Time(), default=time(18, 0))

@@ -63,6 +63,7 @@ def create_app(container: Container | None = None) -> FastAPI:
         await container.engine().dispose()
         await container.ezcareer().aclose()
         await container.store().aclose()
+        await container.google().aclose()
 
     app = FastAPI(
         title=settings.app.name.upper(),
@@ -78,6 +79,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     app.state.oauth_providers = container.oauth_providers()
     app.state.ezcareer = container.ezcareer()
     app.state.runner = container.runner()
+    app.state.google = container.google()
 
     _add_middleware(app, settings)
 

@@ -285,6 +285,80 @@ class JSearchSettings(BaseModel):
         return v
 
 
+class GoogleSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    client_id: str = ""
+    """OAuth client id for reading Gmail and Calendar; connecting Google needs it"""
+
+    client_secret: SecretStr = SecretStr("")
+    """OAuth client secret"""
+
+    scopes: list[str] = Field(
+        default_factory=lambda: [
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.send",
+            "https://www.googleapis.com/auth/calendar.readonly",
+            "https://www.googleapis.com/auth/calendar.events",
+        ]
+    )
+    """The access Ops asks Google for: read and send Gmail, read Calendar and add events"""
+
+    redirect_uri: str = "http://localhost:5174/ops-api/v1/integrations/google/callback"
+    """Where Google sends the user back; must be listed on the OAuth client"""
+
+    encryption_key: SecretStr = SecretStr("")
+    """Fernet key that encrypts stored Google refresh tokens; connecting needs it"""
+
+    inbox_query: str = (
+        "newer_than:90d -category:promotions -category:social "
+        "(subject:(application OR applying OR interview OR offer OR recruiter "
+        'OR candidate OR "next steps") '
+        "OR from:(greenhouse.io OR lever.co OR ashbyhq.com OR myworkday.com "
+        "OR workablemail.com OR smartrecruiters.com))"
+    )
+    """Gmail search that picks the job-search emails Inbox lists"""
+
+    inbox_limit: int = Field(default=25, gt=0)
+    """How many of the newest matching emails Inbox lists"""
+
+    calendar_max_days: int = Field(default=62, gt=0)
+    """The longest range Calendar reads in one request"""
+
+    calendar_max_events: int = Field(default=250, gt=0)
+    """The most events Calendar asks Google for in one request"""
+
+    interview_minutes: int = Field(default=60, gt=0)
+    """How long an interview lasts when its email gives no end; the shortest free
+    slot a reply offers"""
+
+    thread_search_limit: int = Field(default=25, gt=0)
+    """The most threads a run's thread search reads, whatever limit it asks for"""
+
+    free_slot_days: int = Field(default=7, gt=0)
+    """How many days from tomorrow a reply offers free slots in"""
+
+    timeout_seconds: float = Field(default=10, gt=0)
+    """How long a request to Google may take"""
+
+    @field_validator("encryption_key", mode="after")
+    @classmethod
+    def _must_be_a_fernet_key(cls, v: SecretStr) -> SecretStr:
+        """Fail at startup on a key Fernet cannot use, not on the first connect"""
+        if v.get_secret_value():
+            Fernet(v.get_secret_value())
+        return v
+
+    @property
+    def configured(self) -> bool:
+        """Whether the client id, secret and encryption key are all set"""
+        return bool(
+            self.client_id
+            and self.client_secret.get_secret_value()
+            and self.encryption_key.get_secret_value()
+        )
+
+
 class ObservabilitySettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
@@ -332,6 +406,9 @@ class Settings(BaseSettings):
     jsearch: JSearchSettings = Field(default_factory=JSearchSettings)
     """Keeping each user's JSearch API key"""
 
+    google: GoogleSettings = Field(default_factory=GoogleSettings)
+    """Reading the user's Gmail and Google Calendar"""
+
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     """Logging settings"""
 
@@ -373,6 +450,7 @@ __all__ = [
     "DatabaseSettings",
     "DocumentsSettings",
     "EzcareerSettings",
+    "GoogleSettings",
     "JSearchSettings",
     "ObservabilitySettings",
     "Settings",
