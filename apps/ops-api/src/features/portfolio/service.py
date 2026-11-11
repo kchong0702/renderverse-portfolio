@@ -107,7 +107,7 @@ class PortfolioService:
             number=await self._repository.last_number(user_id) + 1,
             changes=_changes(
                 await self._snapshot(user_id),
-                Snapshot.model_validate(live.snapshot)
+                live.snapshot
                 if live
                 else Snapshot(
                     about=About(
@@ -125,14 +125,14 @@ class PortfolioService:
         live = await self._repository.live(user_id)
         snapshot = await self._snapshot(user_id)
         if live is not None:
-            if Snapshot.model_validate(live.snapshot) == snapshot:
+            if live.snapshot == snapshot:
                 raise Conflict(f"Nothing has changed since release {live.number}")
             live.live = False
         release = await self._repository.add(
             PortfolioRelease(
                 user_id=user_id,
                 number=await self._repository.last_number(user_id) + 1,
-                snapshot=snapshot.model_dump(mode="json"),
+                snapshot=snapshot,
                 live=True,
             )
         )
@@ -221,7 +221,7 @@ class PortfolioService:
         await self._repository.delete(asset)
         await self._session.commit()
         if not any(
-            _key(asset) in _media(Snapshot.model_validate(release.snapshot))
+            _key(asset) in _media(release.snapshot)
             for release in await self._repository.releases(user_id)
         ):
             await self._storage.delete(_private_key(user_id, asset.sha256))
@@ -270,7 +270,7 @@ class PortfolioService:
 
     async def _write(self, release: PortfolioRelease) -> None:
         """Copy its files, prune the user's stale ones, then write current.json"""
-        snapshot = Snapshot.model_validate(release.snapshot)
+        snapshot = release.snapshot
         for key in _media(snapshot):
             await self._storage.publish(
                 _private_key(release.user_id, PurePosixPath(key).stem), key
@@ -278,7 +278,7 @@ class PortfolioService:
         keep = {
             key
             for recent in await self._repository.lately_live(release.user_id)
-            for key in _media(Snapshot.model_validate(recent.snapshot))
+            for key in _media(recent.snapshot)
         }
         for key in await self._storage.public_keys(f"sites/{release.user_id}/media/"):
             if key not in keep:
