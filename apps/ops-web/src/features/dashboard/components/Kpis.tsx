@@ -69,17 +69,26 @@ export default function Kpis({ applications, sent, days }: KpisProps) {
   ];
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-4">
+    <div className="grid grid-cols-2 gap-3 shell:grid-cols-[repeat(auto-fit,minmax(210px,1fr))] shell:gap-4">
       {kpis.map((kpi) => (
         <div
           key={kpi.label}
-          className="bg-panel border-hair shadow-card flex flex-col gap-1.5 rounded-xl border px-[22px] py-5"
+          className="bg-panel border-hair shadow-card flex flex-col gap-0.5 rounded-xl border px-4 py-3.5 shell:gap-1.5 shell:px-[22px] shell:py-5"
         >
-          <span className="text-ink-3 text-sm font-medium">{kpi.label}</span>
-          <span className={cn("text-[30px] tracking-[-0.02em]", kpi.ink)}>
+          <span className="text-ink-3 text-[13px] font-medium shell:text-sm">
+            {kpi.label}
+          </span>
+          <span
+            className={cn(
+              "text-[26px] tracking-[-0.02em] shell:text-[30px]",
+              kpi.ink,
+            )}
+          >
             {kpi.value}
           </span>
-          {kpi.note && <span className="text-ink-3 text-sm">{kpi.note}</span>}
+          {kpi.note && (
+            <span className="text-ink-3 text-xs shell:text-sm">{kpi.note}</span>
+          )}
         </div>
       ))}
     </div>

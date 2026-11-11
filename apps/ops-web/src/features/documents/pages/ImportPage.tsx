@@ -33,7 +33,7 @@ export default function ImportPage() {
 
   return (
     <>
-      <header className="bg-header border-hair flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b px-10 py-3.5">
+      <header className="bg-header border-hair flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b px-4 py-3.5 shell:px-10">
         <div className="flex min-w-0 items-baseline gap-2.5">
           <Link
             to="/documents"

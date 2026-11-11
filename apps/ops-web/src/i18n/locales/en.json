@@ -10,6 +10,8 @@
     "tagline": "Your career starts here",
     "space": "Career space",
     "mainNav": "Main",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
     "account": "Account",
     "notFound": {
       "title": "Page not found",

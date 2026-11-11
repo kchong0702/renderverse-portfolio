@@ -9,7 +9,7 @@ export default function PageBody({
   wide?: boolean;
 }) {
   return (
-    <div className="flex-1 overflow-y-auto overscroll-none px-10 pt-9 pb-16">
+    <div className="flex-1 overflow-y-auto overscroll-none px-4 pt-6 pb-16 shell:px-10 shell:pt-9">
       <div
         className={cn(
           "mx-auto flex flex-col gap-7",

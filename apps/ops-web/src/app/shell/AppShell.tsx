@@ -46,7 +46,7 @@ export default function AppShell() {
   ).map((text) => ({ label: text, text }));
 
   return (
-    <div className="flex min-h-screen flex-wrap min-[792px]:h-screen min-[792px]:flex-nowrap">
+    <div className="flex min-h-screen flex-wrap shell:h-screen shell:flex-nowrap">
       <Sidebar />
       <main className="flex min-w-0 flex-[999_1_560px] flex-col">
         <Outlet />
