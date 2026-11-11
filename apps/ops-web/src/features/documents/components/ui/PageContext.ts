@@ -2,7 +2,7 @@ import type { AnyBlock, TemplateSpec } from "@renderverse/document-renderer";
 import type { TFunction } from "i18next";
 import { createContext, useContext } from "react";
 import type { DocumentRecord, Edit } from "../../api/documents";
-import { withArrangement, type Arrangement } from "../../lib/arrangement";
+import { replaceTemplateLayout, type Arrangement } from "../../lib/arrangement";
 
 export interface Page {
   record: DocumentRecord;
@@ -20,7 +20,7 @@ export const arrange = (page: Page, arrangement: Arrangement) =>
   page.edit([
     {
       kind: "update_design",
-      design: withArrangement(
+      design: replaceTemplateLayout(
         page.record.body.design,
         page.template.id,
         arrangement,

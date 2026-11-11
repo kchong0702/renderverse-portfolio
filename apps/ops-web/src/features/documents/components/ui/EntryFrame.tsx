@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/cn";
 import type { Edit } from "../../api/documents";
 import {
-  afterFor,
+  idToPlaceAfter,
   convertEntry,
   entryAt,
   newId,
@@ -26,7 +26,7 @@ import {
   DownIcon,
   DuplicateIcon,
   UpIcon,
-} from "./icons";
+} from "./Icons";
 import { usePage } from "./PageContext";
 
 export default function EntryFrame({
@@ -82,7 +82,7 @@ export default function EntryFrame({
         endDrag();
         const source = entryAt(page.record.body.content.blocks, drag.id);
         if (drag.id === path || !source?.item) return;
-        const after = afterFor(ids, source.item.id, entry.id);
+        const after = idToPlaceAfter(ids, source.item.id, entry.id);
         page.edit(
           source.block.id === block.id
             ? [{ kind: "move", path: drag.id, after }]

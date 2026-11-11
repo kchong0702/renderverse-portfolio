@@ -13,7 +13,7 @@ import {
   structureOf,
 } from "../lib/templates";
 import { useEditorStore } from "../state/editorStore";
-import { PersonIcon } from "./page/icons";
+import { PersonIcon } from "./ui/Icons";
 import RangeField from "./RangeField";
 import TemplateThumbnail from "./TemplateThumbnail";
 

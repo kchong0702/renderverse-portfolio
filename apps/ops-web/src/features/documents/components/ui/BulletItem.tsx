@@ -1,7 +1,7 @@
 import type { Bullet } from "@renderverse/document-renderer";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/cn";
-import { afterFor, entryAt, newId } from "../../lib/items";
+import { idToPlaceAfter, entryAt, newId } from "../../lib/items";
 import { useEditorStore } from "../../state/editorStore";
 import RichTextField from "../RichTextField";
 import { dropLine } from "./chrome";
@@ -50,7 +50,7 @@ export default function BulletItem({
           from[0],
         )?.item?.bullets?.find((each) => each.id === from[1]);
         if (!moved) return;
-        const after = afterFor(ids, moved.id, bullet.id);
+        const after = idToPlaceAfter(ids, moved.id, bullet.id);
         page.edit(
           from[0] === entryPath
             ? [{ kind: "move", path: drag.id, after }]

@@ -275,7 +275,7 @@ export const entryAt = (blocks: AnyBlock[], path: string) => {
     : undefined;
 };
 
-export const afterFor = (
+export const idToPlaceAfter = (
   ids: string[],
   moved: string,
   target: string,
