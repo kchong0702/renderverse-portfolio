@@ -8,8 +8,8 @@ from src.core.config import Settings
 
 @pytest.fixture
 def gateway(monkeypatch: pytest.MonkeyPatch) -> Settings:
-    monkeypatch.setenv("AIGW_UPSTREAM_URL", "https://gateway.example/v1")
-    monkeypatch.setenv("AIGW_PASSTHROUGH_KEY", "sk-test")
+    monkeypatch.setenv("AIGW_BASE_URL", "https://gateway.example/v1")
+    monkeypatch.setenv("AIGW_API_KEY", "sk-test")
     settings = Settings(_env_file=None)
     monkeypatch.setattr(llm_providers, "get_settings", lambda: settings)
     return settings
@@ -53,10 +53,10 @@ def test_the_gateway_key_stays_secret(gateway: Settings):
 
 
 def test_gateway_models_need_the_gateway_settings(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.delenv("AIGW_UPSTREAM_URL", raising=False)
-    monkeypatch.delenv("AIGW_PASSTHROUGH_KEY", raising=False)
+    monkeypatch.delenv("AIGW_BASE_URL", raising=False)
+    monkeypatch.delenv("AIGW_API_KEY", raising=False)
     settings = Settings(_env_file=None)
     monkeypatch.setattr(llm_providers, "get_settings", lambda: settings)
 
-    with pytest.raises(ValueError, match="AIGW_UPSTREAM_URL"):
+    with pytest.raises(ValueError, match="AIGW_BASE_URL"):
         llm_providers.llm_provider("glm", "glm-5.3")

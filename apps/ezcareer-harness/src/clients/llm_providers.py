@@ -26,7 +26,7 @@ def llm_provider(family: str, name: str) -> BaseChatModel:
         )
     if settings.gateway_url is None or settings.gateway_key is None:
         raise ValueError(
-            f"{family} models need the gateway: set AIGW_UPSTREAM_URL and AIGW_PASSTHROUGH_KEY"
+            f"{family} models need the gateway: set AIGW_BASE_URL and AIGW_API_KEY"
         )
     return ChatOpenAI(
         model=name,
