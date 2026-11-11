@@ -302,6 +302,7 @@ class Settings(BaseSettings):
         env_nested_delimiter="__",
         env_file=str(_DEFAULT_ENV_FILE),
         env_file_encoding="utf-8",
+        env_ignore_empty=True,
         extra="ignore",
         case_sensitive=False,
         frozen=True,
