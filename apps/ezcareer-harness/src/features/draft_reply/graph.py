@@ -68,13 +68,38 @@ class DraftReplyState(DraftReplyInput, DraftReplyOutput):
     """What the latest check found"""
 
 
-def _brief(state: DraftReplyState, max_free_slots: int) -> dict:
-    """Ask the agent for the reply or the follow-up, listing the earliest
-    max_free_slots free slots by id in the user's time zone"""
-    free_slots = sorted(state.free_slots, key=lambda slot: slot.start)[:max_free_slots]
+def _brief(state: DraftReplyState, configurations: DraftReplyConfigurations) -> dict:
+    """Ask the agent for the reply or the follow-up, showing the thread's latest
+    messages cut to length and the earliest free slots by id in the user's time zone"""
+    free_slots = sorted(state.free_slots, key=lambda slot: slot.start)[
+        : configurations.max_free_slots
+    ]
     if state.thread:
+        messages = state.thread.messages[-configurations.max_thread_messages :]
+        left_out = len(state.thread.messages) - len(messages)
+        thread = state.thread.model_copy(
+            update={
+                "messages": [
+                    message.model_copy(
+                        update={
+                            "text": message.text[: configurations.max_message_chars]
+                            + " [cut]"
+                        }
+                    )
+                    if len(message.text) > configurations.max_message_chars
+                    else message
+                    for message in messages
+                ]
+            }
+        )
+        earlier = (
+            f"\n\n{left_out} earlier messages of the thread are left out."
+            if left_out
+            else ""
+        )
         task = (
-            f"Draft my reply to this email thread.\n\n{untrusted_thread(state.thread)}"
+            f"Draft my reply to this email thread.{earlier}\n\n"
+            f"{untrusted_thread(thread)}"
         )
     else:
         application = state.application
@@ -151,9 +176,7 @@ def build_graph(
     graph = StateGraph(
         DraftReplyState, input_schema=DraftReplyInput, output_schema=DraftReplyOutput
     )
-    graph.add_node(
-        "brief", partial(_brief, max_free_slots=configurations.max_free_slots)
-    )
+    graph.add_node("brief", partial(_brief, configurations=configurations))
     graph.add_node(
         "agent",
         agent.with_config(

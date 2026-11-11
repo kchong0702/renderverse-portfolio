@@ -144,3 +144,25 @@ def test_draft_reply_is_served_over_a2a():
         "body": BODY,
         "slots": [{"start": "2026-11-11T10:00:00Z", "end": "2026-11-11T10:30:00Z"}],
     }
+
+
+async def test_only_the_latest_messages_of_a_long_thread_reach_the_agent_cut_to_length():
+    message = THREAD["messages"][0]
+    thread = THREAD | {
+        "messages": [
+            message | {"text": f"Message {number}. " + "x" * 5000}
+            for number in range(1, 9)
+        ]
+    }
+    model = ScriptedChatModel(replies=[_draft()])
+
+    await _graph(model).ainvoke(
+        {"thread": thread, "free_slots": [], "timezone": "UTC", "facts": FACTS}
+    )
+
+    brief = model.requests[0][1].text
+    assert "2 earlier messages of the thread are left out." in brief
+    assert "Message 2." not in brief
+    assert "Message 3." in brief and "Message 8." in brief
+    assert brief.count(" [cut]") == 6
+    assert len(brief) < 6 * 4200
