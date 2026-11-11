@@ -1069,6 +1069,7 @@
       "profile": "Profile",
       "skills": "Skills",
       "projects": "Projects",
+      "media": "Media",
       "releases": "Releases"
     },
     "filters": {
@@ -1204,6 +1205,58 @@
       "makeLive": "Make live",
       "publishFailed": "Not published: {{reason}}",
       "makeLiveFailed": "Not changed: {{reason}}"
+    },
+    "media": {
+      "heading": "Media",
+      "description": "Cover images and videos you uploaded for your projects. Delete a file once no project shows it.",
+      "image": "Cover image",
+      "video": "Video",
+      "add": {
+        "image": "+ Cover image",
+        "video": "+ Video"
+      },
+      "choose": {
+        "image": "Upload a cover image for {{name}}",
+        "video": "Upload a video for {{name}}"
+      },
+      "replace": {
+        "image": "Replace the cover image of {{name}}",
+        "video": "Replace the video of {{name}}"
+      },
+      "remove": {
+        "image": "Remove the cover image from {{name}}",
+        "video": "Remove the video from {{name}}"
+      },
+      "uploading": {
+        "image": "Uploading cover image {{percent}}%",
+        "video": "Uploading video {{percent}}%"
+      },
+      "wrongType": {
+        "image": "{{name}} is not a PNG, JPEG or WebP image.",
+        "video": "{{name}} is not an MP4 video. Export it as MP4 and upload it again."
+      },
+      "tooLarge": {
+        "image": "{{name}} is {{size}}. Cover images can be up to 10 MB.",
+        "video": "{{name}} is {{size}}. Videos can be up to 200 MB."
+      },
+      "uploadFailed": "{{label}} not uploaded: {{reason}}",
+      "removeFailed": "{{label}} not removed: {{reason}}",
+      "networkFailed": "The upload stopped. Check your connection and try again.",
+      "file": "File",
+      "shownOn": "Shown on",
+      "notShown": "Not shown",
+      "meta": "{{type}} · {{size}}",
+      "types": {
+        "image/png": "PNG",
+        "image/jpeg": "JPEG",
+        "image/webp": "WebP",
+        "video/mp4": "MP4"
+      },
+      "empty": "No files yet. Add a cover image or video to a project on the Projects tab.",
+      "delete": "Delete {{name}}",
+      "confirmDelete": "Delete {{name}}? This cannot be undone.",
+      "deleteFailed": "Not deleted: {{reason}}",
+      "loadFailed": "Files could not be loaded: {{reason}}"
     },
     "changes": {
       "heading": "Changes in release {{number}}",

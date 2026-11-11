@@ -2,10 +2,14 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import Badge from "@/shared/components/Badge";
 import TrashIcon from "@/shared/components/TrashIcon";
+import type { Asset } from "../api/media";
 import type { Entry, EntryKind, EntryWrite } from "../api/profile";
+import { useAssets } from "../hooks/useMedia";
 import { useDraft } from "../hooks/usePortfolio";
 import { useAddEntry, useDeleteEntry, useSaveEntry } from "../hooks/useProfile";
 import EntryForm from "./EntryForm";
+import MediaPill from "./MediaPill";
+import MediaThumb from "./MediaThumb";
 import Switch from "./Switch";
 
 const BLANK: EntryWrite = {
@@ -28,6 +32,7 @@ const columns = (site: boolean) =>
 interface EntryRowProps {
   entry: Entry;
   site: boolean;
+  assets: Map<string, Asset> | null;
   changed: boolean;
   deleteError: string | null;
   onEdit: () => void;
@@ -37,6 +42,7 @@ interface EntryRowProps {
 function EntryRow({
   entry,
   site,
+  assets,
   changed,
   deleteError,
   onEdit,
@@ -56,51 +62,66 @@ function EntryRow({
       role="row"
       className={`${columns(site)} border-hair-soft border-b px-5 py-4 ${entry.archived ? "opacity-70" : ""}`}
     >
-      <span role="cell" className="flex min-w-0 flex-col gap-0.5">
-        <span className="flex flex-wrap items-center gap-2.5">
-          <button
-            type="button"
-            aria-label={t("portfolio.table.edit", { name: entry.title })}
-            onClick={onEdit}
-            className="text-ink cursor-pointer text-left font-semibold"
-          >
-            {entry.title}
-          </button>
-          <span className="text-ink-3 text-[13px]">
-            {from && to && from !== to
-              ? t("portfolio.period.range", { from, to })
-              : (from ?? to ?? "")}
+      <span role="cell" className="flex min-w-0 items-center gap-3.5">
+        {assets && (
+          <MediaThumb
+            asset={assets.get(entry.image_id ?? entry.video_id ?? "")}
+          />
+        )}
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              aria-label={t("portfolio.table.edit", { name: entry.title })}
+              onClick={onEdit}
+              className="text-ink cursor-pointer text-left font-semibold"
+            >
+              {entry.title}
+            </button>
+            <span className="text-ink-3 text-[13px]">
+              {from && to && from !== to
+                ? t("portfolio.period.range", { from, to })
+                : (from ?? to ?? "")}
+            </span>
+            {entry.archived ? (
+              <Badge>{t("portfolio.table.archived")}</Badge>
+            ) : (
+              changed && (
+                <Badge tone="warn">{t("portfolio.table.changed")}</Badge>
+              )
+            )}
           </span>
-          {entry.archived ? (
-            <Badge>{t("portfolio.table.archived")}</Badge>
-          ) : (
-            changed && <Badge tone="warn">{t("portfolio.table.changed")}</Badge>
+          <span className="text-ink-2 text-sm">
+            {entry.kind === "project"
+              ? entry.summary
+              : [entry.organisation, entry.summary].filter(Boolean).join(" · ")}
+          </span>
+          {toggle.isError && (
+            <span role="alert" className="text-crit text-sm">
+              {t("portfolio.table.toggleFailed", {
+                reason: toggle.error.message,
+              })}
+            </span>
+          )}
+          {siteToggle.isError && (
+            <span role="alert" className="text-crit text-sm">
+              {t("portfolio.table.siteToggleFailed", {
+                reason: siteToggle.error.message,
+              })}
+            </span>
+          )}
+          {deleteError && (
+            <span role="alert" className="text-crit text-sm">
+              {t("portfolio.table.deleteFailed", { reason: deleteError })}
+            </span>
+          )}
+          {assets && (
+            <span className="mt-1.5 flex flex-wrap items-center gap-2">
+              <MediaPill project={entry} slot="image" />
+              <MediaPill project={entry} slot="video" />
+            </span>
           )}
         </span>
-        <span className="text-ink-2 text-sm">
-          {entry.kind === "project"
-            ? entry.summary
-            : [entry.organisation, entry.summary].filter(Boolean).join(" · ")}
-        </span>
-        {toggle.isError && (
-          <span role="alert" className="text-crit text-sm">
-            {t("portfolio.table.toggleFailed", {
-              reason: toggle.error.message,
-            })}
-          </span>
-        )}
-        {siteToggle.isError && (
-          <span role="alert" className="text-crit text-sm">
-            {t("portfolio.table.siteToggleFailed", {
-              reason: siteToggle.error.message,
-            })}
-          </span>
-        )}
-        {deleteError && (
-          <span role="alert" className="text-crit text-sm">
-            {t("portfolio.table.deleteFailed", { reason: deleteError })}
-          </span>
-        )}
       </span>
       {site && (
         <span role="cell" className="flex justify-center">
@@ -152,6 +173,10 @@ export default function EntryTable({ kind, entries }: EntryTableProps) {
   const remove = useDeleteEntry();
   const { data: draft } = useDraft();
   const site = kind === "project" && Boolean(draft?.site_url);
+  const assets = useAssets(site);
+  const media = site
+    ? new Map(assets.data?.map((asset) => [asset.id, asset]))
+    : null;
   const editing = params.get("edit");
   const adding = editing === `new-${kind}`;
 
@@ -214,6 +239,7 @@ export default function EntryTable({ kind, entries }: EntryTableProps) {
               key={entry.id}
               entry={entry}
               site={site}
+              assets={media}
               changed={Boolean(
                 draft?.site_url &&
                 draft.changes.some((change) => change.id === entry.id),
