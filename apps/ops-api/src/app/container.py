@@ -1,5 +1,6 @@
 from dependency_injector import containers, providers
 
+from src.clients.artifact import ArtifactClient
 from src.clients.ezcareer import EzcareerClient
 from src.core.auth.oauth_providers import build_providers
 from src.core.config import get_settings
@@ -10,6 +11,8 @@ from src.db.session import create_engine, create_session_factory
 
 class Container(containers.DeclarativeContainer):
     settings = providers.Singleton(get_settings)
+
+    artifact = providers.Singleton(ArtifactClient, settings=settings.provided.artifact)
 
     engine = providers.Singleton(create_engine, settings=settings.provided.database)
 

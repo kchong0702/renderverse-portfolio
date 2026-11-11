@@ -1,11 +1,13 @@
 import json
 import os
+from base64 import b64encode
 from collections.abc import AsyncIterator
 
 import httpx2
 import pytest
 from dependency_injector import providers
 from fastapi import FastAPI
+from pydantic import JsonValue
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import StaticPool
 from starlette.requests import Request
@@ -20,6 +22,7 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ["OPS_API_AUTH__ENABLED"] = "false"
     os.environ["OPS_API_EZCAREER__URL"] = "http://harness.test/ezcareer"
     os.environ["OPS_API_EZCAREER__STORES"] = "memory"
+    os.environ["OPS_API_ARTIFACT__URL"] = "http://artifact.test/artifact-service"
 
 
 class FakeProvider:
@@ -82,15 +85,56 @@ class FakeHarness:
         return httpx2.Response(404)
 
 
+class FakeArtifact:
+    def __init__(self):
+        """One template for every kind; records each render it is asked for"""
+        self.templates = [
+            {
+                "id": "classic",
+                "name": "Classic",
+                "description": "One column with the name and contacts in a header.",
+                "kinds": ["resume", "cv", "cover_letter"],
+                "body_font": "source-sans-3",
+                "heading_font": "source-serif-4",
+                "accent": "#1F3A5F",
+                "regions": {"top": {"area": {"row": 1}}, "main": {"area": {"row": 2}}},
+                "layout": {"default": "main", "profile": "top"},
+            }
+        ]
+        self.rendered: list[JsonValue] = []
+        self.down = False
+
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        """Serve templates and renders at /artifact-service/v1, or refuse when down"""
+        if self.down:
+            raise httpx2.ConnectError("connection refused", request=request)
+        match request.method, request.url.path:
+            case "GET", "/artifact-service/v1/templates":
+                kind = request.url.params["kind"]
+                return httpx2.Response(
+                    200, json=[t for t in self.templates if kind in t["kinds"]]
+                )
+            case "POST", "/artifact-service/v1/render":
+                self.rendered.append(json.loads(request.content))
+                pdf = b"%PDF-1.7 \xfb\xff"
+                report = {"render_id": "0" * 64, "pages": 1, "last_page_fill": 0.5}
+                return httpx2.Response(
+                    200, json={"artifact": b64encode(pdf).decode(), "report": report}
+                )
+        return httpx2.Response(404)
+
+
 async def _app(
-    harness: FakeHarness, oauth_providers: dict | None = None
+    harness: FakeHarness,
+    artifact: FakeArtifact,
+    oauth_providers: dict | None = None,
 ) -> AsyncIterator[FastAPI]:
     from src.app.app import create_app
     from src.app.container import Container
+    from src.clients.artifact import ArtifactClient
     from src.clients.ezcareer import EzcareerClient
     from src.core.config import reload_settings
     from src.core.stores import UsageLedger
-    from src.db import models  # noqa: F401
     from src.db.base import Base
     from src.db.session import create_session_factory
 
@@ -108,6 +152,11 @@ async def _app(
     container.engine.override(providers.Object(engine))
     container.session_factory.override(providers.Object(session_factory))
     container.oauth_providers.override(providers.Object(oauth_providers or {}))
+    container.artifact.override(
+        providers.Object(
+            ArtifactClient(settings.artifact, httpx2.MockTransport(artifact))
+        )
+    )
     container.ezcareer.override(
         providers.Object(
             EzcareerClient(
@@ -134,9 +183,15 @@ def harness() -> FakeHarness:
 
 
 @pytest.fixture
-async def app(harness: FakeHarness) -> AsyncIterator[FastAPI]:
+def artifact() -> FakeArtifact:
+    """artifact-service as the test app reaches it"""
+    return FakeArtifact()
+
+
+@pytest.fixture
+async def app(harness: FakeHarness, artifact: FakeArtifact) -> AsyncIterator[FastAPI]:
     """Auth disabled: every request is auth.dev_email"""
-    async for app in _app(harness):
+    async for app in _app(harness, artifact):
         yield app
 
 
@@ -159,12 +214,13 @@ async def auth_app(
     monkeypatch: pytest.MonkeyPatch,
     oauth_providers: dict[str, FakeProvider],
     harness: FakeHarness,
+    artifact: FakeArtifact,
 ) -> AsyncIterator[FastAPI]:
     """Auth enabled, OWNER allowlisted, fake Google and GitHub"""
     monkeypatch.setenv("OPS_API_AUTH__ENABLED", "true")
     monkeypatch.setenv("OPS_API_AUTH__ALLOWED_EMAILS", OWNER)
     monkeypatch.setenv("OPS_API_AUTH__SECRET_KEY", "k" * 32)
-    async for app in _app(harness, oauth_providers):
+    async for app in _app(harness, artifact, oauth_providers):
         yield app
 
 

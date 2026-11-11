@@ -59,6 +59,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         yield
         await container.runner().aclose()
+        await container.artifact().aclose()
         await container.engine().dispose()
         await container.ezcareer().aclose()
         await container.store().aclose()
@@ -72,6 +73,7 @@ def create_app(container: Container | None = None) -> FastAPI:
         exception_handlers={ServiceException: service_exception},
     )
     app.state.container = container
+    app.state.artifact = container.artifact()
     app.state.session_factory = container.session_factory()
     app.state.oauth_providers = container.oauth_providers()
     app.state.ezcareer = container.ezcareer()

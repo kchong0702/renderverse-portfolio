@@ -74,6 +74,34 @@ class AppSettings(BaseModel):
         return _split_csv(v)
 
 
+class ArtifactSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    url: str = "http://127.0.0.1:8210/artifact-service"
+    """artifact-service base URL, including its route prefix"""
+
+    timeout_seconds: float = Field(default=60, gt=0)
+    """How long a request may take; a render can take 30 seconds"""
+
+
+class DocumentsSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    max_per_kind: int = Field(default=10, gt=0)
+    """How many résumés, CVs or cover letters a user keeps at most, each"""
+
+    max_upload_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
+    """The largest résumé file a user may upload"""
+
+    upload_types: frozenset[str] = frozenset(
+        {
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }
+    )
+    """The media types an uploaded résumé may have: PDF or Word"""
+
+
 class OAuthClientSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
@@ -267,6 +295,12 @@ class Settings(BaseSettings):
     app: AppSettings = Field(default_factory=AppSettings)
     """Server and HTTP settings"""
 
+    artifact: ArtifactSettings = Field(default_factory=ArtifactSettings)
+    """Where ops-api reaches artifact-service for templates and PDFs"""
+
+    documents: DocumentsSettings = Field(default_factory=DocumentsSettings)
+    """Limits on the documents a user keeps"""
+
     auth: AuthSettings = Field(default_factory=AuthSettings)
     """Sign-in and session settings"""
 
@@ -312,8 +346,10 @@ def reload_settings() -> Settings:
 
 __all__ = [
     "AppSettings",
+    "ArtifactSettings",
     "AuthSettings",
     "DatabaseSettings",
+    "DocumentsSettings",
     "EzcareerSettings",
     "ObservabilitySettings",
     "Settings",

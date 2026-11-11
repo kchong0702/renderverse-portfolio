@@ -4,6 +4,7 @@ from collections.abc import Awaitable, Callable
 from typing import Literal
 from uuid import UUID
 
+from document_schema import DocumentKind
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.clients.ezcareer.types import ModelFamily
@@ -54,7 +55,7 @@ class Widget(BaseModel):
     choose: Literal["document"] | None = None
     """What the user picks instead of typing; the app lists their documents"""
 
-    kind: Literal["resume", "cv", "cover_letter"] | None = None
+    kind: DocumentKind | None = None
     """The kind of document to list for choose; every kind when None"""
 
 
