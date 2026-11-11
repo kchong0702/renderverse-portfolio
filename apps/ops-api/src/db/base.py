@@ -24,8 +24,8 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-def aware(moment: datetime) -> datetime:
-    """SQLite hands back naive datetimes; stored values are UTC"""
+def as_utc(moment: datetime) -> datetime:
+    """The moment in UTC; SQLite returns stored UTC times without a zone"""
     return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
@@ -81,4 +81,4 @@ class Base(DeclarativeBase):
     type_annotation_map: ClassVar = {dict[str, Any]: JsonType, list[Any]: JsonType}
 
 
-__all__ = ["Base", "EnumString", "JsonType", "PydanticJson", "aware", "utcnow"]
+__all__ = ["Base", "EnumString", "JsonType", "PydanticJson", "as_utc", "utcnow"]

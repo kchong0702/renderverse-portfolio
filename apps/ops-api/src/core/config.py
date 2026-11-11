@@ -294,6 +294,16 @@ class GoogleSettings(BaseModel):
     client_secret: SecretStr = SecretStr("")
     """OAuth client secret"""
 
+    scopes: list[str] = Field(
+        default_factory=lambda: [
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.send",
+            "https://www.googleapis.com/auth/calendar.readonly",
+            "https://www.googleapis.com/auth/calendar.events",
+        ]
+    )
+    """The access Ops asks Google for: read and send Gmail, read Calendar and add events"""
+
     redirect_uri: str = "http://localhost:5174/ops-api/v1/integrations/google/callback"
     """Where Google sends the user back; must be listed on the OAuth client"""
 

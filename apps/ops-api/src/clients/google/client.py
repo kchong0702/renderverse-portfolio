@@ -24,14 +24,6 @@ from src.core.config import GoogleSettings
 from src.core.exceptions import AlreadyExists, Conflict, NotFound, ServiceUnavailable
 from src.core.logging import get_logger
 
-SCOPES = (
-    "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/gmail.send",
-    "https://www.googleapis.com/auth/calendar.readonly",
-    "https://www.googleapis.com/auth/calendar.events",
-)
-"""Read and send Gmail, read Calendar and add events: the access Ops asks for"""
-
 RECONNECT = "Google access expired or was revoked; reconnect Google in Settings"
 """Why a request needs the user to connect Google again"""
 
@@ -148,7 +140,7 @@ class GoogleClient:
                 "client_id": self._settings.client_id,
                 "redirect_uri": self._settings.redirect_uri,
                 "response_type": "code",
-                "scope": " ".join(SCOPES),
+                "scope": " ".join(self._settings.scopes),
                 "access_type": "offline",
                 "prompt": "consent",
                 "include_granted_scopes": "true",
@@ -305,4 +297,4 @@ class GoogleClient:
         await self._http.aclose()
 
 
-__all__ = ["MISSING_SCOPE", "RECONNECT", "SCOPES", "GoogleClient"]
+__all__ = ["MISSING_SCOPE", "RECONNECT", "GoogleClient"]

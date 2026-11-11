@@ -1,4 +1,4 @@
-from src.clients.google.client import RECONNECT, SCOPES, GoogleClient
+from src.clients.google.client import RECONNECT, GoogleClient
 from src.clients.google.schemas import (
     EventTime,
     ExtendedProperties,
@@ -12,7 +12,6 @@ from src.clients.google.schemas import (
 
 __all__ = [
     "RECONNECT",
-    "SCOPES",
     "EventTime",
     "ExtendedProperties",
     "GmailMessage",
