@@ -1,5 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+  connectJsearchMutationOptions,
+  disconnectJsearchMutationOptions,
   modelsQueryOptions,
   settingsQueryOptions,
   updateSettingsMutationOptions,
@@ -15,4 +17,12 @@ export function useUpdateSettings() {
 
 export function useModels() {
   return useQuery(modelsQueryOptions);
+}
+
+export function useConnectJsearch() {
+  return useMutation(connectJsearchMutationOptions);
+}
+
+export function useDisconnectJsearch() {
+  return useMutation(disconnectJsearchMutationOptions);
 }

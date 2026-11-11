@@ -1,10 +1,12 @@
 import { cn } from "@/shared/lib/cn";
 
-export type ButtonVariant = "primary" | "secondary";
+export type ButtonVariant = "primary" | "secondary" | "muted" | "danger";
 
 const variants: Record<ButtonVariant, string> = {
   primary: "bg-primary text-on-primary",
   secondary: "border-hair bg-panel text-ink border",
+  muted: "border-hair bg-panel text-ink-3 border",
+  danger: "border-hair bg-panel text-crit border",
 };
 
 export function buttonClass(variant: ButtonVariant = "secondary"): string {

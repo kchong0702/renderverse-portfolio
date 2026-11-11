@@ -1,12 +1,19 @@
 import { useTranslation } from "react-i18next";
 import { Outlet, useLocation } from "react-router-dom";
+import { followUpDays, useApplications } from "@/features/applications";
 import { AssistantDock } from "@/features/assistant";
+import { useJobs } from "@/features/jobs";
 import { navItemAt } from "./nav";
 import Sidebar from "./Sidebar";
 
 export default function AppShell() {
   const { t } = useTranslation();
   const item = navItemAt(useLocation().pathname);
+  const [best, runnerUp] =
+    useJobs().data?.jobs.filter((job) => job.status === "picked") ?? [];
+  const followUp = useApplications().data?.find(
+    (a) => followUpDays(a) !== null,
+  );
 
   return (
     <div className="flex min-h-screen flex-wrap min-[792px]:h-screen min-[792px]:flex-nowrap">
@@ -17,9 +24,33 @@ export default function AppShell() {
       <AssistantDock
         topic={item && t(`nav.items.${item.key}`)}
         suggestions={
-          item
-            ? t(`assistant.suggestions.${item.key}`, { returnObjects: true })
-            : []
+          item?.key === "jobs"
+            ? [
+                runnerUp &&
+                  t("assistant.suggestions.jobs.compare", {
+                    first: best.company,
+                    second: runnerUp.company,
+                  }),
+                runnerUp &&
+                  t("assistant.suggestions.jobs.raiseFit", {
+                    title: runnerUp.title,
+                  }),
+                t("assistant.suggestions.jobs.similar"),
+              ].filter((suggestion) => suggestion !== undefined)
+            : item?.key === "applications"
+              ? [
+                  followUp &&
+                    t("assistant.suggestions.applications.followUp", {
+                      company: followUp.company,
+                    }),
+                  t("assistant.suggestions.applications.offers"),
+                  t("assistant.suggestions.applications.summary"),
+                ].filter((suggestion) => suggestion !== undefined)
+              : item
+                ? t(`assistant.suggestions.${item.key}`, {
+                    returnObjects: true,
+                  })
+                : []
         }
       />
     </div>

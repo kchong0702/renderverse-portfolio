@@ -22,9 +22,15 @@ export interface Scheduling {
   meeting_gap_minutes: number;
 }
 
+export interface SearchQuota {
+  remaining: number;
+  limit: number;
+}
+
 export interface Connection {
   id: ConnectionId;
   status: "connected" | "not_connected";
+  quota: SearchQuota | null;
 }
 
 export interface ModelChoice {
@@ -61,3 +67,9 @@ export const updateSettings = (patch: SettingsPatch) =>
 
 export const fetchModels = (signal?: AbortSignal) =>
   http.get<ModelCatalog>(`${URL}/models`, signal);
+
+export const connectJsearch = (apiKey: string) =>
+  http.put<Settings>(`${URL}/connections/jsearch`, { api_key: apiKey });
+
+export const disconnectJsearch = () =>
+  http.delete<Settings>(`${URL}/connections/jsearch`);

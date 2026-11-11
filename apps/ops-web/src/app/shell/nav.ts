@@ -1,4 +1,7 @@
 import { createLucideIcon, type LucideIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useApplications } from "@/features/applications";
+import { useJobs } from "@/features/jobs";
 
 export type NavKey =
   | "dashboard"
@@ -159,5 +162,11 @@ export function navItemAt(pathname: string): NavItem | undefined {
 }
 
 export function useNavBadges(): Partial<Record<NavKey, string>> {
-  return {};
+  const { t } = useTranslation();
+  const newJobs = useJobs().data?.new_count;
+  const active = useApplications().data?.filter((a) => a.stage !== "closed");
+  return {
+    jobs: newJobs ? t("nav.badges.newJobs", { count: newJobs }) : undefined,
+    applications: active?.length ? String(active.length) : undefined,
+  };
 }
