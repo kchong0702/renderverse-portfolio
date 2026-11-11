@@ -58,7 +58,7 @@ export interface SettingsPatch {
   job_agent?: Partial<JobAgent>;
   automation?: Partial<Automation>;
   scheduling?: Partial<Scheduling>;
-  ai_model?: ModelChoice;
+  ai_model?: ModelChoice | null;
 }
 
 const URL = `${config.opsApiUrl}/settings`;
