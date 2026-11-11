@@ -93,6 +93,12 @@ class ProfileEntry(IdMixin, UserScopedMixin, AuditMixin, Base):
     on_site: Mapped[bool] = mapped_column(default=False, server_default=false())
     """Shown on the portfolio site from the next release; only projects use it"""
 
+    image_id: Mapped[UUID | None] = mapped_column(ForeignKey("assets.id"), default=None)
+    """The project's cover image on the portfolio site"""
+
+    video_id: Mapped[UUID | None] = mapped_column(ForeignKey("assets.id"), default=None)
+    """The video the portfolio site plays for the project"""
+
 
 class ProfileSkill(IdMixin, UserScopedMixin, AuditMixin, Base):
     __tablename__ = "profile_skills"

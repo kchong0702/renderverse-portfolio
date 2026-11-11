@@ -101,6 +101,8 @@ async def test_publish_writes_the_draft_as_the_live_release(client, tmp_path):
             "end": "present",
             "summary": "3D portfolio you can walk through",
             "highlights": ["Built the 3D scene."],
+            "image": None,
+            "video": None,
         }
     ]
     assert (await client.get(f"{PORTFOLIO}/draft")).json()["changes"] == []
