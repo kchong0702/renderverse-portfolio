@@ -1,0 +1,19 @@
+id: classic
+name: Classic
+description: One column with the name and contacts in a header above a rule.
+kinds: [resume, cv, cover_letter]
+body_font: source-sans-3
+heading_font: source-serif-4
+accent: "#1F3A5F"
+regions:
+  top:
+    area: { row: 1 }
+    divider: bottom
+  main:
+    area: { row: 2 }
+layout:
+  default: main
+  profile: top
+  photo: top
+  contacts: top
+photo: end

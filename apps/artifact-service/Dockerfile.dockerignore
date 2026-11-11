@@ -1,0 +1,17 @@
+*
+!pyproject.toml
+!uv.lock
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!packages/document-renderer
+!apps/artifact-service
+!packages/document-schema
+apps/artifact-service/.env
+apps/artifact-service/tests
+packages/document-schema/tests
+packages/document-renderer/node_modules
+packages/document-renderer/dist
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache

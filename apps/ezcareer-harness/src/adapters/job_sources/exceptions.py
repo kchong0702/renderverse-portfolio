@@ -1,0 +1,2 @@
+class SourceUnavailable(Exception):
+    pass

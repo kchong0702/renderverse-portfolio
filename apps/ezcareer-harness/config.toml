@@ -1,0 +1,94 @@
+job_sources = ["jsearch"]
+harness_profiles = "harness_profiles.yaml"
+reasoning_effort = "low"
+
+[app]
+name = "ezcareer-harness"
+env = "dev"
+version = "0.1.0"
+cors_origin = "http://localhost:5174"
+route_prefix = "/ezcareer"
+
+host = "127.0.0.1"
+port = 8200
+workers = 1
+log_level = "info"
+access_log = true
+
+[observability]
+service_name = "ezcareer-harness"
+log_level = "INFO"
+log_format = "console"
+
+tracing_enabled = false
+metrics_enabled = false
+instrumentations = ["langchain"]
+
+[observability.trace_redaction]
+hide_inputs = false
+hide_outputs = false
+
+[email]
+max_threads = 20
+max_thread_messages = 6
+max_message_chars = 4000
+max_free_slots = 12
+
+[models]
+glm = ["glm-5.3"]
+claude = ["claude-opus-5-5", "claude-sonnet-5-5"]
+openai = ["gpt-6-luna"]
+
+[[agents]]
+name = "job-finder"
+path = "src/agents/job_finder/profile.yaml"
+family = "glm"
+model = "glm-5.3"
+
+[[agents]]
+name = "career-consultant"
+path = "src/agents/career_consultant/profile.yaml"
+family = "openai"
+model = "gpt-6-luna"
+
+[[agents]]
+name = "career-director"
+path = "src/agents/career_director/profile.yaml"
+family = "openai"
+model = "gpt-6-luna"
+
+[[agents]]
+name = "email-assistant"
+path = "src/agents/email_assistant/profile.yaml"
+family = "openai"
+model = "gpt-6-luna"
+
+[[agents]]
+name = "resume-importer"
+path = "src/agents/resume_importer/profile.yaml"
+family = "openai"
+model = "gpt-6-luna"
+
+[[graph_profiles]]
+name = "analyse-job"
+path = "src/features/analyse_job/harness/configurations.yaml"
+
+[[graph_profiles]]
+name = "find-jobs"
+path = "src/features/find_jobs/harness/configurations.yaml"
+
+[[graph_profiles]]
+name = "write-document"
+path = "src/features/write_document/harness/configurations.yaml"
+
+[[graph_profiles]]
+name = "import-resume"
+path = "src/features/import_document/harness/configurations.yaml"
+
+[[graph_profiles]]
+name = "triage-email"
+path = "src/features/triage_email/harness/configurations.yaml"
+
+[[graph_profiles]]
+name = "draft-reply"
+path = "src/features/draft_reply/harness/configurations.yaml"

@@ -1,0 +1,18 @@
+services:
+  artifact-service:
+    image: artifact-service:${TAG:-dev}
+    profiles: ["apps"]
+    build:
+      context: ../..
+      dockerfile: apps/artifact-service/Dockerfile
+      target: artifact-service
+    restart: always
+    security_opt:
+      - seccomp=infra/seccomp/chromium.json
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ARTIFACT_SERVICE_OBSERVABILITY__OTLP_ENDPOINT: http://otel-collector:4318
+    ports:
+      - "127.0.0.1:${ARTIFACT_SERVICE_HOST_PORT:-8210}:8000"

@@ -60,5 +60,5 @@ jobs:
       - name: Lint (ESLint + Ruff)
         run: pnpm exec nx run-many -t lint
 
-      - name: Typecheck (TypeScript)
+      - name: Typecheck (TypeScript + Pyright)
         run: pnpm exec nx run-many -t typecheck

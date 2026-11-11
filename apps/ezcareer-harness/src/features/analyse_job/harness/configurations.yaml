@@ -1,0 +1,2 @@
+checks: [citations]
+recursion_limit: 20

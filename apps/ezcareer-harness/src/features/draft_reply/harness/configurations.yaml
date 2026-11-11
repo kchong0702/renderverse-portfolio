@@ -1,0 +1,5 @@
+checks: [slots]
+max_free_slots: 12
+max_thread_messages: 6
+max_message_chars: 4000
+recursion_limit: 16

@@ -1,0 +1,23 @@
+{
+  "headings": {
+    "summary": "Summary",
+    "experience": "Experience",
+    "education": "Education",
+    "projects": "Projects",
+    "skills": "Skills",
+    "languages": "Languages",
+    "certifications": "Certifications",
+    "awards": "Awards",
+    "publications": "Publications",
+    "custom": "More"
+  },
+  "contacts": {
+    "email": "Email",
+    "phone": "Phone",
+    "location": "Location",
+    "linkedin": "LinkedIn",
+    "github": "GitHub",
+    "website": "Website",
+    "other": "Link"
+  }
+}

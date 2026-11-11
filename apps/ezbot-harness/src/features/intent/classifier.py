@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from typing import override
 
 from langchain_core.messages import BaseMessage
 
@@ -22,6 +23,7 @@ class IntentClassifier(ABC):
 class DisabledIntentClassifier(IntentClassifier):
     """Used when intent detection is turned off: never offers a button"""
 
+    @override
     async def classify(self, messages: Sequence[BaseMessage]) -> Intent | None:
         return None
 

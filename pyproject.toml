@@ -14,5 +14,19 @@ package = false
 
 [tool.uv.workspace]
 members = [
-    "apps/ezbot-harness"
+    "apps/ezbot-harness",
+    "apps/ezcareer-harness",
+    "apps/artifact-service",
+    "packages/document-schema",
+]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "off"
+executionEnvironments = [
+    { root = "apps/artifact-service" },
+    { root = "apps/ezcareer-harness" },
+    { root = "apps/ezbot-harness" },
+    { root = "packages/document-schema/src" },
 ]
