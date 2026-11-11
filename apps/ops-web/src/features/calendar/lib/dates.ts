@@ -5,9 +5,7 @@ export function addDays(day: Date, days: number): Date {
 }
 
 export function startOfDay(day: Date): Date {
-  const start = new Date(day);
-  start.setHours(0, 0, 0, 0);
-  return start;
+  return new Date(day.getFullYear(), day.getMonth(), day.getDate());
 }
 
 export function mondayOf(day: Date): Date {
