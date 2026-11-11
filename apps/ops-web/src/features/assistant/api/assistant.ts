@@ -1,5 +1,6 @@
 import i18n from "@/i18n";
 import { ApiError, http, stream } from "@/shared/api/http";
+import { config } from "@/shared/config";
 
 export type DocumentKind = "resume" | "cv" | "cover_letter";
 
@@ -86,7 +87,7 @@ type OnEvent = (event: RunEvent, id: string | undefined) => void;
 
 type OnReconnect = (attempt: number) => void;
 
-const URL = "/ops-api/v1";
+const URL = config.opsApiUrl;
 
 export const MAX_RECONNECTS = 5;
 

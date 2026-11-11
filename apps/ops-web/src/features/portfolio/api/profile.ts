@@ -1,4 +1,5 @@
 import { http } from "@/shared/api/http";
+import { config } from "@/shared/config";
 
 export interface Profile {
   name: string;
@@ -6,4 +7,4 @@ export interface Profile {
 }
 
 export const fetchProfile = (signal?: AbortSignal) =>
-  http.get<Profile>("/ops-api/v1/profile", signal);
+  http.get<Profile>(`${config.opsApiUrl}/profile`, signal);

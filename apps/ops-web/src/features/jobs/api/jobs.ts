@@ -1,4 +1,5 @@
 import { ApiError, http } from "@/shared/api/http";
+import { config } from "@/shared/config";
 
 export type JobStatus = "picked" | "saved" | "dismissed";
 export type Importance = "required" | "nice_to_have";
@@ -62,7 +63,7 @@ export interface JobUpdate {
   seen?: true;
 }
 
-const URL = "/ops-api/v1/jobs";
+const URL = `${config.opsApiUrl}/jobs`;
 
 export const fetchJobs = (signal?: AbortSignal) =>
   http.get<JobList>(URL, signal);

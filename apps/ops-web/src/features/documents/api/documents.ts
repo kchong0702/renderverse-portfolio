@@ -22,6 +22,7 @@ import type {
   Value,
 } from "@renderverse/document-renderer";
 import { http } from "@/shared/api/http";
+import { config } from "@/shared/config";
 
 export type DocumentKind = AnyDocument["kind"];
 export type ImportStatus = "pending" | "running" | "done" | "failed";
@@ -114,7 +115,7 @@ export interface DocumentImport {
   created_at: string;
 }
 
-const URL = "/ops-api/v1/documents";
+const URL = `${config.opsApiUrl}/documents`;
 
 export const fetchDocuments = (signal?: AbortSignal) =>
   http.get<DocumentSummary[]>(URL, signal);
