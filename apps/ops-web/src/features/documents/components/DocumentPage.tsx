@@ -15,6 +15,7 @@ import type { DocumentRecord } from "../api/documents";
 import { useEditDocument } from "../hooks/useDocuments";
 import { arrangementOf } from "../lib/arrangement";
 import { useEditorStore } from "../state/editorStore";
+import AddSkill from "./page/AddSkill";
 import BlockFrame from "./page/BlockFrame";
 import BulletItem from "./page/BulletItem";
 import EntryFrame from "./page/EntryFrame";
@@ -51,6 +52,7 @@ const editing: Editing = {
   Bullet: BulletItem,
   Text: PlainField,
   RichText: RichField,
+  AddSkill,
 };
 
 export default function DocumentPage({

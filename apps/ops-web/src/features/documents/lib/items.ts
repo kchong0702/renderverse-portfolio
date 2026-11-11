@@ -40,6 +40,8 @@ export interface NewText {
   sectionBullet: string;
   languages: string[];
   custom: { heading: string; text: string };
+  skillGroup: { label: string; skill: string };
+  language: string;
 }
 
 export const isEntryBlock = (block: AnyBlock): block is EntryBlock =>
