@@ -6,6 +6,7 @@ import {
 import {
   cancelImport,
   createDocument,
+  deleteDocument,
   editDocument,
   fetchDocument,
   fetchDocuments,
@@ -66,6 +67,15 @@ export const editDocumentMutationOptions = mutationOptions({
 export const designDocumentMutationOptions = mutationOptions({
   ...editDocumentMutationOptions,
   mutationKey: ["documents", "design"],
+});
+
+export const deleteDocumentMutationOptions = mutationOptions({
+  mutationFn: deleteDocument,
+  onSuccess: (_deleted, _id, _result, { client }) =>
+    client.invalidateQueries({
+      queryKey: documentsQueryOptions.queryKey,
+      exact: true,
+    }),
 });
 
 export const setMasterMutationOptions = mutationOptions({

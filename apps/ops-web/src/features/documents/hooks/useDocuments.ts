@@ -3,6 +3,7 @@ import type { DocumentKind, Edit } from "../api/documents";
 import {
   cancelImportMutationOptions,
   createDocumentMutationOptions,
+  deleteDocumentMutationOptions,
   designDocumentMutationOptions,
   documentQueryOptions,
   documentsQueryOptions,
@@ -51,6 +52,10 @@ export function useSaves(id: string) {
     },
     select: ({ state }) => ({ status: state.status, error: state.error }),
   });
+}
+
+export function useDeleteDocument() {
+  return useMutation(deleteDocumentMutationOptions);
 }
 
 export function useSetMaster() {

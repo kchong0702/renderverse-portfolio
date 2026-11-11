@@ -262,6 +262,13 @@
     "master": "Master",
     "setMaster": "Set as master",
     "export": "Export PDF",
+    "delete": "Delete",
+    "confirmDelete": "Delete {{name}}? Its versions and pending changes go too. This cannot be undone.",
+    "deleteMaster": {
+      "resume": "Set another résumé as master before deleting this one",
+      "cover_letter": "Set another cover letter as master before deleting this one",
+      "cv": "Set another CV as master before deleting this one"
+    },
     "meta": "Edited {{when}}",
     "check": {
       "changes_one": "{{count}} change to review",
@@ -276,7 +283,8 @@
       "runsOnto": "Runs onto page {{count}}",
       "saved": "Saved · fits 1 page",
       "fits": "Fits 1 page",
-      "exportFailed": "PDF not printed: {{reason}}"
+      "exportFailed": "PDF not printed: {{reason}}",
+      "deleteFailed": "Not deleted: {{reason}}"
     },
     "legend": {
       "reworded": "Reworded by the assistant",
