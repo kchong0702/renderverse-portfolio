@@ -1,16 +1,33 @@
+import io
+import json
+import logging
+from typing import override
+
+import pytest
 import respx
+import structlog
+from a2a.server.tasks import InMemoryTaskStore
+from dependency_injector import providers
 from fastapi.testclient import TestClient
+from google.protobuf.json_format import MessageToJson
 
 from src.app.app import create_app
 from src.app.container import Container
+from src.core.config import reload_settings
+from src.infrastructure.observability import logging as obs_logging
+from tests.agents.job_finder.test_search_jobs import RESPONSE
+from tests.agents.job_finder.test_search_jobs import URL as JSEARCH
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.analyse_job import test_analyse_job_graph as analyse_job
 
 URL = "https://jobs.example.com/gone"
+USER_KEY = "user-rapidapi-key-0123456789"
 
 
-def _send(client: TestClient, path: str, parts: list[dict]) -> dict:
+def _send(
+    client: TestClient, path: str, parts: list[dict], metadata: dict | None = None
+) -> dict:
     response = client.post(
         path,
         headers={"A2A-Version": "1.0"},
@@ -23,11 +40,81 @@ def _send(client: TestClient, path: str, parts: list[dict]) -> dict:
                     "messageId": "m1",
                     "role": "ROLE_USER",
                     "parts": parts,
-                }
+                },
+                **({"metadata": metadata} if metadata else {}),
             },
         },
     )
     return response.json()["result"]["task"]
+
+
+@pytest.fixture
+def debug_logs(make_settings):
+    """Every log line at DEBUG, into a private buffer, restoring global logging after"""
+    root = logging.getLogger()
+    handlers, level = root.handlers[:], root.level
+    buffer = io.StringIO()
+    obs_logging.configure_logging(make_settings(log_level="DEBUG"), force=True)
+    root.handlers[-1].setStream(buffer)
+    yield buffer
+    root.handlers[:] = handlers
+    root.setLevel(level)
+    obs_logging._configured = False
+    structlog.reset_defaults()
+
+
+@respx.mock
+def test_jsearch_only_metadata_runs_on_its_key_and_never_logs_or_stores_it(
+    isolate_env, debug_logs
+):
+    reload_settings()
+    route = respx.get(JSEARCH).respond(200, text=RESPONSE)
+    saved: list[str] = []
+
+    class RecordingStore(InMemoryTaskStore):
+        @override
+        async def save(self, task, context) -> None:
+            saved.append(MessageToJson(task))
+            await super().save(task, context)
+
+    container = Container()
+    container.task_store.override(providers.Singleton(RecordingStore))
+    container.job_finder.agent(
+        model=ScriptedChatModel(
+            replies=[
+                _call("read_file", file_path="/search-jobs/SKILL.md"),
+                _call("search_jobs", query="backend engineer"),
+                _call("RankedJobs", jobs=[]),
+            ]
+        )
+    )
+
+    task = _send(
+        TestClient(create_app(container)),
+        "/ezcareer/a2a/find-jobs",
+        [{"data": {"facts": analyse_job.INPUT["facts"]}}],
+        metadata={"jsearch": {"api_key": USER_KEY}},
+    )
+
+    assert task["status"]["state"] == "TASK_STATE_COMPLETED"
+    assert route.calls.last.request.headers["X-RapidAPI-Key"] == USER_KEY
+    assert saved
+    assert USER_KEY not in json.dumps(task) + "".join(saved)
+    assert "find-jobs" in debug_logs.getvalue()
+    assert USER_KEY not in debug_logs.getvalue()
+    reload_settings()
+
+
+def test_metadata_that_does_not_validate_fails_without_echoing_the_key():
+    task = _send(
+        TestClient(create_app()),
+        "/ezcareer/a2a/find-jobs",
+        [{"data": {"facts": []}}],
+        metadata={"jsearch": {"api_key": USER_KEY, "extra": True}},
+    )
+
+    assert task["status"]["state"] == "TASK_STATE_FAILED"
+    assert USER_KEY not in json.dumps(task)
 
 
 def test_job_finder_flows_have_agent_cards():
@@ -44,7 +131,9 @@ def test_a_posting_that_cannot_be_fetched_fails_the_task_with_the_reason():
     client = TestClient(create_app())
 
     task = _send(
-        client, "/ezcareer/a2a/analyse-job", [{"data": {"url": URL, "facts": []}}]
+        client,
+        "/ezcareer/a2a/analyse-job",
+        [{"data": {"url": URL, "facts": analyse_job.INPUT["facts"]}}],
     )
 
     assert task["status"]["state"] == "TASK_STATE_FAILED"
@@ -114,10 +203,48 @@ async def test_both_workflows_run_on_the_containers_one_job_finder():
         analyse_job.INPUT, {"configurable": {"thread_id": "analyse"}}
     )
     found = await graphs["find-jobs"].ainvoke(
-        {"facts": []}, {"configurable": {"thread_id": "find"}}
+        {"facts": analyse_job.INPUT["facts"]}, {"configurable": {"thread_id": "find"}}
     )
 
     assert analysed["analysis"].fit == 67
     assert found["jobs"] == []
     assert "<posting untrusted>" in model.requests[0][1].text
     assert "Find jobs for me" in model.requests[1][1].text
+
+
+def test_a_run_without_profile_facts_fails_with_a_way_to_portfolio():
+    task = _send(
+        TestClient(create_app()), "/ezcareer/a2a/find-jobs", [{"data": {"facts": []}}]
+    )
+
+    assert task["status"]["state"] == "TASK_STATE_FAILED"
+    assert task["status"]["message"]["parts"] == [
+        {
+            "text": "No profile facts were provided. Provide the user's profile facts to run this."
+        },
+        {"data": {"next": {"label": "Add your experience", "screen": "portfolio"}}},
+    ]
+
+
+def test_a_search_without_any_jsearch_key_fails_with_a_way_to_settings(isolate_env):
+    reload_settings()
+    container = Container()
+    container.job_finder.agent(
+        model=ScriptedChatModel(
+            replies=[
+                _call("read_file", file_path="/search-jobs/SKILL.md"),
+                _call("search_jobs", query="backend engineer"),
+            ]
+        )
+    )
+
+    task = _send(
+        TestClient(create_app(container)),
+        "/ezcareer/a2a/find-jobs",
+        [{"data": {"facts": analyse_job.INPUT["facts"]}}],
+    )
+
+    assert task["status"]["state"] == "TASK_STATE_FAILED"
+    assert task["status"]["message"]["parts"][1] == {
+        "data": {"next": {"label": "Add a JSearch key", "screen": "settings"}}
+    }

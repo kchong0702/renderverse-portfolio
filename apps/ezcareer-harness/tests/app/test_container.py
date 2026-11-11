@@ -13,4 +13,4 @@ def test_workflow_graphs_keep_runs_in_the_containers_checkpointer():
 
     graphs = [e.graph for e in container.executables() if e.kind == "workflow"]
 
-    assert [graph.checkpointer for graph in graphs] == [container.checkpointer()] * 4
+    assert [graph.checkpointer for graph in graphs] == [container.checkpointer()] * 6

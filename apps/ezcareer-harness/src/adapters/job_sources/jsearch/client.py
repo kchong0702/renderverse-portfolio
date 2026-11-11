@@ -2,7 +2,7 @@ from datetime import datetime
 
 import httpx
 from circuitbreaker import CircuitBreaker, CircuitBreakerError
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, SecretStr
 from tenacity import (
     AsyncRetrying,
     retry_if_exception,
@@ -14,7 +14,10 @@ from src.adapters.job_sources.exceptions import SourceUnavailable
 from src.adapters.job_sources.jsearch.query import JSearchQuery
 from src.adapters.job_sources.protocol import SearchResult
 from src.core.config import JSearchSettings
-from src.shared.jobs import JobPosting, PostingLine
+from src.core.enums import Screen
+from src.core.errors import ExecuteError
+from src.core.types import NextStep
+from src.shared.jobs import JobPosting, PostingLine, Quota
 
 
 class _Job(BaseModel):
@@ -75,6 +78,7 @@ def retryable(error: BaseException) -> bool:
 async def _page(
     client: httpx.AsyncClient,
     settings: JSearchSettings,
+    api_key: SecretStr,
     params: dict[str, str | int | bool],
 ) -> httpx.Response:
     """One page of results, tried again with backoff while retryable"""
@@ -89,7 +93,7 @@ async def _page(
                 str(settings.url),
                 params=params,
                 headers={
-                    "X-RapidAPI-Key": settings.api_key.get_secret_value(),
+                    "X-RapidAPI-Key": api_key.get_secret_value(),
                     "X-RapidAPI-Host": settings.url.host or "",
                 },
             )
@@ -98,12 +102,19 @@ async def _page(
 
 
 async def search(
-    settings: JSearchSettings, circuit: CircuitBreaker, query: JSearchQuery
+    settings: JSearchSettings,
+    circuit: CircuitBreaker,
+    query: JSearchQuery,
+    api_key: SecretStr | None,
 ) -> SearchResult:
-    """Up to query.max_jobs JSearch results, following JSearch's cursor until it
-    has enough or runs out, each page through the circuit"""
-    if settings.api_key is None:
-        raise SourceUnavailable("EZCAREER_HARNESS_JSEARCH__API_KEY is not set")
+    """Up to query.max_jobs JSearch results on api_key, following JSearch's cursor
+    until it has enough or runs out, each page through the circuit"""
+    if api_key is None:
+        raise ExecuteError(
+            "No JSearch API key was provided. Provide one in the run metadata or the"
+            " server's settings.",
+            NextStep(label="Add a JSearch key", screen=Screen.SETTINGS),
+        )
     params: dict[str, str | int | bool] = {
         "query": query.query,
         "date_posted": query.date_posted,
@@ -123,7 +134,10 @@ async def search(
         async with httpx.AsyncClient(timeout=settings.timeout_seconds) as client:
             while len(postings) < query.max_jobs:
                 response = await circuit.decorate(_page)(
-                    client, settings, params | ({"cursor": cursor} if cursor else {})
+                    client,
+                    settings,
+                    api_key,
+                    params | ({"cursor": cursor} if cursor else {}),
                 )
                 page = _SearchResponse.model_validate_json(response.content).data
                 postings += [
@@ -169,8 +183,11 @@ async def search(
         raise SourceUnavailable(
             f"JSearch failed, try again later: {type(error).__name__} {error}"
         ) from error
-    left = response.headers.get("x-ratelimit-requests-remaining")
+    remaining = response.headers.get("x-ratelimit-requests-remaining")
+    limit = response.headers.get("x-ratelimit-requests-limit")
     return SearchResult(
         postings=postings[: query.max_jobs],
-        requests_left=int(left) if left else None,
+        quota=Quota(remaining=int(remaining), limit=int(limit))
+        if remaining and limit
+        else None,
     )

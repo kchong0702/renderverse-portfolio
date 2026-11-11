@@ -23,9 +23,23 @@ Import rules:
 
 `tests/test_architecture.py` enforces both rules.
 
+## Agents and workflows
+
+| Agent             | Workflows it runs                                | Served as an agent |
+| ----------------- | ------------------------------------------------ | ------------------ |
+| job-finder        | `analyse-job`, `find-jobs`                       | yes                |
+| career-consultant | `edit-document` (`src/features/write_document`)  | yes                |
+| career-director   | none; it runs the others as its tools            | yes                |
+| email-assistant   | `triage-email`, `draft-reply`                    | no                 |
+| resume-importer   | `import-resume` (`src/features/import_document`) | no                 |
+
+email-assistant reads the emails of the user's job search and drafts the user's replies. It never sends anything. `draft-reply` answers a thread, or writes a follow-up for an application when there is no thread, and offers free slots by id so code returns only slots the user has free. It shows the agent only the earliest `max_free_slots` slots (12, in its `configurations.yaml`), so a long free calendar can't fill the context. career-director runs it as its `draft_reply` tool. `triage-email` uses its model only to read a thread. Code matches the thread to an application by the company it names, narrowed by role, and keeps `decide_by` only for an offer and `interview` only for a confirmed interview.
+
+resume-importer only structures the file's lines. `import-resume` picks the draft's look in code: its `extract` node measures the file's layout (`layout.py`: columns, rules, tinted strips, a coloured band, a photo, the body font and the name's colour) and suggests the closest document-renderer template. The draft is made in that template, and the result's `suggestion` names it with the columns and traits it rests on.
+
 ## Agents own their tools and skills
 
-An agent is everything it needs to do its job. Each agent is built once by `build_agent` in its container and served as an agent of its own. Every workflow that uses the agent runs that same instance.
+An agent is everything it needs to do its job. Each agent is built once by `build_agent` in its container. The table above says which are also served as agents of their own. Every workflow that uses the agent runs that same instance.
 
 An agent has two kinds of tools:
 
@@ -87,20 +101,33 @@ The harness has no database. When a node or tool needs data that Ops owns, it pa
 interrupt({"fetch": "document", "id": document_id})
 ```
 
-The A2A task becomes `input-required`, and its message carries the request as a data part. ops-api answers with the data and resumes the task. Two requests exist today:
+The A2A task becomes `input-required`, and its message carries the request as a data part. ops-api answers with the data and resumes the task. These requests exist today:
 
 - `{"fetch": "document", "id": ...}`, from `write_document`'s `load` node.
 - `{"fetch": "documents", "name": ..., "kind": ...}`, from career-director's `find_documents` tool.
+- `{"fetch": "thread", "id": ...}`, from career-director's `draft_reply` tool. ops-api answers `{"thread": ...}`, or `{"error": ...}` when it can't.
+- `{"fetch": "free_slots", "days": ...}`, from `draft_reply` next. ops-api answers `{"free_slots": [...], "timezone": ...}`, with no slots when the user offers none.
 
 A question for the user, from `clarify` or `permission`, pauses the run in the same way, with a widget instead of `fetch`.
+
+## Run metadata
+
+A request's `params.metadata` sets up one run. `LanggraphExecutor` validates it as `RunMetadata` and hands it to the graph as the `RunContext` runtime context:
+
+- `model` picks the model every LLM call of the run uses. `dynamic_model_call` applies it. Without it, each agent keeps its own.
+- `jsearch.api_key` is the user's own RapidAPI key. `search_jobs` hands the run context to each job source, and JSearch searches on this key instead of `EZCAREER_HARNESS_JSEARCH__API_KEY`.
+
+A key in metadata stays out of the message, the task store and the logs. It is a `SecretStr`, `RunMetadata` hides its input in validation errors, and the logging setup drops the A2A server's debug line that dumps the request body.
 
 ## Streaming
 
 Clients call `SendStreamingMessage`. `LanggraphExecutor` streams the graph with `stream_mode=["values", "messages", "tasks"]` and turns it into A2A events:
 
 - **Steps.** Each node, tool call and subgraph task is a working status update whose data part is `{"step": ...}`.
+- **Step details.** A finished step carries `detail`, a short result or target in plain words, such as `1 cover letter`. A tool sets it by returning `{"step_detail": ...}` in its ToolMessage artifact, beside `name` and `data` when it also publishes one. A tool call's step reads its own tool's detail. A node's step reads the last detail its tools set. `find_documents` sets the count by kind, `edit_document` the document's title, and `propose_changeset` the first fact its edits cite, such as `citing Acme Payments`.
 - **Thinking and text.** The model's reasoning and text stream as `thinking` and `text` artifacts, one per model turn. For a workflow, they come from the node that `Executable.reply_node` names.
 - **Tool artifacts.** A tool that returns an artifact `{"name": ..., "data": ...}` publishes it as an artifact of that name. `propose_changeset` publishes `changeset` this way.
 - **Reply.** The final answer is an artifact named after the executable. Then the task completes, fails, or asks for input.
+- **Failure.** A failed task's status message carries the reason as text. When the user must add something before the run can work, it also carries a data part `{"next": {"label": ..., "screen": ...}}`, where `screen` is `portfolio`, `documents`, `jobs` or `settings`. Raise `ExecuteError(reason, NextStep(...))` to set it. `require_facts` fails analyse-job and find-jobs this way when the profile has no facts, and JSearch fails a search this way when neither the run nor the server has a key.
 
 `CancelTask` stops a run.

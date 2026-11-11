@@ -14,18 +14,34 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.errors import GraphRecursionError
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command, TaskPayload, TaskResultPayload
-from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    SecretStr,
+    ValidationError,
+)
 from pydantic_core import to_jsonable_python
 
 from src.clients.llm_providers import llm_provider
 from src.core.config import Family, get_settings
 from src.core.errors import ExecuteError
+from src.core.types import NextStep
 from src.shared.run_context import RunContext
 
 
-def _reason(updater: TaskUpdater, text: str) -> Message:
-    """An agent message carrying the reason a run stopped"""
-    return updater.new_agent_message([new_text_part(text)])
+def _reason(
+    updater: TaskUpdater, text: str, next_step: NextStep | None = None
+) -> Message:
+    """An agent message carrying the reason a run stopped, and what the user must
+    do first when there is something"""
+    return updater.new_agent_message(
+        [
+            new_text_part(text),
+            *([new_data_part({"next": next_step.model_dump()})] if next_step else []),
+        ]
+    )
 
 
 class ModelChoice(BaseModel):
@@ -40,13 +56,28 @@ class ModelChoice(BaseModel):
     """A model [models] offers for that family"""
 
 
-class RunMetadata(BaseModel):
+class JSearchKey(BaseModel):
     model_config = ConfigDict(
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    model: ModelChoice
-    """The model the user picked for the run"""
+    api_key: SecretStr
+    """The user's own RapidAPI key for JSearch"""
+
+
+class RunMetadata(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+        use_attribute_docstrings=True,
+    )
+
+    model: ModelChoice | None = None
+    """The model the user picked for the run; None keeps each agent's own"""
+
+    jsearch: JSearchKey | None = None
+    """The user's JSearch key; None searches on the server's"""
 
 
 class Step(BaseModel):
@@ -64,6 +95,19 @@ class Step(BaseModel):
     status: Literal["running", "done", "failed", "waiting"]
     """Where the step is"""
 
+    detail: str | None = None
+    """What the step found or worked on, in plain words, such as 1 cover letter"""
+
+
+def _details(task: TaskResultPayload) -> dict[str, str]:
+    """The step detail each tool call in the task's result returned, by call id"""
+    details: dict[str, str] = {}
+    for message in task["result"].get("messages", []):
+        match message:
+            case ToolMessage(artifact={"step_detail": str() as detail}):
+                details[message.tool_call_id] = detail
+    return details
+
 
 def _steps(
     kind: Literal["workflow", "agent"],
@@ -72,7 +116,7 @@ def _steps(
     calls: dict[str, list[tuple[str, str]]],
 ) -> list[Step]:
     """The steps a graph task starts or ends: an agent's tool calls and the nodes of
-    the workflows they run, or a workflow's own nodes"""
+    the workflows they run, or a workflow's own nodes, with the details tools set"""
     if "." in task["name"]:
         return []
     status: Literal["running", "done", "failed", "waiting"]
@@ -85,24 +129,46 @@ def _steps(
         status = "failed"
     else:
         status = "waiting" if task["interrupts"] else "done"
+    details = {} if "input" in task else _details(task)
+    detail = [*details.values()][-1] if details else None
     if kind == "workflow":
         return (
             []
             if namespace
-            else [Step(id=task["id"], parent=None, name=task["name"], status=status)]
+            else [
+                Step(
+                    id=task["id"],
+                    parent=None,
+                    name=task["name"],
+                    status=status,
+                    detail=detail,
+                )
+            ]
         )
     if not namespace and task["name"] == "tools":
         if "input" in task:
             calls[task["id"]] = [(call["id"], call["name"]) for call in task["input"]]
         return [
-            Step(id=call_id, parent=None, name=name, status=status)
+            Step(
+                id=call_id,
+                parent=None,
+                name=name,
+                status=status,
+                detail=details.get(call_id),
+            )
             for call_id, name in calls.get(task["id"], [])
         ]
     if len(namespace) == 1 and (
         parent := calls.get(namespace[0].removeprefix("tools:"))
     ):
         return [
-            Step(id=task["id"], parent=parent[0][0], name=task["name"], status=status)
+            Step(
+                id=task["id"],
+                parent=parent[0][0],
+                name=task["name"],
+                status=status,
+                detail=detail,
+            )
         ]
     return []
 
@@ -168,8 +234,10 @@ class LanggraphExecutor(AgentExecutor):
         except ValidationError as error:
             await updater.failed(_reason(updater, f"Invalid input: {error}"))
             return
-        if metadata and not get_settings().offers(
-            metadata.model.family, metadata.model.model
+        if (
+            metadata
+            and metadata.model
+            and not get_settings().offers(metadata.model.family, metadata.model.model)
         ):
             await updater.failed(
                 _reason(
@@ -193,6 +261,9 @@ class LanggraphExecutor(AgentExecutor):
                 },
                 context=RunContext(
                     model=llm_provider(metadata.model.family, metadata.model.model)
+                    if metadata.model
+                    else None,
+                    jsearch_api_key=metadata.jsearch and metadata.jsearch.api_key,
                 )
                 if metadata
                 else None,
@@ -254,7 +325,7 @@ class LanggraphExecutor(AgentExecutor):
             await updater.failed(_reason(updater, "Ran out of steps before finishing"))
             return
         except ExecuteError as error:
-            await updater.failed(_reason(updater, str(error)))
+            await updater.failed(_reason(updater, str(error), error.next_step))
             return
         if interrupts := result.pop("__interrupt__", None):
             await updater.requires_input(

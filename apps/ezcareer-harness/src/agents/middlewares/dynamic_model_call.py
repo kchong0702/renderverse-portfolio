@@ -17,6 +17,6 @@ async def dynamic_model_call(
 ) -> ModelCallResult:
     """Runs the model call on the run context's model, when the run has one"""
     context = request.runtime.context
-    if isinstance(context, RunContext):
+    if isinstance(context, RunContext) and context.model:
         return await handler(request.override(model=context.model))
     return await handler(request)

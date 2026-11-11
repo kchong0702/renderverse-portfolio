@@ -2,7 +2,7 @@ from pydantic import JsonValue
 
 from src.features.import_document.configurations import ImportResumeConfigurations
 from src.features.import_document.nodes import verify
-from src.features.import_document.schemas import ResumeImport
+from src.features.import_document.schemas import LookSuggestion, ResumeImport
 from src.shared.checks import CheckError, CheckRule
 from src.shared.extraction import Line
 
@@ -22,6 +22,8 @@ def make_lines(*texts: str) -> list[Line]:
         for n, text in enumerate(texts, start=1)
     ]
 
+
+SUGGESTION = LookSuggestion(template="serif", columns=1, traits=[])
 
 LINES = make_lines(
     "K R I S T I  L A A R",
@@ -83,20 +85,29 @@ def check(
 ) -> list[CheckError]:
     """What verify finds in a reply to lines"""
     return verify(
-        {"structured_response": ResumeImport.model_validate(draft), "lines": lines},
+        {
+            "structured_response": ResumeImport.model_validate(draft),
+            "lines": lines,
+            "suggestion": SUGGESTION,
+        },
         configurations,
     )["errors"]
 
 
-def test_a_faithful_reply_passes_and_becomes_the_draft(
+def test_a_faithful_reply_passes_and_becomes_the_draft_in_the_suggested_template(
     configurations: ImportResumeConfigurations,
 ):
     result = verify(
-        {"structured_response": ResumeImport.model_validate(reply()), "lines": LINES},
+        {
+            "structured_response": ResumeImport.model_validate(reply()),
+            "lines": LINES,
+            "suggestion": SUGGESTION,
+        },
         configurations,
     )
 
     assert result["errors"] == []
+    assert result["document"].design.template == "serif"
     assert (
         result["document"].content.blocks == ResumeImport.model_validate(reply()).blocks
     )

@@ -10,7 +10,8 @@ async def test_probe_reports_why_an_analysis_failed():
     respx.get(URL).respond(404)
 
     result = await probe.probe(
-        probe.WORKFLOWS["analyse-job"], {"url": URL, "facts": []}
+        probe.WORKFLOWS["analyse-job"],
+        {"url": URL, "facts": [{"id": "py", "text": "Six years of Python"}]},
     )
 
     assert result["output"] is None

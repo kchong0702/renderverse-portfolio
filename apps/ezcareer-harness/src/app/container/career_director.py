@@ -5,6 +5,7 @@ from src.agents.career_director import CareerDirectorState
 from src.agents.career_director.tools import (
     analyse_job_tool,
     choose_document,
+    draft_reply_tool,
     edit_document_tool,
     find_documents,
     find_jobs_tool,
@@ -25,6 +26,9 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
     career_consultant = providers.DependenciesContainer()
     """career-consultant's container, whose workflow becomes a tool"""
 
+    email_assistant = providers.DependenciesContainer()
+    """email-assistant's container, whose draft-reply workflow becomes a tool"""
+
     agent = providers.Singleton(
         build_agent,
         agent=registry.provided["career-director"],
@@ -38,6 +42,10 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
             providers.Callable(
                 edit_document_tool,
                 career_consultant.edit_document_executable.provided.graph,
+            ),
+            providers.Callable(
+                draft_reply_tool,
+                email_assistant.draft_reply_executable.provided.graph,
             ),
             find_documents,
             choose_document,

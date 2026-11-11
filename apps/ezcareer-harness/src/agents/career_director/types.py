@@ -1,5 +1,9 @@
+from zoneinfo import ZoneInfo
+
 from document_schema import DocumentKind
 from pydantic import BaseModel, ConfigDict
+
+from src.shared.email import EmailThread, TimeSlot
 
 
 class DocumentSummary(BaseModel):
@@ -26,3 +30,20 @@ class FoundDocuments(BaseModel):
 
     documents: list[DocumentSummary]
     """The documents that match, best match first"""
+
+
+class FetchedThread(BaseModel):
+    model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
+
+    thread: EmailThread
+    """The email thread draft_reply answers"""
+
+
+class FreeSlots(BaseModel):
+    model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
+
+    free_slots: list[TimeSlot]
+    """Times the user is free; empty when they offer none"""
+
+    timezone: ZoneInfo
+    """The user's time zone, such as Europe/London"""

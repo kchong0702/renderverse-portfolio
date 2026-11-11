@@ -75,7 +75,12 @@ def test_a_completed_import_returns_its_result_as_the_artifact():
 
     assert task["status"]["state"] == "TASK_STATE_COMPLETED"
     [part] = task["artifacts"][0]["parts"]
-    assert sorted(part["data"]) == ["document", "lines", "pdf", "report"]
+    assert sorted(part["data"]) == ["document", "lines", "pdf", "report", "suggestion"]
+    assert part["data"]["suggestion"] == {
+        "template": "classic",
+        "columns": 1,
+        "traits": [],
+    }
     assert part["data"]["pdf"] == "JVBERg=="
     assert [line["id"] for line in part["data"]["lines"]] == ["p1.s1", "p1.s2"]
     assert model.requests[0][-1].text == "Keep my headline"

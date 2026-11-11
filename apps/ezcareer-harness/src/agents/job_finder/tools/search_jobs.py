@@ -15,6 +15,7 @@ from src.adapters.job_sources import (
 from src.agents.job_finder.state import JobFinderState
 from src.shared.factory import Factory
 from src.shared.jobs import JobPosting, broken_filters
+from src.shared.run_context import RunContext
 
 
 class _SearchJobsContent(BaseModel):
@@ -32,9 +33,9 @@ class _SearchJobsContent(BaseModel):
 
 async def _search_jobs(
     sources: Sequence[SearchProtocol],
-    runtime: ToolRuntime[None, JobFinderState],
+    runtime: ToolRuntime[RunContext | None, JobFinderState],
     **given: object,
-) -> tuple[str, list[JobPosting]]:
+) -> tuple[str, SearchResult]:
     """Searches job postings, newest first, with each job once and without jobs
     that break the user's preferences"""
     results: list[SearchResult] = []
@@ -49,7 +50,9 @@ async def _search_jobs(
                             for name, value in given.items()
                             if name in source.query.model_fields
                         }
-                    )
+                    ),
+                    runtime.state.get("search"),
+                    runtime.context,
                 )
             )
         except SourceUnavailable as error:
@@ -71,14 +74,16 @@ async def _search_jobs(
         for job in unique.values()
         if not broken_filters(job, runtime.state["preferences"])
     ]
+    quota = min(
+        (result.quota for result in results if result.quota),
+        key=lambda quota: quota.remaining,
+        default=None,
+    )
     return _SearchJobsContent(
         jobs=jobs,
-        requests_left=min(
-            (r.requests_left for r in results if r.requests_left is not None),
-            default=None,
-        ),
+        requests_left=quota and quota.remaining,
         failures=failures,
-    ).model_dump_json(), jobs
+    ).model_dump_json(), SearchResult(postings=jobs, quota=quota)
 
 
 def search_jobs_tool(
@@ -100,7 +105,7 @@ def search_jobs_tool(
             "SearchJobsArgs",
             __config__=ConfigDict(extra="forbid", arbitrary_types_allowed=True),
             runtime=(
-                ToolRuntime[None, JobFinderState],
+                ToolRuntime[RunContext | None, JobFinderState],
                 Field(
                     description="The agent's state, injected by the agent and never set by the model"
                 ),

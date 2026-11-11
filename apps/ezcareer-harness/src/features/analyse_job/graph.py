@@ -18,7 +18,7 @@ from src.features.analyse_job.nodes import fetch_posting
 from src.features.analyse_job.schemas import JobAnalysis, JobRequirements
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
 from src.shared.jobs import PostingLine
-from src.shared.profile import Preferences, Profile, ProfileFact
+from src.shared.profile import Preferences, Profile, ProfileFact, require_facts
 from src.shared.url import Url
 
 
@@ -60,6 +60,7 @@ class AnalyseJobState(AnalyseJobInput, AnalyseJobOutput):
 
 async def _fetch(state: AnalyseJobState) -> dict:
     """Fetch the posting and hand the agent its lines as untrusted text"""
+    require_facts(state.facts)
     try:
         lines = await fetch_posting(state.url)
     except httpx.HTTPError as error:

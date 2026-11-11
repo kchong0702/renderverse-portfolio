@@ -6,7 +6,7 @@ from src.shared.profile.preferences import (
     work_mode_fits,
 )
 from src.shared.profile.profile import Profile
-from src.shared.profile.profile_fact import ProfileFact
+from src.shared.profile.profile_fact import ProfileFact, require_facts
 from src.shared.profile.types import CountryCode, FactRef
 
 __all__ = [
@@ -20,5 +20,6 @@ __all__ = [
     "SalaryPeriod",
     "WorkMode",
     "countries_fit",
+    "require_facts",
     "work_mode_fits",
 ]
