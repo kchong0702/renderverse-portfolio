@@ -1,10 +1,8 @@
 import styles from "./Skills.module.css";
-import SkillCategoryItem from "./SkillCategoryItem";
-import type { SkillItem } from "@/features/portfolio/types";
 
 interface SkillCategoryProps {
   category: string;
-  contents: SkillItem[];
+  contents: string[];
 }
 
 const SkillCategory = ({ category, contents }: SkillCategoryProps) => {
@@ -12,8 +10,10 @@ const SkillCategory = ({ category, contents }: SkillCategoryProps) => {
     <section className={styles.category}>
       <h6 className={styles.heading}>{category}</h6>
       <ul className={styles.items}>
-        {contents.map((item) => (
-          <SkillCategoryItem item={item} key={item.name} />
+        {contents.map((name) => (
+          <li className={styles.item} key={name}>
+            {name}
+          </li>
         ))}
       </ul>
     </section>

@@ -10,6 +10,8 @@ import Searchbar from "./Searchbar";
 import type { SceneInteraction } from "@/experience/state/sceneStore";
 import type { ModalInteraction } from "@/shared/state/modalStore";
 import type { ProjectItem } from "@/features/portfolio/types";
+import { useRelease } from "@/features/portfolio/hooks/useRelease";
+import { CONFIG } from "@/app/config";
 
 interface ProjectsProps {
   handlePLInteraction: SceneInteraction;
@@ -42,19 +44,34 @@ function Projects({
     },
   });
 
-  const projects: ProjectItem[] = [
-    {
-      proj_id: 1,
-      proj_name: t("projects.portfolio3D.name"),
-      short_desc: t("projects.portfolio3D.shortDesc"),
-      proj_desc: t("projects.portfolio3D.desc"),
-      proj_link: "",
-      github_link: null,
-      img_path: "/assets/images/project/renderverse-portfolio.png",
-      proj_stack: ["ReactJS", "R3F", "Blender", "Threejs"],
-      vid_path: "/assets/video/renderverse-portfolio.mp4",
-    },
-  ];
+  const { data: release, isLoading } = useRelease();
+  const projects: ProjectItem[] = isLoading
+    ? []
+    : release
+      ? release.projects.map((project) => ({
+          proj_id: project.id,
+          proj_name: project.title,
+          short_desc: project.summary,
+          proj_desc: project.highlights.join(" "),
+          proj_link: "",
+          github_link: null,
+          img_path: project.image && CONFIG.portfolioBucketUrl + project.image,
+          proj_stack: [],
+          vid_path: project.video && CONFIG.portfolioBucketUrl + project.video,
+        }))
+      : [
+          {
+            proj_id: "portfolio3D",
+            proj_name: t("projects.portfolio3D.name"),
+            short_desc: t("projects.portfolio3D.shortDesc"),
+            proj_desc: t("projects.portfolio3D.desc"),
+            proj_link: "",
+            github_link: null,
+            img_path: "/assets/images/project/renderverse-portfolio.png",
+            proj_stack: ["ReactJS", "R3F", "Blender", "Threejs"],
+            vid_path: "/assets/video/renderverse-portfolio.mp4",
+          },
+        ];
   return (
     <>
       <Indicator
