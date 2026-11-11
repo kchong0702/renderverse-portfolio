@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { Text } from "../editing/context";
+import { AddSkill, Text } from "../editing/context";
 import type { Skill } from "../generated/document";
 import type { SkillsStyle } from "../generated/template";
 import { Section } from "../sections/section";
@@ -19,9 +19,18 @@ const Pills = ({ rows, path }: { rows: Skill[]; path: string }) =>
             <Text
               path={`${path}/${row.id}/items/${item.id}/text`}
               text={item.text.text}
+              item={
+                row.items.length > 1
+                  ? `${path}/${row.id}/items/${item.id}`
+                  : `${path}/${row.id}`
+              }
             />
           </li>
         ))}
+        <AddSkill
+          parent={`${path}/${row.id}/items`}
+          after={row.items.at(-1)?.id ?? null}
+        />
       </ul>
     </div>
   ));
@@ -45,9 +54,18 @@ const skillStyles: Record<
             <Text
               path={`${path}/${row.id}/items/${item.id}/text`}
               text={item.text.text}
+              item={
+                row.items.length > 1
+                  ? `${path}/${row.id}/items/${item.id}`
+                  : `${path}/${row.id}`
+              }
             />
           </Fragment>
         ))}
+        <AddSkill
+          parent={`${path}/${row.id}/items`}
+          after={row.items.at(-1)?.id ?? null}
+        />
       </p>
     )),
   "outline-pills": Pills,

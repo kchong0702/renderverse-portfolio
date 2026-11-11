@@ -11,6 +11,7 @@ export const LanguagesBlock = ({ block, ctx }: BlockProps<"languages">) => (
             <Text
               path={`blocks/${block.id}/items/${item.id}/language`}
               text={item.language.text}
+              item={`blocks/${block.id}/items/${item.id}`}
             />
           </strong>
           {item.fluency && (

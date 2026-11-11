@@ -29,8 +29,9 @@ export interface Editing {
     props: ElementProps;
   }>;
   Bullet: ComponentType<{ path: string; bullet: Bullet }>;
-  Text: ComponentType<{ path: string; text: string }>;
+  Text: ComponentType<{ path: string; text: string; item?: string }>;
   RichText: ComponentType<{ path: string; value: RichValue }>;
+  AddSkill: ComponentType<{ parent: string; after: string | null }>;
 }
 
 export const readOnly: Editing = {
@@ -48,6 +49,7 @@ export const readOnly: Editing = {
       dangerouslySetInnerHTML={{ __html: value.html }}
     />
   ),
+  AddSkill: () => null,
 };
 
 export const EditingContext = createContext<Editing>(readOnly);
@@ -68,7 +70,12 @@ export const BlockElement = ({
   );
 };
 
-export const Text = (props: { path: string; text: string }) => {
+export const Text = (props: { path: string; text: string; item?: string }) => {
   const { Text: Slot } = useContext(EditingContext);
+  return <Slot {...props} />;
+};
+
+export const AddSkill = (props: { parent: string; after: string | null }) => {
+  const { AddSkill: Slot } = useContext(EditingContext);
   return <Slot {...props} />;
 };
