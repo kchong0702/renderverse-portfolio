@@ -3,7 +3,8 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import func, select, update
 
-from src.core.auth.models import AuthIdentity, AuthSession, SignInAttempts
+from src.core.auth.enums import Role
+from src.core.auth.models import AuthIdentity, AuthSession, SignInAttempts, User
 from src.core.auth.service import AuthService
 from src.core.config import get_settings, reload_settings
 from src.db.base import utcnow
@@ -36,6 +37,37 @@ async def test_me_is_the_dev_email_while_auth_is_off(client):
 
     assert response.status_code == 200
     assert response.json()["email"] == "owner@localhost"
+    assert response.json()["role"] == "admin"
+
+
+async def test_a_new_password_user_is_a_user(auth_app, auth_client):
+    await _set_password(auth_app)
+    await _sign_in(auth_client)
+
+    response = await auth_client.get(f"{PREFIX}/me")
+
+    assert response.json()["role"] == "user"
+
+
+async def test_a_new_sso_user_is_a_user(auth_client):
+    await auth_client.get(f"{PREFIX}/auth/google/login")
+    await auth_client.get(f"{PREFIX}/auth/google/callback")
+
+    me = (await auth_client.get(f"{PREFIX}/me")).json()
+
+    assert (me["email"], me["role"]) == (OWNER, "user")
+
+
+async def test_me_shows_the_role_set_in_the_database(auth_app, auth_client):
+    await _set_password(auth_app)
+    await _sign_in(auth_client)
+    async with auth_app.state.session_factory() as session:
+        await session.execute(update(User).values(role=Role.ADMIN))
+        await session.commit()
+
+    response = await auth_client.get(f"{PREFIX}/me")
+
+    assert response.json()["role"] == "admin"
 
 
 async def test_me_needs_a_session(auth_client):

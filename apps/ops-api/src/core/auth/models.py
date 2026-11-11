@@ -5,11 +5,12 @@ from datetime import datetime
 from sqlalchemy import DateTime, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.db.base import Base, utcnow
-from src.db.mixins import IdMixin, UserScopedMixin
+from src.core.auth.enums import Role
+from src.db.base import Base, EnumString, utcnow
+from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 
 
-class User(IdMixin, Base):
+class User(IdMixin, AuditMixin, Base):
     """Whoever a request acts for; every feature table points here through user_id"""
 
     __tablename__ = "users"
@@ -20,9 +21,10 @@ class User(IdMixin, Base):
     password_hash: Mapped[str | None] = mapped_column(String(255))
     """Argon2 hash; None until a password is set with the CLI"""
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
+    role: Mapped[Role] = mapped_column(
+        EnumString(Role), default=Role.USER, server_default=Role.USER.value
     )
+    """Only an admin can use the portfolio; set in the database"""
 
 
 class AuthIdentity(IdMixin, UserScopedMixin, Base):

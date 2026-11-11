@@ -14,6 +14,7 @@ from src.core.auth.dependencies import (
     CurrentUserDep,
     OAuthProvidersDep,
 )
+from src.core.auth.enums import Role
 from src.core.auth.exceptions import OAuthFailed
 from src.core.auth.oauth_providers import AuthlibAdapter, Provider
 from src.core.config import AuthSettings, get_settings
@@ -25,6 +26,7 @@ router = APIRouter(tags=["auth"])
 class MeRead(BaseModel):
     id: UUID
     email: str
+    role: Role
 
 
 class SignInMethods(BaseModel):
@@ -77,7 +79,7 @@ def _provider(
 @router.get("/me")
 async def read_me(user: CurrentUserDep) -> MeRead:
     """The signed-in user"""
-    return MeRead(id=user.id, email=user.email)
+    return MeRead(id=user.id, email=user.email, role=user.role)
 
 
 @router.get("/auth/methods")

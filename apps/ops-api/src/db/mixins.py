@@ -3,10 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.app.actor import current_actor
+from src.app.actor import SYSTEM_ACTOR, current_actor
 from src.db.base import utcnow
 
 
@@ -16,10 +16,13 @@ class IdMixin:
 
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
+        DateTime(timezone=True), default=utcnow, server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+        DateTime(timezone=True),
+        default=utcnow,
+        onupdate=utcnow,
+        server_default=func.now(),
     )
 
 
@@ -30,9 +33,14 @@ class AuditMixin(TimestampMixin):
     The *_by columns hold an actor string (see actor.py), filled in on insert and update.
     """
 
-    created_by: Mapped[str] = mapped_column(String(100), default=current_actor)
+    created_by: Mapped[str] = mapped_column(
+        String(100), default=current_actor, server_default=SYSTEM_ACTOR
+    )
     updated_by: Mapped[str] = mapped_column(
-        String(100), default=current_actor, onupdate=current_actor
+        String(100),
+        default=current_actor,
+        onupdate=current_actor,
+        server_default=SYSTEM_ACTOR,
     )
 
 
