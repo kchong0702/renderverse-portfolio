@@ -368,17 +368,29 @@ class R2Settings(BaseModel):
     bucket: str = ""
     """The public bucket the portfolio site reads"""
 
+    private_bucket: str = ""
+    """The bucket uploads go to; never public"""
+
     access_key_id: SecretStr = SecretStr("")
     """R2 API token's access key id"""
 
     secret_access_key: SecretStr = SecretStr("")
     """R2 API token's secret"""
 
+    @model_validator(mode="after")
+    def _all_or_none(self) -> R2Settings:
+        """Fail at startup when only some R2 settings are set"""
+        missing = [name for name, value in self if not value]
+        if 0 < len(missing) < len(type(self).model_fields):
+            raise ValueError(f"storage.r2 is partly set; also set {', '.join(missing)}")
+        return self
+
     @property
     def configured(self) -> bool:
         return bool(
             self.account_id
             and self.bucket
+            and self.private_bucket
             and self.access_key_id.get_secret_value()
             and self.secret_access_key.get_secret_value()
         )
@@ -389,6 +401,9 @@ class StorageSettings(BaseModel):
 
     local_dir: Path = _ROOT_PATH / ".data" / "storage"
     """Where public files are written while R2 is not set up"""
+
+    local_private_dir: Path = _ROOT_PATH / ".data" / "uploads"
+    """Where uploads are kept while R2 is not set up"""
 
     r2: R2Settings = Field(default_factory=R2Settings)
     """Cloudflare R2; used once every field is set"""

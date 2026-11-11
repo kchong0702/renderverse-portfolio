@@ -48,5 +48,5 @@ Noto_Sans_SC
 # Ignore accidental npm lockfiles; this project uses pnpm
 package-lock.json
 
-# ops-api writes release/current.json here while R2 is not set up
+# ops-api keeps uploads and writes release/current.json here while R2 is not set up
 apps/ops-api/.data/

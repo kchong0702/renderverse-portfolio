@@ -4,7 +4,9 @@ import re
 from base64 import b64encode, urlsafe_b64encode
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, date, datetime
+from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlsplit
 
 import httpx2
@@ -16,6 +18,9 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
+
+if TYPE_CHECKING:
+    from src.clients.storage import LocalStorage
 
 PREFIX = "/ops-api/v1"
 OWNER = "owner@example.com"
@@ -412,27 +417,11 @@ async def connect_google(client: httpx2.AsyncClient, next_path: str = "/settings
     )
 
 
-class FakeStorage:
-    def __init__(self):
-        self.files: dict[str, tuple[bytes, str, str]] = {}
-        self.down = False
-
-    async def put(
-        self, key: str, body: bytes, content_type: str, cache_control: str
-    ) -> None:
-        """Keep the file with its headers, or fail as R2 would when down"""
-        from src.core.exceptions import ServiceUnavailable
-
-        if self.down:
-            raise ServiceUnavailable(f"{key} could not be written to R2")
-        self.files[key] = (body, content_type, cache_control)
-
-
 async def _app(
     harness: FakeHarness,
     artifact: FakeArtifact,
     google: FakeGoogle,
-    storage: FakeStorage,
+    storage: "LocalStorage",
     oauth_providers: dict | None = None,
     engine: AsyncEngine | None = None,
 ) -> AsyncIterator[FastAPI]:
@@ -506,8 +495,13 @@ def google() -> FakeGoogle:
 
 
 @pytest.fixture
-def storage() -> FakeStorage:
-    return FakeStorage()
+def storage(tmp_path: Path) -> "LocalStorage":
+    """Local storage with public files under tmp_path/public, uploads under private"""
+    from src.clients.storage import LocalStorage
+
+    return LocalStorage(
+        tmp_path / "public", tmp_path / "private", "/ops-api/v1/portfolio/uploads"
+    )
 
 
 @pytest.fixture
@@ -515,7 +509,7 @@ async def app(
     harness: FakeHarness,
     artifact: FakeArtifact,
     google: FakeGoogle,
-    storage: FakeStorage,
+    storage: "LocalStorage",
 ) -> AsyncIterator[FastAPI]:
     """Auth disabled: every request is auth.dev_email"""
     async for app in _app(harness, artifact, google, storage):
@@ -533,7 +527,7 @@ async def postgres_app(
     harness: FakeHarness,
     artifact: FakeArtifact,
     google: FakeGoogle,
-    storage: FakeStorage,
+    storage: "LocalStorage",
 ) -> AsyncIterator[FastAPI]:
     """The app on the test Postgres database, its dev user deleted after the test"""
     from src.core.auth.models import User
@@ -565,7 +559,7 @@ async def auth_app(
     harness: FakeHarness,
     artifact: FakeArtifact,
     google: FakeGoogle,
-    storage: FakeStorage,
+    storage: "LocalStorage",
 ) -> AsyncIterator[FastAPI]:
     """Auth enabled, OWNER allowlisted, fake Google and GitHub"""
     monkeypatch.setenv("OPS_API_AUTH__ENABLED", "true")
