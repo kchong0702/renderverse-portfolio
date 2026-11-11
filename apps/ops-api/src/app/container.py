@@ -55,4 +55,8 @@ class Container(containers.DeclarativeContainer):
 
     google = providers.Singleton(GoogleClient, settings=settings.provided.google)
 
-    storage = providers.Singleton(create_storage, settings=settings.provided.storage)
+    storage = providers.Singleton(
+        create_storage,
+        settings=settings.provided.storage,
+        route_prefix=settings.provided.app.route_prefix,
+    )

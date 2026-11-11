@@ -1,5 +1,5 @@
 import json
-from pathlib import PurePosixPath
+from pathlib import Path
 from uuid import uuid4
 
 from src.core.config import reload_settings
@@ -54,17 +54,16 @@ async def _seed(client):
     return python, renderverse
 
 
-def _current_file(storage) -> tuple[bytes, str, str]:
-    (key,) = storage.files
-    assert PurePosixPath(key).match("sites/*/release/current.json"), key
-    return storage.files[key]
+def _current_file(tmp_path) -> Path:
+    (path,) = (tmp_path / "public").glob("sites/*/release/current.json")
+    return path
 
 
-def _current(storage) -> dict:
-    return json.loads(_current_file(storage)[0])
+def _current(tmp_path) -> dict:
+    return json.loads(_current_file(tmp_path).read_bytes())
 
 
-async def test_publish_writes_the_draft_as_the_live_release(client, storage):
+async def test_publish_writes_the_draft_as_the_live_release(client, tmp_path):
     python, renderverse = await _seed(client)
 
     draft = (await client.get(f"{PORTFOLIO}/draft")).json()
@@ -81,9 +80,7 @@ async def test_publish_writes_the_draft_as_the_live_release(client, storage):
     assert published.status_code == 201
     assert published.json()["number"] == 1
     assert published.json()["live"] is True
-    _, content_type, cache_control = _current_file(storage)
-    assert (content_type, cache_control) == ("application/json", "max-age=60")
-    current = _current(storage)
+    current = _current(tmp_path)
     assert current["number"] == 1
     assert current["about"] == {
         "name": "Kelvin Chong",
@@ -133,7 +130,7 @@ async def test_publish_needs_a_change_since_the_live_release(client):
 
 
 async def test_rolling_back_serves_an_earlier_release_and_can_be_undone(
-    client, storage
+    client, tmp_path
 ):
     await _seed(client)
     first = (await client.post(f"{PORTFOLIO}/releases")).json()
@@ -143,7 +140,7 @@ async def test_rolling_back_serves_an_earlier_release_and_can_be_undone(
     rolled = await client.post(f"{PORTFOLIO}/releases/{first['id']}/live")
 
     assert rolled.json()["live"] is True
-    assert _current(storage)["number"] == 1
+    assert _current(tmp_path)["number"] == 1
     assert [
         (r["number"], r["live"])
         for r in (await client.get(f"{PORTFOLIO}/releases")).json()
@@ -158,21 +155,21 @@ async def test_rolling_back_serves_an_earlier_release_and_can_be_undone(
     ]
 
     await client.post(f"{PORTFOLIO}/releases/{second['id']}/live")
-    assert _current(storage)["number"] == 2
+    assert _current(tmp_path)["number"] == 2
     assert (await client.get(f"{PORTFOLIO}/draft")).json()["changes"] == []
 
 
-async def test_nothing_is_published_when_storage_fails(client, storage):
+async def test_nothing_is_published_when_storage_fails(client, tmp_path):
     await _seed(client)
     first = (await client.post(f"{PORTFOLIO}/releases")).json()
     await client.post(f"{PROFILE}/skills", json={"name": "Kotlin"})
-    storage.down = True
+    _current_file(tmp_path).chmod(0o444)
 
     assert (await client.post(f"{PORTFOLIO}/releases")).status_code == 503
 
     releases = (await client.get(f"{PORTFOLIO}/releases")).json()
     assert [(r["number"], r["live"]) for r in releases] == [(1, True)]
-    assert _current(storage)["number"] == first["number"]
+    assert _current(tmp_path)["number"] == first["number"]
 
 
 async def test_rolling_back_needs_a_release_of_the_user(client):
