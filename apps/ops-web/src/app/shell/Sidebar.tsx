@@ -41,7 +41,7 @@ export default function Sidebar() {
         </span>
       </div>
 
-      <div className="flex flex-col gap-0.5 px-3.5 py-3">
+      <div className="flex flex-col gap-0.5 overflow-y-auto overscroll-none px-3.5 py-3">
         {navGroups.map((group, index) => (
           <Fragment key={group.heading ?? index}>
             {group.heading && (
