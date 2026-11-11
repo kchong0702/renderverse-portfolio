@@ -190,7 +190,7 @@ export default function ApplicationForm({
           <button
             type="button"
             onClick={onDelete}
-            className={cn(buttonClass(), "text-crit ml-auto")}
+            className={cn(buttonClass("danger"), "ml-auto")}
           >
             {t("applications.form.delete")}
           </button>

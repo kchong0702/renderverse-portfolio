@@ -99,7 +99,7 @@ export default function ConnectionsPanel({
                     onClick={() =>
                       disconnect.mutate(undefined, { onSuccess: close })
                     }
-                    className={cn(buttonClass(), "text-crit ml-auto")}
+                    className={cn(buttonClass("danger"), "ml-auto")}
                   >
                     {t("settings.connections.jsearch.remove")}
                   </button>
