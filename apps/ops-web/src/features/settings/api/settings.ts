@@ -77,7 +77,7 @@ export const connectJsearch = (apiKey: string) =>
 
 export const disconnectJsearch = () =>
   http.delete<Settings>(`${URL}/connections/jsearch`);
-const GOOGLE_URL = "/ops-api/v1/integrations/google";
+const GOOGLE_URL = `${config.opsApiUrl}/integrations/google`;
 
 export const googleConnectUrl = (next: string) =>
   `${GOOGLE_URL}/connect?${new URLSearchParams({ next })}`;

@@ -1,4 +1,5 @@
 import { http } from "@/shared/api/http";
+import { config } from "@/shared/config";
 
 export interface CalendarEvent {
   id: string;
@@ -13,7 +14,7 @@ export interface CalendarEvent {
 
 export const fetchEvents = (from: string, to: string, signal?: AbortSignal) =>
   http.get<CalendarEvent[]>(
-    `/ops-api/v1/calendar?${new URLSearchParams({ from, to })}`,
+    `${config.opsApiUrl}/calendar?${new URLSearchParams({ from, to })}`,
     signal,
   );
 
@@ -30,7 +31,7 @@ export interface FreeSlots {
 }
 
 export const fetchFreeSlots = (signal?: AbortSignal) =>
-  http.get<FreeSlots>("/ops-api/v1/calendar/free-slots", signal);
+  http.get<FreeSlots>(`${config.opsApiUrl}/calendar/free-slots`, signal);
 
 export const createEvent = (event: EventCreate) =>
-  http.post<CalendarEvent>("/ops-api/v1/calendar/events", event);
+  http.post<CalendarEvent>(`${config.opsApiUrl}/calendar/events`, event);

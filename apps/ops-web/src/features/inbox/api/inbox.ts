@@ -1,4 +1,5 @@
 import { http } from "@/shared/api/http";
+import { config } from "@/shared/config";
 
 export type ThreadState = "needs_reply" | "interview" | "offer" | "info";
 
@@ -44,7 +45,7 @@ export interface Email {
   body: string;
 }
 
-const URL = "/ops-api/v1/inbox";
+const URL = `${config.opsApiUrl}/inbox`;
 
 export const fetchInbox = (signal?: AbortSignal) =>
   http.get<InboxList>(URL, signal);
@@ -70,5 +71,5 @@ export const sendEmail = (email: Email) =>
 
 export const draftFollowUp = (applicationId: string) =>
   http.post<{ body: string } | Failed>(
-    `/ops-api/v1/applications/${applicationId}/follow-up-draft`,
+    `${config.opsApiUrl}/applications/${applicationId}/follow-up-draft`,
   );
