@@ -10,6 +10,8 @@
     "tagline": "Your career starts here",
     "space": "Career space",
     "mainNav": "Main",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
     "account": "Account",
     "notFound": {
       "title": "Page not found",
@@ -732,7 +734,7 @@
     },
     "ai": {
       "model": "Model",
-      "harnessDefault": "ezcareer-harness default",
+      "harnessDefault": "Default",
       "modelOption": "{{family}} · {{model}}",
       "modelsLoading": "Loading models from ezcareer-harness…",
       "modelsFailed": "Models could not be loaded: {{reason}}",

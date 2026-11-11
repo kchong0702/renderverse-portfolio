@@ -30,9 +30,10 @@ export default function SystemPanel({ aiModel, onChange }: SystemPanelProps) {
   const offered = (models.data?.families ?? []).flatMap(({ family, models }) =>
     models.map((model) => option({ family, model })),
   );
-  const options = aiModel
-    ? withCurrent(offered, option(aiModel))
-    : [{ value: "", label: t("settings.ai.harnessDefault") }, ...offered];
+  const options = [
+    { value: "", label: t("settings.ai.harnessDefault") },
+    ...(aiModel ? withCurrent(offered, option(aiModel)) : offered),
+  ];
 
   return (
     <Panel title={t("settings.system.title")}>
@@ -44,13 +45,15 @@ export default function SystemPanel({ aiModel, onChange }: SystemPanelProps) {
         onChange={(event) => {
           const value = event.target.value;
           const split = value.indexOf(":");
-          if (split > 0)
-            onChange({
-              ai_model: {
-                family: value.slice(0, split) as ModelFamily,
-                model: value.slice(split + 1),
-              },
-            });
+          onChange({
+            ai_model:
+              split > 0
+                ? {
+                    family: value.slice(0, split) as ModelFamily,
+                    model: value.slice(split + 1),
+                  }
+                : null,
+          });
         }}
       />
       {models.isPending && (

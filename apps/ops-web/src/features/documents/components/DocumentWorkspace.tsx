@@ -2,6 +2,7 @@ import * as RadixTabs from "@radix-ui/react-tabs";
 import { useIsMutating } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import { useMe } from "@/features/auth";
 import { buttonClass } from "@/shared/components/button";
 import StateMessage from "@/shared/components/StateMessage";
@@ -50,6 +51,7 @@ export default function DocumentWorkspace({ id }: { id: string }) {
   const setMaster = useSetMaster();
   const exportPdf = useExportPdf();
   const remove = useDeleteDocument();
+  const [, setParams] = useSearchParams();
   const saves = useSaves(id);
   const saving =
     useIsMutating({
@@ -190,7 +192,9 @@ export default function DocumentWorkspace({ id }: { id: string }) {
                     t("documents.confirmDelete", { name: record.title }),
                   )
                 )
-                  remove.mutate(id);
+                  remove.mutate(id, {
+                    onSuccess: () => setParams({ kind: record.kind }),
+                  });
               }}
               className={buttonClass("danger")}
             >

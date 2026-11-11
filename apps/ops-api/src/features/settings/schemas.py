@@ -157,7 +157,7 @@ class SettingsUpdate(BaseModel):
     """Changes to work hours and meeting gaps"""
 
     ai_model: ModelChoice | None = None
-    """New model, checked against ezcareer-harness; None leaves it unchanged"""
+    """New model, checked against ezcareer-harness; null goes back to the harness default"""
 
 
 __all__ = [

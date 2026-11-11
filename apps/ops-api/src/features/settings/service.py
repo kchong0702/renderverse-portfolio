@@ -145,18 +145,19 @@ class SettingsService:
             if section is not None:
                 for field, value in section.model_dump(exclude_unset=True).items():
                     setattr(settings, field, value)
-        if patch.ai_model is not None:
+        if "ai_model" in patch.model_fields_set:
             choice = patch.ai_model
-            catalog = await self._ezcareer.models()
-            if not any(
-                entry.family == choice.family and choice.model in entry.models
-                for entry in catalog.families
-            ):
-                raise InvalidInput(
-                    f"ezcareer-harness does not offer {choice.model} for {choice.family}"
-                )
-            settings.ai_family = choice.family
-            settings.ai_model = choice.model
+            if choice is not None:
+                catalog = await self._ezcareer.models()
+                if not any(
+                    entry.family == choice.family and choice.model in entry.models
+                    for entry in catalog.families
+                ):
+                    raise InvalidInput(
+                        f"ezcareer-harness does not offer {choice.model} for {choice.family}"
+                    )
+            settings.ai_family = choice.family if choice else None
+            settings.ai_model = choice.model if choice else None
 
         if settings.work_day_start >= settings.work_day_end:
             raise InvalidInput("The work day must end after it starts")
