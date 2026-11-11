@@ -1,4 +1,5 @@
 import { http } from "@/shared/api/http";
+import { config } from "@/shared/config";
 
 export type ModelFamily = "claude" | "glm" | "openai";
 export type ConnectionId = "google" | "jsearch" | "portfolio_site";
@@ -57,7 +58,7 @@ export interface SettingsPatch {
   ai_model?: ModelChoice;
 }
 
-const URL = "/ops-api/v1/settings";
+const URL = `${config.opsApiUrl}/settings`;
 
 export const fetchSettings = (signal?: AbortSignal) =>
   http.get<Settings>(URL, signal);

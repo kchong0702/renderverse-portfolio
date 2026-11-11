@@ -1,4 +1,5 @@
 import { http } from "@/shared/api/http";
+import { config } from "@/shared/config";
 
 export type ApplicationStage =
   "draft" | "applied" | "replied" | "interview" | "offer" | "closed";
@@ -26,7 +27,7 @@ export interface Application extends ApplicationCreate {
   fit: number | null;
 }
 
-const URL = "/ops-api/v1/applications";
+const URL = `${config.opsApiUrl}/applications`;
 
 export const fetchApplications = (signal?: AbortSignal) =>
   http.get<Application[]>(URL, signal);
