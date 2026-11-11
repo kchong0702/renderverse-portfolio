@@ -50,6 +50,8 @@ export interface EntryCreate extends EntryWrite {
 
 export interface Entry extends EntryCreate {
   id: string;
+  image_id: string | null;
+  video_id: string | null;
 }
 
 export interface SkillWrite {

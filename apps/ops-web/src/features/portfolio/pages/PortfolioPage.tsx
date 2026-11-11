@@ -10,6 +10,7 @@ import { cn } from "@/shared/lib/cn";
 import AboutPanel from "../components/AboutPanel";
 import ChangesTab from "../components/ChangesTab";
 import EntrySection from "../components/EntrySection";
+import MediaTab from "../components/MediaTab";
 import PreferencesPanel from "../components/PreferencesPanel";
 import ProjectsTab from "../components/ProjectsTab";
 import ReleasesAside from "../components/ReleasesAside";
@@ -22,7 +23,7 @@ import {
   useUpdateProfile,
 } from "../hooks/useProfile";
 
-const TABS = ["profile", "skills", "projects", "releases"] as const;
+const TABS = ["profile", "skills", "projects", "media", "releases"] as const;
 type PortfolioTab = (typeof TABS)[number];
 
 export default function PortfolioPage() {
@@ -36,7 +37,9 @@ export default function PortfolioPage() {
   const releases = useReleases();
   const publish = usePublish();
   const site = draft.data?.site_url ?? null;
-  const tabs = site ? TABS : TABS.filter((name) => name !== "releases");
+  const tabs = site
+    ? TABS
+    : TABS.filter((name) => name !== "media" && name !== "releases");
   const tab: PortfolioTab =
     tabs.find((name) => name === params.get("tab")) ?? "projects";
 
@@ -161,6 +164,11 @@ export default function PortfolioPage() {
                 />
               )}
             </TabPanel>
+            {site && (
+              <TabPanel value="media">
+                <MediaTab />
+              </TabPanel>
+            )}
             {site && (
               <TabPanel
                 value="releases"
