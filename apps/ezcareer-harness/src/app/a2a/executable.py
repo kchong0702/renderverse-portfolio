@@ -114,6 +114,7 @@ def _steps(
     namespace: tuple[str, ...],
     task: TaskPayload | TaskResultPayload,
     calls: dict[str, list[tuple[str, str]]],
+    agent_nodes: frozenset[str],
 ) -> list[Step]:
     """The steps a graph task starts or ends: an agent's tool calls and the nodes of
     the workflows they run, or a workflow's own nodes, with the details tools set"""
@@ -145,6 +146,13 @@ def _steps(
                 )
             ]
         )
+    if not namespace and task["name"] in agent_nodes and "result" in task:
+        return [
+            Step(id=call_id, parent=None, name=name, status=status, detail=detail)
+            for tools in [*calls]
+            for call_id, name in calls.pop(tools)
+            if (detail := details.get(call_id))
+        ]
     if not namespace and task["name"] == "tools":
         if "input" in task:
             calls[task["id"]] = [(call["id"], call["name"]) for call in task["input"]]
@@ -156,7 +164,9 @@ def _steps(
                 status=status,
                 detail=details.get(call_id),
             )
-            for call_id, name in calls.get(task["id"], [])
+            for call_id, name in (
+                calls[task["id"]] if "input" in task else calls.pop(task["id"], [])
+            )
         ]
     if len(namespace) == 1 and (
         parent := calls.get(namespace[0].removeprefix("tools:"))
@@ -194,6 +204,10 @@ class Executable(BaseModel):
     reply_node: str | None = None
     """The workflow node whose model streams its thinking and text to the user;
     None streams an agent's own model and nothing of a workflow's"""
+
+    agent_nodes: frozenset[str] = frozenset()
+    """The nodes of an agent's handoff graph that each run an agent; whichever
+    runs streams its steps, thinking and text as the agent's own"""
 
 
 class LanggraphExecutor(AgentExecutor):
@@ -273,7 +287,12 @@ class LanggraphExecutor(AgentExecutor):
             ):
                 if mode == "values" and not namespace:
                     result = data
-                elif mode == "messages" and tuple(
+                    continue
+                if namespace and (
+                    namespace[0].partition(":")[0] in self.executable.agent_nodes
+                ):
+                    namespace = namespace[1:]
+                if mode == "messages" and tuple(
                     segment.partition(":")[0] for segment in namespace
                 ) == (
                     (self.executable.reply_node,) if self.executable.reply_node else ()
@@ -302,7 +321,13 @@ class LanggraphExecutor(AgentExecutor):
                         )
                         opened.add(artifact_id)
                 elif mode == "tasks":
-                    for step in _steps(self.executable.kind, namespace, data, calls):
+                    for step in _steps(
+                        self.executable.kind,
+                        namespace,
+                        data,
+                        calls,
+                        self.executable.agent_nodes,
+                    ):
                         await updater.update_status(
                             TaskState.TASK_STATE_WORKING,
                             updater.new_agent_message(

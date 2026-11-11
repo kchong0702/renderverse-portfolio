@@ -28,6 +28,9 @@ instrumentations = ["langchain"]
 hide_inputs = false
 hide_outputs = false
 
+[email]
+max_threads = 20
+
 [models]
 glm = ["glm-5.3"]
 claude = ["claude-opus-5-5", "claude-sonnet-5-5"]

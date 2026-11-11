@@ -8,14 +8,15 @@ Before you build a mechanism, check whether LangChain, LangGraph, deepagents or 
 
 Examples in this codebase:
 
-| Need                                       | Convention used                                                        |
-| ------------------------------------------ | ---------------------------------------------------------------------- |
-| Offer a tool only after a skill is read    | deepagents `metadata.include_tools` with `SkillsMiddleware(tools=...)` |
-| Change the tools or the model for one call | LangChain `wrap_model_call` with `request.override(...)`               |
-| Pause a run for input                      | LangGraph `interrupt` and `Command(resume=...)`                        |
-| Stream a run                               | LangGraph `astream` with `stream_mode` and `subgraphs=True`            |
-| Retry and stop calling a failing service   | `tenacity` and `circuitbreaker`                                        |
-| Wire singletons and dependencies           | `dependency-injector` containers                                       |
+| Need                                       | Convention used                                                                                                                   |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| Offer a tool only after a skill is read    | deepagents `metadata.include_tools` with `SkillsMiddleware(tools=...)`                                                            |
+| Change the tools or the model for one call | LangChain `wrap_model_call` with `request.override(...)`                                                                          |
+| Pause a run for input                      | LangGraph `interrupt` and `Command(resume=...)`                                                                                   |
+| Hand the conversation to another agent     | LangChain handoffs: agents as graph nodes, a tool returning `Command(goto=..., graph=Command.PARENT)` and `active_agent` in state |
+| Stream a run                               | LangGraph `astream` with `stream_mode` and `subgraphs=True`                                                                       |
+| Retry and stop calling a failing service   | `tenacity` and `circuitbreaker`                                                                                                   |
+| Wire singletons and dependencies           | `dependency-injector` containers                                                                                                  |
 
 If the library's convention doesn't fit, say why in the PR description before you write your own.
 

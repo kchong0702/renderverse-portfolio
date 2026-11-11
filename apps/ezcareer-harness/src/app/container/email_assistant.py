@@ -1,13 +1,21 @@
 from dependency_injector import containers, providers
 
 from src.agents import build_agent
+from src.agents.email_assistant.tools import draft_reply_tool, search_threads_tool
 from src.agents.state import ProfileState
 from src.app.a2a import Executable
+from src.core.config import Settings
 from src.features import draft_reply, triage_email
-from src.tools import read_profile_facts
+from src.tools import handoff_to_parent_tool, read_profile_facts
 
 
 class EmailAssistantContainer(containers.DeclarativeContainer):
+    __self__ = providers.Self()
+    """This container, so the agent's draft_reply can reach the workflow built on it"""
+
+    settings = providers.Dependency(instance_of=Settings)
+    """The app's settings"""
+
     registry = providers.Dependency(instance_of=dict)
     """Every registered agent, by name"""
 
@@ -18,7 +26,14 @@ class EmailAssistantContainer(containers.DeclarativeContainer):
         build_agent,
         agent=registry.provided["email-assistant"],
         response_formats=(draft_reply.DraftReply, triage_email.EmailReading),
-        tools=(read_profile_facts,),
+        tools=providers.List(
+            read_profile_facts,
+            providers.Callable(
+                search_threads_tool, settings.provided.email.max_threads
+            ),
+            providers.Callable(draft_reply_tool, __self__.provided.draft_reply_graph),
+            providers.Callable(handoff_to_parent_tool, "career-director"),
+        ),
         state_schema=ProfileState,
     )
     """The email-assistant agent, built once"""
@@ -33,12 +48,15 @@ class EmailAssistantContainer(containers.DeclarativeContainer):
     )
     """The triage-email workflow served over A2A"""
 
+    draft_reply_graph = providers.Singleton(
+        draft_reply.build_graph, agent=agent, checkpointer=checkpointer
+    )
+    """The draft-reply workflow, run on the agent"""
+
     draft_reply_executable = providers.Singleton(
         Executable,
         name="draft-reply",
         description="Draft the user's reply to an email thread, or a follow-up for an application with no reply, offering free times when asked; it sends nothing",
-        graph=providers.Singleton(
-            draft_reply.build_graph, agent=agent, checkpointer=checkpointer
-        ),
+        graph=draft_reply_graph,
     )
     """The draft-reply workflow served over A2A"""
