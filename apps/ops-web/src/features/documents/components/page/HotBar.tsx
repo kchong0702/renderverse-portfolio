@@ -5,11 +5,14 @@ import {
 } from "@renderverse/document-renderer";
 import { useTranslation } from "react-i18next";
 import { savedFor, withBlockAfter } from "../../lib/arrangement";
+import type { Item } from "../../api/documents";
 import {
   INSERTS,
   isEntryBlock,
   newEntry,
+  newId,
   newSection,
+  valueOf,
   type NewText,
 } from "../../lib/items";
 import { useEditorStore } from "../../state/editorStore";
@@ -33,20 +36,47 @@ export default function HotBar({ block }: { block: AnyBlock }) {
 
   return (
     <div
-      className={`${unzoom} absolute top-full right-0 left-0 z-[5] flex h-[34px] items-center justify-center gap-2 font-sans`}
+      className={`${unzoom} absolute top-full right-0 left-0 z-[5] flex h-[34px] items-center justify-center gap-2 font-sans whitespace-nowrap`}
     >
-      {isEntryBlock(block) && (
+      {(isEntryBlock(block) ||
+        block.kind === "skills" ||
+        block.kind === "languages") && (
         <button
           type="button"
           onClick={() => {
-            const item = newEntry(
-              block.kind,
-              text.placeholders[block.kind],
-              block.kind === "education" ? null : text.entryBullet,
-              page.source,
-            );
+            const item: Item =
+              block.kind === "skills"
+                ? {
+                    id: newId(),
+                    label: valueOf(text.skillGroup.label, page.source),
+                    items: [
+                      {
+                        id: newId(),
+                        text: valueOf(text.skillGroup.skill, page.source),
+                      },
+                    ],
+                  }
+                : block.kind === "languages"
+                  ? {
+                      id: newId(),
+                      language: valueOf(text.language, page.source),
+                    }
+                  : newEntry(
+                      block.kind,
+                      text.placeholders[block.kind],
+                      block.kind === "education" ? null : text.entryBullet,
+                      page.source,
+                    );
             const parent = `blocks/${block.id}/items`;
-            focusNext(`${parent}/${item.id}/${entryFields[block.kind].title}`);
+            focusNext(
+              `${parent}/${item.id}/${
+                block.kind === "skills"
+                  ? "label"
+                  : block.kind === "languages"
+                    ? "language"
+                    : entryFields[block.kind].title
+              }`,
+            );
             page.edit([
               {
                 kind: "insert_item",
@@ -58,9 +88,11 @@ export default function HotBar({ block }: { block: AnyBlock }) {
           }}
           className={`${dashedPillClass} h-[22px]`}
         >
-          {t("documents.page.add", {
-            noun: NOUNS[block.kind] ?? t("documents.page.entryNoun"),
-          })}
+          {isEntryBlock(block)
+            ? t("documents.page.add", {
+                noun: NOUNS[block.kind] ?? t("documents.page.entryNoun"),
+              })
+            : t(`documents.page.addItem.${block.kind}`)}
         </button>
       )}
       <button

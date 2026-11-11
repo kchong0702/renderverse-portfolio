@@ -304,10 +304,15 @@
       "delete": "Delete",
       "details": "Details",
       "add": "+ Add {{noun}}",
+      "addItem": {
+        "skills": "+ Add skill group",
+        "languages": "+ Add language"
+      },
       "entryNoun": "entry",
       "sectionBelow": "+ Section below",
       "addSection": "Add a section",
       "bullet": "+ Bullet",
+      "skill": "+ Skill",
       "dragBullet": "Drag this bullet",
       "dragBulletTitle": "Drag to move",
       "pageStarts": "Page {{page}} starts here",
@@ -393,7 +398,12 @@
         "custom": {
           "heading": "Custom",
           "text": "A short paragraph about anything else worth knowing."
-        }
+        },
+        "skillGroup": {
+          "label": "Skill group",
+          "skill": "Skill"
+        },
+        "language": "Language"
       }
     },
     "blocks": {
