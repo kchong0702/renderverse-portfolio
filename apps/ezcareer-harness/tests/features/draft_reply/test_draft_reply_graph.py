@@ -54,6 +54,9 @@ async def test_a_reply_offers_only_free_slots_and_lists_them_in_the_users_zone()
     assert "My free slots, in Asia/Kuala_Lumpur:" in brief
     assert "[1] Wed 11 Nov 18:00 to 18:30" in brief
     assert "read_profile_facts" in model.offered_tools[0]
+    assert {"handoff_to_parent", "read_thread", "search_threads"}.isdisjoint(
+        model.offered_tools[0]
+    )
     [facts] = [m for m in model.requests[1] if isinstance(m, ToolMessage)]
     assert "Aisha Rahman" in facts.text
     assert "unknown_slot" in model.requests[-1][-1].text

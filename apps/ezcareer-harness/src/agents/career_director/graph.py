@@ -13,17 +13,22 @@ def build_graph(
     children: Sequence[CompiledStateGraph],
     checkpointer: Checkpointer = None,
 ) -> CompiledStateGraph:
-    """career-director and the child agents it hands the conversation to, each a
-    node named after its agent; a turn goes to the agent the last one ended with"""
+    """career-director's agent graph: the director and the child agents it hands
+    the conversation to, each a node named after its agent, the children told their
+    parent; a turn goes to the agent the last one ended with"""
     agents = [director.name, *(child.name for child in children)]
     graph = StateGraph(CareerDirectorHandoffState)
     graph.add_conditional_edges(
         START, lambda state: state.get("active_agent", director.name), agents
     )
-    for agent in (director, *children):
-        graph.add_node(agent.name, agent)
+    graph.add_node(director.name, director)
+    for child in children:
+        graph.add_node(
+            child.name, child.with_config(configurable={"parent_agent": director.name})
+        )
+    for agent in agents:
         graph.add_conditional_edges(
-            agent.name,
+            agent,
             lambda state: (
                 END
                 if isinstance(state["messages"][-1], AIMessage)

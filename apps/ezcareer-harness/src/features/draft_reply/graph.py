@@ -15,7 +15,12 @@ from src.core.config import get_settings
 from src.features.draft_reply.configurations import CHECKS, DraftReplyConfigurations
 from src.features.draft_reply.schemas import Application, DraftReply
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
-from src.shared.email import EmailThread, TimeSlot, untrusted_thread
+from src.shared.email import (
+    EmailThread,
+    TimeSlot,
+    latest_messages,
+    untrusted_thread,
+)
 from src.shared.profile import ProfileFact
 
 
@@ -75,23 +80,12 @@ def _brief(state: DraftReplyState, configurations: DraftReplyConfigurations) -> 
         : configurations.max_free_slots
     ]
     if state.thread:
-        messages = state.thread.messages[-configurations.max_thread_messages :]
-        left_out = len(state.thread.messages) - len(messages)
-        thread = state.thread.model_copy(
-            update={
-                "messages": [
-                    message.model_copy(
-                        update={
-                            "text": message.text[: configurations.max_message_chars]
-                            + " [cut]"
-                        }
-                    )
-                    if len(message.text) > configurations.max_message_chars
-                    else message
-                    for message in messages
-                ]
-            }
+        thread = latest_messages(
+            state.thread,
+            configurations.max_thread_messages,
+            configurations.max_message_chars,
         )
+        left_out = len(state.thread.messages) - len(thread.messages)
         earlier = (
             f"\n\n{left_out} earlier messages of the thread are left out."
             if left_out

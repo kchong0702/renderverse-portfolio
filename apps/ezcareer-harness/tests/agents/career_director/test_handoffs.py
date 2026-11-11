@@ -1,6 +1,4 @@
-import json
-
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
@@ -60,9 +58,9 @@ async def test_email_goes_to_email_assistant_which_keeps_the_next_turn_and_hands
         replies=[
             _call("search_threads", sender="acme.com", since="2026-11-02"),
             AIMessage("Priya from Acme wrote about your interview."),
-            _call("draft_reply", thread_id="t-1", request="Say Wednesday works"),
-            draft_test._draft(1),
-            AIMessage("Here is a draft offering Wednesday."),
+            _call("read_thread", thread_id="t-1"),
+            _call("read_free_slots"),
+            AIMessage(draft_test.BODY),
             _call("handoff_to_parent"),
         ]
     )
@@ -96,22 +94,27 @@ async def test_email_goes_to_email_assistant_which_keeps_the_next_turn_and_hands
         {"fetch": "thread", "id": "t-1"},
         {"fetch": "free_slots", "days": 7},
     ]
-    [report] = [
-        m
-        for m in drafted["messages"]
-        if isinstance(m, ToolMessage) and m.name == "draft_reply"
-    ]
-    assert json.loads(report.text)["slots"] == [draft_test.FREE_SLOTS[0]]
+    assert drafted["messages"][-1].text == draft_test.BODY
+    assert "<thread untrusted>" in assistant.requests[3][-1].text
+    assert "Wed 11 Nov 10:00 to 10:30" in assistant.requests[4][-1].text
     assert back["active_agent"] == "career-director"
     assert back["messages"][-1].text == "Here are some jobs."
     assert len(director.requests) == 2
     assert director.requests[-1][-3].text == "Now find me jobs"
-    assert {"handoff_to_child"} <= director.offered_tools[0]
-    assert "draft_reply" not in director.offered_tools[0]
-    assert {"search_threads", "draft_reply", "handoff_to_parent"} <= (
+
+
+async def test_only_the_child_agents_in_the_graph_are_offered_handoff_to_parent():
+    director = ScriptedChatModel(
+        replies=[_call("handoff_to_child", agent="email-assistant")]
+    )
+    assistant = ScriptedChatModel(replies=[AIMessage("Nothing new.")])
+
+    await _turn(_graph(director, assistant), "Any new email?")
+
+    assert "handoff_to_child" in director.offered_tools[0]
+    assert "handoff_to_parent" not in director.offered_tools[0]
+    assert {"search_threads", "read_thread", "read_free_slots"} <= (
         assistant.offered_tools[0]
     )
-    assert "read_profile_facts" in assistant.offered_tools[3]
-    assert {"search_threads", "draft_reply", "handoff_to_parent"}.isdisjoint(
-        assistant.offered_tools[3]
-    )
+    assert "handoff_to_parent" in assistant.offered_tools[0]
+    assert "draft_reply" not in assistant.offered_tools[0]

@@ -128,41 +128,86 @@ async def test_a_threads_answer_that_does_not_parse_fails_the_run():
         await _run(model, "Show my email", {"threads": "not a list"})
 
 
-async def test_draft_reply_fetches_the_thread_and_free_slots_then_drafts():
-    model = ScriptedChatModel(
-        replies=[
-            _call("draft_reply", thread_id="t-1", request="Say Wednesday works"),
-            draft_test._draft(1),
-            AIMessage("Here is a draft offering Wednesday."),
+async def test_on_its_own_email_assistant_is_never_offered_handoff_to_parent():
+    model = ScriptedChatModel(replies=[AIMessage("Hello.")])
+
+    await _run(model, "Hi")
+
+    assert {"search_threads", "read_thread", "read_free_slots"} <= (
+        model.offered_tools[0]
+    )
+    assert "handoff_to_parent" not in model.offered_tools[0]
+
+
+async def test_read_thread_shows_a_long_threads_latest_messages_cut_to_length():
+    message = triage_test.THREAD["messages"][0]
+    thread = triage_test.THREAD | {
+        "messages": [
+            message | {"text": f"Message {number}. " + "x" * 5000}
+            for number in range(1, 9)
         ]
-    )
-
-    asked, result = await _run(
-        model,
-        "Reply that Wednesday works",
-        {"thread": triage_test.THREAD},
-        {"free_slots": draft_test.FREE_SLOTS, "timezone": "Europe/London"},
-    )
-
-    assert asked == [
-        {"fetch": "thread", "id": "t-1"},
-        {"fetch": "free_slots", "days": 7},
-    ]
-    assert json.loads(_report(result, "draft_reply").text) == {
-        "body": draft_test.BODY,
-        "slots": [draft_test.FREE_SLOTS[0]],
     }
-    assert model.requests[1][1].text == "Say Wednesday works"
-    assert "<thread untrusted>" in model.requests[1][2].text
+    model = ScriptedChatModel(
+        replies=[_call("read_thread", thread_id="t-1"), AIMessage("Read it.")]
+    )
+
+    asked, result = await _run(model, "Read the Acme thread", {"thread": thread})
+
+    assert asked == [{"fetch": "thread", "id": "t-1"}]
+    report = _report(result, "read_thread")
+    assert report.text.startswith("2 earlier messages are left out.")
+    assert "<thread untrusted>" in report.text
+    assert "Message 2." not in report.text and "Message 3." in report.text
+    assert report.text.count(" [cut]") == 6
+    assert report.artifact == {"step_detail": "8 messages"}
 
 
 async def test_a_thread_that_does_not_load_tells_the_agent_why():
     model = ScriptedChatModel(
-        replies=[_call("draft_reply", thread_id="t-9"), AIMessage("It's gone.")]
+        replies=[_call("read_thread", thread_id="t-9"), AIMessage("It's gone.")]
     )
 
-    asked, result = await _run(model, "Reply to t-9", {"error": "No thread t-9"})
+    asked, result = await _run(model, "Read t-9", {"error": "No thread t-9"})
 
     assert asked == [{"fetch": "thread", "id": "t-9"}]
-    report = _report(result, "draft_reply")
+    report = _report(result, "read_thread")
     assert report.status == "error" and "No thread t-9" in report.text
+
+
+async def test_read_free_slots_lists_only_the_earliest_twelve_in_the_users_zone():
+    many = [
+        {"start": f"2026-11-{day:02d}T09:00:00Z", "end": f"2026-11-{day:02d}T09:30:00Z"}
+        for day in range(30, 9, -1)
+    ]
+    model = ScriptedChatModel(
+        replies=[_call("read_free_slots", days=21), AIMessage("Tuesday works.")]
+    )
+
+    asked, result = await _run(
+        model,
+        "When am I free?",
+        {"free_slots": many, "timezone": "Asia/Kuala_Lumpur"},
+    )
+
+    assert asked == [{"fetch": "free_slots", "days": 21}]
+    report = _report(result, "read_free_slots")
+    lines = report.text.splitlines()
+    assert lines[0] == "The user's free times, in Asia/Kuala_Lumpur:"
+    assert lines[1] == "- Tue 10 Nov 17:00 to 17:30"
+    assert lines[-1] == "- Sat 21 Nov 17:00 to 17:30"
+    assert len(lines) == 13
+    assert report.artifact == {"step_detail": "12 free slots"}
+
+
+async def test_no_free_slots_says_the_user_has_none_to_offer():
+    model = ScriptedChatModel(
+        replies=[_call("read_free_slots"), AIMessage("You have no free times.")]
+    )
+
+    _, result = await _run(
+        model, "When am I free?", {"free_slots": [], "timezone": "UTC"}
+    )
+
+    report = _report(result, "read_free_slots")
+    assert report.text == "The user has no free times to offer."
+    assert report.artifact == {"step_detail": "no free slots"}

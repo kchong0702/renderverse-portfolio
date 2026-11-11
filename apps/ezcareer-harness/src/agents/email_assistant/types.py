@@ -10,7 +10,7 @@ class FetchedThread(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
     thread: EmailThread
-    """The email thread draft_reply answers"""
+    """The email thread read_thread asked for"""
 
 
 class FreeSlots(BaseModel):
@@ -27,7 +27,7 @@ class ThreadSummary(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
     id: str
-    """What draft_reply takes to answer the thread"""
+    """What read_thread takes to read the thread"""
 
     subject: str
     """The thread's subject; untrusted"""

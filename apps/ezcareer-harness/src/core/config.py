@@ -286,6 +286,15 @@ class EmailSettings(BaseModel):
     max_threads: int = Field(default=20, gt=0)
     """Most threads one search_threads call shows the agent"""
 
+    max_thread_messages: int = Field(default=6, gt=0)
+    """Most messages of a thread read_thread shows the agent, the latest kept"""
+
+    max_message_chars: int = Field(default=4000, gt=0)
+    """Most characters of each message read_thread shows the agent, the rest cut"""
+
+    max_free_slots: int = Field(default=12, gt=0)
+    """Most free slots read_free_slots shows the agent, the earliest first"""
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(

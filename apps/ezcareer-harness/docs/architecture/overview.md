@@ -4,17 +4,17 @@ ezcareer-harness serves career agents and workflows over A2A. Ops (ops-api and o
 
 ## Layers
 
-| Folder               | Holds                                                                                                                                                                                                                 |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app`            | The A2A server, the dependency-injector containers, and `Executable`, which serves a graph at `/ezcareer/a2a/<name>`                                                                                                  |
-| `src/core`           | Settings (`config.toml`, environment) and errors                                                                                                                                                                      |
-| `src/agents`         | One folder per agent: `profile.yaml`, `system.md`, `skills/`, `state.py`, and the agent's own `tools/` and `checks/`. Also `build_agent`, `AgentOverride`, the shared middlewares and career-director's handoff graph |
-| `src/features`       | One folder per workflow: `graph.py`, `nodes/`, `checks/`, `schemas.py` and `harness/configurations.yaml`                                                                                                              |
-| `src/tools`          | Tools that more than one agent uses, such as `read_profile_facts`, `clarify`, `permission` and the handoff tools                                                                                                      |
-| `src/adapters`       | Adapters for outside data sources, such as the job sources behind `search_jobs`                                                                                                                                       |
-| `src/clients`        | Clients of other services, and the LLM providers                                                                                                                                                                      |
-| `src/shared`         | Types and helpers that several layers use, such as the profile, job postings and checks                                                                                                                               |
-| `src/infrastructure` | Observability and persistence                                                                                                                                                                                         |
+| Folder               | Holds                                                                                                                                                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app`            | The A2A server, the dependency-injector containers, and `Executable`, which serves a graph at `/ezcareer/a2a/<name>`                                                                                                |
+| `src/core`           | Settings (`config.toml`, environment) and errors                                                                                                                                                                    |
+| `src/agents`         | One folder per agent: `profile.yaml`, `system.md`, `skills/`, `state.py`, and the agent's own `tools/` and `checks/`. Also `build_agent`, `AgentOverride`, the shared middlewares and career-director's agent graph |
+| `src/features`       | One folder per workflow: `graph.py`, `nodes/`, `checks/`, `schemas.py` and `harness/configurations.yaml`                                                                                                            |
+| `src/tools`          | Tools that more than one agent uses, such as `read_profile_facts`, `clarify`, `permission` and the handoff tools                                                                                                    |
+| `src/adapters`       | Adapters for outside data sources, such as the job sources behind `search_jobs`                                                                                                                                     |
+| `src/clients`        | Clients of other services, and the LLM providers                                                                                                                                                                    |
+| `src/shared`         | Types and helpers that several layers use, such as the profile, job postings and checks                                                                                                                             |
+| `src/infrastructure` | Observability and persistence                                                                                                                                                                                       |
 
 Import rules:
 
@@ -25,41 +25,54 @@ Import rules:
 
 ## Agents and workflows
 
-| Agent             | Workflows it runs                                | Served as an agent             |
-| ----------------- | ------------------------------------------------ | ------------------------------ |
-| job-finder        | `analyse-job`, `find-jobs`                       | yes                            |
-| career-consultant | `edit-document` (`src/features/write_document`)  | yes                            |
-| career-director   | none; it runs the others as its tools            | yes                            |
-| email-assistant   | `triage-email`, `draft-reply`                    | inside career-director's graph |
-| resume-importer   | `import-resume` (`src/features/import_document`) | no                             |
+The harness serves three kinds of graph over A2A:
 
-email-assistant reads the emails of the user's job search and drafts the user's replies. It never sends anything. career-director hands it the conversation when the user asks about their email (see [Handoffs](#handoffs)). It finds threads with its `search_threads` tool and drafts with its `draft_reply` tool.
+- **An agent**: one deep agent the user talks to, built by `build_agent`.
+- **A workflow**: a LangGraph graph that runs an agent as one of its nodes, to make a run deterministic.
+- **An agent graph**: a main agent and the child agents it hands the conversation to, each a node (see [Agent graphs](#agent-graphs)).
+
+| Agent             | Workflows it runs                                | Served as                                |
+| ----------------- | ------------------------------------------------ | ---------------------------------------- |
+| job-finder        | `analyse-job`, `find-jobs`                       | an agent                                 |
+| career-consultant | `edit-document` (`src/features/write_document`)  | an agent                                 |
+| career-director   | none; it runs the others as its tools            | the main agent of its agent graph        |
+| email-assistant   | `triage-email`, `draft-reply`                    | a child agent in career-director's graph |
+| resume-importer   | `import-resume` (`src/features/import_document`) | not served; only its workflow is         |
+
+email-assistant reads the emails of the user's job search and drafts the user's replies. It never sends anything. career-director hands it the conversation when the user asks about their email. It drafts a reply itself, with tools it owns:
+
+- `search_threads` finds threads.
+- `read_thread` reads one thread. It shows only the latest `max_thread_messages` messages (6), each cut at `max_message_chars` (4000) and marked `[cut]`, and says how many earlier ones are left out.
+- `read_free_slots` lists the earliest `max_free_slots` times the user is free (12), in their time zone.
+
+These limits are under `[email]` in `config.toml`.
 
 `search_threads` filters by the days a message was sent (`since`, `until`), a keyword, a sender and whether a thread has an attachment. It shows the agent at most `max_threads` threads (20, under `[email]` in `config.toml`), inside `<threads untrusted>` like a thread the agent reads. When more match, its result ends with how many were left out and tells the agent to ask the user to narrow the search.
 
-`draft_reply` fetches the thread and the user's free slots, then runs `draft-reply`. That workflow answers a thread, or writes a follow-up for an application when there is no thread, and offers free slots by id so code returns only slots the user has free. Its `configurations.yaml` keeps a long thread or calendar from filling the context:
-
-- `max_free_slots` (12) shows the agent only the earliest slots.
-- `max_thread_messages` (6) shows only the latest messages of the thread, and says how many earlier ones are left out.
-- `max_message_chars` (4000) cuts each message to that length and marks it `[cut]`.
-
-draft-reply runs on email-assistant, the agent that owns the `draft_reply` tool. So the container hands the tool the workflow through `providers.Self`, which breaks the cycle between the agent and its workflow.
+`draft-reply` is the deterministic version, which Ops' Inbox calls directly with the thread and free slots. It answers a thread, or writes a follow-up for an application when there is no thread. It runs email-assistant with only `read_profile_facts` allowed, and offers free slots by id, so code returns only slots the user has free and its `slots` check holds. Its `configurations.yaml` sets the same three limits as `[email]` for what reaches the agent.
 
 `triage-email` uses its model only to read a thread. Code matches the thread to an application by the company it names, narrowed by role, and keeps `decide_by` only for an offer and `interview` only for a confirmed interview.
 
 resume-importer only structures the file's lines. `import-resume` picks the draft's look in code: its `extract` node measures the file's layout (`layout.py`: columns, rules, tinted strips, a coloured band, a photo, the body font and the name's colour) and suggests the closest document-renderer template. The draft is made in that template, and the result's `suggestion` names it with the columns and traits it rests on.
 
-## Handoffs
+## Agent graphs
 
-career-director is served as a LangGraph graph of agents, following LangChain's [handoffs pattern](https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs) with agent subgraphs. `src/agents/career_director/graph.py` builds it:
+An agent graph is a LangGraph graph whose main node is an agent, with child agents joined as nodes beside it. It follows LangChain's [handoffs pattern](https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs) with agent subgraphs. career-director's is the only one: `src/agents/career_director/graph.py` builds it, and `/ezcareer/a2a/career-director` serves it.
 
-- Each agent is a node named after it: `career-director` and its children, today only `email-assistant`.
+- Each agent is a node named after it: the main agent `career-director`, and its children, today only `email-assistant`.
 - The state keeps `active_agent`, the agent the conversation is with. A turn starts at that agent, and at career-director when there is none yet. The served graph keeps checkpoints per A2A context, so a follow-up about email goes straight to email-assistant and makes no director model call. This is the "active agent" routing that issue #86 asks for.
-- career-director calls `handoff_to_child` with the child's name. email-assistant calls `handoff_to_parent` when a message isn't about email.
+- career-director calls `handoff_to_child` with the child's name. Its choices are exactly the children joined to the graph.
+- A child calls `handoff_to_parent` when a message isn't its to answer.
 - A handoff tool returns `Command(goto=..., graph=Command.PARENT)`. It sets `active_agent` and passes on only the AI message that called it and a ToolMessage answering it, so the next agent sees a complete tool call and none of the last agent's own steps.
 - An agent that answers without a tool call ends the turn.
 
-Both handoff tools live in `src/tools/handoff.py`. The child's agent is the same instance the email workflows run, and those workflows' `AgentOverride` whitelists leave the handoff and email tools out.
+Only an agent that joins the graph as a child gets `handoff_to_parent`:
+
+- `build_agent` gives every agent `HandoffToParentMiddleware`. It registers the tool through `AgentMiddleware.tools`, and its `wrap_model_call` removes the tool from each model call with `request.override(tools=...)`, unless the run is a child node of an agent graph.
+- The graph builder joins each child with `child.with_config(configurable={"parent_agent": ...})`. The tool hands back to that agent.
+- So the same email-assistant instance that runs inside `triage-email` and `draft-reply`, or on its own, is never offered the tool.
+
+Both handoff tools live in `src/tools/handoff.py`.
 
 ## Agents own their tools and skills
 
@@ -95,6 +108,8 @@ A tool that one agent uses lives in `src/agents/<agent>/tools/`. A tool that sev
 
 Called directly with its state in the A2A data part, an agent does its whole job. A workflow wraps it only to make a run deterministic: it fetches the data, runs fixed steps and checks the result. It never supplies something the agent needs to work.
 
+The direction is one way: a workflow runs an agent, and an agent never runs a workflow built on itself. email-assistant drafts a reply with its own reads, and `draft-reply` wraps it for Ops' Inbox.
+
 So whatever an agent's model must see comes from the agent itself. career-consultant's `document_prompt` middleware, LangChain's `@dynamic_prompt`, adds `state["document"]` to the system prompt on every model call. The document reaches the model the same way whether a direct caller sent it or edit-document's `load` node fetched it.
 
 ## Workflows own no tools
@@ -129,8 +144,8 @@ The A2A task becomes `input-required`, and its message carries the request as a 
 
 - `{"fetch": "document", "id": ...}`, from `write_document`'s `load` node.
 - `{"fetch": "documents", "name": ..., "kind": ...}`, from career-director's `find_documents` tool.
-- `{"fetch": "thread", "id": ...}`, from email-assistant's `draft_reply` tool. ops-api answers `{"thread": ...}`, or `{"error": ...}` when it can't.
-- `{"fetch": "free_slots", "days": ...}`, from `draft_reply` next. ops-api answers `{"free_slots": [...], "timezone": ...}`, with no slots when the user offers none.
+- `{"fetch": "thread", "id": ...}`, from email-assistant's `read_thread` tool. ops-api answers `{"thread": ...}`, or `{"error": ...}` when it can't.
+- `{"fetch": "free_slots", "days": ...}`, from email-assistant's `read_free_slots` tool. ops-api answers `{"free_slots": [...], "timezone": ...}`, with no slots when the user offers none.
 - `{"fetch": "threads", "since": ..., "until": ..., "keyword": ..., "sender": ..., "has_attachment": ..., "limit": ...}`, from email-assistant's `search_threads` tool. Each filter is `null` when the agent didn't set it. `since` and `until` are ISO dates and include their day. `sender` matches a name, an address or a domain. `limit` is the most threads to send.
 
   ops-api answers with the matching threads, latest first and at most `limit`, and how many match in all:
@@ -169,7 +184,7 @@ A key in metadata stays out of the message, the task store and the logs. It is a
 Clients call `SendStreamingMessage`. `LanggraphExecutor` streams the graph with `stream_mode=["values", "messages", "tasks"]` and turns it into A2A events:
 
 - **Steps.** Each node, tool call and subgraph task is a working status update whose data part is `{"step": ...}`.
-- **Handoffs.** In career-director's graph, `Executable.agent_nodes` names the nodes that run an agent. The executor drops that node from each step's and model chunk's namespace, so whichever agent runs streams its tool calls, thinking and text as if it were served alone. A handoff ends its agent with `Command.PARENT`, so its tool task never reports a result. The step closes when the agent's node ends, with the next agent's name as its detail.
+- **Agent graphs.** In career-director's graph, `Executable.agent_nodes` names the nodes that run an agent. The executor drops that node from each step's and model chunk's namespace, so whichever agent runs streams its tool calls, thinking and text as if it were served alone. A handoff ends its agent with `Command.PARENT`, so its tool task never reports a result. The step closes when the agent's node ends, with the next agent's name as its detail.
 - **Step details.** A finished step carries `detail`, a short result or target in plain words, such as `1 cover letter`. A tool sets it by returning `{"step_detail": ...}` in its ToolMessage artifact, beside `name` and `data` when it also publishes one. A tool call's step reads its own tool's detail. A node's step reads the last detail its tools set. `find_documents` sets the count by kind, `edit_document` the document's title, and `propose_changeset` the first fact its edits cite, such as `citing Acme Payments`.
 - **Thinking and text.** The model's reasoning and text stream as `thinking` and `text` artifacts, one per model turn. For a workflow, they come from the node that `Executable.reply_node` names.
 - **Tool artifacts.** A tool that returns an artifact `{"name": ..., "data": ...}` publishes it as an artifact of that name. `propose_changeset` publishes `changeset` this way.

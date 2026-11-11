@@ -21,7 +21,7 @@ def _search_threads(
     has_attachment: bool | None = None,
 ) -> tuple[str, StepDetail]:
     """Finds the user's email threads that match every filter given, latest first,
-    each with the id draft_reply takes"""
+    each with the id read_thread takes"""
     try:
         found = TypeAdapter(FoundThreads | FetchFailed).validate_python(
             interrupt(
