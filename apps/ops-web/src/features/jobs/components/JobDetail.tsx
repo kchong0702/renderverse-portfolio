@@ -86,7 +86,7 @@ export default function JobDetail({ job }: { job: Job }) {
         <button
           type="button"
           onClick={() => update.mutate({ id: job.id, status: "dismissed" })}
-          className={cn(buttonClass(), "text-ink-3")}
+          className={buttonClass("muted")}
         >
           {t("jobs.dismiss")}
         </button>
