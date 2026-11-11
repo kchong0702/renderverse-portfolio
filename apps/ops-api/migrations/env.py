@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from migrations.ext import rls
 from src.core.config import get_settings
 from src.db import models  # noqa: F401
-from src.db.base import Base, EnumString
+from src.db.base import Base, EnumString, PydanticJson
 
 config = context.config
 
@@ -34,9 +34,12 @@ def _include_name(name, type_, parent_names) -> bool:
 def _render_item(
     type_: str, obj: object, autogen_context: AutogenContext
 ) -> str | Literal[False]:
-    """Write an EnumString column as the plain string it stores"""
+    """Write an EnumString or PydanticJson column as the plain type it stores"""
     if type_ == "type" and isinstance(obj, EnumString):
         return "sa.String()"
+    if type_ == "type" and isinstance(obj, PydanticJson):
+        autogen_context.imports.add("from sqlalchemy.dialects import postgresql")
+        return 'sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql")'
     return False
 
 
