@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
+from pydantic import TypeAdapter
 from sqlalchemy import DateTime, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.db.base import Base, EnumString, JsonType, utcnow
+from src.db.base import Base, EnumString, PydanticJson, utcnow
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 from src.features.portfolio.enums import MediaType
+from src.features.portfolio.schemas import Snapshot
 
 
 class PortfolioRelease(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -18,8 +19,8 @@ class PortfolioRelease(IdMixin, UserScopedMixin, AuditMixin, Base):
     number: Mapped[int]
     """Counts up from 1 for each user"""
 
-    snapshot: Mapped[dict[str, Any]] = mapped_column(JsonType)
-    """What the site shows, as a Snapshot; never changed once published"""
+    snapshot: Mapped[Snapshot] = mapped_column(PydanticJson(TypeAdapter(Snapshot)))
+    """What the site shows; never changed once published"""
 
     published_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
