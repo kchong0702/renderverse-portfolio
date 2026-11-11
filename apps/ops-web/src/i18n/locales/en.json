@@ -734,7 +734,7 @@
     },
     "ai": {
       "model": "Model",
-      "harnessDefault": "ezcareer-harness default",
+      "harnessDefault": "Default",
       "modelOption": "{{family}} · {{model}}",
       "modelsLoading": "Loading models from ezcareer-harness…",
       "modelsFailed": "Models could not be loaded: {{reason}}",
