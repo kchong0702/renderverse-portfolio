@@ -3,7 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from document_schema import AnyDocument, Changeset, DocumentKind
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import TypeAdapter
 from sqlalchemy import (
     ForeignKey,
     Index,
@@ -17,41 +17,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base, EnumString, PydanticJson
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
-from src.features.documents.enums import ImportStatus, LookTrait
-
-
-class SourceLine(BaseModel):
-    id: str = Field(pattern=r"^p\d+\.s\d+$")
-    """Page and line number, such as p1.s41, which the document's values cite"""
-
-    text: str
-    """The line's text"""
-
-    page: int = Field(ge=1)
-    """Page it is on"""
-
-    x0: float
-    """Left edge, in points from the page's left"""
-
-    top: float
-    """Top edge, in points from the page's top"""
-
-    x1: float
-    """Right edge, in points from the page's left"""
-
-    bottom: float
-    """Bottom edge, in points from the page's top"""
-
-
-class LookSuggestion(BaseModel):
-    template: str = Field(pattern=r"^[a-z0-9-]{1,40}$")
-    """The document-renderer template closest to the file's layout"""
-
-    columns: int = Field(ge=1, le=2)
-    """How many columns the file's pages are set in"""
-
-    traits: list[LookTrait]
-    """What else the file's layout has, which the template was picked by"""
+from src.features.documents.enums import ImportStatus
+from src.features.documents.schemas import LookSuggestion, SourceLine
 
 
 class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
