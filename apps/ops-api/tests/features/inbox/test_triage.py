@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
 from src.clients.google.client import MISSING_SCOPE
+from src.clients.storage import LocalStorage
 from src.core.auth.models import User
 from src.core.config import get_settings
 from src.db.session import create_session_factory
@@ -319,10 +320,13 @@ async def postgres_client(
     overlapping: _OverlappingHarness,
     artifact: FakeArtifact,
     overlapping_google: _OverlappingGoogle,
+    storage: LocalStorage,
 ) -> AsyncIterator[httpx2.AsyncClient]:
     """The app on the test Postgres database, its dev user deleted after the test"""
     engine = create_async_engine(DATABASE_URL)
-    async for app in _app(overlapping, artifact, overlapping_google, engine=engine):
+    async for app in _app(
+        overlapping, artifact, overlapping_google, storage, engine=engine
+    ):
         async with _client(app) as http:
             yield http
         async with create_session_factory(engine)() as session, session.begin():

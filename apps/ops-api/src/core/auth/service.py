@@ -6,6 +6,7 @@ from datetime import timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.auth.enums import Role
 from src.core.auth.models import AuthIdentity, AuthSession, User
 from src.core.auth.oauth_providers import OAuthIdentity, Provider
 from src.core.auth.passwords import MIN_PASSWORD_LENGTH, hash_password, verify_password
@@ -39,8 +40,10 @@ class AuthService:
         return normalise_email(email) in self.settings.allowed_emails
 
     async def dev_user(self) -> User:
-        """Who every request acts as while auth is disabled"""
-        return await self._user_for(normalise_email(self.settings.dev_email))
+        """Who every request acts as while auth is disabled, always an admin"""
+        user = await self._user_for(normalise_email(self.settings.dev_email))
+        user.role = Role.ADMIN
+        return user
 
     async def sign_in_with_password(self, email: str, password: str) -> User:
         email = normalise_email(email)

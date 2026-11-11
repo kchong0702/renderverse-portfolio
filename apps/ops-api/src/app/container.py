@@ -3,6 +3,7 @@ from dependency_injector import containers, providers
 from src.clients.artifact import ArtifactClient
 from src.clients.ezcareer import EzcareerClient
 from src.clients.google import GoogleClient
+from src.clients.storage import create_storage
 from src.core.auth.oauth_providers import build_providers
 from src.core.config import get_settings
 from src.core.runner import Runner
@@ -53,3 +54,9 @@ class Container(containers.DeclarativeContainer):
     )
 
     google = providers.Singleton(GoogleClient, settings=settings.provided.google)
+
+    storage = providers.Singleton(
+        create_storage,
+        settings=settings.provided.storage,
+        route_prefix=settings.provided.app.route_prefix,
+    )

@@ -4,7 +4,9 @@ import re
 from base64 import b64encode, urlsafe_b64encode
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, date, datetime
+from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlsplit
 
 import httpx2
@@ -16,6 +18,9 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
+
+if TYPE_CHECKING:
+    from src.clients.storage import LocalStorage
 
 PREFIX = "/ops-api/v1"
 OWNER = "owner@example.com"
@@ -416,6 +421,7 @@ async def _app(
     harness: FakeHarness,
     artifact: FakeArtifact,
     google: FakeGoogle,
+    storage: "LocalStorage",
     oauth_providers: dict | None = None,
     engine: AsyncEngine | None = None,
 ) -> AsyncIterator[FastAPI]:
@@ -447,6 +453,7 @@ async def _app(
             ArtifactClient(settings.artifact, httpx2.MockTransport(artifact))
         )
     )
+    container.storage.override(providers.Object(storage))
     container.ezcareer.override(
         providers.Object(
             EzcareerClient(
@@ -488,11 +495,24 @@ def google() -> FakeGoogle:
 
 
 @pytest.fixture
+def storage(tmp_path: Path) -> "LocalStorage":
+    """Local storage with public files under tmp_path/public, uploads under private"""
+    from src.clients.storage import LocalStorage
+
+    return LocalStorage(
+        tmp_path / "public", tmp_path / "private", "/ops-api/v1/portfolio/uploads"
+    )
+
+
+@pytest.fixture
 async def app(
-    harness: FakeHarness, artifact: FakeArtifact, google: FakeGoogle
+    harness: FakeHarness,
+    artifact: FakeArtifact,
+    google: FakeGoogle,
+    storage: "LocalStorage",
 ) -> AsyncIterator[FastAPI]:
     """Auth disabled: every request is auth.dev_email"""
-    async for app in _app(harness, artifact, google):
+    async for app in _app(harness, artifact, google, storage):
         yield app
 
 
@@ -504,7 +524,10 @@ async def client(app: FastAPI) -> AsyncIterator[httpx2.AsyncClient]:
 
 @pytest.fixture
 async def postgres_app(
-    harness: FakeHarness, artifact: FakeArtifact, google: FakeGoogle
+    harness: FakeHarness,
+    artifact: FakeArtifact,
+    google: FakeGoogle,
+    storage: "LocalStorage",
 ) -> AsyncIterator[FastAPI]:
     """The app on the test Postgres database, its dev user deleted after the test"""
     from src.core.auth.models import User
@@ -512,7 +535,7 @@ async def postgres_app(
     from tests.core.conftest import DATABASE_URL
 
     async for app in _app(
-        harness, artifact, google, engine=create_async_engine(DATABASE_URL)
+        harness, artifact, google, storage, engine=create_async_engine(DATABASE_URL)
     ):
         yield app
         async with app.state.session_factory() as session, session.begin():
@@ -536,12 +559,13 @@ async def auth_app(
     harness: FakeHarness,
     artifact: FakeArtifact,
     google: FakeGoogle,
+    storage: "LocalStorage",
 ) -> AsyncIterator[FastAPI]:
     """Auth enabled, OWNER allowlisted, fake Google and GitHub"""
     monkeypatch.setenv("OPS_API_AUTH__ENABLED", "true")
     monkeypatch.setenv("OPS_API_AUTH__ALLOWED_EMAILS", OWNER)
     monkeypatch.setenv("OPS_API_AUTH__SECRET_KEY", "k" * 32)
-    async for app in _app(harness, artifact, google, oauth_providers):
+    async for app in _app(harness, artifact, google, storage, oauth_providers):
         yield app
 
 
