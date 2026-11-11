@@ -19,6 +19,29 @@ async def test_patch_saves_a_model_the_harness_offers(client):
     assert reread.json()["ai_model"] == choice
 
 
+async def test_patch_with_null_goes_back_to_the_harness_default(client):
+    choice = {"family": "openai", "model": "gpt-5-mini"}
+    await client.patch(f"{PREFIX}/settings", json={"ai_model": choice})
+
+    response = await client.patch(f"{PREFIX}/settings", json={"ai_model": None})
+
+    assert response.status_code == 200
+    assert response.json()["ai_model"] is None
+    reread = await client.get(f"{PREFIX}/settings")
+    assert reread.json()["ai_model"] is None
+
+
+async def test_patch_without_a_model_keeps_the_chosen_one(client):
+    choice = {"family": "openai", "model": "gpt-5-mini"}
+    await client.patch(f"{PREFIX}/settings", json={"ai_model": choice})
+
+    response = await client.patch(
+        f"{PREFIX}/settings", json={"scheduling": {"meeting_gap_minutes": 15}}
+    )
+
+    assert response.json()["ai_model"] == choice
+
+
 async def test_patch_rejects_a_model_the_harness_does_not_offer(client):
     response = await client.patch(
         f"{PREFIX}/settings",
