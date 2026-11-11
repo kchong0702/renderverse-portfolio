@@ -1,15 +1,19 @@
 import { Sparkle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import type { JobRun } from "@/features/jobs";
 import type { Settings } from "@/features/settings";
+import { daysFromToday } from "@/shared/lib/dates";
 
 const card =
   "bg-panel border-hair shadow-card text-ink flex flex-col gap-1.5 rounded-xl border px-[26px] py-[22px] no-underline";
 
 export default function ShortcutCards({
   settings,
+  run,
 }: {
   settings: Settings | undefined;
+  run: JobRun | null | undefined;
 }) {
   const { t } = useTranslation();
   const agent = settings?.job_agent;
@@ -29,6 +33,15 @@ export default function ShortcutCards({
             ]
               .filter(Boolean)
               .join(" · ")}
+          </span>
+        )}
+        {run && daysFromToday(run.finished_at) === 0 && (
+          <span className="mt-1.5 tabular-nums">
+            {t("dashboard.agent.today", {
+              found: run.found,
+              new: run.new,
+              scored: run.scored_70,
+            })}
           </span>
         )}
       </Link>
