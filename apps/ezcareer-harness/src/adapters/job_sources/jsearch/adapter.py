@@ -1,6 +1,6 @@
 from circuitbreaker import CircuitBreaker
 
-from src.adapters.job_sources.jsearch.client import retryable, search
+from src.adapters.job_sources.jsearch import client
 from src.adapters.job_sources.jsearch.query import JSearchQuery
 from src.adapters.job_sources.protocol import SearchResult
 from src.core.config import get_settings
@@ -20,7 +20,7 @@ class JSearchAdapter:
         self._circuit = CircuitBreaker(
             failure_threshold=self._settings.failure_threshold,
             recovery_timeout=self._settings.recovery_seconds,
-            expected_exception=lambda _, error: retryable(error),
+            expected_exception=lambda _, error: client.retryable(error),
             name="jsearch",
         )
         """Opens after failed pages in a row so later pages fail at once"""
@@ -49,7 +49,7 @@ class JSearchAdapter:
                     else query.date_posted,
                 }
             )
-        return await search(
+        return await client.search(
             self._settings,
             self._circuit,
             query,
