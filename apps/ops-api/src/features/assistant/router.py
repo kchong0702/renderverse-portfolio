@@ -8,6 +8,7 @@ from src.clients.ezcareer import Answer
 from src.core.auth import CurrentUserDep
 from src.features.assistant.schemas import ChatMessage
 from src.features.assistant.service import AssistantService
+from src.features.documents import DocumentServiceDep
 from src.features.profile import ProfileServiceDep
 from src.features.settings import SettingsServiceDep
 
@@ -17,13 +18,15 @@ router = APIRouter(prefix="/assistant", tags=["assistant"])
 def get_assistant_service(
     profile: ProfileServiceDep,
     settings: SettingsServiceDep,
+    documents: DocumentServiceDep,
     request: Request,
 ) -> AssistantService:
-    """The assistant service on its profile and settings services, the harness and
-    the app's runner"""
+    """The assistant service on its profile, settings and documents services, the
+    harness and the app's runner"""
     return AssistantService(
         profile,
         settings,
+        documents,
         request.app.state.ezcareer,
         request.app.state.runner,
     )

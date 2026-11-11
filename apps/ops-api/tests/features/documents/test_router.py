@@ -91,6 +91,7 @@ async def test_create_read_rename_and_list(client):
     assert created["master"] is False
     assert created["pending_changesets"] == 0
     assert created["body"]["design"]["template"] == "classic"
+    assert created["lines"] == []
 
     renamed = await client.patch(
         f"{DOCUMENTS}/{created['id']}", json={"title": "Résumé for Lumen Pay"}
@@ -163,6 +164,23 @@ async def test_one_master_per_kind(client):
         ("Résumé for Lumen Pay", True),
         ("Master résumé", False),
     ]
+
+
+async def test_the_master_cannot_be_deleted_but_another_document_can(client):
+    master = await _create(client, "Master résumé")
+    other = await _create(client, "Résumé for Lumen Pay")
+    await client.put(f"{DOCUMENTS}/{master['id']}/master")
+
+    refused = await client.delete(f"{DOCUMENTS}/{master['id']}")
+    deleted = await client.delete(f"{DOCUMENTS}/{other['id']}")
+
+    assert refused.status_code == 409
+    assert refused.json() == {
+        "detail": "Set another resume as master before deleting this one"
+    }
+    assert deleted.status_code == 204
+    listed = (await client.get(DOCUMENTS)).json()
+    assert [(d["title"], d["master"]) for d in listed] == [("Master résumé", True)]
 
 
 async def test_keep_and_restore_a_version(client):
@@ -409,6 +427,7 @@ async def test_an_upload_is_stored_as_a_pending_import(app, client):
     assert created.json()["status"] == "pending"
     assert created.json()["size"] == len(pdf)
     assert created.json()["document_id"] is None
+    assert created.json()["suggestion"] is None
     assert [
         i["filename"] for i in (await client.get(f"{DOCUMENTS}/imports")).json()
     ] == ["kelvin-chong-resume.pdf"]

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 from uuid import UUID
 
 from document_schema import DocumentKind
-from sqlalchemy import func, select, update
+from sqlalchemy import and_, func, or_, select, update
 
 from src.db.repository import Repository
+from src.features.documents.enums import ImportStatus
 from src.features.documents.models import (
     Document,
     DocumentChangeset,
@@ -90,6 +92,35 @@ class DocumentRepository(Repository):
                 .order_by(DocumentImport.created_at.desc())
             )
         ).all()
+
+    async def claim_import(
+        self, user_id: UUID, import_id: UUID, stale_before: datetime
+    ) -> DocumentImport | None:
+        """Mark the user's import running unless it is done or a read claimed it after
+        stale_before; None when there is no such import to claim"""
+        return await self._session.scalar(
+            update(DocumentImport)
+            .where(
+                DocumentImport.id == import_id,
+                DocumentImport.user_id == user_id,
+                or_(
+                    DocumentImport.status.in_(
+                        [ImportStatus.PENDING, ImportStatus.FAILED]
+                    ),
+                    and_(
+                        DocumentImport.status == ImportStatus.RUNNING,
+                        DocumentImport.updated_at < stale_before,
+                    ),
+                ),
+            )
+            .values(status=ImportStatus.RUNNING)
+            .returning(DocumentImport)
+        )
+
+    async def file(self, row: DocumentImport) -> bytes:
+        """The import's uploaded file, which loads only when asked for"""
+        await self._session.refresh(row, ["content"])
+        return row.content
 
     async def flush(self) -> None:
         """Write pending changes so update timestamps are filled in"""

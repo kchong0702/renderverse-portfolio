@@ -23,4 +23,15 @@ class ApplicationStage(StrEnum):
     """Rejected, withdrawn or turned down"""
 
 
-__all__ = ["ApplicationStage"]
+class NextStepFormat(StrEnum):
+    VIDEO = "video"
+    """A video call"""
+
+    PHONE = "phone"
+    """A phone call"""
+
+    ON_SITE = "on_site"
+    """In person at the employer"""
+
+
+__all__ = ["ApplicationStage", "NextStepFormat"]

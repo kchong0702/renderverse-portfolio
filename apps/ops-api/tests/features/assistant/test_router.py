@@ -1,15 +1,25 @@
-import json
 from uuid import UUID, uuid4
 
 import httpx2
-from pydantic import BaseModel
+from document_schema import AnyDocument
+from pydantic import BaseModel, TypeAdapter
 from sqlalchemy import select
 
 from src.clients.ezcareer import Answer, EzcareerClient
 from src.clients.ezcareer.schemas import Completed, DataRequest, Started
+from src.core.auth.models import User
 from src.core.config import get_settings
 from src.core.stores import AgentModelCall
-from tests.conftest import PREFIX
+from src.features.documents.models import Document, DocumentChangeset
+from tests.conftest import (
+    PREFIX,
+    a2a_sent,
+    sse_events,
+    sse_ids,
+    stream_chunk,
+    stream_status,
+    stream_task,
+)
 
 ASSISTANT = f"{PREFIX}/assistant"
 CHAT_ID = "9b2d6f3e-1c4a-4e8b-9f0d-2a7c5e1b3d4f"
@@ -25,73 +35,17 @@ WIDGET = {
 STEP = {"id": "call-1", "parent": None, "name": "find_jobs"}
 
 
-def _task() -> dict:
-    """The task SendStreamingMessage sends first"""
-    return {
-        "result": {
-            "task": {
-                "id": "task-1",
-                "contextId": "context-1",
-                "status": {"state": "TASK_STATE_SUBMITTED"},
-            }
-        }
-    }
-
-
-def _status(state: str, parts: list[dict] | None = None) -> dict:
-    """A status update of task-1, with a message when parts are given"""
-    status: dict = {"state": f"TASK_STATE_{state}"}
-    if parts is not None:
-        status["message"] = {"messageId": "m", "role": "ROLE_AGENT", "parts": parts}
-    return {
-        "result": {
-            "statusUpdate": {
-                "taskId": "task-1",
-                "contextId": "context-1",
-                "status": status,
-            }
-        }
-    }
-
-
-def _chunk(artifact_id: str, name: str, part: dict) -> dict:
-    """An artifact update of task-1"""
-    return {
-        "result": {
-            "artifactUpdate": {
-                "taskId": "task-1",
-                "contextId": "context-1",
-                "artifact": {"artifactId": artifact_id, "name": name, "parts": [part]},
-            }
-        }
-    }
-
-
 def _replied(text: str) -> list[dict]:
     """A turn that only replies with text"""
     return [
-        _task(),
-        _chunk("a-1", "career-director", {"text": text}),
-        _status("COMPLETED"),
-    ]
-
-
-def _events(response) -> list[dict]:
-    """The run events an SSE response carried"""
-    return [
-        json.loads(line.removeprefix("data: "))
-        for line in response.text.splitlines()
-        if line.startswith("data: ")
+        stream_task(),
+        stream_chunk("a-1", "career-director", {"text": text}),
+        stream_status("COMPLETED"),
     ]
 
 
 async def _ignore_usage(*args: object) -> None:
     """Drops a model call's usage"""
-
-
-def _sent(harness) -> list[dict]:
-    """The A2A requests the harness received, as JSON"""
-    return [json.loads(request.content) for request in harness.received]
 
 
 async def test_a_message_streams_career_directors_turn_with_the_profile(
@@ -104,15 +58,17 @@ async def test_a_message_streams_career_directors_turn_with_the_profile(
     me = (await client.get(f"{PREFIX}/me")).json()
     harness.outcomes = [
         [
-            _task(),
-            _status("WORKING"),
-            _status("WORKING", [{"data": {"step": STEP | {"status": "running"}}}]),
-            _chunk("thinking-1", "thinking", {"text": "Look for remote roles."}),
-            _status("WORKING", [{"data": {"step": STEP | {"status": "done"}}}]),
-            _chunk("text-2", "text", {"text": "Two "}),
-            _chunk("text-2", "text", {"text": "fit."}),
-            _chunk("a-1", "career-director", {"text": "Two fit."}),
-            _status("COMPLETED"),
+            stream_task(),
+            stream_status("WORKING"),
+            stream_status(
+                "WORKING", [{"data": {"step": STEP | {"status": "running"}}}]
+            ),
+            stream_chunk("thinking-1", "thinking", {"text": "Look for remote roles."}),
+            stream_status("WORKING", [{"data": {"step": STEP | {"status": "done"}}}]),
+            stream_chunk("text-2", "text", {"text": "Two "}),
+            stream_chunk("text-2", "text", {"text": "fit."}),
+            stream_chunk("a-1", "career-director", {"text": "Two fit."}),
+            stream_status("COMPLETED"),
         ]
     ]
 
@@ -122,7 +78,7 @@ async def test_a_message_streams_career_directors_turn_with_the_profile(
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
-    assert _events(response) == [
+    assert sse_events(response) == [
         {"status": "started", "task_id": "task-1"},
         {"status": "step", "step": STEP | {"status": "running"}},
         {"status": "thinking", "turn": "thinking-1", "text": "Look for remote roles."},
@@ -135,7 +91,7 @@ async def test_a_message_streams_career_directors_turn_with_the_profile(
     assert request.url.path == "/ezcareer/a2a/career-director"
     assert request.headers["A2A-Version"] == "1.0"
     assert request.headers["Accept"] == "text/event-stream"
-    [sent] = _sent(harness)
+    [sent] = a2a_sent(harness)
     assert sent["method"] == "SendStreamingMessage"
     message = sent["params"]["message"]
     assert message["role"] == "ROLE_USER"
@@ -152,14 +108,14 @@ async def test_each_run_carries_the_users_model_on_the_request(client, harness):
     model = {"family": "claude", "model": "claude-sonnet-4-5"}
     await client.patch(f"{PREFIX}/settings", json={"ai_model": model})
     harness.outcomes = [
-        [_task(), _status("INPUT_REQUIRED", [{"data": WIDGET}])],
+        [stream_task(), stream_status("INPUT_REQUIRED", [{"data": WIDGET}])],
         _replied("Saved it."),
     ]
 
     await client.post(f"{CHAT}/messages", json={"text": "Save it"})
     await client.post(f"{CHAT}/tasks/task-1/answer", json={"accept": True})
 
-    first, resume = (sent["params"] for sent in _sent(harness))
+    first, resume = (sent["params"] for sent in a2a_sent(harness))
     assert first["metadata"] == {"model": model}
     assert resume["metadata"] == first["metadata"]
     assert "metadata" not in first["message"]
@@ -174,7 +130,7 @@ async def test_each_chat_runs_in_a_context_of_its_own(client, harness):
         f"{ASSISTANT}/chats/{OTHER_CHAT_ID}/messages", json={"text": "Hi"}
     )
 
-    assert [sent["params"]["message"]["contextId"] for sent in _sent(harness)] == [
+    assert [sent["params"]["message"]["contextId"] for sent in a2a_sent(harness)] == [
         f"{me['id']}:{CHAT_ID}",
         f"{me['id']}:{OTHER_CHAT_ID}",
     ]
@@ -184,18 +140,18 @@ async def test_a_widget_is_shown_and_the_answer_streams_the_rest_of_the_turn(
     client, harness
 ):
     harness.outcomes = [
-        [_task(), _status("INPUT_REQUIRED", [{"data": WIDGET}])],
+        [stream_task(), stream_status("INPUT_REQUIRED", [{"data": WIDGET}])],
         [
-            _status("WORKING"),
-            _chunk("a-1", "career-director", {"text": "Saved it."}),
-            _status("COMPLETED"),
+            stream_status("WORKING"),
+            stream_chunk("a-1", "career-director", {"text": "Saved it."}),
+            stream_status("COMPLETED"),
         ],
     ]
 
     asked = await client.post(f"{CHAT}/messages", json={"text": "Save it"})
     done = await client.post(f"{CHAT}/tasks/task-1/answer", json={"accept": True})
 
-    assert _events(asked)[-1] == {
+    assert sse_events(asked)[-1] == {
         "status": "input_required",
         "task_id": "task-1",
         "widget": {
@@ -208,11 +164,11 @@ async def test_a_widget_is_shown_and_the_answer_streams_the_rest_of_the_turn(
             "kind": None,
         },
     }
-    assert _events(done) == [
+    assert sse_events(done) == [
         {"status": "started", "task_id": "task-1"},
         {"status": "completed", "reply": "Saved it."},
     ]
-    first, resume = (sent["params"]["message"] for sent in _sent(harness))
+    first, resume = (sent["params"]["message"] for sent in a2a_sent(harness))
     assert resume["taskId"] == "task-1"
     assert resume["contextId"] == first["contextId"]
     assert resume["parts"] == [{"data": {"input": None, "accept": True}}]
@@ -221,25 +177,25 @@ async def test_a_widget_is_shown_and_the_answer_streams_the_rest_of_the_turn(
 async def test_a_failed_task_streams_its_reason(client, harness):
     harness.outcomes = [
         [
-            _task(),
-            _status("FAILED", [{"text": "Ran out of steps before finishing"}]),
+            stream_task(),
+            stream_status("FAILED", [{"text": "Ran out of steps before finishing"}]),
         ]
     ]
 
     response = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
 
-    assert _events(response)[-1] == {
+    assert sse_events(response)[-1] == {
         "status": "failed",
         "reason": "Ran out of steps before finishing",
     }
 
 
 async def test_a_stopped_turn_streams_that_it_was_cancelled(client, harness):
-    harness.outcomes = [[_task(), _status("CANCELED")]]
+    harness.outcomes = [[stream_task(), stream_status("CANCELED")]]
 
     response = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
 
-    assert _events(response)[-1] == {"status": "cancelled"}
+    assert sse_events(response)[-1] == {"status": "cancelled"}
 
 
 async def test_answering_a_task_the_harness_lost_streams_its_reason(client, harness):
@@ -250,7 +206,7 @@ async def test_answering_a_task_the_harness_lost_streams_its_reason(client, harn
         f"{CHAT}/tasks/task-1/answer", json={"input": "The queue one"}
     )
 
-    assert _events(response) == [{"status": "failed", "reason": reason}]
+    assert sse_events(response) == [{"status": "failed", "reason": reason}]
 
 
 async def test_an_unreachable_harness_streams_a_clear_reason(client, harness):
@@ -259,7 +215,7 @@ async def test_an_unreachable_harness_streams_a_clear_reason(client, harness):
     response = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
 
     assert response.status_code == 200
-    assert _events(response) == [
+    assert sse_events(response) == [
         {
             "status": "failed",
             "reason": "ezcareer-harness did not answer career-director; try again later",
@@ -268,12 +224,14 @@ async def test_an_unreachable_harness_streams_a_clear_reason(client, harness):
 
 
 async def test_a_reply_ops_api_cannot_read_streams_the_same_reason(client, harness):
-    harness.outcomes = [[_task(), _chunk("a-1", "career-director", {"data": 1})]]
-    harness.outcomes[0].append(_status("COMPLETED"))
+    harness.outcomes = [
+        [stream_task(), stream_chunk("a-1", "career-director", {"data": 1})]
+    ]
+    harness.outcomes[0].append(stream_status("COMPLETED"))
 
     response = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
 
-    assert _events(response)[-1] == {
+    assert sse_events(response)[-1] == {
         "status": "failed",
         "reason": "ezcareer-harness did not answer career-director; try again later",
     }
@@ -291,7 +249,7 @@ async def test_stop_cancels_the_chats_running_task(client, harness):
     response = await client.post(f"{CHAT}/tasks/task-1/cancel")
 
     assert response.status_code == 204
-    assert [(s["method"], s["params"]) for s in _sent(harness)] == [
+    assert [(s["method"], s["params"]) for s in a2a_sent(harness)] == [
         ("GetTask", {"id": "task-1"}),
         ("CancelTask", {"id": "task-1"}),
     ]
@@ -309,12 +267,15 @@ async def test_stop_leaves_another_chats_task_alone(client, harness):
     response = await client.post(f"{CHAT}/tasks/task-1/cancel")
 
     assert response.status_code == 404
-    assert [s["method"] for s in _sent(harness)] == ["GetTask"]
+    assert [s["method"] for s in a2a_sent(harness)] == ["GetTask"]
 
 
 async def test_a_stream_closed_before_the_turn_ends_cancels_its_task(harness):
     cancelled = {"id": "task-1", "status": {"state": "TASK_STATE_CANCELED"}}
-    harness.outcomes = [[_task(), _status("WORKING")], {"result": cancelled}]
+    harness.outcomes = [
+        [stream_task(), stream_status("WORKING")],
+        {"result": cancelled},
+    ]
     ezcareer = EzcareerClient(
         get_settings().ezcareer, _ignore_usage, httpx2.MockTransport(harness)
     )
@@ -330,18 +291,9 @@ async def test_a_stream_closed_before_the_turn_ends_cancels_its_task(harness):
     assert await anext(run) == Started(task_id="task-1")
     await run.aclose()
 
-    assert [(s["method"], s["params"].get("id")) for s in _sent(harness)] == [
+    assert [(s["method"], s["params"].get("id")) for s in a2a_sent(harness)] == [
         ("SendStreamingMessage", None),
         ("CancelTask", "task-1"),
-    ]
-
-
-def _ids(response) -> list[str]:
-    """The SSE event ids a response carried"""
-    return [
-        line.removeprefix("id: ")
-        for line in response.text.splitlines()
-        if line.startswith("id: ")
     ]
 
 
@@ -350,30 +302,30 @@ async def test_a_turn_sends_event_ids_and_a_retry_hint(client, harness):
 
     response = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
 
-    run_id = _ids(response)[0].partition(":")[0]
-    assert _ids(response) == [f"{run_id}:1", f"{run_id}:2"]
+    run_id = sse_ids(response)[0].partition(":")[0]
+    assert sse_ids(response) == [f"{run_id}:1", f"{run_id}:2"]
     assert "retry: 2000" in response.text.splitlines()
 
 
 async def test_a_broken_stream_resumes_after_the_last_event_it_got(client, harness):
     harness.outcomes = [
         [
-            _task(),
-            _chunk("text-1", "text", {"text": "Two "}),
-            _chunk("text-1", "text", {"text": "fit."}),
-            _chunk("a-1", "career-director", {"text": "Two fit."}),
-            _status("COMPLETED"),
+            stream_task(),
+            stream_chunk("text-1", "text", {"text": "Two "}),
+            stream_chunk("text-1", "text", {"text": "fit."}),
+            stream_chunk("a-1", "career-director", {"text": "Two fit."}),
+            stream_status("COMPLETED"),
         ]
     ]
     first = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
-    second_id = _ids(first)[1]
+    second_id = sse_ids(first)[1]
 
     resumed = await client.get(f"{CHAT}/stream", headers={"Last-Event-ID": second_id})
     replayed = await client.get(f"{CHAT}/stream")
 
-    assert _events(resumed) == _events(first)[2:]
-    assert _ids(resumed) == _ids(first)[2:]
-    assert _events(replayed) == _events(first)
+    assert sse_events(resumed) == sse_events(first)[2:]
+    assert sse_ids(resumed) == sse_ids(first)[2:]
+    assert sse_events(replayed) == sse_events(first)
 
 
 async def test_nothing_resumes_from_another_run_or_an_idle_chat(client, harness):
@@ -414,13 +366,15 @@ async def test_a_stream_answers_the_data_requests_its_run_pauses_with(harness):
 
     harness.outcomes = [
         [
-            _task(),
-            _status("INPUT_REQUIRED", [{"data": {"fetch": "documents", "name": "nw"}}]),
+            stream_task(),
+            stream_status(
+                "INPUT_REQUIRED", [{"data": {"fetch": "documents", "name": "nw"}}]
+            ),
         ],
         [
-            _status("WORKING"),
-            _chunk("a-1", "career-director", {"text": "Found it."}),
-            _status("COMPLETED"),
+            stream_status("WORKING"),
+            stream_chunk("a-1", "career-director", {"text": "Found it."}),
+            stream_status("COMPLETED"),
         ],
     ]
     ezcareer = EzcareerClient(
@@ -442,7 +396,7 @@ async def test_a_stream_answers_the_data_requests_its_run_pauses_with(harness):
 
     assert events == [Started(task_id="task-1"), Completed(reply="Found it.")]
     assert [r.model_dump() for r in asked] == [{"fetch": "documents", "name": "nw"}]
-    resume = _sent(harness)[1]["params"]["message"]
+    resume = a2a_sent(harness)[1]["params"]["message"]
     assert resume["taskId"] == "task-1"
     assert resume["contextId"] == "u:c"
     assert resume["parts"] == [{"data": {"documents": ["Résumé for Northwind"]}}]
@@ -498,7 +452,7 @@ async def test_a_blocking_run_answers_its_data_requests_too(harness):
     )
 
     assert run == Completed(reply="ok")
-    assert _sent(harness)[1]["params"]["message"]["parts"] == [
+    assert a2a_sent(harness)[1]["params"]["message"]["parts"] == [
         {"data": {"documents": ["nw"]}}
     ]
 
@@ -525,16 +479,16 @@ async def test_a_turn_keeps_each_model_calls_usage_as_its_user_and_never_streams
     me = (await client.get(f"{PREFIX}/me")).json()
     harness.outcomes = [
         [
-            _task(),
-            _status("WORKING", [{"data": {"usage": USAGE}}]),
-            _chunk("a-1", "career-director", {"text": "Hi."}),
-            _status("COMPLETED"),
+            stream_task(),
+            stream_status("WORKING", [{"data": {"usage": USAGE}}]),
+            stream_chunk("a-1", "career-director", {"text": "Hi."}),
+            stream_status("COMPLETED"),
         ]
     ]
 
     response = await client.post(f"{CHAT}/messages", json={"text": "Hi"})
 
-    assert [e["status"] for e in _events(response)] == ["started", "completed"]
+    assert [e["status"] for e in sse_events(response)] == ["started", "completed"]
     async with app.state.container.session_factory()() as session:
         [call] = (await session.scalars(select(AgentModelCall))).all()
     assert (call.user_id, call.thread_id, call.task_id) == (
@@ -618,3 +572,95 @@ async def test_a_blocking_run_keeps_each_usage_its_history_reports_once(harness)
 
     assert run == Completed(reply="ok")
     assert kept == [("u:c", "task-1", "first"), ("u:c", "task-1", "second")]
+
+
+RESUME = {
+    "kind": "resume",
+    "content": {
+        "blocks": [
+            {"kind": "profile", "id": "profile", "name": {"text": "Kelvin Chong"}},
+            {"kind": "summary", "id": "sum", "text": {"html": "Backend engineer."}},
+        ]
+    },
+}
+
+TAILOR = {
+    "id": "tailor-1",
+    "agent": "career-consultant",
+    "reason": "Match the Northwind Labs posting.",
+    "edits": [
+        {
+            "kind": "update_field",
+            "path": "blocks/sum/text",
+            "value": {"html": "Backend engineer, 7 years.", "src": ["fact:role-1"]},
+        }
+    ],
+}
+
+
+def _proposed(document_id: str) -> list[dict]:
+    """A turn where career-director proposes edits to a document, then replies"""
+    return [
+        stream_task(),
+        stream_chunk("notes-1", "notes", {"data": {"seen": 1}}),
+        stream_chunk(
+            "changeset-1",
+            "changeset",
+            {"data": {"document_id": document_id, "changeset": TAILOR}},
+        ),
+        stream_chunk("a-1", "career-director", {"text": "Review my edits."}),
+        stream_status("COMPLETED"),
+    ]
+
+
+async def test_edits_career_director_proposes_are_stored_and_announced(client, harness):
+    document = (
+        await client.post(
+            f"{PREFIX}/documents", json={"title": "Master résumé", "body": RESUME}
+        )
+    ).json()
+    harness.outcomes = [_proposed(document["id"])]
+
+    response = await client.post(f"{CHAT}/messages", json={"text": "Tailor it"})
+
+    [stored] = (
+        await client.get(f"{PREFIX}/documents/{document['id']}/changesets")
+    ).json()
+    assert stored["changeset"]["id"] == "tailor-1"
+    assert stored["changeset"]["status"] == "pending"
+    assert sse_events(response) == [
+        {"status": "started", "task_id": "task-1"},
+        {
+            "status": "changeset",
+            "document_id": document["id"],
+            "title": "Master résumé",
+            "changeset_id": stored["id"],
+            "edits": 1,
+        },
+        {"status": "completed", "reply": "Review my edits."},
+    ]
+
+
+async def test_edits_to_another_users_document_are_skipped(app, client, harness):
+    async with app.state.session_factory() as session:
+        other = User(email="other@example.com")
+        session.add(other)
+        await session.flush()
+        theirs = Document(
+            user_id=other.id,
+            kind="resume",
+            title="Theirs",
+            body=TypeAdapter(AnyDocument).validate_python(RESUME),
+        )
+        session.add(theirs)
+        await session.commit()
+    harness.outcomes = [_proposed(str(theirs.id))]
+
+    response = await client.post(f"{CHAT}/messages", json={"text": "Tailor it"})
+
+    assert sse_events(response) == [
+        {"status": "started", "task_id": "task-1"},
+        {"status": "completed", "reply": "Review my edits."},
+    ]
+    async with app.state.session_factory() as session:
+        assert (await session.scalars(select(DocumentChangeset))).all() == []

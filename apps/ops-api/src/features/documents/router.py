@@ -2,9 +2,11 @@ from typing import Annotated
 from uuid import UUID
 
 from document_schema import Changeset, DocumentKind, TemplateSpec
-from fastapi import APIRouter, Depends, Request, UploadFile, status
+from fastapi import APIRouter, Depends, Header, Request, UploadFile, status
+from fastapi.sse import EventSourceResponse
 
 from src.clients.artifact import Render
+from src.clients.ezcareer import Answer
 from src.core.auth import CurrentUserDep
 from src.core.config import get_settings
 from src.db.session import SessionDep
@@ -13,6 +15,7 @@ from src.features.documents.schemas import (
     ChangesetRead,
     DocumentCreate,
     DocumentEdits,
+    DocumentMessage,
     DocumentRead,
     DocumentSummary,
     DocumentUpdate,
@@ -21,14 +24,29 @@ from src.features.documents.schemas import (
     VersionRead,
 )
 from src.features.documents.service import DocumentService
+from src.features.profile import ProfileServiceDep
+from src.features.settings import SettingsServiceDep
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-def get_document_service(session: SessionDep, request: Request) -> DocumentService:
-    """The documents service on the request's database session"""
+def get_document_service(
+    session: SessionDep,
+    profile: ProfileServiceDep,
+    settings: SettingsServiceDep,
+    request: Request,
+) -> DocumentService:
+    """The documents service on the request's database session, the profile and
+    settings services, the harness and the app's runner"""
     return DocumentService(
-        session, request.app.state.artifact, get_settings().documents
+        session,
+        request.app.state.session_factory,
+        request.app.state.artifact,
+        get_settings().documents,
+        profile,
+        settings,
+        request.app.state.ezcareer,
+        request.app.state.runner,
     )
 
 
@@ -72,11 +90,20 @@ async def list_imports(
 async def start_import(
     file: UploadFile, user: CurrentUserDep, service: DocumentServiceDep
 ) -> ImportRead:
-    """Store a PDF or Word résumé as a pending import; reading it into a draft
-    waits for ezcareer-harness's import-resume"""
+    """Store a PDF or Word résumé as a pending import; POST its read to turn it
+    into a draft"""
     return await service.start_import(
         user.id, file.filename or "resume", file.content_type or "", await file.read()
     )
+
+
+@router.post("/imports/{import_id}/read")
+async def read_import(
+    import_id: UUID, user: CurrentUserDep, service: DocumentServiceDep
+) -> ImportRead:
+    """Run import-resume on the file: the import comes back done with its draft,
+    or failed with the reason"""
+    return await service.read_import(user.id, import_id)
 
 
 @router.delete("/imports/{import_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -213,3 +240,53 @@ async def decide_changeset(
 ) -> ChangesetRead:
     """Accept every edit of the changeset into the draft, or reject it"""
     return await service.decide(user.id, document_id, changeset_id, decision)
+
+
+@router.post("/{document_id}/chat/messages")
+async def chat(
+    document_id: UUID,
+    message: DocumentMessage,
+    user: CurrentUserDep,
+    service: DocumentServiceDep,
+) -> EventSourceResponse:
+    """Ask edit-document about the document and stream the turn, with any changeset it
+    stored for review, until it replies, asks back, fails or is stopped"""
+    return EventSourceResponse(await service.chat(user.id, document_id, message))
+
+
+@router.post("/{document_id}/chat/tasks/{task_id}/answer")
+async def answer_chat(
+    document_id: UUID,
+    task_id: str,
+    answer: Answer,
+    user: CurrentUserDep,
+    service: DocumentServiceDep,
+) -> EventSourceResponse:
+    """Answer the widget a paused chat turn asked, and stream the rest of it"""
+    return EventSourceResponse(
+        await service.answer_chat(user.id, document_id, task_id, answer)
+    )
+
+
+@router.get("/{document_id}/chat/stream")
+async def resume_chat(
+    document_id: UUID,
+    user: CurrentUserDep,
+    service: DocumentServiceDep,
+    last_event_id: Annotated[str | None, Header()] = None,
+) -> EventSourceResponse:
+    """Resume the chat's turn after the Last-Event-ID the client last saw"""
+    return EventSourceResponse(
+        await service.resume_chat(user.id, document_id, last_event_id)
+    )
+
+
+@router.post(
+    "/{document_id}/chat/tasks/{task_id}/cancel",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def cancel_chat(
+    document_id: UUID, task_id: str, user: CurrentUserDep, service: DocumentServiceDep
+) -> None:
+    """Stop the chat's running turn; the user's Stop button"""
+    await service.cancel_chat(user.id, document_id, task_id)

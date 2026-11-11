@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal, override
 
+from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import (
@@ -89,6 +90,9 @@ class DocumentsSettings(BaseModel):
 
     max_per_kind: int = Field(default=10, gt=0)
     """How many résumés, CVs or cover letters a user keeps at most, each"""
+
+    match_cutoff: int = Field(default=70, ge=0, le=100)
+    """How closely, from 0 to 100, a title must match the name a run asks for"""
 
     max_upload_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
     """The largest résumé file a user may upload"""
@@ -266,6 +270,21 @@ class EzcareerSettings(BaseModel):
     """Each model's list prices over time, which cost each model call"""
 
 
+class JSearchSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    encryption_key: SecretStr = SecretStr("")
+    """Fernet key that encrypts stored JSearch API keys; saving a key needs it"""
+
+    @field_validator("encryption_key", mode="after")
+    @classmethod
+    def _must_be_a_fernet_key(cls, v: SecretStr) -> SecretStr:
+        """Fail at startup on a key Fernet cannot use, not on the first save"""
+        if v.get_secret_value():
+            Fernet(v.get_secret_value())
+        return v
+
+
 class ObservabilitySettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
@@ -310,6 +329,9 @@ class Settings(BaseSettings):
     ezcareer: EzcareerSettings = Field(default_factory=EzcareerSettings)
     """Where ops-api reaches ezcareer-harness"""
 
+    jsearch: JSearchSettings = Field(default_factory=JSearchSettings)
+    """Keeping each user's JSearch API key"""
+
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     """Logging settings"""
 
@@ -351,6 +373,7 @@ __all__ = [
     "DatabaseSettings",
     "DocumentsSettings",
     "EzcareerSettings",
+    "JSearchSettings",
     "ObservabilitySettings",
     "Settings",
     "get_settings",

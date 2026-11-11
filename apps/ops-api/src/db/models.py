@@ -7,7 +7,7 @@ from src.features.documents.models import (
     DocumentImport,
     DocumentVersion,
 )
-from src.features.jobs.models import Job
+from src.features.jobs.models import Job, JobRun
 from src.features.profile.models import Profile, ProfileEntry, ProfileSkill
 from src.features.settings.models import UserSettings
 
@@ -22,6 +22,7 @@ __all__ = [
     "DocumentImport",
     "DocumentVersion",
     "Job",
+    "JobRun",
     "Profile",
     "ProfileEntry",
     "ProfileSkill",

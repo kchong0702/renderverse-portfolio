@@ -35,6 +35,7 @@ from src.clients.ezcareer.schemas import (
     Failed,
     InputRequired,
     ModelCatalog,
+    Published,
     RecordUsage,
     Run,
     RunEvent,
@@ -114,7 +115,7 @@ class EzcareerClient:
             timeout=settings.timeout_seconds,
             transport=transport,
         )
-        self._run_timeout = settings.run_timeout_seconds
+        self.run_timeout_seconds = settings.run_timeout_seconds
         self._record_usage = record_usage
 
     async def models(self) -> ModelCatalog:
@@ -150,7 +151,7 @@ class EzcareerClient:
                         params=SendMessageParams(message=message, metadata=metadata),
                     ).model_dump_json(),
                     headers={"A2A-Version": "1.0", "Content-Type": "application/json"},
-                    timeout=self._run_timeout,
+                    timeout=self.run_timeout_seconds,
                 )
                 response.raise_for_status()
                 outcome = TypeAdapter(
@@ -346,7 +347,7 @@ class EzcareerClient:
                     method="POST",
                     content=request.model_dump_json(),
                     headers={"A2A-Version": "1.0", "Content-Type": "application/json"},
-                    timeout=self._run_timeout,
+                    timeout=self.run_timeout_seconds,
                 ) as source:
                     async for event in source:
                         outcome = TypeAdapter(
@@ -377,6 +378,9 @@ class EzcareerClient:
                                 yield Text(turn=artifact.artifact_id, text=text)
                             elif artifact.name == executable:
                                 [reply_part] = artifact.parts
+                            else:
+                                [part] = artifact.parts
+                                yield Published(name=artifact.name, data=part.data)
                         elif update := result.status_update:
                             status = update.status
                             match status.state:

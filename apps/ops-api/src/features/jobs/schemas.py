@@ -7,6 +7,8 @@ from uuid import UUID
 from pydantic import BaseModel, Field, computed_field
 
 from src.features.jobs.enums import Importance, JobStatus, Match
+from src.features.profile import AgentProfile
+from src.features.settings import SearchQuota
 
 
 class Requirement(BaseModel):
@@ -77,10 +79,119 @@ class JobRead(JobCreate):
     status: JobStatus
     """Picked by the agent, saved or dismissed"""
 
+    seen_at: datetime | None
+    """When the user first opened the job; None while it is new"""
+
+
+class JobList(BaseModel):
+    jobs: list[JobRead]
+    """Every job, best fit first"""
+
+    new_count: int
+    """How many picks the user has not opened yet"""
+
 
 class JobUpdate(BaseModel):
-    status: JobStatus
-    """Save, dismiss or return the job to the agent's picks"""
+    status: JobStatus | None = None
+    """Save, dismiss or return the job to the agent's picks; None leaves it"""
+
+    seen: Literal[True] | None = None
+    """Mark the job opened; one opened before keeps when it first was"""
 
 
-__all__ = ["FitAnalysis", "JobCreate", "JobRead", "JobUpdate", "Requirement"]
+class JobSearch(BaseModel):
+    query: str | None = Field(default=None, max_length=200)
+    """What to search for in place of the job agent's query"""
+
+    location: str | None = Field(default=None, max_length=200)
+    """Where to search in place of the job agent's location"""
+
+    posted_within: Literal["day", "week", "month"] | None = None
+    """Only postings this recent"""
+
+
+class JobRunRead(BaseModel):
+    found: int
+    """How many jobs the find run returned"""
+
+    new: int
+    """How many of them were not stored before"""
+
+    scored_70: int
+    """How many of them fit 70 or more"""
+
+    finished_at: datetime
+    """When the run ended"""
+
+
+class FindJobsInput(AgentProfile):
+    search: JobSearch | None
+    """Filters that replace the ones find-jobs builds from preferences"""
+
+
+class AnalyseJobInput(AgentProfile):
+    url: str
+    """The posting analyse-job fetches and maps to the profile"""
+
+
+class AnalyseJobOutput(BaseModel):
+    analysis: FitAnalysis
+    """How the posting fits; the harness also sends lines and filters, unread"""
+
+
+class JobPosting(BaseModel):
+    id: str
+    """JSearch job id"""
+
+    title: str
+    """Job title"""
+
+    company: str
+    """Employer name"""
+
+    location: str
+    """City and country, as JSearch gives them"""
+
+    remote: bool
+    """Whether the job is remote"""
+
+    posted_at: datetime | None
+    """When the job was posted, if known"""
+
+    apply_url: str
+    """Where to apply"""
+
+
+class MatchedJob(BaseModel):
+    posting: JobPosting
+    """The job as find-jobs' search returned it"""
+
+    requirements: list[Requirement]
+    """The agent's mapping of its requirements to the profile"""
+
+    fit: int
+    """Fit score from 0 to 100, computed by the harness"""
+
+
+class FindJobsOutput(BaseModel):
+    jobs: list[MatchedJob]
+    """Jobs that fit the profile and preferences, best first"""
+
+    quota: SearchQuota | None = None
+    """JSearch's searches left, from its rate-limit headers; None when not sent"""
+
+
+__all__ = [
+    "AnalyseJobInput",
+    "AnalyseJobOutput",
+    "FindJobsInput",
+    "FindJobsOutput",
+    "FitAnalysis",
+    "JobCreate",
+    "JobList",
+    "JobRead",
+    "JobRunRead",
+    "JobSearch",
+    "JobUpdate",
+    "Requirement",
+]

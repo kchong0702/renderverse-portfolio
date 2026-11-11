@@ -18,6 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from src.db.base import Base, EnumString, PydanticJson
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 from src.features.documents.enums import ImportStatus
+from src.features.documents.schemas import LookSuggestion, SourceLine
 
 
 class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -46,6 +47,12 @@ class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
         PydanticJson(TypeAdapter[AnyDocument](AnyDocument))
     )
     """The current draft as document-schema's AnyDocument"""
+
+    lines: Mapped[list[SourceLine]] = mapped_column(
+        PydanticJson(TypeAdapter(list[SourceLine])), default=list
+    )
+    """The imported file's lines, which edit-document checks citations against;
+    empty for a document not imported"""
 
 
 class DocumentVersion(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -110,5 +117,17 @@ class DocumentImport(IdMixin, UserScopedMixin, AuditMixin, Base):
     error: Mapped[str] = mapped_column(Text(), default="")
     """Why the import failed; empty otherwise"""
 
+    suggestion: Mapped[LookSuggestion | None] = mapped_column(
+        PydanticJson(TypeAdapter(LookSuggestion)), default=None
+    )
+    """The look import-resume suggests from the file's layout, once it is done"""
 
-__all__ = ["Document", "DocumentChangeset", "DocumentImport", "DocumentVersion"]
+
+__all__ = [
+    "Document",
+    "DocumentChangeset",
+    "DocumentImport",
+    "DocumentVersion",
+    "LookSuggestion",
+    "SourceLine",
+]

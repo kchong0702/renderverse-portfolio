@@ -5,7 +5,7 @@ from typing import Literal
 from uuid import UUID
 
 from document_schema import DocumentKind
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from src.clients.ezcareer.types import ModelFamily
 
@@ -31,9 +31,19 @@ class ModelChoice(BaseModel):
     """A model ezcareer-harness offers for that provider"""
 
 
+class JSearchMetadata(BaseModel):
+    api_key: str
+    """The user's RapidAPI key, which search_jobs uses in place of the server's"""
+
+
 class RunMetadata(BaseModel):
-    model: ModelChoice
-    """The model the user picked"""
+    model: ModelChoice | None = Field(default=None, exclude_if=lambda v: v is None)
+    """The model the user picked; None leaves it to ezcareer-harness"""
+
+    jsearch: JSearchMetadata | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    """The user's own JSearch key; None searches with the server's"""
 
 
 class Widget(BaseModel):
@@ -162,6 +172,18 @@ class StepUpdate(BaseModel):
     """The step as it stands"""
 
 
+class Published(BaseModel):
+    status: Literal["published"] = "published"
+    """The run published an artifact other than its reply, its thinking or its
+    text"""
+
+    name: str
+    """The artifact's name, such as changeset"""
+
+    data: JsonValue
+    """The artifact's one data part"""
+
+
 class Cancelled(BaseModel):
     status: Literal["cancelled"] = "cancelled"
     """The user stopped the run"""
@@ -214,6 +236,7 @@ type RunEvent[R] = (
     | Thinking
     | Text
     | StepUpdate
+    | Published
     | Completed[R]
     | InputRequired
     | Failed
@@ -231,8 +254,10 @@ __all__ = [
     "Failed",
     "FamilyModels",
     "InputRequired",
+    "JSearchMetadata",
     "ModelCatalog",
     "ModelChoice",
+    "Published",
     "RecordUsage",
     "Run",
     "RunEvent",
