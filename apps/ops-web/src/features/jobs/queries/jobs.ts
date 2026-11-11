@@ -1,9 +1,11 @@
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
+import { documentsQueryOptions } from "@/features/documents";
 import {
   analyseJob,
   fetchJobs,
   fetchLatestRun,
   findJobs,
+  tailorJob,
   updateJob,
   type JobUpdate,
 } from "../api/jobs";
@@ -53,4 +55,14 @@ export const analyseJobMutationOptions = mutationOptions({
   mutationFn: analyseJob,
   onSettled: (_run, _error, _id, _result, { client }) =>
     client.invalidateQueries({ queryKey: jobsQueryOptions.queryKey }),
+});
+
+export const tailorJobMutationOptions = mutationOptions({
+  mutationKey: ["jobs", "tailor"],
+  mutationFn: tailorJob,
+  onSettled: (_tailored, _error, _id, _result, { client }) =>
+    client.invalidateQueries({
+      queryKey: documentsQueryOptions.queryKey,
+      exact: true,
+    }),
 });

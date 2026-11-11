@@ -75,7 +75,7 @@ export interface TaskAnswer {
 
 export interface TurnCursor {
   chat: Chat;
-  lastEventId: string;
+  lastEventId: string | null;
 }
 
 export interface Task {
