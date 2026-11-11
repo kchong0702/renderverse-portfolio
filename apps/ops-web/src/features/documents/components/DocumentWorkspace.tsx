@@ -8,6 +8,7 @@ import StateMessage from "@/shared/components/StateMessage";
 import { relativeDay } from "@/shared/lib/dates";
 import { cn } from "@/shared/lib/cn";
 import {
+  useDeleteDocument,
   useDesignDocument,
   useDocument,
   useEditDocument,
@@ -45,6 +46,7 @@ export default function DocumentWorkspace({ id }: { id: string }) {
   const designEdit = useDesignDocument();
   const setMaster = useSetMaster();
   const exportPdf = useExportPdf();
+  const remove = useDeleteDocument();
   const saves = useSaves(id);
   const saving =
     useIsMutating({
@@ -89,14 +91,21 @@ export default function DocumentWorkspace({ id }: { id: string }) {
             }),
             tone: "text-crit",
           }
-        : pages > 1
+        : remove.error
           ? {
-              text: t("documents.status.runsOnto", { count: pages }),
-              tone: "text-warn",
+              text: t("documents.status.deleteFailed", {
+                reason: remove.error.message,
+              }),
+              tone: "text-crit",
             }
-          : saves.some((save) => save.status === "success")
-            ? { text: t("documents.status.saved"), tone: "text-ok" }
-            : { text: t("documents.status.fits"), tone: "text-ink-3" };
+          : pages > 1
+            ? {
+                text: t("documents.status.runsOnto", { count: pages }),
+                tone: "text-warn",
+              }
+            : saves.some((save) => save.status === "success")
+              ? { text: t("documents.status.saved"), tone: "text-ok" }
+              : { text: t("documents.status.fits"), tone: "text-ink-3" };
 
   return (
     <div className="flex flex-wrap items-start gap-6">
@@ -159,6 +168,26 @@ export default function DocumentWorkspace({ id }: { id: string }) {
               className={buttonClass()}
             >
               {t("documents.export")}
+            </button>
+            <button
+              type="button"
+              disabled={record.master || remove.isPending}
+              title={
+                record.master
+                  ? t(`documents.deleteMaster.${record.kind}`)
+                  : undefined
+              }
+              onClick={() => {
+                if (
+                  window.confirm(
+                    t("documents.confirmDelete", { name: record.title }),
+                  )
+                )
+                  remove.mutate(id);
+              }}
+              className={buttonClass("danger")}
+            >
+              {t("documents.delete")}
             </button>
           </div>
         </div>

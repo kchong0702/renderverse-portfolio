@@ -104,6 +104,8 @@ export const createDocument = (create: { title: string; body: AnyDocument }) =>
 export const editDocument = ({ id, edits }: { id: string; edits: Edit[] }) =>
   http.post<DocumentRecord>(`${URL}/${id}/edits`, { edits });
 
+export const deleteDocument = (id: string) => http.delete(`${URL}/${id}`);
+
 export const setMaster = (id: string) =>
   http.put<DocumentRecord>(`${URL}/${id}/master`, {});
 
