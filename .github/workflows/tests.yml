@@ -35,9 +35,11 @@ jobs:
           pnpm run bootstrap:env
           pnpm exec nx run-many -t bootstrap
 
-      - name: Install Chromium for artifact-service's render tests
+      - name: Install Chromium for artifact-service's render tests and let its sandbox run
         working-directory: apps/artifact-service
-        run: uv run playwright install --with-deps chromium
+        run: |
+          uv run playwright install --with-deps chromium
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Test
         env:
