@@ -1,6 +1,7 @@
 import { Sparkle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { useIsAdmin } from "@/features/auth";
 import type { JobRun } from "@/features/jobs";
 import type { Settings } from "@/features/settings";
 import { daysFromToday } from "@/shared/lib/dates";
@@ -17,6 +18,7 @@ export default function ShortcutCards({
 }) {
   const { t } = useTranslation();
   const agent = settings?.job_agent;
+  const isAdmin = useIsAdmin();
 
   return (
     <div className="grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-5">
@@ -45,11 +47,13 @@ export default function ShortcutCards({
           </span>
         )}
       </Link>
-      <Link to="/portfolio" className={card}>
-        <span className="text-base font-semibold">
-          {t("settings.connections.names.portfolio_site")}
-        </span>
-      </Link>
+      {isAdmin && (
+        <Link to="/portfolio" className={card}>
+          <span className="text-base font-semibold">
+            {t("settings.connections.names.portfolio_site")}
+          </span>
+        </Link>
+      )}
     </div>
   );
 }

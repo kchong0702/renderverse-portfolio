@@ -1,6 +1,7 @@
 import { createLucideIcon, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useApplications } from "@/features/applications";
+import { useIsAdmin } from "@/features/auth";
 import { useInbox } from "@/features/inbox";
 import { useJobs } from "@/features/jobs";
 import { useDraft } from "@/features/portfolio";
@@ -170,7 +171,7 @@ export function useNavBadges(): Partial<Record<NavKey, string>> {
   const active = useApplications().data?.filter((a) => a.stage !== "closed");
   const { account } = useGoogleAccount();
   const inbox = useInbox(account !== null);
-  const { data: draft } = useDraft();
+  const { data: draft } = useDraft(useIsAdmin());
   return {
     jobs: newJobs ? t("nav.badges.newJobs", { count: newJobs }) : undefined,
     applications: active?.length ? String(active.length) : undefined,
