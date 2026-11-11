@@ -17,6 +17,7 @@ from src.core.logging import get_logger
 from src.core.runner import Runner
 from src.features.assistant.schemas import ChatMessage
 from src.features.documents import ChangesetArtifact, DocumentService
+from src.features.documents.schemas import FetchError
 from src.features.inbox import InboxService
 from src.features.profile import ProfileService
 from src.features.settings import SettingsService
@@ -65,10 +66,15 @@ class AssistantService:
                     yield proposed
 
     async def _answer(self, user_id: UUID, request: DataRequest) -> BaseModel:
-        """Answer a paused turn's data request from the inbox or the documents"""
-        if request.fetch in ("thread", "free_slots"):
-            return await self._inbox.answer_data_request(user_id, request)
-        return await self._documents.answer_data_request(user_id, request)
+        """Answer a paused turn's data request from the inbox or the documents, or say
+        Ops can't answer a kind it doesn't know"""
+        match request.fetch:
+            case "thread" | "threads" | "free_slots":
+                return await self._inbox.answer_data_request(user_id, request)
+            case "documents" | "document":
+                return await self._documents.answer_data_request(user_id, request)
+            case kind:
+                return FetchError(error=f"Ops can't answer {kind}")
 
     async def send(
         self, user_id: UUID, chat_id: UUID, message: ChatMessage

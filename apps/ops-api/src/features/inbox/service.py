@@ -65,6 +65,9 @@ from src.features.inbox.schemas import (
     ThreadContent,
     ThreadMessage,
     ThreadRequest,
+    ThreadsAnswer,
+    ThreadsRequest,
+    ThreadSummary,
     TriageApplication,
     TriageEmailInput,
     TriageEmailOutput,
@@ -147,6 +150,22 @@ def _content(thread: GmailThread) -> ThreadContent:
             for m in thread.messages
         ],
     )
+
+
+def _search(request: ThreadsRequest) -> str:
+    """The Gmail search for a run's thread search, each value quoted so it adds no
+    operator; before: is exclusive, so it names the day after until"""
+    terms = []
+    if request.since:
+        terms.append(f"after:{request.since:%Y/%m/%d}")
+    if request.until:
+        terms.append(f"before:{request.until + timedelta(days=1):%Y/%m/%d}")
+    if request.sender:
+        terms.append(f'from:"{request.sender}"')
+    if request.has_attachment is not None:
+        terms.append("has:attachment" if request.has_attachment else "-has:attachment")
+    terms += [f'"{word}"' for word in (request.keyword or "").split()]
+    return " ".join(terms)
 
 
 def _mime(to: str, subject: str, body: str, answers: GmailPart | None = None) -> str:
@@ -423,12 +442,12 @@ class InboxService:
 
     async def answer_data_request(
         self, user_id: UUID, request: DataRequest
-    ) -> ThreadAnswer | FreeSlots | FetchError:
-        """A paused run's thread or free slots, on a session of its own"""
+    ) -> ThreadAnswer | ThreadsAnswer | FreeSlots | FetchError:
+        """A paused run's thread, thread search or free slots, on a session of its own"""
         try:
-            parsed = TypeAdapter(ThreadRequest | FreeSlotsRequest).validate_python(
-                request.model_dump()
-            )
+            parsed = TypeAdapter(
+                ThreadRequest | ThreadsRequest | FreeSlotsRequest
+            ).validate_python(request.model_dump())
         except ValidationError as error:
             return FetchError(error=str(error))
         async for session in session_scope(self._factory):
@@ -442,6 +461,31 @@ class InboxService:
                                     await google.access_token(user_id), thread_id
                                 )
                             )
+                        )
+                    case ThreadsRequest(limit=limit):
+                        threads, total = await self._client.threads(
+                            await google.access_token(user_id),
+                            _search(parsed),
+                            min(limit, self._config.thread_search_limit),
+                        )
+                        answer = ThreadsAnswer(
+                            threads=[
+                                ThreadSummary(
+                                    id=thread.id,
+                                    subject=thread.messages[0].payload.header(
+                                        "Subject"
+                                    ),
+                                    sender=thread.messages[-1].payload.header("From"),
+                                    last_sent_at=thread.messages[-1].internal_date,
+                                    message_count=len(thread.messages),
+                                    has_attachment=any(
+                                        m.payload.has_attachment()
+                                        for m in thread.messages
+                                    ),
+                                )
+                                for thread in threads
+                            ],
+                            total=total,
                         )
                     case FreeSlotsRequest(days=days):
                         settings = await SettingsService(

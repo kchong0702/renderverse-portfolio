@@ -101,9 +101,60 @@ class FreeSlotsRequest(BaseModel):
     """How many days from tomorrow to look in"""
 
 
+class ThreadsRequest(BaseModel):
+    fetch: Literal["threads"]
+    """A paused run searches the user's email threads"""
+
+    since: date | None = None
+    """Earliest day a message was sent; None for any"""
+
+    until: date | None = None
+    """Latest day a message was sent; None for any"""
+
+    keyword: str | None = Field(default=None, pattern=r'^[^"]{1,200}$')
+    """Words the subject or a message contains; None for any"""
+
+    sender: str | None = Field(default=None, pattern=r"^[\w .@+'&-]{1,200}$")
+    """A sender's name, address or domain; None for anyone"""
+
+    has_attachment: bool | None = None
+    """Only threads with an attachment, or only those without; None for both"""
+
+    limit: int = Field(ge=1)
+    """The most threads to send back"""
+
+
 class ThreadAnswer(BaseModel):
     thread: ThreadContent
     """The thread the run asked for"""
+
+
+class ThreadSummary(BaseModel):
+    id: str
+    """The Gmail thread, which a thread request takes"""
+
+    subject: str
+    """The first message's subject line"""
+
+    sender: str
+    """Who sent the latest message, as the From header names them"""
+
+    last_sent_at: datetime
+    """When Gmail received the latest message"""
+
+    message_count: int
+    """How many messages the thread holds"""
+
+    has_attachment: bool
+    """Whether any of its messages carries an attachment"""
+
+
+class ThreadsAnswer(BaseModel):
+    threads: list[ThreadSummary]
+    """The matching threads, newest first"""
+
+    total: int
+    """Gmail's estimate of how many threads match in all"""
 
 
 class TriageApplication(BaseModel):
@@ -225,6 +276,9 @@ __all__ = [
     "ThreadContent",
     "ThreadMessage",
     "ThreadRequest",
+    "ThreadSummary",
+    "ThreadsAnswer",
+    "ThreadsRequest",
     "TriageApplication",
     "TriageEmailInput",
     "TriageEmailOutput",

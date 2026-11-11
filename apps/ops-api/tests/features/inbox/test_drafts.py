@@ -344,3 +344,132 @@ async def test_career_director_gets_no_free_slots_with_the_rule_off(
     answer = await _fetched(client, harness, {"fetch": "free_slots", "days": 3})
 
     assert answer == {"free_slots": [], "timezone": "Asia/Kuala_Lumpur"}
+
+
+def _email(thread_id: str, sender: str, subject: str, sent_ms: int, **payload):
+    """A Gmail message in thread_id, its payload extended with payload"""
+    return {
+        "id": f"m-{sent_ms}",
+        "threadId": thread_id,
+        "snippet": "",
+        "internalDate": str(sent_ms),
+        "payload": {
+            "mimeType": "text/plain",
+            "headers": [
+                {"name": "From", "value": sender},
+                {"name": "Subject", "value": subject},
+            ],
+            **payload,
+        },
+    }
+
+
+RIVERSTONE = "Daniel Lim <daniel@riverstone.com>"
+
+MAILBOX = [
+    _email(
+        "t-late",
+        "Orbit Media HR <hr@orbit.media>",
+        "Your offer letter",
+        1794357000000,
+    ),
+    _email(
+        "t-rs",
+        RIVERSTONE,
+        "Re: Next steps for the data platform role",
+        1794300000000,
+        parts=[{"mimeType": "application/pdf", "filename": "brief.pdf"}],
+    ),
+    _email("t-old", RIVERSTONE, "Data platform role", 1793869200000),
+    _email("t-rs", "Kelvin <kelvin@gmail.com>", "Next steps", 1793696400000),
+    _email("t-oct", RIVERSTONE, "Data platform role", 1790845200000),
+]
+
+
+async def test_career_director_searches_threads_with_the_filters_it_sets(
+    client, google, harness
+):
+    await connect_google(client)
+    google.messages = {m["id"]: m for m in MAILBOX}
+
+    answer = await _fetched(
+        client,
+        harness,
+        {
+            "fetch": "threads",
+            "since": "2026-11-01",
+            "until": "2026-11-10",
+            "keyword": "data platform",
+            "sender": "riverstone.com",
+            "has_attachment": True,
+            "limit": 20,
+        },
+    )
+
+    [search] = google.thread_searches
+    assert search["q"] == [
+        (
+            'after:2026/11/01 before:2026/11/11 from:"riverstone.com" has:attachment'
+            ' "data" "platform"'
+        )
+    ]
+    assert answer == {
+        "threads": [
+            {
+                "id": "t-rs",
+                "subject": "Next steps",
+                "sender": RIVERSTONE,
+                "last_sent_at": "2026-11-10T08:40:00Z",
+                "message_count": 2,
+                "has_attachment": True,
+            }
+        ],
+        "total": 1,
+    }
+
+
+async def test_a_thread_search_sends_at_most_its_limit_and_how_many_match(
+    client, google, harness
+):
+    await connect_google(client)
+    google.messages = {m["id"]: m for m in MAILBOX}
+
+    answer = await _fetched(
+        client,
+        harness,
+        {
+            "fetch": "threads",
+            "sender": "riverstone",
+            "has_attachment": False,
+            "limit": 1,
+        },
+    )
+    every = await _fetched(client, harness, {"fetch": "threads", "limit": 500})
+
+    assert google.thread_searches[0]["q"] == ['from:"riverstone" -has:attachment']
+    assert [t["id"] for t in answer["threads"]] == ["t-old"]
+    assert answer["total"] == 2
+    assert google.thread_searches[1]["q"] == [""]
+    assert google.thread_searches[1]["maxResults"] == ["25"]
+    assert [t["id"] for t in every["threads"]] == ["t-late", "t-rs", "t-old", "t-oct"]
+
+
+async def test_a_thread_search_with_an_unsafe_value_never_reaches_gmail(
+    client, google, harness
+):
+    await connect_google(client)
+
+    sender = await _fetched(
+        client,
+        harness,
+        {"fetch": "threads", "sender": 'x" OR from:"boss', "limit": 20},
+    )
+    keyword = await _fetched(
+        client, harness, {"fetch": "threads", "keyword": 'offer" OR "x', "limit": 20}
+    )
+    day = await _fetched(
+        client, harness, {"fetch": "threads", "since": "last week", "limit": 20}
+    )
+
+    assert [list(sender), list(keyword), list(day)] == [["error"]] * 3
+    assert google.thread_searches == []

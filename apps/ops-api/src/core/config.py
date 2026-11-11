@@ -322,6 +322,9 @@ class GoogleSettings(BaseModel):
     """How long an interview lasts when its email gives no end; the shortest free
     slot a reply offers"""
 
+    thread_search_limit: int = Field(default=25, gt=0)
+    """The most threads a run's thread search reads, whatever limit it asks for"""
+
     free_slot_days: int = Field(default=7, gt=0)
     """How many days from tomorrow a reply offers free slots in"""
 
