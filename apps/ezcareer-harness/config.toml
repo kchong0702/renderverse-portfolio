@@ -28,6 +28,12 @@ instrumentations = ["langchain"]
 hide_inputs = false
 hide_outputs = false
 
+[email]
+max_threads = 20
+max_thread_messages = 6
+max_message_chars = 4000
+max_free_slots = 12
+
 [models]
 glm = ["glm-5.3"]
 claude = ["claude-opus-5-5", "claude-sonnet-5-5"]

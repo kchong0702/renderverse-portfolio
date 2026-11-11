@@ -59,6 +59,7 @@ async def test_a_confirmed_interview_comes_out_with_its_time_and_application():
         {"thread": THREAD, "applications": APPLICATIONS}
     )
 
+    assert "handoff_to_parent" not in model.offered_tools[0]
     assert result == {
         "state": "interview",
         "application_id": "app-acme",

@@ -17,6 +17,7 @@ from tests.agents.career_director.test_career_director import (
     _find,
     _model,
 )
+from tests.agents.career_director.test_handoffs import ACME
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.analyse_job import test_analyse_job_graph as analyse_job
@@ -27,10 +28,13 @@ def _send(
     client: TestClient,
     parts: list[dict[str, JsonValue]],
     task: dict[str, JsonValue] | None = None,
+    context: str | None = None,
 ) -> dict[str, JsonValue]:
     message = {"messageId": f"m-{id(parts)}", "role": "ROLE_USER", "parts": parts}
     if task:
         message |= {"taskId": task["id"], "contextId": task["contextId"]}
+    if context:
+        message |= {"contextId": context}
     response = client.post(
         "/ezcareer/a2a/career-director",
         headers={"A2A-Version": "1.0"},
@@ -399,3 +403,55 @@ def test_finished_steps_carry_what_their_tools_found_and_worked_on():
         ("output", None),
         ("edit_document", "Backend résumé"),
     ]
+
+
+def test_email_is_handed_to_email_assistant_which_answers_and_keeps_the_next_turn():
+    director = _model(_call("handoff_to_child", agent="email-assistant"))
+    assistant = ScriptedChatModel(
+        replies=[
+            _call("search_threads", sender="acme.com"),
+            AIMessage("Priya from Acme wrote."),
+            AIMessage("Nothing else from Acme."),
+        ]
+    )
+    container = _container(_model(), _model(), director)
+    container.email_assistant.agent(model=assistant)
+    client = TestClient(create_app(container))
+
+    searching = _stream(client, _director_request())
+    task = searching[-1]["statusUpdate"]
+    done = _stream(client, [{"data": {"threads": [ACME], "total": 1}}], task=task)
+    again = _send(
+        client,
+        [
+            {"text": "Anything else from Acme?"},
+            {"data": {"facts": [], "preferences": {}}},
+        ],
+        context=task["contextId"],
+    )
+
+    assert task["status"]["message"]["parts"][0]["data"]["fetch"] == "threads"
+    assert [
+        (s["name"], s["status"], s["detail"]) for s in _steps(searching + done)
+    ] == [
+        ("handoff_to_child", "running", None),
+        ("handoff_to_child", "done", "email-assistant"),
+        ("search_threads", "running", None),
+        ("search_threads", "waiting", None),
+        ("search_threads", "running", None),
+        ("search_threads", "done", "1 thread"),
+    ]
+    assert [
+        (
+            e["artifactUpdate"]["artifact"]["name"],
+            e["artifactUpdate"]["artifact"]["parts"],
+        )
+        for e in done
+        if "artifactUpdate" in e
+    ] == [
+        ("text", [{"text": "Priya from Acme wrote."}]),
+        ("career-director", [{"text": "Priya from Acme wrote."}]),
+    ]
+    [reply] = [a for a in again["artifacts"] if a["name"] == "career-director"]
+    assert reply["parts"][0]["text"] == "Nothing else from Acme."
+    assert len(director.requests) == 1

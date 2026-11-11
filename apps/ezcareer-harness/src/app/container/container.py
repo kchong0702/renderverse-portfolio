@@ -47,7 +47,10 @@ class Container(containers.DeclarativeContainer):
     """career-consultant and the workflows that run on it"""
 
     email_assistant = providers.Container(
-        EmailAssistantContainer, registry=registry, checkpointer=checkpointer
+        EmailAssistantContainer,
+        settings=settings,
+        registry=registry,
+        checkpointer=checkpointer,
     )
     """email-assistant and the email workflows that run on it"""
 

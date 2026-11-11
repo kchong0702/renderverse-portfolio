@@ -280,6 +280,22 @@ class ArtifactServiceSettings(BaseModel):
     """Times a request retries a connection that fails to open"""
 
 
+class EmailSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    max_threads: int = Field(default=20, gt=0)
+    """Most threads one search_threads call shows the agent"""
+
+    max_thread_messages: int = Field(default=6, gt=0)
+    """Most messages of a thread read_thread shows the agent, the latest kept"""
+
+    max_message_chars: int = Field(default=4000, gt=0)
+    """Most characters of each message read_thread shows the agent, the rest cut"""
+
+    max_free_slots: int = Field(default=12, gt=0)
+    """Most free slots read_free_slots shows the agent, the earliest first"""
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EZCAREER_HARNESS_",
@@ -343,6 +359,9 @@ class Settings(BaseSettings):
     )
     """Where documents are printed"""
 
+    email: EmailSettings = Field(default_factory=EmailSettings)
+    """Limits on the email agents read"""
+
     @classmethod
     @override
     def settings_customise_sources(
@@ -400,6 +419,7 @@ __all__ = [
     "AgentSettings",
     "AppSettings",
     "ArtifactServiceSettings",
+    "EmailSettings",
     "Family",
     "GraphProfile",
     "Instrumentation",

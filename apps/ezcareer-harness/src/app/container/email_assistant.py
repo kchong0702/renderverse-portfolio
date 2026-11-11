@@ -1,13 +1,22 @@
 from dependency_injector import containers, providers
 
 from src.agents import build_agent
+from src.agents.email_assistant.tools import (
+    read_free_slots_tool,
+    read_thread_tool,
+    search_threads_tool,
+)
 from src.agents.state import ProfileState
 from src.app.a2a import Executable
+from src.core.config import Settings
 from src.features import draft_reply, triage_email
 from src.tools import read_profile_facts
 
 
 class EmailAssistantContainer(containers.DeclarativeContainer):
+    settings = providers.Dependency(instance_of=Settings)
+    """The app's settings"""
+
     registry = providers.Dependency(instance_of=dict)
     """Every registered agent, by name"""
 
@@ -18,7 +27,20 @@ class EmailAssistantContainer(containers.DeclarativeContainer):
         build_agent,
         agent=registry.provided["email-assistant"],
         response_formats=(draft_reply.DraftReply, triage_email.EmailReading),
-        tools=(read_profile_facts,),
+        tools=providers.List(
+            read_profile_facts,
+            providers.Callable(
+                search_threads_tool, settings.provided.email.max_threads
+            ),
+            providers.Callable(
+                read_thread_tool,
+                settings.provided.email.max_thread_messages,
+                settings.provided.email.max_message_chars,
+            ),
+            providers.Callable(
+                read_free_slots_tool, settings.provided.email.max_free_slots
+            ),
+        ),
         state_schema=ProfileState,
     )
     """The email-assistant agent, built once"""
