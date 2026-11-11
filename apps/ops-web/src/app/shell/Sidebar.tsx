@@ -103,10 +103,13 @@ export default function Sidebar() {
         >
           {name ? initials(name) : ""}
         </span>
-        <span className="flex min-w-0 flex-col">
+        <span className="flex w-0 flex-1 flex-col">
           <span className="text-[13px] font-semibold">{name}</span>
           {profile?.headline && (
-            <span className="text-side-muted text-xs/[1.6]">
+            <span
+              title={profile.headline}
+              className="text-side-muted truncate text-[11px]/[1.6]"
+            >
               {profile.headline}
             </span>
           )}
