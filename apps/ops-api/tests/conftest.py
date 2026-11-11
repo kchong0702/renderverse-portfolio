@@ -3,6 +3,7 @@ import os
 import re
 from base64 import b64encode, urlsafe_b64encode
 from collections.abc import AsyncIterator, Callable
+from datetime import UTC, date, datetime
 from tempfile import TemporaryDirectory
 from urllib.parse import parse_qs, urlsplit
 
@@ -242,6 +243,7 @@ class FakeGoogle:
         self.refreshed_with: list[str] = []
         self.revoked_tokens: list[str] = []
         self.gmail_queries: list[str] = []
+        self.thread_searches: list[dict[str, list[str]]] = []
         self.calendar_params: list[dict[str, list[str]]] = []
         self.messages: dict[str, dict[str, object]] = {}
         self.deleted: list[str] = []
@@ -266,6 +268,30 @@ class FakeGoogle:
             return httpx2.Response(400, json={"error": "invalid_grant"})
         self.refreshed_with += form["refresh_token"]
         return httpx2.Response(200, json={"access_token": "access-2"})
+
+    def _matches(self, message: dict, search: str) -> bool:
+        """Whether a message matches every term of a Gmail search as Ops writes one"""
+        payload = message["payload"]
+        header = {h["name"]: h["value"] for h in payload["headers"]}
+        sent = datetime.fromtimestamp(int(message["internalDate"]) / 1000, UTC).date()
+        for negated, operator, quoted, bare in re.findall(
+            r'(-?)(?:(\w+):)?(?:"([^"]*)"|(\S+))', search
+        ):
+            value = (quoted or bare).lower()
+            match operator:
+                case "after":
+                    found = sent >= date(*map(int, value.split("/")))
+                case "before":
+                    found = sent < date(*map(int, value.split("/")))
+                case "from":
+                    found = value in header["From"].lower()
+                case "has":
+                    found = any(p.get("filename") for p in payload.get("parts", []))
+                case _:
+                    found = value in f"{header['Subject']} {message['snippet']}".lower()
+            if found == bool(negated):
+                return False
+        return True
 
     def _write(self, request: httpx2.Request) -> httpx2.Response:
         """Send an email or add an event as Google does unless the grant is read-only"""
@@ -311,7 +337,7 @@ class FakeGoogle:
         if request.method == "POST":
             return self._write(request)
         path = request.url.path
-        query = parse_qs(urlsplit(str(request.url)).query)
+        query = parse_qs(urlsplit(str(request.url)).query, keep_blank_values=True)
         if path == "/gmail/v1/users/me/profile":
             return httpx2.Response(200, json={"emailAddress": "kelvin@gmail.com"})
         if path == "/gmail/v1/users/me/messages":
@@ -321,6 +347,25 @@ class FakeGoogle:
                 for key in [*self.messages, *self.deleted]
             ]
             return httpx2.Response(200, json={"messages": refs} if refs else {})
+        if path == "/gmail/v1/users/me/threads":
+            self.thread_searches.append(query)
+            threads: dict[str, list[dict]] = {}
+            for message in self.messages.values():
+                threads.setdefault(str(message["threadId"]), []).append(message)
+            found = [
+                {"id": thread_id}
+                for thread_id, messages in threads.items()
+                if any(self._matches(m, query["q"][0]) for m in messages)
+            ]
+            return httpx2.Response(
+                200,
+                json={
+                    "threads": found[: int(query["maxResults"][0])],
+                    "resultSizeEstimate": len(found),
+                }
+                if found
+                else {"resultSizeEstimate": 0},
+            )
         if path.startswith("/gmail/v1/users/me/threads/"):
             thread_id = path.rsplit("/", 1)[1]
             messages = [m for m in self.messages.values() if m["threadId"] == thread_id]

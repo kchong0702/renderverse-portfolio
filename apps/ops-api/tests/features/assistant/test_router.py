@@ -440,6 +440,25 @@ async def test_a_stream_answers_the_data_requests_its_run_pauses_with(harness):
     assert resume["parts"] == [{"data": {"documents": ["Résumé for Northwind"]}}]
 
 
+async def test_a_data_request_ops_does_not_know_is_answered_with_why(client, harness):
+    harness.outcomes = [
+        [
+            stream_task(),
+            stream_status("INPUT_REQUIRED", [{"data": {"fetch": "weather"}}]),
+        ],
+        _replied("I can't check the weather."),
+    ]
+
+    response = await client.post(f"{CHAT}/messages", json={"text": "Is it sunny?"})
+
+    assert sse_events(response)[-1] == {
+        "status": "completed",
+        "reply": "I can't check the weather.",
+    }
+    [part] = a2a_sent(harness)[1]["params"]["message"]["parts"]
+    assert part == {"data": {"error": "Ops can't answer weather"}}
+
+
 async def test_a_blocking_run_answers_its_data_requests_too(harness):
     async def answer(request: DataRequest) -> _Documents:
         return _Documents(documents=[request.model_dump()["name"]])

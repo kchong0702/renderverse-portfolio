@@ -53,6 +53,10 @@ class GmailPart(BaseModel):
     parts: list[GmailPart] = []
     """Child parts of a multipart part"""
 
+    def has_attachment(self) -> bool:
+        """Whether this part or any part under it is an attachment"""
+        return bool(self.filename) or any(p.has_attachment() for p in self.parts)
+
     def header(self, name: str) -> str:
         """The first header with this name, ignoring case; empty when absent"""
         return next(
@@ -127,7 +131,7 @@ class GmailRef(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
 
     id: str
-    """Gmail's message id"""
+    """Gmail's message or thread id"""
 
 
 class GmailList(BaseModel):
@@ -135,6 +139,16 @@ class GmailList(BaseModel):
 
     messages: list[GmailRef] = []
     """Matching messages, newest first; Gmail omits the key when there are none"""
+
+
+class GmailThreadList(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+
+    threads: list[GmailRef] = []
+    """Matching threads, newest first; Gmail omits the key when there are none"""
+
+    result_size_estimate: int = 0
+    """Gmail's estimate of how many threads match in all"""
 
 
 class EventTime(BaseModel):
@@ -231,6 +245,7 @@ __all__ = [
     "GmailSend",
     "GmailSent",
     "GmailThread",
+    "GmailThreadList",
     "GoogleEvent",
     "NewEvent",
     "Tokens",

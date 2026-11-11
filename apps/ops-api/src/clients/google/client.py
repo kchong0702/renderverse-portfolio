@@ -15,6 +15,7 @@ from src.clients.google.schemas import (
     GmailSend,
     GmailSent,
     GmailThread,
+    GmailThreadList,
     GoogleEvent,
     NewEvent,
     Tokens,
@@ -240,6 +241,29 @@ class GoogleClient:
             GmailThread,
             [("format", "full")],
         )
+
+    async def threads(
+        self, access_token: str, query: str, limit: int
+    ) -> tuple[list[GmailThread], int]:
+        """The newest threads matching a Gmail search with every message's MIME tree,
+        and Gmail's estimate of how many match; leaves out any deleted meanwhile"""
+        found = await self._call(
+            "GET",
+            f"{_GMAIL_URL}/threads",
+            access_token,
+            GmailThreadList,
+            [("q", query), ("maxResults", str(limit))],
+        )
+        threads = await asyncio.gather(
+            *(self.thread(access_token, ref.id) for ref in found.threads),
+            return_exceptions=True,
+        )
+        for thread in threads:
+            if isinstance(thread, BaseException) and not isinstance(thread, NotFound):
+                raise thread
+        return [
+            thread for thread in threads if isinstance(thread, GmailThread)
+        ], found.result_size_estimate
 
     async def send(self, access_token: str, message: GmailSend) -> None:
         """Send an email from the user's Gmail, in a thread when it names one"""
