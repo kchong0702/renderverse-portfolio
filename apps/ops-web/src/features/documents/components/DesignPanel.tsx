@@ -1,19 +1,13 @@
 import type { Design, Font } from "@renderverse/document-renderer";
 import { templates } from "@renderverse/document-renderer";
-import { useId, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { buttonClass } from "@/shared/components/button";
 import { cn } from "@/shared/lib/cn";
 import type { DocumentRecord, Edit } from "../api/documents";
-import {
-  families,
-  familyOf,
-  membersOf,
-  sideColumn,
-  structureOf,
-} from "../lib/templates";
+import { families, familyOf, membersOf, sideColumn } from "../lib/templates";
 import { useEditorStore } from "../state/editorStore";
-import { PersonIcon } from "./ui/Icons";
+import { ChevronIcon, PersonIcon } from "./ui/Icons";
 import RangeField from "./RangeField";
 import TemplateThumbnail from "./TemplateThumbnail";
 
@@ -116,6 +110,8 @@ export default function DesignPanel({
 }) {
   const { t } = useTranslation();
   const clearSelection = useEditorStore((state) => state.clearSelection);
+  const [picking, setPicking] = useState(false);
+  const listId = useId();
   const design = document.body.design;
   const template = templates[design.template] ?? templates.classic;
   const family = familyOf(template.id);
@@ -141,46 +137,70 @@ export default function DesignPanel({
     <div className="flex flex-col gap-6 p-5">
       <Group
         heading={t("documents.design.template")}
-        note={t("documents.design.templateHint")}
         className="flex flex-col gap-2.5"
       >
-        <div className="grid grid-cols-2 gap-3">
-          {families.map((spec) => (
-            <button
-              key={spec.id}
-              type="button"
-              aria-pressed={spec.id === family.id}
-              onClick={() => {
-                clearSelection();
-                change({ template: spec.id, accent: null });
-              }}
-              className={cn(
-                "bg-panel text-ink flex cursor-pointer flex-col gap-2 rounded-[10px] border p-1.5 text-left",
-                spec.id === family.id
-                  ? "border-amber shadow-[0_0_0_1px_var(--color-amber)]"
-                  : "border-hair",
-              )}
-            >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "border-hair-soft flex aspect-[4/3] flex-col gap-[5px] overflow-hidden rounded-md border bg-white",
-                  { stack: "p-2.5", band: "p-0", header: "p-2" }[
-                    structureOf(spec)
-                  ],
-                )}
-              >
-                <TemplateThumbnail template={spec} />
-              </span>
-              <span className="flex flex-col gap-px px-1 pb-1">
-                <span className="text-[13px] font-semibold">{spec.name}</span>
-                <span className="text-ink-3 text-xs leading-[1.4]">
-                  {spec.description}
-                </span>
-              </span>
-            </button>
-          ))}
-        </div>
+        <button
+          type="button"
+          aria-expanded={picking}
+          aria-controls={listId}
+          onClick={() => setPicking(!picking)}
+          className="bg-panel text-ink border-hair flex cursor-pointer items-center gap-3 rounded-[10px] border py-2 pr-3 pl-2 text-left"
+        >
+          <TemplateThumbnail template={family} className="w-[88px] flex-none" />
+          <span className="flex min-w-0 flex-1 flex-col gap-px">
+            <span className="text-sm font-semibold">{family.name}</span>
+            <span className="text-ink-3 text-xs leading-[1.4]">
+              {family.description}
+            </span>
+          </span>
+          <span className="text-ink-2 inline-flex flex-none items-center gap-1 text-[13px] font-semibold">
+            {t(
+              picking
+                ? "documents.design.templateDone"
+                : "documents.design.templateChange",
+            )}
+            <span className={cn("flex", picking && "rotate-180")}>
+              <ChevronIcon />
+            </span>
+          </span>
+        </button>
+        {picking && (
+          <div id={listId} className="flex flex-col gap-2.5">
+            <span className="text-ink-3 text-[13px]">
+              {t("documents.design.templateHint")}
+            </span>
+            <div className="grid grid-cols-2 gap-3">
+              {families.map((spec) => (
+                <button
+                  key={spec.id}
+                  type="button"
+                  aria-pressed={spec.id === family.id}
+                  onClick={() => {
+                    clearSelection();
+                    setPicking(false);
+                    change({ template: spec.id, accent: null });
+                  }}
+                  className={cn(
+                    "bg-panel text-ink flex cursor-pointer flex-col gap-2 rounded-[10px] border p-1.5 text-left",
+                    spec.id === family.id
+                      ? "border-amber shadow-[0_0_0_1px_var(--color-amber)]"
+                      : "border-hair",
+                  )}
+                >
+                  <TemplateThumbnail template={spec} />
+                  <span className="flex flex-col gap-px px-1 pb-1">
+                    <span className="text-[13px] font-semibold">
+                      {spec.name}
+                    </span>
+                    <span className="text-ink-3 text-xs leading-[1.4]">
+                      {spec.description}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </Group>
 
       <Group

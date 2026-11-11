@@ -1,4 +1,5 @@
 import type { TemplateSpec } from "@renderverse/document-renderer";
+import { cn } from "@/shared/lib/cn";
 import { sideColumn, structureOf } from "../lib/templates";
 
 const line = (width: string) => (
@@ -7,9 +8,26 @@ const line = (width: string) => (
 
 export default function TemplateThumbnail({
   template,
+  className,
 }: {
   template: TemplateSpec;
+  className?: string;
 }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "border-hair-soft flex aspect-[4/3] flex-col gap-[5px] overflow-hidden rounded-md border bg-white",
+        { stack: "p-2.5", band: "p-0", header: "p-2" }[structureOf(template)],
+        className,
+      )}
+    >
+      <Sketch template={template} />
+    </span>
+  );
+}
+
+function Sketch({ template }: { template: TemplateSpec }) {
   const accent = template.accent;
   const structure = structureOf(template);
   const flow = (sideColumn(template) ?? 1) === 1 ? "row" : "row-reverse";

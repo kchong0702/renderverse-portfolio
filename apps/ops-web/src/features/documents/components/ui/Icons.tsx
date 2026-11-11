@@ -53,6 +53,12 @@ export const DetailsIcon = () => (
   </Icon>
 );
 
+export const ChevronIcon = () => (
+  <Icon>
+    <path d="M6 9l6 6 6-6" />
+  </Icon>
+);
+
 export const PersonIcon = () => (
   <Icon>
     <circle cx="12" cy="9" r="4" />
