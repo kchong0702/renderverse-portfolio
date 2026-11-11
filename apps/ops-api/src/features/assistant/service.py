@@ -32,16 +32,17 @@ class AssistantService:
     ) -> AsyncIterator[str]:
         """Start a turn of the user's chat and return its events as they come; Conflict
         while a turn runs"""
-        key = f"{user_id}:{chat_id}"
+        thread_id = f"{user_id}:{chat_id}"
         data = await self._profile.agent_profile(user_id)
         metadata = await self._settings.run_metadata(user_id)
         return await self._runner.start_task(
             user_id,
-            key,
+            thread_id,
+            _AGENT,
             self._ezcareer.stream(
                 _AGENT,
                 str,
-                context_id=key,
+                context_id=thread_id,
                 text=message.text,
                 data=data,
                 metadata=metadata,
@@ -53,15 +54,16 @@ class AssistantService:
     ) -> AsyncIterator[str]:
         """Answer the widget a paused turn of the chat asked and return the rest of
         the turn's events as they come; Conflict while a turn runs"""
-        key = f"{user_id}:{chat_id}"
+        thread_id = f"{user_id}:{chat_id}"
         metadata = await self._settings.run_metadata(user_id)
         return await self._runner.start_task(
             user_id,
-            key,
+            thread_id,
+            _AGENT,
             self._ezcareer.stream_resume(
                 _AGENT,
                 str,
-                context_id=key,
+                context_id=thread_id,
                 task_id=task_id,
                 answer=answer,
                 metadata=metadata,

@@ -311,7 +311,11 @@ async def test_a_stream_closed_before_the_turn_ends_cancels_its_task(harness):
     harness.outcomes = [[_task(), _status("WORKING")], {"result": cancelled}]
     ezcareer = EzcareerClient(get_settings().ezcareer, httpx2.MockTransport(harness))
     run = ezcareer.stream(
-        "career-director", str, context_id="u:c", data=Answer(), metadata=None
+        "career-director",
+        str,
+        context_id="u:c",
+        data=Answer(),
+        metadata=None,
     )
 
     assert await anext(run) == Started(task_id="task-1")
@@ -378,7 +382,9 @@ async def test_nothing_resumes_from_another_run_or_an_idle_chat(client, harness)
 
 async def test_a_chat_takes_no_new_message_while_its_turn_runs(app, client, harness):
     me = (await client.get(f"{PREFIX}/me")).json()
-    await app.state.container.store().create(UUID(me["id"]), f"{me['id']}:{CHAT_ID}")
+    await app.state.container.store().create(
+        UUID(me["id"]), f"{me['id']}:{CHAT_ID}", "career-director"
+    )
 
     response = await client.post(f"{CHAT}/messages", json={"text": "Again"})
 
