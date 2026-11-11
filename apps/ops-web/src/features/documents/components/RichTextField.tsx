@@ -11,7 +11,7 @@ import { UndoRedo } from "@tiptap/extensions";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { useEffect, useRef } from "react";
 import { useEditorStore } from "../state/editorStore";
-import { usePage } from "./page/PageContext";
+import { usePage } from "./ui/PageContext";
 
 const Size = Mark.create({
   name: "size",

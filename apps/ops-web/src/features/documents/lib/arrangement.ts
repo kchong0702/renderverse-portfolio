@@ -50,7 +50,7 @@ export function relocate(
   );
 }
 
-export const withArrangement = (
+export const replaceTemplateLayout = (
   design: Design,
   template: string,
   arrangement: Arrangement,

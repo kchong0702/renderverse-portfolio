@@ -22,7 +22,7 @@ import {
 } from "./chrome";
 import Handle from "./Handle";
 import HotBar from "./HotBar";
-import { DeleteIcon, DownIcon, DuplicateIcon, MoveIcon, UpIcon } from "./icons";
+import { DeleteIcon, DownIcon, DuplicateIcon, MoveIcon, UpIcon } from "./Icons";
 import { arrange, blockLabel, usePage } from "./PageContext";
 
 export default function BlockFrame({
