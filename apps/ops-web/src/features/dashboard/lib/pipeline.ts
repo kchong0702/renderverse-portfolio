@@ -44,9 +44,12 @@ export function hasReached(
 export function lastEightWeeks(
   applications: Application[],
 ): { start: Date; sent: number; replied: number }[] {
-  const monday = new Date();
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const now = new Date();
+  const monday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - ((now.getDay() + 6) % 7),
+  );
   return Array.from({ length: 8 }, (_, index) => {
     const start = new Date(monday);
     start.setDate(monday.getDate() - (7 - index) * 7);

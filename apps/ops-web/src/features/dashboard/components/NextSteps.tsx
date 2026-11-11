@@ -34,8 +34,8 @@ export default function NextSteps({
 }: NextStepsProps) {
   const { t, i18n } = useTranslation();
   const headingId = useId();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   const rows: Row[] = [
     ...applications
