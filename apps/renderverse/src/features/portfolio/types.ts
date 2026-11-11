@@ -12,6 +12,11 @@ export interface ProjectItem {
   vid_path: string | null;
 }
 
+export interface SkillItem {
+  name: string;
+  rating: number;
+}
+
 /** sites/<user_id>/release/current.json, which Ops publishes */
 export interface Release {
   number: number;
