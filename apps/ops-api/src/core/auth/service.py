@@ -12,7 +12,7 @@ from src.core.auth.passwords import MIN_PASSWORD_LENGTH, hash_password, verify_p
 from src.core.auth.repository import AuthRepository
 from src.core.config import AuthSettings
 from src.core.exceptions import Forbidden, InvalidInput, TooManyRequests, Unauthorized
-from src.db.base import aware, utcnow
+from src.db.base import as_utc, utcnow
 
 _RENEW_AFTER = timedelta(hours=1)
 
@@ -108,7 +108,7 @@ class AuthService:
         user = await self._repository.user(session.user_id)
         if user is None or not self.is_allowed(user.email):
             return None
-        if now - aware(session.last_seen_at) > _RENEW_AFTER:
+        if now - as_utc(session.last_seen_at) > _RENEW_AFTER:
             session.last_seen_at = now
             session.expires_at = now + self._idle_timeout
         return user

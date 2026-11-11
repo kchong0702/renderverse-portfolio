@@ -6,7 +6,7 @@ from uuid import UUID
 from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.clients.google import RECONNECT, SCOPES, GoogleClient
+from src.clients.google import RECONNECT, GoogleClient
 from src.core.config import GoogleSettings
 from src.core.exceptions import Conflict, InvalidInput, ServiceUnavailable
 from src.features.google.models import GoogleAccount
@@ -57,7 +57,9 @@ class GoogleService:
     async def has_scopes(self, user_id: UUID) -> bool:
         """Whether the stored grant allows every scope Ops now asks Google for"""
         account = await self._repository.get(user_id)
-        return account is not None and set(SCOPES) <= set(account.scopes.split())
+        return account is not None and set(self._settings.scopes) <= set(
+            account.scopes.split()
+        )
 
     def authorize_url(self, state: str) -> str:
         """Google's consent page, carrying the state the callback must echo"""
@@ -70,7 +72,7 @@ class GoogleService:
         InvalidInput when the user did not allow every scope Ops asks for"""
         fernet = self._fernet()
         tokens = await self._client.exchange_code(code)
-        if not set(SCOPES) <= set(tokens.scope.split()):
+        if not set(self._settings.scopes) <= set(tokens.scope.split()):
             raise InvalidInput(
                 "Allow every Gmail and Calendar permission Google asks for to connect"
             )

@@ -39,7 +39,7 @@ from src.core.exceptions import (
     ServiceUnavailable,
 )
 from src.core.logging import get_logger
-from src.db.base import aware, utcnow
+from src.db.base import as_utc, utcnow
 from src.db.session import session_scope
 from src.features.applications.models import Application
 from src.features.applications.repository import ApplicationRepository
@@ -290,7 +290,7 @@ class InboxService:
             thread = threads.get(message.thread_id)
             if thread is None or thread.interview_start is None or thread.event_id:
                 continue
-            start = aware(thread.interview_start)
+            start = as_utc(thread.interview_start)
             if start <= utcnow():
                 continue
             event_id = sha256(f"{user_id}:{message.thread_id}".encode()).hexdigest()
@@ -311,7 +311,7 @@ class InboxService:
                         if application
                         else "Interview",
                         start=start,
-                        end=aware(thread.interview_end)
+                        end=as_utc(thread.interview_end)
                         if thread.interview_end
                         else start + timedelta(minutes=self._config.interview_minutes),
                         location=thread.interview_location,
