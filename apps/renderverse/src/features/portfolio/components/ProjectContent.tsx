@@ -10,9 +10,11 @@ export default function ProjectContent({ content }: { content: ProjectItem }) {
       <div style={{ display: "flex" }}>
         <h2>{proj_name}</h2>
       </div>
-      <div>
-        <video width={"100%"} src={vid_path} autoPlay muted loop></video>
-      </div>
+      {vid_path && (
+        <div>
+          <video width={"100%"} src={vid_path} autoPlay muted loop></video>
+        </div>
+      )}
       <ul style={{ marginTop: "1rem", display: "flex" }}>
         {github_link && (
           <li

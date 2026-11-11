@@ -6,6 +6,8 @@ import { MathJaxContext, MathJax } from "better-react-mathjax";
 import { useTranslation } from "react-i18next";
 import { useRef } from "react";
 import { useFitFontSize } from "@/shared/hooks/useFitFontSize";
+import { useRelease } from "@/features/portfolio/hooks/useRelease";
+import type { SkillItem } from "@/features/portfolio/types";
 
 const DISTANCE_FACTOR = 2.4;
 
@@ -47,38 +49,49 @@ function Skills() {
     },
   });
 
-  const skills = {
-    [t("skills.categories.ai")]: [
-      { name: t("skills.items.computerUseAgent"), rating: 5 },
-      { name: t("skills.items.voiceAgent"), rating: 5 },
-      { name: t("skills.items.bankingAgent"), rating: 5 },
-    ],
-    [t("skills.categories.frameworks")]: [
-      { name: t("skills.items.langgraph"), rating: 5 },
-      { name: t("skills.items.pytorch"), rating: 5 },
-      { name: t("skills.items.springBoot"), rating: 5 },
-      { name: t("skills.items.qt"), rating: 5 },
-      { name: t("skills.items.angular"), rating: 5 },
-      { name: t("skills.items.flutter"), rating: 5 },
-    ],
-    [t("skills.categories.telephony")]: [
-      { name: t("skills.items.pbx"), rating: 5 },
-      { name: t("skills.items.smpp"), rating: 5 },
-      { name: t("skills.items.livekit"), rating: 5 },
-      { name: t("skills.items.stuner"), rating: 5 },
-    ],
-    [t("skills.categories.language")]: [
-      { name: t("skills.items.cpp"), rating: 5 },
-      { name: t("skills.items.python"), rating: 5 },
-      { name: t("skills.items.java"), rating: 5 },
-      { name: t("skills.items.rust"), rating: 5 },
-    ],
-    [t("skills.categories.ops")]: [
-      { name: t("skills.items.terraform"), rating: 5 },
-      { name: t("skills.items.aws"), rating: 5 },
-      { name: t("skills.items.gcp"), rating: 5 },
-    ],
-  };
+  const { data: release, isLoading } = useRelease();
+  const skills: Record<string, SkillItem[]> = isLoading
+    ? {}
+    : release
+      ? release.skills.reduce<Record<string, SkillItem[]>>(
+          (groups, { group, name }) => ({
+            ...groups,
+            [group]: [...(groups[group] ?? []), { name, rating: 5 }],
+          }),
+          {},
+        )
+      : {
+          [t("skills.categories.ai")]: [
+            { name: t("skills.items.computerUseAgent"), rating: 5 },
+            { name: t("skills.items.voiceAgent"), rating: 5 },
+            { name: t("skills.items.bankingAgent"), rating: 5 },
+          ],
+          [t("skills.categories.frameworks")]: [
+            { name: t("skills.items.langgraph"), rating: 5 },
+            { name: t("skills.items.pytorch"), rating: 5 },
+            { name: t("skills.items.springBoot"), rating: 5 },
+            { name: t("skills.items.qt"), rating: 5 },
+            { name: t("skills.items.angular"), rating: 5 },
+            { name: t("skills.items.flutter"), rating: 5 },
+          ],
+          [t("skills.categories.telephony")]: [
+            { name: t("skills.items.pbx"), rating: 5 },
+            { name: t("skills.items.smpp"), rating: 5 },
+            { name: t("skills.items.livekit"), rating: 5 },
+            { name: t("skills.items.stuner"), rating: 5 },
+          ],
+          [t("skills.categories.language")]: [
+            { name: t("skills.items.cpp"), rating: 5 },
+            { name: t("skills.items.python"), rating: 5 },
+            { name: t("skills.items.java"), rating: 5 },
+            { name: t("skills.items.rust"), rating: 5 },
+          ],
+          [t("skills.categories.ops")]: [
+            { name: t("skills.items.terraform"), rating: 5 },
+            { name: t("skills.items.aws"), rating: 5 },
+            { name: t("skills.items.gcp"), rating: 5 },
+          ],
+        };
 
   const contentRef = useRef(null);
   useFitFontSize(contentRef, FONT_PX, JSON.stringify(skills));

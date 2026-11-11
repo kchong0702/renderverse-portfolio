@@ -22,7 +22,9 @@ function Project({ project, handleModalInteraction }: ProjectProps) {
       }}
     >
       <div className={styles.imgcontainer}>
-        <img src={img_path} alt={img_path} className={styles.projimg} />
+        {img_path && (
+          <img src={img_path} alt={proj_name} className={styles.projimg} />
+        )}
       </div>
       <div className={styles.projname}>
         <span>{proj_name}</span>
