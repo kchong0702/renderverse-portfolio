@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
+from contextlib import suppress
 from datetime import timedelta
 from functools import partial
 from pathlib import PurePath
@@ -17,6 +18,7 @@ from document_schema import (
 )
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from rapidfuzz import fuzz, process, utils
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.clients.artifact import ArtifactClient, Render
@@ -57,7 +59,6 @@ from src.features.documents.schemas import (
     DocumentCreate,
     DocumentEdits,
     DocumentMatch,
-    DocumentMessage,
     DocumentRead,
     DocumentRequest,
     DocumentsAnswer,
@@ -71,6 +72,7 @@ from src.features.documents.schemas import (
     ImportResumeInput,
     ImportResumeOutput,
     LineRead,
+    TailoredDocument,
     VersionCreate,
     VersionRead,
 )
@@ -434,6 +436,51 @@ class DocumentService:
         row.changeset = row.changeset.model_copy(update={"status": decision.status})
         return ChangesetRead.model_validate(row, from_attributes=True)
 
+    async def copy_for_job(
+        self, user_id: UUID, job_id: UUID, kind: DocumentKind, title: str
+    ) -> Document | None:
+        """The job's copy of the master of this kind, made the first time; None
+        without a master, Conflict when the user keeps the most of this kind"""
+        documents = await self._repository.documents(user_id)
+        document = next(
+            (d for d in documents if d.job_id == job_id and d.kind is kind), None
+        )
+        if document is not None:
+            return document
+        master = next((d for d in documents if d.master and d.kind is kind), None)
+        if master is None:
+            return None
+        await self._make_room(user_id, kind)
+        try:
+            document = await self._repository.add(
+                Document(
+                    user_id=user_id,
+                    kind=kind,
+                    title=title,
+                    body=master.body,
+                    lines=master.lines,
+                    job_id=job_id,
+                )
+            )
+        except IntegrityError as error:
+            raise Conflict("This job's documents are already being tailored") from error
+        await self._keep(document, f"Copied from {master.title}")
+        return document
+
+    async def tailor(
+        self, user_id: UUID, document: Document, text: str
+    ) -> TailoredDocument:
+        """Start the copy's chat turn on text unless a changeset still waits for the
+        user; a turn already running carries on"""
+        waiting = any(
+            row.changeset.status is ChangesetStatus.PENDING
+            for row in await self._repository.changesets([document.id])
+        )
+        if not waiting:
+            with suppress(Conflict):
+                await self.chat(user_id, document.id, text)
+        return TailoredDocument(document_id=document.id, tailoring=not waiting)
+
     async def _chat_events(
         self,
         user_id: UUID,
@@ -455,7 +502,7 @@ class DocumentService:
                 yield event
 
     async def chat(
-        self, user_id: UUID, document_id: UUID, message: DocumentMessage
+        self, user_id: UUID, document_id: UUID, text: str
     ) -> AsyncIterator[str]:
         """Start a turn of the document's chat and return its events as they come;
         Conflict while a turn runs"""
@@ -479,7 +526,7 @@ class DocumentService:
                     EditDocumentOutput,
                     user_id=user_id,
                     context_id=context_id,
-                    text=message.text,
+                    text=text,
                     data=data,
                     metadata=metadata,
                     answer_data_request=partial(self.answer_data_request, user_id),

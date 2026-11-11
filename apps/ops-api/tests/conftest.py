@@ -2,6 +2,7 @@ import json
 import os
 from base64 import b64encode
 from collections.abc import AsyncIterator
+from tempfile import TemporaryDirectory
 
 import httpx2
 import pytest
@@ -9,7 +10,6 @@ from dependency_injector import providers
 from fastapi import FastAPI
 from pydantic import JsonValue
 from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.pool import StaticPool
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 
@@ -228,11 +228,8 @@ async def _app(
     from src.db.session import create_session_factory
 
     settings = reload_settings()
-    engine = create_async_engine(
-        "sqlite+aiosqlite://",
-        poolclass=StaticPool,
-        connect_args={"check_same_thread": False},
-    )
+    directory = TemporaryDirectory()
+    engine = create_async_engine(f"sqlite+aiosqlite:///{directory.name}/ops.db")
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
 
@@ -258,6 +255,7 @@ async def _app(
 
     yield create_app(container)
     await engine.dispose()
+    directory.cleanup()
 
 
 def _client(app: FastAPI) -> httpx2.AsyncClient:

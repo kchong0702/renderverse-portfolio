@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, computed_field
 
+from src.features.documents import TailoredDocument
 from src.features.jobs.enums import Importance, JobStatus, Match
 from src.features.profile import AgentProfile
 from src.features.settings import SearchQuota
@@ -181,6 +182,15 @@ class FindJobsOutput(BaseModel):
     """JSearch's searches left, from its rate-limit headers; None when not sent"""
 
 
+class TailorRead(BaseModel):
+    resume: TailoredDocument
+    """The job's résumé, copied from the master résumé"""
+
+    cover_letter: TailoredDocument | None
+    """The job's cover letter, copied from the master cover letter; None when
+    there is no master cover letter, so only the résumé is tailored"""
+
+
 __all__ = [
     "AnalyseJobInput",
     "AnalyseJobOutput",
@@ -194,4 +204,5 @@ __all__ = [
     "JobSearch",
     "JobUpdate",
     "Requirement",
+    "TailorRead",
 ]

@@ -24,6 +24,7 @@ from src.features.documents.schemas import LookSuggestion, SourceLine
 class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
     __tablename__ = "documents"
     __table_args__ = (
+        UniqueConstraint("job_id", "kind"),
         Index(
             "uq_documents_master",
             "user_id",
@@ -53,6 +54,11 @@ class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
     )
     """The imported file's lines, which edit-document checks citations against;
     empty for a document not imported"""
+
+    job_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("jobs.id", ondelete="SET NULL"), default=None
+    )
+    """The job it was tailored to from the master of its kind; None otherwise"""
 
 
 class DocumentVersion(IdMixin, UserScopedMixin, AuditMixin, Base):

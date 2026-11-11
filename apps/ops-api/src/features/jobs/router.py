@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from src.clients.ezcareer import Completed, Failed
 from src.core.auth import CurrentUserDep
 from src.db.session import SessionDep
+from src.features.documents import DocumentServiceDep
 from src.features.jobs.schemas import (
     FitAnalysis,
     JobCreate,
@@ -14,6 +15,7 @@ from src.features.jobs.schemas import (
     JobRunRead,
     JobSearch,
     JobUpdate,
+    TailorRead,
 )
 from src.features.jobs.service import JobService
 from src.features.profile import ProfileServiceDep
@@ -26,11 +28,12 @@ def get_job_service(
     session: SessionDep,
     profile: ProfileServiceDep,
     settings: SettingsServiceDep,
+    documents: DocumentServiceDep,
     request: Request,
 ) -> JobService:
-    """The job service on the request's database session, and the profile and
-    settings services"""
-    return JobService(session, profile, settings, request.app.state.ezcareer)
+    """The job service on the request's database session, and the profile,
+    settings and documents services"""
+    return JobService(session, profile, settings, documents, request.app.state.ezcareer)
 
 
 JobServiceDep = Annotated[JobService, Depends(get_job_service)]
@@ -93,3 +96,12 @@ async def analyse_job(
     """Analyse the job's posting against the profile and store the analysis,
     or fail with the agent's reason"""
     return await service.analyse_posting(user.id, job_id)
+
+
+@router.post("/{job_id}/tailor")
+async def tailor_documents(
+    job_id: UUID, user: CurrentUserDep, service: JobServiceDep
+) -> TailorRead:
+    """Tailor the master résumé and cover letter to the job: each is copied once
+    and edit-document's changeset waits for review in Documents"""
+    return await service.tailor(user.id, job_id)
