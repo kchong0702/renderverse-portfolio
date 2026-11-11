@@ -433,6 +433,8 @@
     },
     "design": {
       "template": "Template",
+      "templateChange": "Change",
+      "templateDone": "Done",
       "templateHint": "Your words stay the same whichever you pick.",
       "templatesFailed": "Templates come from artifact-service, which did not answer: {{reason}}",
       "accent": "Accent colour",
