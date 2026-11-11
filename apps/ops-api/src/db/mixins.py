@@ -24,8 +24,9 @@ class TimestampMixin:
 
 
 class AuditMixin(TimestampMixin):
-    """When and by whom a row was created and last changed; every feature table uses
-    it, and tests fail on one without it. Only the latest change is kept, not a history.
+    """When and by whom a row was created and last changed; every feature and agent
+    run table uses it, and tests fail on one without it. Only the latest change is
+    kept, not a history.
     The *_by columns hold an actor string (see actor.py), filled in on insert and update.
     """
 

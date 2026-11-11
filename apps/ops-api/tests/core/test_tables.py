@@ -15,12 +15,12 @@ def test_every_table_belongs_to_a_user():
     assert missing == [], f"tables without user_id: {missing}"
 
 
-def test_every_feature_table_is_audited():
+def test_every_feature_and_agent_run_table_is_audited():
     missing = [
         mapper.class_.__tablename__
         for mapper in Base.registry.mappers
-        if mapper.class_.__module__.startswith("src.features.")
+        if mapper.class_.__module__.startswith(("src.features.", "src.core.stores."))
         and not issubclass(mapper.class_, AuditMixin)
     ]
 
-    assert missing == [], f"feature tables without AuditMixin: {missing}"
+    assert missing == [], f"tables without AuditMixin: {missing}"

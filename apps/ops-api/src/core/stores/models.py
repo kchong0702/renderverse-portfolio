@@ -1,20 +1,31 @@
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.db.base import Base, utcnow
-from src.db.mixins import UserScopedMixin
+from src.core.stores.enums import AgentRunStatus
+from src.db.base import Base, EnumString, utcnow
+from src.db.mixins import AuditMixin, UserScopedMixin
 
 
-class AgentRun(UserScopedMixin, Base):
+class AgentRun(UserScopedMixin, AuditMixin, Base):
     __tablename__ = "agent_runs"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     """The run's id"""
 
-    key: Mapped[str] = mapped_column(String(200), index=True)
-    """What the run belongs to, such as a user's chat"""
+    thread_id: Mapped[str] = mapped_column(String(200), index=True)
+    """The A2A context_id the run belongs to, such as a user's chat"""
+
+    agent: Mapped[str] = mapped_column(String(100))
+    """The harness agent or workflow the run calls"""
+
+    task_id: Mapped[str | None] = mapped_column(String(100))
+    """The A2A task the run started or resumed; None until it starts"""
+
+    status: Mapped[AgentRunStatus] = mapped_column(EnumString(AgentRunStatus))
+    """Where the run stands"""
 
     active_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     """When the run last started or added an event"""
@@ -23,7 +34,7 @@ class AgentRun(UserScopedMixin, Base):
     """When the run ended; None while it runs"""
 
 
-class AgentEvent(UserScopedMixin, Base):
+class AgentEvent(UserScopedMixin, AuditMixin, Base):
     __tablename__ = "agent_events"
 
     run_id: Mapped[str] = mapped_column(
@@ -34,8 +45,8 @@ class AgentEvent(UserScopedMixin, Base):
     seq: Mapped[int] = mapped_column(primary_key=True)
     """The event's number in its run, from 1"""
 
-    data: Mapped[str] = mapped_column(Text)
-    """The event as JSON"""
+    data: Mapped[dict[str, Any]]
+    """The event"""
 
 
 __all__ = ["AgentEvent", "AgentRun"]

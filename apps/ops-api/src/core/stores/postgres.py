@@ -3,15 +3,17 @@ import secrets
 from collections.abc import AsyncIterator
 from contextlib import suppress
 from datetime import datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 import asyncpg
-from sqlalchemy import delete, func, insert, literal, select, update
+from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.core.config import DatabaseSettings, EzcareerSettings
 from src.core.exceptions import Conflict, NotFound
+from src.core.stores.enums import AgentRunStatus
 from src.core.stores.models import AgentEvent, AgentRun
 from src.db.base import utcnow
 
@@ -73,39 +75,47 @@ class PostgresRunStore:
         """The oldest last activity of a run still taken to be running"""
         return utcnow() - timedelta(seconds=self._settings.run_timeout_seconds)
 
-    async def create(self, user_id: UUID, key: str) -> str:
-        """Open a new run of the user's for key and return its id, one create per key at
-        a time; Conflict while key's last run is still going and recently active"""
+    async def create(self, user_id: UUID, thread_id: str, agent: str) -> str:
+        """Open a running run of the user's agent on thread_id and return its id, one
+        create per thread at a time; Conflict while thread_id's last run is still going
+        and recently active"""
         async with self._factory() as session, session.begin():
             await session.execute(
-                select(func.pg_advisory_xact_lock(func.hashtext(key)))
+                select(func.pg_advisory_xact_lock(func.hashtext(thread_id)))
             )
             running = await session.scalar(
                 select(AgentRun.id).where(
-                    AgentRun.key == key,
-                    AgentRun.finished_at.is_(None),
+                    AgentRun.thread_id == thread_id,
+                    AgentRun.status == AgentRunStatus.RUNNING,
                     AgentRun.active_at > self._alive_since(),
                 )
             )
             if running:
                 raise Conflict("Wait for the current reply to finish")
-            await session.execute(delete(AgentRun).where(AgentRun.key == key))
-            run = AgentRun(id=secrets.token_hex(8), user_id=user_id, key=key)
+            await session.execute(
+                delete(AgentRun).where(AgentRun.thread_id == thread_id)
+            )
+            run = AgentRun(
+                id=secrets.token_hex(8),
+                user_id=user_id,
+                thread_id=thread_id,
+                agent=agent,
+                status=AgentRunStatus.RUNNING,
+            )
             session.add(run)
         return run.id
 
-    async def append(self, run_id: str, seq: int, data: str) -> None:
+    async def append(self, run_id: str, seq: int, data: dict[str, Any]) -> None:
         """Keep the run's event and notify every process reading it"""
         async with self._factory() as session, session.begin():
             await session.execute(
-                insert(AgentEvent).from_select(
-                    ["user_id", "run_id", "seq", "data"],
-                    select(
-                        AgentRun.user_id,
-                        literal(run_id),
-                        literal(seq),
-                        literal(data),
-                    ).where(AgentRun.id == run_id),
+                insert(AgentEvent).values(
+                    user_id=select(AgentRun.user_id)
+                    .where(AgentRun.id == run_id)
+                    .scalar_subquery(),
+                    run_id=run_id,
+                    seq=seq,
+                    data=data,
                 )
             )
             await session.execute(
@@ -113,26 +123,35 @@ class PostgresRunStore:
             )
             await session.execute(select(func.pg_notify(_CHANNEL, run_id)))
 
-    async def finish(self, run_id: str) -> None:
-        """Mark the run ended and notify every process reading it"""
+    async def finish(
+        self, run_id: str, status: AgentRunStatus, task_id: str | None
+    ) -> None:
+        """Mark the run ended with status and the A2A task it ran, and notify every
+        process reading it"""
         async with self._factory() as session, session.begin():
             await session.execute(
                 update(AgentRun)
                 .where(AgentRun.id == run_id)
-                .values(finished_at=utcnow())
+                .values(status=status, task_id=task_id, finished_at=utcnow())
             )
             await session.execute(select(func.pg_notify(_CHANNEL, run_id)))
 
-    async def latest(self, key: str) -> tuple[str, int]:
-        """Key's run a client may still read and how many events it has; NotFound once
-        it ended over replay_ttl_seconds ago or went silent past run_timeout_seconds"""
+    async def latest(self, thread_id: str) -> tuple[str, int]:
+        """thread_id's run a client may still read and how many events it has; NotFound
+        once it ended over replay_ttl_seconds ago or went silent past
+        run_timeout_seconds"""
         replay_after = utcnow() - timedelta(seconds=self._settings.replay_ttl_seconds)
         async with self._factory() as session:
-            run = await session.scalar(select(AgentRun).where(AgentRun.key == key))
+            run = await session.scalar(
+                select(AgentRun).where(AgentRun.thread_id == thread_id)
+            )
             if (
                 run is None
                 or (run.finished_at is not None and run.finished_at < replay_after)
-                or (run.finished_at is None and run.active_at <= self._alive_since())
+                or (
+                    run.status == AgentRunStatus.RUNNING
+                    and run.active_at <= self._alive_since()
+                )
             ):
                 raise NotFound("There is no reply to resume")
             count = (
@@ -142,9 +161,9 @@ class PostgresRunStore:
             ).scalar_one()
         return run.id, count
 
-    async def read(self, run_id: str, after: int) -> AsyncIterator[str]:
-        """The JSON data of the run's events after the first `after`, then of each new
-        one until it ends or goes silent past run_timeout_seconds"""
+    async def read(self, run_id: str, after: int) -> AsyncIterator[dict[str, Any]]:
+        """The run's events after the first `after`, then each new one until it ends or
+        goes silent past run_timeout_seconds"""
         await self._listen()
         sent = after
         while True:
@@ -163,7 +182,7 @@ class PostgresRunStore:
                 yield event.data
             if (
                 run is None
-                or run.finished_at is not None
+                or run.status != AgentRunStatus.RUNNING
                 or run.active_at <= self._alive_since()
             ):
                 self._changed.pop(run_id, None)
