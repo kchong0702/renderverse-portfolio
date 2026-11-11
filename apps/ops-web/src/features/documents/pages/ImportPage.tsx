@@ -33,7 +33,7 @@ export default function ImportPage() {
 
   return (
     <>
-      <header className="bg-panel border-hair flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b px-10 py-3.5">
+      <header className="bg-header border-hair flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b px-10 py-3.5">
         <div className="flex min-w-0 items-baseline gap-2.5">
           <Link
             to="/documents"
@@ -52,7 +52,7 @@ export default function ImportPage() {
           <span className="text-ink-3 text-sm/[1.6]">{current.filename}</span>
         )}
       </header>
-      <PageBody>
+      <PageBody wide>
         <ImportSteps read={!!current?.document_id} />
         {imports.isPending ? (
           <StateMessage>{t("common.loading")}</StateMessage>
