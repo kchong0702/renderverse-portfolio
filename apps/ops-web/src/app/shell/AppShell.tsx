@@ -9,7 +9,7 @@ export default function AppShell() {
   const item = navItemAt(useLocation().pathname);
 
   return (
-    <div className="flex min-h-screen flex-wrap">
+    <div className="flex min-h-screen flex-wrap min-[792px]:h-screen min-[792px]:flex-nowrap">
       <Sidebar />
       <main className="flex min-w-0 flex-[999_1_560px] flex-col">
         <Outlet />
