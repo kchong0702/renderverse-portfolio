@@ -15,6 +15,8 @@ export interface Automation {
   tailor_strong_matches: boolean;
   follow_up_reminders: boolean;
   suggest_replies: boolean;
+  add_interview_invites: boolean;
+  offer_free_slots: boolean;
 }
 
 export interface Scheduling {
@@ -30,8 +32,9 @@ export interface SearchQuota {
 
 export interface Connection {
   id: ConnectionId;
-  status: "connected" | "not_connected";
+  status: "connected" | "needs_reconnect" | "not_connected" | "not_configured";
   quota: SearchQuota | null;
+  account: string | null;
 }
 
 export interface ModelChoice {
@@ -74,3 +77,9 @@ export const connectJsearch = (apiKey: string) =>
 
 export const disconnectJsearch = () =>
   http.delete<Settings>(`${URL}/connections/jsearch`);
+const GOOGLE_URL = `${config.opsApiUrl}/integrations/google`;
+
+export const googleConnectUrl = (next: string) =>
+  `${GOOGLE_URL}/connect?${new URLSearchParams({ next })}`;
+
+export const disconnectGoogle = () => http.delete(GOOGLE_URL);

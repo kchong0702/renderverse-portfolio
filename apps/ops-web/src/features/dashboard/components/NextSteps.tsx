@@ -95,6 +95,10 @@ export default function NextSteps({
               whenInk: "text-warn",
               title: t("dashboard.next.followUp", { company: a.company }),
               detail: t("dashboard.next.noReply"),
+              action: {
+                label: t("dashboard.next.draftEmail"),
+                to: `/inbox?followUp=${a.id}`,
+              },
             },
           ];
     }),

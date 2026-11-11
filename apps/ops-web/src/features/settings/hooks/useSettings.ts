@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   connectJsearchMutationOptions,
+  disconnectGoogleMutationOptions,
   disconnectJsearchMutationOptions,
   modelsQueryOptions,
   settingsQueryOptions,
@@ -9,6 +10,19 @@ import {
 
 export function useSettings() {
   return useQuery(settingsQueryOptions);
+}
+
+export function useGoogleAccount() {
+  const settings = useSettings();
+  const google = settings.data?.connections.find(({ id }) => id === "google");
+  return {
+    settings,
+    account: google?.account ?? null,
+    problem:
+      google?.status === "not_configured"
+        ? ("not_configured" as const)
+        : ("not_connected" as const),
+  };
 }
 
 export function useUpdateSettings() {
@@ -25,4 +39,8 @@ export function useConnectJsearch() {
 
 export function useDisconnectJsearch() {
   return useMutation(disconnectJsearchMutationOptions);
+}
+
+export function useDisconnectGoogle() {
+  return useMutation(disconnectGoogleMutationOptions);
 }
