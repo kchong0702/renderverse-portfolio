@@ -1,5 +1,6 @@
 import i18n from "@/i18n";
 import { ApiError, http } from "@/shared/api/http";
+import { config } from "@/shared/config";
 
 export type MediaSlot = "image" | "video";
 export type MediaType = "image/png" | "image/jpeg" | "image/webp" | "video/mp4";
@@ -30,7 +31,7 @@ interface UploadTarget {
   headers: Record<string, string>;
 }
 
-const URL = "/ops-api/v1/portfolio";
+const URL = `${config.opsApiUrl}/portfolio`;
 
 export const fetchAssets = (signal?: AbortSignal) =>
   http.get<Asset[]>(`${URL}/assets`, signal);
