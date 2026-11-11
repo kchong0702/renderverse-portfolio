@@ -19,7 +19,7 @@ export default function Sidebar() {
   const { t } = useTranslation();
   const { data: me } = useMe();
   const { data: profile } = useProfile();
-  const name = profile?.name || me?.email;
+  const name = profile && (profile.name || me?.email);
   const badges = useNavBadges();
   const isAdmin = useIsAdmin();
 
