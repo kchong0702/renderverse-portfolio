@@ -1,27 +1,33 @@
 # Renderverse
 
-Nx monorepo for the Renderverse 3D portfolio, Ezbot, its chatbot, and Ops, the private career workspace behind them.
+Nx monorepo for the Renderverse 3D portfolio, Ezbot, its chatbot, and Ops, the private career workspace behind them, with the ezcareer harness that runs Ops' career agents.
 
 ## Workspace Structure
 
-| App                                  | Stack                         | Description                              |
-| ------------------------------------ | ----------------------------- | ---------------------------------------- |
-| [renderverse](apps/renderverse/)     | React / Three.js / Vite       | 3D portfolio web app                     |
-| [ezbot-harness](apps/ezbot-harness/) | Python / LangGraph            | AI chatbot backend (work in progress)    |
-| [ops-web](apps/ops-web/)             | React / Vite / Tailwind       | Ops UI: job search, documents, portfolio |
-| [ops-api](apps/ops-api/)             | Python / FastAPI / SQLAlchemy | Ops system of record                     |
+| App                                        | Stack                           | Description                                       |
+| ------------------------------------------ | ------------------------------- | ------------------------------------------------- |
+| [renderverse](apps/renderverse/)           | React / Three.js / Vite         | 3D portfolio web app                              |
+| [ezbot-harness](apps/ezbot-harness/)       | Python / LangGraph              | AI chatbot backend (work in progress)             |
+| [ops-web](apps/ops-web/)                   | React / Vite / Tailwind         | Ops UI: job search, documents, portfolio          |
+| [ops-api](apps/ops-api/)                   | Python / FastAPI / SQLAlchemy   | Ops system of record                              |
+| [ezcareer-harness](apps/ezcareer-harness/) | Python / LangGraph / deepagents | Ops' career agents and workflows, served over A2A |
+| [artifact-service](apps/artifact-service/) | Python / FastAPI / Playwright   | Prints documents to PDF, converts Word résumés    |
 
-Shared libraries go in `packages/`.
+| Package                                          | Stack             | Description                                                 |
+| ------------------------------------------------ | ----------------- | ----------------------------------------------------------- |
+| [document-schema](packages/document-schema/)     | Python / Pydantic | Résumé, CV and cover-letter model, edits and templates      |
+| [document-renderer](packages/document-renderer/) | React / Paged.js  | Draws documents as paginated HTML, for ops-web and printing |
 
 ## Prerequisites
 
-| Tool    | Notes                                                               |
-| ------- | ------------------------------------------------------------------- |
-| Node.js | CI uses Node 24                                                     |
-| pnpm    | Version pinned in `packageManager`; `corepack enable` installs it   |
-| uv      | Python dependency manager ([install](https://docs.astral.sh/uv/))   |
-| Python  | 3.13+, downloaded automatically by `bootstrap` if none is installed |
-| Docker  | Runs Laya, the collector and the Ops Postgres, builds Ezbot images  |
+| Tool        | Notes                                                                |
+| ----------- | -------------------------------------------------------------------- |
+| Node.js     | CI uses Node 24                                                      |
+| pnpm        | Version pinned in `packageManager`; `corepack enable` installs it    |
+| uv          | Python dependency manager ([install](https://docs.astral.sh/uv/))    |
+| Python      | 3.13+, downloaded automatically by `bootstrap` if none is installed  |
+| Docker      | Runs Laya, the collector and the Ops Postgres, builds the app images |
+| LibreOffice | Optional; artifact-service uses it to convert Word résumés           |
 
 ## Getting Started
 
@@ -34,6 +40,15 @@ pnpm run bootstrap
 
 `bootstrap` creates the `.venv`, installs every Python workspace member with `uv sync --all-packages`, and copies the root and each app's `.env.example` to `.env`. The root `.env` holds shared infrastructure settings (the OpenTelemetry collector); each app's `.env` holds settings only that app reads, including the ports and threads of its containers.
 
+Then fill in the keys the apps need:
+
+| File                         | Set                                                                                                                                       |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/ezcareer-harness/.env` | `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`; `AIGW_BASE_URL` and `AIGW_API_KEY` for the OpenAI-compatible gateway that serves the glm models |
+| `apps/ezbot-harness/.env`    | At least one free LLM key, e.g. `GROQ_API_KEY`                                                                                            |
+| `apps/artifact-service/.env` | On macOS, `ARTIFACT_SERVICE_LIBREOFFICE__COMMAND=/Applications/LibreOffice.app/Contents/MacOS/soffice`                                    |
+| `apps/renderverse/.env`      | `VITE_PORTFOLIO_USER_ID`, to show your published portfolio (see [Portfolio](#portfolio))                                                  |
+
 ## Common Tasks
 
 ```bash
@@ -44,11 +59,13 @@ pnpm run dev:ops-web          # Ops UI only (http://localhost:5174)
 pnpm run dev:ops-api          # Ops API on the host (http://localhost:8100/ops-api/docs), starts Postgres first
 pnpm run dev:ops              # both Ops services, in one terminal
 pnpm run migrate              # apply ops-api's database migrations
+pnpm nx run ezcareer-harness:dev  # career agents (http://localhost:8200/ezcareer/docs)
+pnpm nx run artifact-service:dev  # PDFs and Word conversion (http://localhost:8210/artifact-service/docs), builds document-renderer first
 
-pnpm run build                # production artifacts: renderverse dist, ezbot + Laya images
+pnpm run build                # production artifacts: renderverse and ops-web dist, the app images
 pnpm run preview:renderverse  # serve the built dist locally
 pnpm run preview:ops-web      # serve the built Ops UI (http://localhost:4174), proxying to ops-api like dev
-pnpm run start                # run the built images as the server does (collector, Laya, Ezbot)
+pnpm run start                # run the built images as the server does (collector, Laya, Ezbot, ezcareer-harness, artifact-service)
 pnpm run lint                 # ESLint + Ruff
 pnpm run test
 pnpm run format               # Prettier + Ruff
@@ -107,7 +124,17 @@ pnpm run migrate
 pnpm run dev:ops
 ```
 
-The UI on http://localhost:5174 proxies `/ops-api` to ops-api, the same path `tailscale serve` routes on the VM. Locally auth is off and every request acts as `auth.dev_email` from [config.toml](apps/ops-api/config.toml).
+The UI on http://localhost:5174 proxies `/ops-api` to ops-api, the same path `tailscale serve` routes on the VM. Locally auth is off and every request acts as `auth.dev_email` from [config.toml](apps/ops-api/config.toml), as an admin.
+
+The agents and documents need two more services. ops-api calls the ezcareer harness (http://localhost:8200) for the assistant, job search, tailoring, résumé import and email, and artifact-service (http://localhost:8210) to export PDFs and list the templates. The harness also uses artifact-service, to read and print imported résumés. `pnpm run dev` starts everything; on its own, start them with `pnpm nx run ezcareer-harness:dev` and `pnpm nx run artifact-service:dev`.
+
+### Portfolio
+
+Only an admin sees Portfolio. With auth on, give your user the admin role in the database (`users.role = 'admin'`); locally the dev user is always an admin.
+
+Publishing writes the release to `sites/<user_id>/release/current.json`, with its images and videos under `sites/<user_id>/media/`. With every `OPS_API_STORAGE__R2__*` variable set, it goes to the R2 public bucket, and uploads go to the private one; otherwise both stay under `apps/ops-api/.data/`. `OPS_API_PORTFOLIO__SITE_URL` is where the site is served (locally http://localhost:5173); without it, Portfolio hides the cover image and video buttons.
+
+renderverse reads the current release straight from the bucket, never from ops-api. Set `VITE_PORTFOLIO_USER_ID` to your Ops user id, and `VITE_PORTFOLIO_BUCKET_URL` to the public bucket's address; leave it empty locally, where the dev server serves `/sites/...` from `apps/ops-api/.data/storage`. In production the bucket needs a CORS rule allowing GET from the site's domain.
 
 ### Sign-in
 
