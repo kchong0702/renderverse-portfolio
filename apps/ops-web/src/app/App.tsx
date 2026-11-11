@@ -1,6 +1,7 @@
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import { ApplicationsPage } from "@/features/applications";
 import { RequireAuth, SignInPage } from "@/features/auth";
+import { DashboardPage } from "@/features/dashboard";
 import { JobsPage } from "@/features/jobs";
 import { SettingsPage } from "@/features/settings";
 import { useApplyTheme } from "@/shared/theme/useApplyTheme";
@@ -18,7 +19,7 @@ const router = createBrowserRouter(
         </RequireAuth>
       ),
       children: [
-        { path: "/", element: <ComingSoon page="dashboard" /> },
+        { path: "/", element: <DashboardPage /> },
         { path: "/jobs", element: <JobsPage /> },
         { path: "/applications", element: <ApplicationsPage /> },
         { path: "/documents", element: <ComingSoon page="documents" /> },

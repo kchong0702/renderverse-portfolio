@@ -41,6 +41,68 @@
       "newJobs": "{{count}} new"
     }
   },
+  "dashboard": {
+    "subtitle": {
+      "30d": "Last 30 days",
+      "90d": "Last 90 days",
+      "all": "All time"
+    },
+    "periods": {
+      "label": "Period",
+      "30d": "30 days",
+      "90d": "90 days",
+      "all": "All time"
+    },
+    "newApplication": "New application",
+    "loadFailed": "The dashboard could not be loaded: {{reason}}",
+    "kpis": {
+      "applications": "Applications",
+      "change": "{{change}} on the previous {{days}} days",
+      "drafts_one": "{{count}} draft not sent yet",
+      "drafts_other": "{{count}} drafts not sent yet",
+      "responseRate": "Response rate",
+      "replies_one": "{{count}} reply from {{sent}}",
+      "replies_other": "{{count}} replies from {{sent}}",
+      "interviews": "Interviews",
+      "thisWeek": "{{count}} this week",
+      "offers": "Offers",
+      "decideBy": "Decide by {{when}}"
+    },
+    "pipeline": {
+      "title": "Pipeline",
+      "saved": "Saved"
+    },
+    "weeks": {
+      "title": "By week",
+      "applied": "Applied",
+      "replies": "Replies",
+      "chart": "Applications and replies for the last 8 weeks"
+    },
+    "next": {
+      "title": "Next steps and interviews",
+      "count": "{{count}} this week",
+      "empty": "Nothing due this week, and no new agent picks with a good fit.",
+      "followUp": "Follow up with {{company}}",
+      "noReply": "Applied, no reply yet",
+      "days": "{{count}} days",
+      "gaps_one": "{{count}} gap to prepare",
+      "gaps_other": "{{count}} gaps to prepare",
+      "prepare": "Prepare",
+      "new": "New",
+      "fromAgent": "From the agent · fit {{fit}}",
+      "open": "Open",
+      "review": "Review",
+      "formats": {
+        "video": "video call",
+        "phone": "phone call",
+        "on_site": "on site"
+      }
+    },
+    "agent": {
+      "title": "Job agent",
+      "daily": "Daily at {{time}}"
+    }
+  },
   "jobs": {
     "title": "Jobs",
     "subtitle": "Scored against your profile",
