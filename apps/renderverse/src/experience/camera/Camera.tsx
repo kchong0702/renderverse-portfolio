@@ -2,6 +2,7 @@ import CustomCamera from "./CustomCamera";
 import CameraController from "./CameraController";
 import { PointerLockControls, OrbitControls } from "@react-three/drei";
 import { useRef, useEffect, type ElementRef } from "react";
+import { Euler } from "three";
 import CameraAroundController from "./CameraAroundController";
 import { ROOM_CAMERA_FOV } from "./constants";
 import type { SceneState } from "@/experience/state/sceneStore";
@@ -32,6 +33,29 @@ export default function Camera({ state, fpv }: CameraProps) {
     }
   }, [state.specialIsLocked]);
 
+  useEffect(() => {
+    if (!fpv || state.isTLocked) return;
+    const euler = new Euler(0, 0, 0, "YXZ");
+    const look = (event: PointerEvent) => {
+      const controls = control.current;
+      if (!controls?.isLocked) return;
+      const moves = event.getCoalescedEvents?.() ?? [];
+      const [x, y] = (moves.length > 0 ? moves : [event]).reduce(
+        ([x, y], move) => [x + move.movementX, y + move.movementY],
+        [0, 0],
+      );
+      euler.setFromQuaternion(controls.camera.quaternion);
+      euler.y -= x * 0.002;
+      euler.x = Math.max(
+        -Math.PI / 2,
+        Math.min(Math.PI / 2, euler.x - y * 0.002),
+      );
+      controls.camera.quaternion.setFromEuler(euler);
+    };
+    document.addEventListener("pointermove", look);
+    return () => document.removeEventListener("pointermove", look);
+  }, [fpv, state.isTLocked]);
+
   // useEffect(() => {
   //   const ele = document.getElementById("viewindicator");
   //   if (state.cooldown) {
@@ -49,7 +73,11 @@ export default function Camera({ state, fpv }: CameraProps) {
     <>
       {fpv ? (
         !state.isTLocked ? (
-          <PointerLockControls ref={control} selector="#enter" />
+          <PointerLockControls
+            ref={control}
+            selector="#enter"
+            pointerSpeed={0}
+          />
         ) : (
           !state.tInnerFocus &&
           !state.tInnerAround && (
