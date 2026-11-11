@@ -38,7 +38,7 @@ jobs:
       - name: Install Chromium for artifact-service's render tests and let its sandbox run
         working-directory: apps/artifact-service
         run: |
-          uv run playwright install --with-deps chromium
+          uv run playwright install chromium
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Test
