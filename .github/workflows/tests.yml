@@ -46,6 +46,6 @@ jobs:
           OPENAI_API_KEY: ci-no-calls
           OPENAI_BASE_URL: http://127.0.0.1:9
           ANTHROPIC_BASE_URL: http://127.0.0.1:9
-          AIGW_UPSTREAM_URL: http://127.0.0.1:9
-          AIGW_PASSTHROUGH_KEY: ci-no-calls
+          AIGW_BASE_URL: http://127.0.0.1:9
+          AIGW_API_KEY: ci-no-calls
         run: pnpm exec nx run-many -t test

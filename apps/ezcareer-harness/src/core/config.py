@@ -338,13 +338,13 @@ class Settings(BaseSettings):
     """Every graph's profile, read from config.toml's [[graph_profiles]] tables"""
 
     gateway_url: HttpUrl | None = Field(
-        default=None, validation_alias=AliasChoices("AIGW_UPSTREAM_URL", "gateway_url")
+        default=None, validation_alias=AliasChoices("AIGW_BASE_URL", "gateway_url")
     )
-    """OpenAI-compatible gateway that serves the glm and openai model families"""
+    """OpenAI-compatible gateway that serves the glm model family"""
 
     gateway_key: SecretStr | None = Field(
         default=None,
-        validation_alias=AliasChoices("AIGW_PASSTHROUGH_KEY", "gateway_key"),
+        validation_alias=AliasChoices("AIGW_API_KEY", "gateway_key"),
     )
     """Key for the model gateway"""
 
