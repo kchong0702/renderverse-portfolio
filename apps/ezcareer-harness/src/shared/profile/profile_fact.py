@@ -28,9 +28,10 @@ class ProfileFact(BaseModel):
 
 
 def require_facts(facts: list[ProfileFact]) -> None:
-    """Fails the run with a way to Portfolio when the user has no profile facts"""
+    """Fails the run, naming the profile facts as the next step, when none came"""
     if not facts:
         raise ExecuteError(
-            "Your profile has no facts yet. Add your experience in Portfolio first.",
+            "No profile facts were provided. Provide the user's profile facts to run"
+            " this.",
             NextStep(label="Add your experience", screen=Screen.PORTFOLIO),
         )

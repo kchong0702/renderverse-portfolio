@@ -220,7 +220,7 @@ def test_a_run_without_profile_facts_fails_with_a_way_to_portfolio():
     assert task["status"]["state"] == "TASK_STATE_FAILED"
     assert task["status"]["message"]["parts"] == [
         {
-            "text": "Your profile has no facts yet. Add your experience in Portfolio first."
+            "text": "No profile facts were provided. Provide the user's profile facts to run this."
         },
         {"data": {"next": {"label": "Add your experience", "screen": "portfolio"}}},
     ]

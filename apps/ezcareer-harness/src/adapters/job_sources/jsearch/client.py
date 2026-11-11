@@ -111,7 +111,8 @@ async def search(
     until it has enough or runs out, each page through the circuit"""
     if api_key is None:
         raise ExecuteError(
-            "Job search needs a JSearch key. Add yours in Settings.",
+            "No JSearch API key was provided. Provide one in the run metadata or the"
+            " server's settings.",
             NextStep(label="Add a JSearch key", screen=Screen.SETTINGS),
         )
     params: dict[str, str | int | bool] = {
