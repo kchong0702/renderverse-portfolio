@@ -1,13 +1,15 @@
 # Renderverse
 
-Nx monorepo for the Renderverse 3D portfolio and Ezbot, its chatbot.
+Nx monorepo for the Renderverse 3D portfolio, Ezbot, its chatbot, and Ops, the private career workspace behind them.
 
 ## Workspace Structure
 
-| App                                  | Stack                   | Description                           |
-| ------------------------------------ | ----------------------- | ------------------------------------- |
-| [renderverse](apps/renderverse/)     | React / Three.js / Vite | 3D portfolio web app                  |
-| [ezbot-harness](apps/ezbot-harness/) | Python / LangGraph      | AI chatbot backend (work in progress) |
+| App                                  | Stack                         | Description                              |
+| ------------------------------------ | ----------------------------- | ---------------------------------------- |
+| [renderverse](apps/renderverse/)     | React / Three.js / Vite       | 3D portfolio web app                     |
+| [ezbot-harness](apps/ezbot-harness/) | Python / LangGraph            | AI chatbot backend (work in progress)    |
+| [ops-web](apps/ops-web/)             | React / Vite / Tailwind       | Ops UI: job search, documents, portfolio |
+| [ops-api](apps/ops-api/)             | Python / FastAPI / SQLAlchemy | Ops system of record                     |
 
 Shared libraries go in `packages/`.
 
@@ -19,7 +21,7 @@ Shared libraries go in `packages/`.
 | pnpm    | Version pinned in `packageManager`; `corepack enable` installs it   |
 | uv      | Python dependency manager ([install](https://docs.astral.sh/uv/))   |
 | Python  | 3.13+, downloaded automatically by `bootstrap` if none is installed |
-| Docker  | Runs Laya and the OpenTelemetry collector, builds the Ezbot images  |
+| Docker  | Runs Laya, the collector and the Ops Postgres, builds Ezbot images  |
 
 ## Getting Started
 
@@ -38,9 +40,14 @@ pnpm run bootstrap
 pnpm run dev                  # run every app's dev target
 pnpm run dev:renderverse      # web app only
 pnpm run dev:ezbot-harness    # chatbot API on the host (http://localhost:8000/docs), starts the Laya container first
+pnpm run dev:ops-web          # Ops UI only (http://localhost:5174)
+pnpm run dev:ops-api          # Ops API on the host (http://localhost:8100/ops-api/docs), starts Postgres first
+pnpm run dev:ops              # both Ops services, in one terminal
+pnpm run migrate              # apply ops-api's database migrations
 
 pnpm run build                # production artifacts: renderverse dist, ezbot + Laya images
 pnpm run preview:renderverse  # serve the built dist locally
+pnpm run preview:ops-web      # serve the built Ops UI (http://localhost:4174), proxying to ops-api like dev
 pnpm run start                # run the built images as the server does (collector, Laya, Ezbot)
 pnpm run lint                 # ESLint + Ruff
 pnpm run test
@@ -49,7 +56,7 @@ pnpm run format:check
 
 pnpm run infra:up             # start the OpenTelemetry collector for local dev
 pnpm run infra:logs
-pnpm run infra:down           # stop every container, including those from pnpm run start
+pnpm run infra:down           # stop every container, including Postgres and those from pnpm run start
 ```
 
 Any target can be run directly with `pnpm nx run <project>:<target>`. Use `pnpm nx show project <project>` to list a project's targets, or `pnpm nx graph` to explore the workspace.
@@ -90,6 +97,32 @@ In production the frontend and API must share a site (e.g. `example.com` and `ap
 The frontend is built to `apps/renderverse/dist` for Cloudflare Pages. The backend runs on a server from Docker images: [apps/ezbot-harness/Dockerfile](apps/ezbot-harness/Dockerfile) builds both `ezbot` and `ezbot-laya` (one target each), and [apps/ezbot-harness/docker-compose.yaml](apps/ezbot-harness/docker-compose.yaml) runs them. The root [docker-compose.yaml](docker-compose.yaml) includes it, adds the collector, and puts every service on the `renderverse` network, where Ezbot reaches Laya and the collector by service name.
 
 `pnpm run build` tags the images `:dev`; set `TAG` to tag them otherwise (e.g. a git SHA), and set the same `TAG` for `pnpm run start`, which runs the built images without building. Containers publish their ports on `127.0.0.1` only, for a Cloudflare Tunnel to reach.
+
+## Ops
+
+Ops runs locally against the `postgres` service of the root docker compose, which stands in for Supabase. It is in the `local` profile, so `pnpm run start` never runs it; `migrate` and `dev:ops-api` start it first.
+
+```bash
+pnpm run migrate
+pnpm run dev:ops
+```
+
+The UI on http://localhost:5174 proxies `/ops-api` to ops-api, the same path `tailscale serve` routes on the VM. Locally auth is off and every request acts as `auth.dev_email` from [config.toml](apps/ops-api/config.toml).
+
+### Sign-in
+
+With `OPS_API_AUTH__ENABLED=true`, Ops needs a signed-in session: Google, GitHub, or an email and password. Only emails in `OPS_API_AUTH__ALLOWED_EMAILS` get in, and `OPS_API_AUTH__SECRET_KEY` must be set (e.g. `openssl rand -hex 32`); [apps/ops-api/.env.example](apps/ops-api/.env.example) lists every variable. Google and GitHub appear once their client id and secret are set, with this callback URL registered at the provider (`auth.web_url` is where ops-web is served):
+
+```
+<auth.web_url>/ops-api/v1/auth/google/callback
+<auth.web_url>/ops-api/v1/auth/github/callback
+```
+
+There is no sign-up or password reset by email. Set a password on the machine running ops-api:
+
+```bash
+cd apps/ops-api && uv run python -m src.core.auth.cli set-password you@example.com
+```
 
 ## Observability
 

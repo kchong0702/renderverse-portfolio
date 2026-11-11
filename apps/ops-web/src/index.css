@@ -1,0 +1,52 @@
+@import "tailwindcss";
+@import "./shared/theme/tokens.css";
+
+@layer base {
+  html {
+    color-scheme: light;
+    overscroll-behavior: none;
+  }
+
+  body {
+    @apply bg-ground text-ink font-sans antialiased;
+    font-size: 15px;
+    line-height: 1.6;
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: #fde68a;
+    color: #1c1917;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-focus;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@utility shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-ink-3) 35%,
+    var(--color-ink) 50%,
+    var(--color-ink-3) 65%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 2.2s linear infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    color: var(--color-ink-2);
+  }
+}

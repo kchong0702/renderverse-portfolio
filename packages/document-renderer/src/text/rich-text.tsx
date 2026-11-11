@@ -1,9 +1,8 @@
+import { useContext } from "react";
+import { EditingContext } from "../editing/context";
 import type { RichValue } from "../generated/document";
 
-export const RichText = ({ value }: { value: RichValue }) => (
-  <div
-    className="dr-rich"
-    style={value.align ? { textAlign: value.align } : undefined}
-    dangerouslySetInnerHTML={{ __html: value.html }}
-  />
-);
+export const RichText = (props: { path: string; value: RichValue }) => {
+  const { RichText: Slot } = useContext(EditingContext);
+  return <Slot {...props} />;
+};

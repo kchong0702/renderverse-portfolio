@@ -1,0 +1,104 @@
+[app]
+name = "ops-api"
+env = "dev"
+version = "0.1.0"
+cors_origin = "http://localhost:5174"
+route_prefix = "/ops-api"
+
+host = "127.0.0.1"
+port = 8100
+workers = 1
+log_level = "info"
+access_log = true
+
+[artifact]
+url = "http://127.0.0.1:8210/artifact-service"
+timeout_seconds = 60
+
+[documents]
+max_per_kind = 10
+
+[auth]
+enabled = false
+dev_email = "owner@localhost"
+web_url = "http://localhost:5174"
+session_idle_days = 30
+
+[auth.google]
+discovery_url = "https://accounts.google.com/.well-known/openid-configuration"
+scope = "openid email"
+
+[auth.github]
+authorize_url = "https://github.com/login/oauth/authorize"
+access_token_url = "https://github.com/login/oauth/access_token"
+api_base_url = "https://api.github.com/"
+scope = "read:user user:email"
+
+[database]
+pool_size = 5
+echo = false
+
+[ezcareer]
+url = "http://127.0.0.1:8200/ezcareer"
+timeout_seconds = 10
+run_timeout_seconds = 300
+stream_retry_ms = 2000
+replay_ttl_seconds = 60
+stores = "postgres"
+
+[[ezcareer.prices]]
+provider = "claude"
+model = "claude-opus-5-5"
+effective_from = 2026-11-11
+input_per_mtok = "4"
+output_per_mtok = "20"
+cache_read_per_mtok = "0.2"
+cache_write_per_mtok = "5"
+
+[[ezcareer.prices]]
+provider = "claude"
+model = "claude-sonnet-5-5"
+effective_from = 2026-11-11
+input_per_mtok = "2"
+output_per_mtok = "10"
+cache_read_per_mtok = "0.1"
+cache_write_per_mtok = "2.5"
+
+[[ezcareer.prices]]
+provider = "openai"
+model = "gpt-6-luna"
+effective_from = 2026-11-11
+input_per_mtok = "0.1"
+output_per_mtok = "0.5"
+cache_read_per_mtok = "0.01"
+cache_write_per_mtok = "0.125"
+
+[[ezcareer.prices]]
+provider = "glm"
+model = "glm-5.3"
+effective_from = 2026-11-11
+input_per_mtok = "1.4"
+output_per_mtok = "4.4"
+cache_read_per_mtok = "0.26"
+cache_write_per_mtok = "0"
+
+[google]
+scopes = [
+  "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
+]
+redirect_uri = "http://localhost:5174/ops-api/v1/integrations/google/callback"
+timeout_seconds = 10
+inbox_limit = 25
+calendar_max_days = 62
+calendar_max_events = 250
+
+[observability]
+service_name = "ops-api"
+log_level = "INFO"
+log_format = "console"
+
+[portfolio]
+site_url = ""

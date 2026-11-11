@@ -4,6 +4,6 @@ import type { BlockProps } from "../types";
 
 export const SummaryBlock = ({ block, ctx }: BlockProps<"summary">) => (
   <Section block={block} ctx={ctx}>
-    <RichText value={block.text} />
+    <RichText path={`blocks/${block.id}/text`} value={block.text} />
   </Section>
 );

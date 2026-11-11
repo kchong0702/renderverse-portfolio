@@ -1,0 +1,51 @@
+name: Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10.3.2
+
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          uv sync --all-packages --locked
+
+      - name: Create .env files from the examples
+        run: |
+          pnpm run bootstrap:env
+          pnpm exec nx run-many -t bootstrap
+
+      - name: Install Chromium for artifact-service's render tests and let its sandbox run
+        working-directory: apps/artifact-service
+        run: |
+          uv run playwright install --with-deps chromium
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Test
+        env:
+          OPENAI_API_KEY: ci-no-calls
+          OPENAI_BASE_URL: http://127.0.0.1:9
+          ANTHROPIC_BASE_URL: http://127.0.0.1:9
+          AIGW_UPSTREAM_URL: http://127.0.0.1:9
+          AIGW_PASSTHROUGH_KEY: ci-no-calls
+        run: pnpm exec nx run-many -t test

@@ -1,0 +1,70 @@
+{
+  "name": "ops-api",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/ops-api/src",
+  "tags": ["type:app", "scope:backend"],
+  "targets": {
+    "bootstrap": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node -e \"const fs=require('fs'); if (!fs.existsSync('.env')) fs.copyFileSync('.env.example','.env')\"",
+        "cwd": "apps/ops-api"
+      }
+    },
+    "postgres": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose up -d --wait postgres"
+      }
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "options": {
+        "command": "uv run python -m src.main",
+        "cwd": "apps/ops-api"
+      },
+      "dependsOn": ["postgres"]
+    },
+    "migrate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run alembic upgrade head",
+        "cwd": "apps/ops-api"
+      },
+      "dependsOn": ["postgres"]
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "inputs": ["default", "uv"],
+      "options": {
+        "command": "uv run ruff check .",
+        "cwd": "apps/ops-api"
+      }
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run ruff format .",
+        "cwd": "apps/ops-api"
+      }
+    },
+    "format:check": {
+      "executor": "nx:run-commands",
+      "inputs": ["default", "uv"],
+      "options": {
+        "command": "uv run ruff format --check .",
+        "cwd": "apps/ops-api"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "inputs": ["default", "uv"],
+      "options": {
+        "command": "uv run pytest",
+        "cwd": "apps/ops-api"
+      }
+    }
+  }
+}

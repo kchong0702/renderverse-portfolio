@@ -1,0 +1,1278 @@
+{
+  "common": {
+    "loading": "Loading…"
+  },
+  "errors": {
+    "requestFailed": "Request failed ({{status}})"
+  },
+  "shell": {
+    "product": "Ops",
+    "tagline": "Your career starts here",
+    "space": "Career space",
+    "mainNav": "Main",
+    "account": "Account",
+    "notFound": {
+      "title": "Page not found",
+      "body": "There is nothing at this address.",
+      "home": "Go to the dashboard"
+    },
+    "signOut": "Sign out",
+    "loadFailed": "Ops could not load: {{reason}}",
+    "retry": "Try again"
+  },
+  "nav": {
+    "groups": {
+      "jobSearch": "Job search",
+      "you": "You",
+      "stayOnTrack": "Stay on track"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "jobs": "Jobs",
+      "applications": "Applications",
+      "documents": "Documents",
+      "portfolio": "Portfolio",
+      "inbox": "Inbox",
+      "calendar": "Calendar",
+      "settings": "Settings"
+    },
+    "badges": {
+      "newJobs": "{{count}} new",
+      "draft": "{{count}} draft"
+    }
+  },
+  "dashboard": {
+    "subtitle": {
+      "30d": "Last 30 days",
+      "90d": "Last 90 days",
+      "all": "All time"
+    },
+    "periods": {
+      "label": "Period",
+      "30d": "30 days",
+      "90d": "90 days",
+      "all": "All time"
+    },
+    "newApplication": "New application",
+    "loadFailed": "The dashboard could not be loaded: {{reason}}",
+    "kpis": {
+      "applications": "Applications",
+      "change": "{{change}} on the previous {{days}} days",
+      "drafts_one": "{{count}} draft not sent yet",
+      "drafts_other": "{{count}} drafts not sent yet",
+      "responseRate": "Response rate",
+      "replies_one": "{{count}} reply from {{sent}}",
+      "replies_other": "{{count}} replies from {{sent}}",
+      "interviews": "Interviews",
+      "thisWeek": "{{count}} this week",
+      "offers": "Offers",
+      "decideBy": "Decide by {{when}}"
+    },
+    "pipeline": {
+      "title": "Pipeline",
+      "saved": "Saved"
+    },
+    "weeks": {
+      "title": "By week",
+      "applied": "Applied",
+      "replies": "Replies",
+      "chart": "Applications and replies for the last 8 weeks"
+    },
+    "next": {
+      "title": "Next steps and interviews",
+      "count": "{{count}} this week",
+      "empty": "Nothing due this week, and no new agent picks with a good fit.",
+      "followUp": "Follow up with {{company}}",
+      "noReply": "Applied, no reply yet",
+      "draftEmail": "Draft email",
+      "days": "{{count}} days",
+      "gaps_one": "{{count}} gap to prepare",
+      "gaps_other": "{{count}} gaps to prepare",
+      "prepare": "Prepare",
+      "new": "New",
+      "fromAgent": "From the agent · fit {{fit}}",
+      "open": "Open",
+      "review": "Review",
+      "formats": {
+        "video": "video call",
+        "phone": "phone call",
+        "on_site": "on site"
+      }
+    },
+    "agent": {
+      "title": "Job agent",
+      "daily": "Daily at {{time}}",
+      "today": "Today: {{found}} found, {{new}} new, {{scored}} scored 70+"
+    }
+  },
+  "jobs": {
+    "title": "Jobs",
+    "subtitle": "Scored against your profile",
+    "agentSchedule": "Agent schedule",
+    "runAgent": "Run agent now",
+    "runningAgent": "Running agent…",
+    "runningNote": "The job agent is searching and scoring postings against your profile. This can take a few minutes.",
+    "runFailed": "The job agent stopped: {{reason}}",
+    "found_one": "The job agent found {{count}} job.",
+    "found_other": "The job agent found {{count}} jobs.",
+    "loadFailed": "Jobs could not be loaded: {{reason}}",
+    "search": {
+      "label": "Search jobs",
+      "keywords": "Keywords",
+      "location": "Location",
+      "postedWithin": "Posted within",
+      "posted": {
+        "week": "Past week",
+        "day": "Past day",
+        "month": "Past month"
+      },
+      "submit": "Search"
+    },
+    "tabs": {
+      "label": "Job lists",
+      "picked": "Agent picks",
+      "saved": "Saved"
+    },
+    "empty": {
+      "picked": "No agent picks yet. Run the agent now, or the daily job agent adds postings here.",
+      "saved": "Nothing saved yet. Save an agent pick to keep it here."
+    },
+    "postings": "Postings",
+    "posted": "Posted {{when}}",
+    "notScored": "Not scored",
+    "salaryNotStated": "Salary not stated",
+    "via": "via {{source}}",
+    "bands": {
+      "excellent": "Excellent fit",
+      "good": "Good fit",
+      "possible": "Possible fit",
+      "poor": "Poor fit"
+    },
+    "save": "Save",
+    "saved": "Saved",
+    "dismiss": "Dismiss",
+    "analyse": "Analyse fit",
+    "analyseAgain": "Analyse again",
+    "analysing": "Analysing…",
+    "analysingNote": "Reading the posting and mapping each requirement to your profile. This can take a minute.",
+    "analyseFailed": "Not analysed: {{reason}}",
+    "tailor": "Tailor résumé and letter",
+    "tailoring": "Tailoring…",
+    "tailorFailed": "Not tailored: {{reason}}",
+    "noPostingUrl": "This job has no posting URL to analyse",
+    "updateFailed": "Not saved: {{reason}}",
+    "requirements": "Requirements",
+    "matchCount": {
+      "met": "{{count}} covered",
+      "partly": "{{count}} partial",
+      "not_met": "{{count}} gap"
+    },
+    "match": {
+      "met": "Covered",
+      "partly": "Partial",
+      "not_met": "Gap"
+    },
+    "notAnalysed": "Not analysed yet. The fit and requirements appear once the job is analysed."
+  },
+  "applications": {
+    "title": "Applications",
+    "subtitle_one": "{{active}} active · {{count}} follow-up due",
+    "subtitle_other": "{{active}} active · {{count}} follow-ups due",
+    "track": "Track application",
+    "loadFailed": "Applications could not be loaded: {{reason}}",
+    "empty": "No applications yet. Track one to see it on the board.",
+    "edit": "Edit {{name}}",
+    "confirmDelete": "Stop tracking {{name}}?",
+    "applied": "Applied {{when}}",
+    "followUp": "Follow up · {{count}} days",
+    "decideBy": "Decide by {{when}}",
+    "views": {
+      "label": "View",
+      "board": "Board",
+      "table": "Table"
+    },
+    "stages": {
+      "draft": "Draft",
+      "applied": "Applied",
+      "replied": "Replied",
+      "interview": "Interview",
+      "offer": "Offer",
+      "closed": "Closed"
+    },
+    "table": {
+      "application": "Application",
+      "stage": "Stage",
+      "next": "Next step",
+      "fit": "Fit"
+    },
+    "form": {
+      "newTitle": "Track application",
+      "editTitle": "Edit {{name}}",
+      "job": "Job",
+      "noJob": "Not from a saved job",
+      "company": "Company",
+      "role": "Role",
+      "stage": "Stage",
+      "appliedOn": "Applied on",
+      "nextStep": "Next step",
+      "nextStepPlaceholder": "e.g. Technical interview",
+      "nextStepAt": "When",
+      "dueBy": "Due by",
+      "format": "Format",
+      "noFormat": "Not set",
+      "formats": {
+        "video": "Video call",
+        "phone": "Phone call",
+        "on_site": "On site"
+      },
+      "location": "Location",
+      "failed": "Not saved: {{reason}}",
+      "saving": "Saving…",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete"
+    }
+  },
+  "documents": {
+    "pageTitle": "Documents",
+    "subtitle": "Tailor with the assistant",
+    "import": "Import résumé",
+    "listFailed": "Documents could not load: {{reason}}",
+    "loadFailed": "This document could not load: {{reason}}",
+    "createFailed": "The document was not created: {{reason}}",
+    "kinds": {
+      "label": "Document type",
+      "resume": "Résumés",
+      "cover_letter": "Cover letters",
+      "cv": "CVs"
+    },
+    "list": "Documents",
+    "new": "+ New",
+    "empty": {
+      "resume": "No résumés yet. Import the one you have, or start a new one.",
+      "cover_letter": "No cover letters yet. Start a new one.",
+      "cv": "No CVs yet. Start a new one."
+    },
+    "untitled": {
+      "resume": "New résumé",
+      "cover_letter": "New cover letter",
+      "cv": "New CV"
+    },
+    "starter": {
+      "name": "Your name",
+      "greeting": "Dear hiring manager,",
+      "closing": "Yours sincerely,"
+    },
+    "master": "Master",
+    "setMaster": "Set as master",
+    "export": "Export PDF",
+    "delete": "Delete",
+    "confirmDelete": "Delete {{name}}? Its versions and pending changes go too. This cannot be undone.",
+    "deleteMaster": {
+      "resume": "Set another résumé as master before deleting this one",
+      "cover_letter": "Set another cover letter as master before deleting this one",
+      "cv": "Set another CV as master before deleting this one"
+    },
+    "meta": "Edited {{when}}",
+    "check": {
+      "changes_one": "{{count}} change to review",
+      "changes_other": "{{count}} changes to review",
+      "pages_one": "Fits 1 page",
+      "pages_other": "{{count}} pages"
+    },
+    "hint": "Click any text to edit it. Select words to format them. Drag the dotted handles to move blocks, even into another column, or click one for more.",
+    "status": {
+      "saving": "Saving…",
+      "failed": "Not saved: {{reason}}",
+      "runsOnto": "Runs onto page {{count}}",
+      "saved": "Saved · fits 1 page",
+      "fits": "Fits 1 page",
+      "exportFailed": "PDF not printed: {{reason}}",
+      "deleteFailed": "Not deleted: {{reason}}"
+    },
+    "legend": {
+      "reworded": "Reworded by the assistant",
+      "keys": "Enter saves a line, or starts a new bullet · Esc undoes the line"
+    },
+    "tools": "Document tools",
+    "panels": {
+      "design": "Design",
+      "entry": "Entry",
+      "entryDetails": "Entry details",
+      "assistant": "Assistant"
+    },
+    "page": {
+      "select": "Select or drag {{label}}",
+      "dragTitle": "Drag to move, click to select",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveTo": "Move to",
+      "duplicate": "Duplicate",
+      "deleteSection": "Delete section",
+      "removePhoto": "Remove photo",
+      "entry": "Entry",
+      "entryLabel": "{{label}} entry",
+      "deleteEntry": "Delete entry",
+      "delete": "Delete",
+      "details": "Details",
+      "add": "+ Add {{noun}}",
+      "addItem": {
+        "skills": "+ Add skill group",
+        "languages": "+ Add language"
+      },
+      "entryNoun": "entry",
+      "sectionBelow": "+ Section below",
+      "addSection": "Add a section",
+      "bullet": "+ Bullet",
+      "skill": "+ Skill",
+      "dragBullet": "Drag this bullet",
+      "dragBulletTitle": "Drag to move",
+      "pageStarts": "Page {{page}} starts here",
+      "format": {
+        "label": "Format selected text",
+        "bold": "Bold",
+        "italic": "Italic",
+        "underline": "Underline",
+        "smaller": "Smaller text",
+        "normal": "Normal text",
+        "larger": "Larger text",
+        "left": "Align left",
+        "center": "Centre",
+        "justify": "Justify"
+      },
+      "regions": {
+        "top": "Header",
+        "top-left": "Header left",
+        "top-center": "Header centre",
+        "top-right": "Header right",
+        "main": "Main column",
+        "side": "Sidebar"
+      },
+      "inserts": {
+        "projects": {
+          "label": "Projects",
+          "note": "Things you built, with links"
+        },
+        "certifications": {
+          "label": "Certifications",
+          "note": "Courses and certificates"
+        },
+        "languages": {
+          "label": "Languages",
+          "note": "Languages you speak"
+        },
+        "custom": {
+          "label": "Custom",
+          "note": "A paragraph with its own heading"
+        }
+      },
+      "new": {
+        "placeholders": {
+          "experience": {
+            "title": "Role",
+            "subtitle": "Organisation",
+            "dates": "Dates"
+          },
+          "education": {
+            "title": "Degree",
+            "subtitle": "Organisation",
+            "dates": "Dates"
+          },
+          "projects": {
+            "title": "Project name",
+            "subtitle": "What it is",
+            "dates": "Year"
+          },
+          "certifications": {
+            "title": "Certificate",
+            "subtitle": "Issuer",
+            "dates": "Year"
+          },
+          "awards": {
+            "title": "Award",
+            "subtitle": "Awarded by",
+            "dates": "Year"
+          },
+          "publications": {
+            "title": "Title",
+            "subtitle": "Venue",
+            "dates": "Year"
+          },
+          "custom": {
+            "title": "Title",
+            "subtitle": "Subtitle",
+            "dates": "Dates"
+          }
+        },
+        "entryBullet": "What you did and what it changed.",
+        "sectionBullet": "What it does and what you did.",
+        "languages": ["English", "Malay"],
+        "custom": {
+          "heading": "Custom",
+          "text": "A short paragraph about anything else worth knowing."
+        },
+        "skillGroup": {
+          "label": "Skill group",
+          "skill": "Skill"
+        },
+        "language": "Language"
+      }
+    },
+    "blocks": {
+      "profile": "Name",
+      "photo": "Photo",
+      "contacts": "Contact details",
+      "summary": "Summary",
+      "experience": "Experience",
+      "education": "Education",
+      "projects": "Projects",
+      "skills": "Skills",
+      "languages": "Languages",
+      "certifications": "Certifications",
+      "awards": "Awards",
+      "publications": "Publications",
+      "custom": "More",
+      "recipient": "Recipient",
+      "letter": "Letter"
+    },
+    "design": {
+      "template": "Template",
+      "templateChange": "Change",
+      "templateDone": "Done",
+      "templateHint": "Your words stay the same whichever you pick.",
+      "accent": "Accent colour",
+      "accents": {
+        "template": "Template colour",
+        "navy": "Navy",
+        "teal": "Teal",
+        "maroon": "Maroon",
+        "graphite": "Graphite"
+      },
+      "accentNote": "Colours the name, section titles and rules.",
+      "text": "Text",
+      "font": "Font",
+      "templateFont": "Template font, {{font}}",
+      "textSize": "Text size",
+      "sizes": {
+        "small": "Small",
+        "medium": "Medium",
+        "large": "Large"
+      },
+      "alignment": "Alignment",
+      "alignments": {
+        "left": "Left",
+        "justify": "Justified"
+      },
+      "lineSpacing": "Line spacing",
+      "layout": "Layout",
+      "columns": "Columns",
+      "columnCounts": {
+        "one": "One",
+        "two": "Two"
+      },
+      "sidebar": "Sidebar on the",
+      "sides": {
+        "left": "Left",
+        "right": "Right"
+      },
+      "pageSize": "Page size",
+      "pageSizes": {
+        "a4": "A4",
+        "letter": "Letter"
+      },
+      "margins": "Margins",
+      "mm": "{{value}} mm",
+      "sectionSpacing": "Space between sections",
+      "pt": "{{value}} pt",
+      "photo": "Photo",
+      "photoHint": "Optional. {{template}} puts it {{where}}, and you can drag it anywhere after.",
+      "photoWhere": {
+        "top": "at the top",
+        "side": "at the top of the sidebar",
+        "header": "in the header"
+      },
+      "photoNone": "Optional. {{template}} leaves the photo out.",
+      "photoMoved": "Drag it on the page to put it anywhere.",
+      "addPhoto": "Add photo",
+      "shape": "Shape",
+      "shapes": {
+        "circle": "Circle",
+        "rounded": "Rounded",
+        "square": "Square"
+      },
+      "size": "Size",
+      "photoSizes": {
+        "small": "S",
+        "medium": "M",
+        "large": "L"
+      },
+      "removePhoto": "Remove photo"
+    },
+    "fonts": {
+      "inter": "Inter",
+      "lato": "Lato",
+      "source-sans-3": "Source Sans 3",
+      "source-serif-4": "Source Serif 4",
+      "merriweather": "Merriweather",
+      "eb-garamond": "EB Garamond"
+    },
+    "entryPanel": {
+      "experience": "Experience entry",
+      "education": "Education entry",
+      "hint": "Every field of this entry, including ones the page doesn't show.",
+      "fields": {
+        "role": "Job title",
+        "company": "Company",
+        "degree": "Degree",
+        "school": "School",
+        "name": "Name",
+        "issuer": "Issued by",
+        "awarder": "Awarded by",
+        "title": "Title",
+        "venue": "Venue",
+        "subtitle": "Subtitle",
+        "dates": "Dates",
+        "location": "Location"
+      },
+      "locationPlaceholder": "Not shown on the page",
+      "source": "Facts come from: {{source}}",
+      "done": "Done"
+    },
+    "sources": {
+      "user": "you, on this page",
+      "agent": "the assistant",
+      "fact": "your profile",
+      "upload": "your uploaded résumé",
+      "line": "“{{text}}” in your uploaded résumé"
+    },
+    "importPage": {
+      "title": "Import résumé",
+      "steps": {
+        "label": "Import steps",
+        "read": "Read the file",
+        "check": "Check the facts",
+        "look": "Choose a look"
+      },
+      "upload": {
+        "title": "Upload your résumé",
+        "hint": "A PDF or Word (.docx) file, up to 10 MB. Every fact will link back to the line it came from.",
+        "choose": "Choose a file",
+        "uploading": "Uploading…",
+        "failed": "Not uploaded: {{reason}}",
+        "reading": "Reading…"
+      },
+      "loadFailed": "Imports could not load: {{reason}}",
+      "reading": "Reading your résumé and checking every value against the line it came from. This can take a few minutes.",
+      "readFailed": "Not read: {{reason}}",
+      "retry": "Try again",
+      "cancel": "Cancel import",
+      "look": {
+        "title": "Choose a look",
+        "hint": "Each preview is your own résumé. You can switch any time from the document's Design tab.",
+        "picked": "{{name}} on {{size}}",
+        "note": "{{description}} Your facts and wording stay the same.",
+        "page": "Page 1 of your résumé in the {{name}} theme",
+        "use": "Use {{name}}",
+        "suggested": "Suggested",
+        "because": "Suggested because your {{file}} is {{columns}}.",
+        "becauseWith": "Suggested because your {{file}} is {{columns}} with {{traits}}.",
+        "files": {
+          "pdf": "PDF",
+          "word": "Word file"
+        },
+        "columns": {
+          "1": "one column",
+          "2": "two columns"
+        },
+        "traits": {
+          "accent_band": "a coloured band",
+          "photo": "a photo",
+          "tinted_headings": "tinted headings",
+          "ruled_headings": "ruled headings",
+          "serif_font": "a serif font",
+          "coloured_name": "a coloured name"
+        }
+      },
+      "facts": {
+        "checked_one": "{{count}} fact checked: {{kinds}}",
+        "checked_other": "{{count}} facts checked: {{kinds}}",
+        "total_one": "{{count}} fact checked",
+        "total_other": "{{count}} facts checked",
+        "role_one": "{{count}} role",
+        "role_other": "{{count}} roles",
+        "achievement_one": "{{count}} achievement",
+        "achievement_other": "{{count}} achievements",
+        "skill_one": "{{count}} skill",
+        "skill_other": "{{count}} skills",
+        "degree_one": "{{count}} degree",
+        "degree_other": "{{count}} degrees",
+        "and": "{{items}} and {{last}}",
+        "pdf": "Every fact links back to the line it came from in your PDF.",
+        "word": "Every fact links back to the line it came from in your Word file.",
+        "review": "Review facts"
+      }
+    },
+    "assistant": {
+      "conversation": "Conversation",
+      "from": "From {{source}}",
+      "undo": "Undo",
+      "undoFailed": "Not undone: {{reason}}",
+      "accepted": "Approve",
+      "rejected": "Reject",
+      "decideFailed": "Not done: {{reason}}",
+      "placeholder": "Ask for a change, or paste a job posting",
+      "prompts": [
+        "Shorten to one page",
+        "Write a cover letter",
+        "Match posting keywords"
+      ],
+      "changes": {
+        "update_field": "Clears a field",
+        "insert_item": "Adds a line",
+        "insert_block": "Adds a section",
+        "move": "Moves a line",
+        "delete": "Removes a line",
+        "update_visibility": "Shows or hides a section",
+        "update_design": "Changes the design"
+      }
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Connections and automation",
+    "loadFailed": "Settings could not be loaded: {{reason}}",
+    "appearance": {
+      "theme": "Theme",
+      "modes": {
+        "system": "Match system",
+        "light": "Light",
+        "dark": "Dark"
+      }
+    },
+    "save": {
+      "saving": "Saving…",
+      "saved": "All changes saved",
+      "failed": "Not saved: {{reason}}"
+    },
+    "connections": {
+      "title": "Connections",
+      "names": {
+        "google": "Google account",
+        "jsearch": "JSearch",
+        "portfolio_site": "Portfolio site"
+      },
+      "status": {
+        "connected": "Connected",
+        "needs_reconnect": "Ops now sends email and adds Calendar events, which your Google connection does not allow yet",
+        "not_connected": "Not connected yet",
+        "not_configured": "Not set up on the server yet"
+      },
+      "quota": "Connected · {{remaining}} of {{limit}} searches left this month",
+      "jsearch": {
+        "change": "Change key",
+        "add": "Add key",
+        "key": "JSearch API key",
+        "save": "Save key",
+        "cancel": "Cancel",
+        "remove": "Remove key",
+        "failed": "Not saved: {{reason}}"
+      },
+      "google": {
+        "connected": "Connected · Gmail and Calendar",
+        "connect": "Connect",
+        "disconnect": "Disconnect",
+        "disconnectFailed": "Not disconnected: {{reason}}"
+      },
+      "portfolio_site": {
+        "open": "Open site"
+      },
+      "googleErrors": {
+        "denied": "Google was not connected because access was declined.",
+        "scopes": "Google was not connected. Allow every Gmail and Calendar permission Google asks for, then try again.",
+        "failed": "Google could not be connected. Try again."
+      }
+    },
+    "jobAgent": {
+      "title": "Job agent",
+      "query": "Search for",
+      "queryPlaceholder": "e.g. Backend engineer, Python",
+      "location": "Where",
+      "locationPlaceholder": "e.g. Kuala Lumpur or remote",
+      "runAt": "Runs daily at",
+      "minScore": "Keep postings that score at least"
+    },
+    "automation": {
+      "title": "Applying and follow-ups",
+      "rules": {
+        "tailor_strong_matches": {
+          "label": "Draft a tailored résumé for new picks scoring 85 or more",
+          "note": "Drafts wait in Documents for your review"
+        },
+        "follow_up_reminders": {
+          "label": "Remind me to follow up after 7 days without a reply",
+          "note": "Adds a task to your calendar and drafts the email"
+        },
+        "suggest_replies": {
+          "label": "Read employer replies and suggest an answer",
+          "note": "Suggestions appear in Inbox"
+        }
+      },
+      "approval": {
+        "label": "Never send or apply without my approval",
+        "note": "Always on"
+      }
+    },
+    "scheduling": {
+      "title": "Scheduling",
+      "workHours": "Work hours",
+      "hoursRange": "{{start}} to {{end}}",
+      "meetingGap": "Gap between meetings",
+      "gap_one": "{{count}} minute",
+      "gap_other": "{{count}} minutes"
+    },
+    "ai": {
+      "model": "Model",
+      "harnessDefault": "ezcareer-harness default",
+      "modelOption": "{{family}} · {{model}}",
+      "modelsLoading": "Loading models from ezcareer-harness…",
+      "modelsFailed": "Models could not be loaded: {{reason}}",
+      "providers": {
+        "claude": "Claude",
+        "glm": "GLM",
+        "openai": "OpenAI"
+      }
+    },
+    "system": {
+      "title": "System settings"
+    }
+  },
+  "googleNotice": {
+    "not_configured": "Google is not set up on the server yet. Add the OAuth client to ops-api, then connect your account in Settings.",
+    "not_connected": "Connect your Google account to see this here. Ops reads Gmail and Calendar, and never sends an email until you press Send.",
+    "connect": "Connect Google",
+    "reconnect": "Reconnect Google"
+  },
+  "inbox": {
+    "title": "Inbox",
+    "subtitle": "Gmail connected",
+    "needReply_one": "{{count}} needs a reply",
+    "needReply_other": "{{count}} need a reply",
+    "sync": "Sync now",
+    "threads": "Threads",
+    "followUps": "Follow-ups due",
+    "noReply": "Applied {{days}} days ago, no reply",
+    "noSubject": "(No subject)",
+    "yesterday": "Yesterday",
+    "today": "today {{time}}",
+    "linked": "linked to {{role}}, {{stage}}",
+    "openInGmail": "Open in Gmail",
+    "empty": "No job-search emails match the Gmail search yet.",
+    "loadFailed": "Inbox could not be loaded: {{reason}}",
+    "messageFailed": "This email could not be loaded: {{reason}}",
+    "state": {
+      "needsReply": "Needs a reply",
+      "added": "Added to calendar",
+      "interview": "Interview",
+      "decideBy": "Decide by {{date}}",
+      "offer": "Offer"
+    },
+    "reply": {
+      "title": "Suggested reply",
+      "drafting": "Drafting a reply…",
+      "failed": "The reply could not be drafted: {{reason}}",
+      "note": "Times come from free slots in your calendar. Nothing is sent until you press Send.",
+      "message": "Reply",
+      "send": "Send reply",
+      "edit": "Edit",
+      "pickTimes": "Pick other times",
+      "timesFailed": "Free times could not be loaded: {{reason}}",
+      "sent": "Reply sent.",
+      "sendFailed": "Not sent: {{reason}}"
+    },
+    "compose": {
+      "button": "Compose",
+      "title": "New email",
+      "to": "To",
+      "subject": "Subject",
+      "body": "Message",
+      "send": "Send",
+      "cancel": "Cancel",
+      "close": "Close",
+      "sent": "Email sent."
+    },
+    "assistant": {
+      "reply": "Reply to {{company}}",
+      "replyMessage": "Reply to {{company}}. The Gmail thread id is {{thread}}."
+    },
+    "followUp": {
+      "draft": "Draft follow-up",
+      "drafting": "Drafting a follow-up…",
+      "failed": "The follow-up could not be drafted: {{reason}}",
+      "subject": "Following up on my {{role}} application"
+    }
+  },
+  "calendar": {
+    "title": "Calendar",
+    "subtitle": "Google Calendar synced {{when}}",
+    "justNow": "just now",
+    "view": {
+      "label": "View",
+      "week": "Week",
+      "month": "Month"
+    },
+    "previous": {
+      "week": "Previous week",
+      "month": "Previous month"
+    },
+    "next": {
+      "week": "Next week",
+      "month": "Next month"
+    },
+    "today": "Today",
+    "range": "{{start}} to {{end}}",
+    "workHours": "Work hours {{start}} to {{end}}",
+    "allDay": "All day",
+    "busy": "Busy",
+    "task": "{{step}} with {{company}}",
+    "legend": {
+      "interview": "Interview",
+      "task": "Follow-up or task",
+      "busy": "Busy in Google Calendar"
+    },
+    "comingUp": "Coming up",
+    "nothingComingUp": "Nothing in the next two weeks.",
+    "automation": {
+      "title": "Automation",
+      "rules": {
+        "add_interview_invites": "Add interview invites from Gmail to this calendar",
+        "follow_up_reminders": "Remind me to follow up after 7 days without a reply",
+        "offer_free_slots": "Offer free slots when an employer asks for times"
+      }
+    },
+    "schedule": {
+      "title": "Schedule interview",
+      "name": "Title",
+      "day": "Day",
+      "from": "Starts",
+      "to": "Ends",
+      "location": "Location",
+      "add": "Add to calendar",
+      "cancel": "Cancel",
+      "failed": "Not added: {{reason}}"
+    },
+    "changeInSettings": "Change in Settings",
+    "loadFailed": "Calendar could not be loaded: {{reason}}"
+  },
+  "auth": {
+    "title": "Sign in",
+    "subtitle": "Only invited accounts can sign in.",
+    "continueWith": {
+      "google": "Continue with Google",
+      "github": "Continue with GitHub"
+    },
+    "or": "or",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "errors": {
+      "not_allowed": "That account isn't invited. Sign in with an invited email.",
+      "failed": "Sign-in was cancelled or didn't finish. Try again.",
+      "password": "Not signed in: {{reason}}"
+    }
+  },
+  "assistant": {
+    "title": "Assistant",
+    "open": "Ask the assistant",
+    "close": "Close assistant",
+    "askAbout": "Ask about {{topic}}, or anything in your job search",
+    "askAnything": "Ask anything in your job search",
+    "aboutDocument": "Talking about {{title}}",
+    "message": "Message the assistant",
+    "placeholder": "Ask anything",
+    "followUp": "Ask a follow-up",
+    "placeholders": {
+      "resume": "Ask about this résumé",
+      "cv": "Ask about this CV",
+      "cover_letter": "Ask about this cover letter",
+      "document": "Ask about this document"
+    },
+    "send": "Send",
+    "stop": "Stop",
+    "conversation": "Conversation with the assistant",
+    "thinking": "Thinking…",
+    "thoughtFor": "Thought for {{duration}}",
+    "whatItDid": "What the assistant did",
+    "reconnecting": "Connection dropped. Reconnecting, try {{attempt}} of {{max}}…",
+    "keepsRunning": "The reply keeps running on the server, and nothing you've seen is lost.",
+    "youStopped": "You stopped this reply",
+    "ended": "This reply ended while the page was closed",
+    "tryAgain": "Try again",
+    "connectionLost": "The connection to the assistant was lost",
+    "steps": {
+      "find_documents": "Searching your documents",
+      "edit_document": "Editing your document",
+      "analyse_job": "Analysing the job posting",
+      "find_jobs": "Finding jobs",
+      "search_jobs": "Searching job boards",
+      "read_profile_facts": "Reading your profile",
+      "read_pdf_lines": "Reading your PDF",
+      "propose_changeset": "Drafting the edits",
+      "list_design_options": "Looking at templates",
+      "load": "Reading the document",
+      "agent": "Drafting the edits",
+      "page_fit": "Fitting it to the page",
+      "search_threads": "Searching your email",
+      "read_thread": "Reading the email thread",
+      "read_free_slots": "Checking your calendar",
+      "handoff_to_child": "Handing the chat over",
+      "handoff_to_parent": "Handing the chat back"
+    },
+    "anyStep": "Using a tool",
+    "substeps": {
+      "analyse_job": {
+        "fetch": "Reading the posting",
+        "agent": "Weighing it against your profile",
+        "check": "Checking the analysis"
+      },
+      "find_jobs": {
+        "brief": "Reading your preferences",
+        "agent": "Searching job boards",
+        "check": "Checking the matches",
+        "output": "Ranking the jobs"
+      },
+      "edit_document": {
+        "load": "Reading the document",
+        "agent": "Drafting the edits",
+        "page_fit": "Fitting it to the page"
+      }
+    },
+    "failed": "That did not work: {{reason}}",
+    "done": {
+      "find_documents": "Searched your documents",
+      "edit_document": "Edited your document",
+      "analyse_job": "Analysed the job posting",
+      "find_jobs": "Found jobs",
+      "search_jobs": "Searched job boards",
+      "read_profile_facts": "Read your profile",
+      "read_pdf_lines": "Read your PDF",
+      "propose_changeset": "Drafted the edits",
+      "list_design_options": "Looked at templates",
+      "load": "Read the document",
+      "agent": "Drafted the edits",
+      "page_fit": "Checked it still fits its pages",
+      "search_threads": "Searched your email",
+      "read_thread": "Read the email thread",
+      "read_free_slots": "Checked your calendar",
+      "handoff_to_child": "Handed the chat over",
+      "handoff_to_parent": "Handed the chat back"
+    },
+    "anyDone": "Used a tool",
+    "stepDetail": "· {{detail}}",
+    "doneSubsteps": {
+      "analyse_job": {
+        "fetch": "Read the posting",
+        "agent": "Weighed it against your profile",
+        "check": "Checked the analysis"
+      },
+      "find_jobs": {
+        "brief": "Read your preferences",
+        "agent": "Searched job boards",
+        "check": "Checked the matches",
+        "output": "Ranked the jobs"
+      },
+      "edit_document": {
+        "load": "Read the document",
+        "agent": "Drafted the edits",
+        "page_fit": "Checked it still fits its pages"
+      }
+    },
+    "edited": "Edited {{title}}",
+    "editsToReview_one": "{{count}} edit to review",
+    "editsToReview_other": "{{count}} edits to review",
+    "answerFailed": "Your answer was not sent: {{reason}}",
+    "review": "Review",
+    "documentSuggestions": [
+      "Shorten this to one page",
+      "Tighten the summary",
+      "Tailor this for a job I saved"
+    ],
+    "documents": {
+      "groups": {
+        "resume": "Your résumés",
+        "cv": "Your CVs",
+        "cover_letter": "Your cover letters",
+        "all": "Your documents"
+      },
+      "loading": "Loading your documents…",
+      "failed": "Your documents did not load: {{reason}}",
+      "empty": "You have no documents to pick from yet",
+      "master": "Master",
+      "edited": "Edited {{date}}",
+      "typeTitle": "Or type the document's title"
+    },
+    "suggestions": {
+      "dashboard": [
+        "Which applications need me this week?",
+        "Why did my response rate drop?",
+        "Plan my week around the interviews"
+      ],
+      "jobs": {
+        "compare": "Compare {{first}} and {{second}}",
+        "raiseFit": "What would raise my fit for {{title}}?",
+        "similar": "Find similar roles in Penang"
+      },
+      "applications": {
+        "followUp": "Draft a follow-up for {{company}}",
+        "offers": "Which offers should I prioritise?",
+        "summary": "Summarise where each application stands"
+      },
+      "documents": [
+        "Shorten my résumé to one page",
+        "Write a cover letter",
+        "Match my résumé to a posting's keywords"
+      ],
+      "portfolio": [
+        "Write a tagline for Renderverse",
+        "Which projects should be featured?",
+        "What changed since the last release?"
+      ],
+      "inbox": [
+        "Draft a reply to the latest employer email",
+        "Which emails need an answer today?",
+        "Summarise my latest offer"
+      ],
+      "calendar": [
+        "Find a free hour for interview prep",
+        "Move my next follow-up to Thursday",
+        "What is on next week?"
+      ],
+      "settings": [
+        "Explain what the job agent does",
+        "Should I raise the minimum score?",
+        "What happens when I disconnect Google?"
+      ]
+    }
+  },
+  "portfolio": {
+    "title": "Portfolio",
+    "subtitle": "The facts your agents use, and your portfolio site",
+    "loadFailed": "The profile could not be loaded: {{reason}}",
+    "addProject": "Add project",
+    "save": {
+      "saving": "Saving…",
+      "saved": "All changes saved",
+      "failed": "Not saved: {{reason}}"
+    },
+    "tabs": {
+      "label": "Portfolio sections",
+      "profile": "Profile",
+      "skills": "Skills",
+      "projects": "Projects",
+      "media": "Media",
+      "releases": "Releases"
+    },
+    "filters": {
+      "label": "Show",
+      "active": "Active",
+      "archived": "Archived"
+    },
+    "period": {
+      "range": "{{from}} to {{to}}",
+      "now": "now"
+    },
+    "kinds": {
+      "role": {
+        "heading": "Experience",
+        "description": "Jobs you have held. Their dates count towards your years of experience.",
+        "column": "Role",
+        "add": "+ Add role",
+        "empty": "No roles yet.",
+        "title": "Job title",
+        "organisation": "Employer",
+        "summary": "Summary"
+      },
+      "education": {
+        "heading": "Education",
+        "description": "Degrees, diplomas and courses.",
+        "column": "Education",
+        "add": "+ Add education",
+        "empty": "No education yet.",
+        "title": "Degree or course",
+        "organisation": "School",
+        "summary": "Summary"
+      },
+      "project": {
+        "heading": "Projects",
+        "description": "Active projects are facts the agents can use when they write your résumés and letters. Archived ones are kept but left out.",
+        "column": "Project",
+        "add": "+ Add project",
+        "empty": "No projects here.",
+        "title": "Project name",
+        "organisation": "Built for",
+        "summary": "Tagline"
+      }
+    },
+    "table": {
+      "agentContext": "Agent context",
+      "archived": "Archived",
+      "deleteColumn": "Delete",
+      "edit": "Edit {{name}}",
+      "delete": "Delete {{name}}",
+      "useInAgent": "Use {{name}} in agent context",
+      "confirmDelete": "Delete {{name}}? This cannot be undone.",
+      "toggleFailed": "Agent context not changed: {{reason}}",
+      "deleteFailed": "Not deleted: {{reason}}",
+      "onSite": "On site",
+      "showOnSite": "Show {{name}} on your portfolio site",
+      "changed": "Changed in draft",
+      "siteToggleFailed": "Site not changed: {{reason}}"
+    },
+    "form": {
+      "location": "Location",
+      "start": "Start",
+      "end": "End",
+      "ongoing": "Ongoing",
+      "monthPlaceholder": "YYYY-MM",
+      "highlights": "Highlights, one per line",
+      "highlightsPlaceholder": "e.g. Led the migration of 30 services to Kubernetes.",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "failed": "Not saved: {{reason}}"
+    },
+    "about": {
+      "title": "About you",
+      "name": "Full name",
+      "headline": "Headline",
+      "headlinePlaceholder": "e.g. Senior Software Engineer",
+      "location": "Location",
+      "email": "Email",
+      "phone": "Phone",
+      "links": "Links, one per line",
+      "summary": "Summary"
+    },
+    "preferences": {
+      "title": "Job preferences",
+      "note": "The job agent uses these to skip postings that don't fit.",
+      "workModes": "Work modes you accept",
+      "modes": {
+        "onsite": "On site",
+        "hybrid": "Hybrid",
+        "remote": "Remote"
+      },
+      "anyMode": "Leave all unticked to accept any.",
+      "countries": "Countries you want to work in",
+      "authorisedCountries": "Countries you can work in without a visa",
+      "addCountry": "Add a country…",
+      "anyCountry": "Any country",
+      "noCountry": "None added",
+      "removeCountry": "Remove {{name}}",
+      "minSalary": "Lowest pay you accept, before tax",
+      "amount": "Amount",
+      "currency": "Currency",
+      "currencyPlaceholder": "e.g. MYR",
+      "period": "Per",
+      "periods": {
+        "hour": "Hour",
+        "month": "Month",
+        "year": "Year"
+      },
+      "salaryIncomplete": "Add a whole amount and a three-letter currency code to save."
+    },
+    "skills": {
+      "heading": "Skills",
+      "description": "Active skills are facts the agents can use. Group them the way your résumé does.",
+      "name": "Skill",
+      "namePlaceholder": "e.g. Python",
+      "group": "Group",
+      "groupPlaceholder": "e.g. Platform",
+      "add": "Add skill",
+      "empty": "No skills yet."
+    },
+    "previewSite": "Preview site",
+    "publish": "Publish release {{number}}",
+    "releases": {
+      "heading": "Releases",
+      "draft": "Draft",
+      "draftMeta_one": "{{count}} change · not published",
+      "draftMeta_other": "{{count}} changes · not published",
+      "live": "Live",
+      "earlier": "Earlier",
+      "later": "Rolled back",
+      "published": "Published {{day}} {{month}}",
+      "rollBack": "Roll back",
+      "makeLive": "Make live",
+      "publishFailed": "Not published: {{reason}}",
+      "makeLiveFailed": "Not changed: {{reason}}"
+    },
+    "media": {
+      "heading": "Media",
+      "description": "Cover images and videos you uploaded for your projects. Delete a file once no project shows it.",
+      "image": "Cover image",
+      "video": "Video",
+      "add": {
+        "image": "+ Cover image",
+        "video": "+ Video"
+      },
+      "choose": {
+        "image": "Upload a cover image for {{name}}",
+        "video": "Upload a video for {{name}}"
+      },
+      "replace": {
+        "image": "Replace the cover image of {{name}}",
+        "video": "Replace the video of {{name}}"
+      },
+      "remove": {
+        "image": "Remove the cover image from {{name}}",
+        "video": "Remove the video from {{name}}"
+      },
+      "uploading": {
+        "image": "Uploading cover image {{percent}}%",
+        "video": "Uploading video {{percent}}%"
+      },
+      "wrongType": {
+        "image": "{{name}} is not a PNG, JPEG or WebP image.",
+        "video": "{{name}} is not an MP4 video. Export it as MP4 and upload it again."
+      },
+      "tooLarge": {
+        "image": "{{name}} is {{size}}. Cover images can be up to 10 MB.",
+        "video": "{{name}} is {{size}}. Videos can be up to 200 MB."
+      },
+      "uploadFailed": "{{label}} not uploaded: {{reason}}",
+      "removeFailed": "{{label}} not removed: {{reason}}",
+      "networkFailed": "The upload stopped. Check your connection and try again.",
+      "file": "File",
+      "shownOn": "Shown on",
+      "notShown": "Not shown",
+      "meta": "{{type}} · {{size}}",
+      "types": {
+        "image/png": "PNG",
+        "image/jpeg": "JPEG",
+        "image/webp": "WebP",
+        "video/mp4": "MP4"
+      },
+      "empty": "No files yet. Add a cover image or video to a project on the Projects tab.",
+      "delete": "Delete {{name}}",
+      "confirmDelete": "Delete {{name}}? This cannot be undone.",
+      "deleteFailed": "Not deleted: {{reason}}",
+      "loadFailed": "Files could not be loaded: {{reason}}"
+    },
+    "changes": {
+      "heading": "Changes in release {{number}}",
+      "description": "Publishing puts these on your portfolio site. Earlier releases stay, so you can roll back.",
+      "empty": "Nothing has changed since the live release.",
+      "about": "About you",
+      "kinds": {
+        "about": "Profile",
+        "skill": "Skill",
+        "project": "Project"
+      },
+      "types": {
+        "added": "Added",
+        "changed": "Changed",
+        "removed": "Removed"
+      }
+    }
+  }
+}

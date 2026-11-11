@@ -8,9 +8,34 @@ import type {
   Project,
   Publication,
 } from "../generated/document";
-import type { EntryView } from "../types";
+import type { EntryFields, EntryKind, EntryView } from "../types";
 
 const date = (value?: Date | null) => value?.text.text;
+
+export const entryFields: Record<EntryKind, EntryFields> = {
+  experience: {
+    title: "role",
+    subtitle: "company",
+    dates: "dates",
+    place: "location",
+  },
+  education: {
+    title: "degree",
+    subtitle: "school",
+    dates: "dates",
+    place: "location",
+  },
+  projects: { title: "name", subtitle: "role", dates: "dates" },
+  certifications: { title: "name", subtitle: "issuer", dates: "date" },
+  awards: { title: "title", subtitle: "awarder", dates: "date" },
+  publications: { title: "title", subtitle: "venue", dates: "date" },
+  custom: {
+    title: "title",
+    subtitle: "subtitle",
+    dates: "dates",
+    place: "location",
+  },
+};
 
 export const entryViews: {
   experience: (job: Job) => EntryView;

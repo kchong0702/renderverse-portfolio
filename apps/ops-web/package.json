@@ -1,0 +1,53 @@
+{
+  "name": "ops-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint . --ext js,jsx,ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "typecheck": "tsc -p tsconfig.json",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@typescript-eslint/eslint-plugin": "^8.72.0",
+    "@typescript-eslint/parser": "^8.72.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.9.3",
+    "vite": "^5.4.21",
+    "vite-plugin-eslint": "^1.8.1"
+  },
+  "dependencies": {
+    "@radix-ui/react-tabs": "^1.2.1",
+    "@renderverse/document-renderer": "workspace:*",
+    "@tanstack/react-query": "^5.104.5",
+    "@tiptap/core": "3.32.0",
+    "@tiptap/extension-bold": "3.32.0",
+    "@tiptap/extension-document": "3.32.0",
+    "@tiptap/extension-italic": "3.32.0",
+    "@tiptap/extension-link": "3.32.0",
+    "@tiptap/extension-paragraph": "3.32.0",
+    "@tiptap/extension-text": "3.32.0",
+    "@tiptap/extension-underline": "3.32.0",
+    "@tiptap/extensions": "3.32.0",
+    "@tiptap/pm": "3.32.0",
+    "@tiptap/react": "3.32.0",
+    "eventsource-parser": "4.1.3",
+    "i18next": "^26.3.6",
+    "lucide-react": "^1.70.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-i18next": "^17.0.11",
+    "react-router-dom": "^6.30.6",
+    "zustand": "^5.0.16"
+  }
+}
