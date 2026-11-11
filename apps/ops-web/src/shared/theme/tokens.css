@@ -3,6 +3,7 @@
 
   --color-ground: #faf9f6;
   --color-panel: #ffffff;
+  --color-header: #ffffff;
   --color-well: #f2f0ee;
   --color-chip: #f5f5f4;
   --color-hair: #e7e5e4;
@@ -46,6 +47,7 @@ html[data-theme="dark"] {
 
   --color-ground: #0c0a09;
   --color-panel: #1c1917;
+  --color-header: #0c0a09;
   --color-well: #141210;
   --color-chip: #292524;
   --color-hair: #2e2a27;
