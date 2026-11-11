@@ -47,7 +47,7 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
-SessionDep = Annotated[AsyncSession, Depends(get_session)]
+SessionDep = Annotated[AsyncSession, Depends(get_session, scope="function")]
 
 __all__ = [
     "SessionDep",

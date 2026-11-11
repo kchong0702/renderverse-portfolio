@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal, override
@@ -181,6 +183,31 @@ class DatabaseSettings(BaseModel):
     """Log every SQL statement"""
 
 
+class ModelPrice(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    provider: str
+    """The model's family, such as claude"""
+
+    model: str
+    """The model, as ezcareer-harness names it"""
+
+    effective_from: date
+    """The first day the price applies"""
+
+    input_per_mtok: Decimal = Field(ge=0)
+    """USD per million uncached input tokens"""
+
+    output_per_mtok: Decimal = Field(ge=0)
+    """USD per million output tokens"""
+
+    cache_read_per_mtok: Decimal = Field(ge=0)
+    """USD per million input tokens read from the prompt cache"""
+
+    cache_write_per_mtok: Decimal = Field(ge=0)
+    """USD per million input tokens written to the prompt cache"""
+
+
 class EzcareerSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
@@ -189,6 +216,26 @@ class EzcareerSettings(BaseModel):
 
     timeout_seconds: float = Field(default=10, gt=0)
     """How long a request to ezcareer-harness may take"""
+
+    run_timeout_seconds: float = Field(default=300, gt=0)
+    """How long an agent or workflow run may take before it pauses or ends"""
+
+    stream_retry_ms: int = Field(default=2000, gt=0)
+    """How long a client waits before it reconnects to a broken stream"""
+
+    replay_ttl_seconds: float = Field(default=60, gt=0)
+    """How long a finished run can still be resumed"""
+
+    run_poll_seconds: float = Field(default=5, gt=0)
+    """How often a reader checks a run it heard nothing about, in case a notification
+    was missed"""
+
+    stores: Literal["memory", "postgres"] = "memory"
+    """Where agent runs are kept: memory serves one ops-api process, postgres
+    lets any process replay and follow them"""
+
+    prices: list[ModelPrice] = []
+    """Each model's list prices over time, which cost each model call"""
 
 
 class ObservabilitySettings(BaseModel):

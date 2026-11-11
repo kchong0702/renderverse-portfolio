@@ -2,11 +2,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
+from src.clients.ezcareer import ModelCatalog
 from src.core.auth import CurrentUserDep
 from src.db.session import SessionDep
 from src.features.settings.schemas import SettingsRead, SettingsUpdate
 from src.features.settings.service import SettingsService
-from src.integrations.ezcareer import ModelCatalog
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 

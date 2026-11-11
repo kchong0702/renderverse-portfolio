@@ -1,3 +1,4 @@
+import json
 import os
 from collections.abc import AsyncIterator
 
@@ -18,6 +19,7 @@ def pytest_configure(config: pytest.Config) -> None:
     """Pin the settings tests rely on before any app module reads them"""
     os.environ["OPS_API_AUTH__ENABLED"] = "false"
     os.environ["OPS_API_EZCAREER__URL"] = "http://harness.test/ezcareer"
+    os.environ["OPS_API_EZCAREER__STORES"] = "memory"
 
 
 class FakeProvider:
@@ -51,13 +53,32 @@ class FakeHarness:
             ]
         }
         self.down = False
+        self.outcomes: list[dict | list[dict]] = []
+        self.received: list[httpx2.Request] = []
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
-        """Serve the catalog at GET /ezcareer/models, or refuse to connect when down"""
+        """Serve the catalog at GET /ezcareer/models and answer each A2A POST with
+        the next of outcomes, a list streaming as SSE, or refuse to connect when down"""
         if self.down:
             raise httpx2.ConnectError("connection refused", request=request)
         if request.method == "GET" and request.url.path == "/ezcareer/models":
             return httpx2.Response(200, json=self.catalog)
+        if request.method == "POST" and request.url.path.startswith("/ezcareer/a2a/"):
+            self.received.append(request)
+            rpc_id = json.loads(request.content)["id"]
+            outcome = self.outcomes.pop(0)
+            if isinstance(outcome, list):
+                return httpx2.Response(
+                    200,
+                    headers={"content-type": "text/event-stream"},
+                    content="".join(
+                        f"data: {json.dumps({'jsonrpc': '2.0', 'id': rpc_id, **e})}\n\n"
+                        for e in outcome
+                    ),
+                )
+            return httpx2.Response(
+                200, json={"jsonrpc": "2.0", "id": rpc_id, **outcome}
+            )
         return httpx2.Response(404)
 
 
@@ -66,11 +87,12 @@ async def _app(
 ) -> AsyncIterator[FastAPI]:
     from src.app.app import create_app
     from src.app.container import Container
+    from src.clients.ezcareer import EzcareerClient
     from src.core.config import reload_settings
+    from src.core.stores import UsageLedger
     from src.db import models  # noqa: F401
     from src.db.base import Base
     from src.db.session import create_session_factory
-    from src.integrations.ezcareer import EzcareerClient
 
     settings = reload_settings()
     engine = create_async_engine(
@@ -81,13 +103,18 @@ async def _app(
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
 
+    session_factory = create_session_factory(engine)
     container = Container()
     container.engine.override(providers.Object(engine))
-    container.session_factory.override(providers.Object(create_session_factory(engine)))
+    container.session_factory.override(providers.Object(session_factory))
     container.oauth_providers.override(providers.Object(oauth_providers or {}))
     container.ezcareer.override(
         providers.Object(
-            EzcareerClient(settings.ezcareer, httpx2.MockTransport(harness))
+            EzcareerClient(
+                settings.ezcareer,
+                UsageLedger(session_factory, settings.ezcareer).record,
+                httpx2.MockTransport(harness),
+            )
         )
     )
 
