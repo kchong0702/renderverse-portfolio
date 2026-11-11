@@ -784,8 +784,14 @@
       "list_design_options": "Looking at templates",
       "load": "Reading the document",
       "agent": "Drafting the edits",
-      "page_fit": "Fitting it to the page"
+      "page_fit": "Fitting it to the page",
+      "search_threads": "Searching your email",
+      "read_thread": "Reading the email thread",
+      "read_free_slots": "Checking your calendar",
+      "handoff_to_child": "Handing the chat over",
+      "handoff_to_parent": "Handing the chat back"
     },
+    "anyStep": "Using a tool",
     "substeps": {
       "analyse_job": {
         "fetch": "Reading the posting",
@@ -817,8 +823,15 @@
       "list_design_options": "Looked at templates",
       "load": "Read the document",
       "agent": "Drafted the edits",
-      "page_fit": "Checked it still fits its pages"
+      "page_fit": "Checked it still fits its pages",
+      "search_threads": "Searched your email",
+      "read_thread": "Read the email thread",
+      "read_free_slots": "Checked your calendar",
+      "handoff_to_child": "Handed the chat over",
+      "handoff_to_parent": "Handed the chat back"
     },
+    "anyDone": "Used a tool",
+    "stepDetail": "· {{detail}}",
     "doneSubsteps": {
       "analyse_job": {
         "fetch": "Read the posting",
