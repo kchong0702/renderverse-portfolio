@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useDraft } from "@/features/portfolio";
 import { buttonClass } from "@/shared/components/button";
 import { TextField } from "@/shared/components/fields";
 import { cn } from "@/shared/lib/cn";
@@ -63,6 +64,7 @@ export default function ConnectionsPanel({
   const { t } = useTranslation();
   const connect = useConnectJsearch();
   const disconnect = useDisconnectJsearch();
+  const site = useDraft().data?.site_url;
   const [apiKey, setApiKey] = useState<string | null>(null);
   const close = () => {
     setApiKey(null);
@@ -116,6 +118,16 @@ export default function ConnectionsPanel({
                     ? t("settings.connections.jsearch.change")
                     : t("settings.connections.jsearch.add")}
                 </button>
+              )}
+              {connection.id === "portfolio_site" && site && (
+                <a
+                  href={site}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={buttonClass()}
+                >
+                  {t("settings.connections.portfolio_site.open")}
+                </a>
               )}
             </div>
             {connection.id === "jsearch" && apiKey !== null && (

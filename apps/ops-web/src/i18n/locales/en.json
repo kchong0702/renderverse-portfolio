@@ -683,6 +683,9 @@
         "disconnect": "Disconnect",
         "disconnectFailed": "Not disconnected: {{reason}}"
       },
+      "portfolio_site": {
+        "open": "Open site"
+      },
       "googleErrors": {
         "denied": "Google was not connected because access was declined.",
         "scopes": "Google was not connected. Allow every Gmail and Calendar permission Google asks for, then try again.",
