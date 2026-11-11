@@ -10,7 +10,7 @@ from src.features.documents.models import (
 from src.features.google.models import GoogleAccount
 from src.features.inbox.models import EmailThread
 from src.features.jobs.models import Job, JobRun
-from src.features.portfolio.models import PortfolioRelease
+from src.features.portfolio.models import Asset, PortfolioRelease
 from src.features.profile.models import Profile, ProfileEntry, ProfileSkill
 from src.features.settings.models import UserSettings
 
@@ -18,6 +18,7 @@ __all__ = [
     "AgentEvent",
     "AgentRun",
     "Application",
+    "Asset",
     "AuthIdentity",
     "AuthSession",
     "Document",

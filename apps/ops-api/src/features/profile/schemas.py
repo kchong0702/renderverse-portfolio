@@ -143,6 +143,12 @@ class EntryRead(EntryCreate):
     id: UUID
     """The entry's id"""
 
+    image_id: UUID | None = None
+    """A project's cover image on the site, set through the portfolio"""
+
+    video_id: UUID | None = None
+    """A project's video on the site, set through the portfolio"""
+
 
 class SkillWrite(BaseModel):
     name: str = Field(min_length=1, max_length=100)
