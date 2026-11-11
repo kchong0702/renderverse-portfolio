@@ -8,10 +8,12 @@ from src.clients.ezcareer.schemas import (
     InputRequired,
     ModelCatalog,
     ModelChoice,
+    RecordUsage,
     Run,
     RunEvent,
     RunMetadata,
     Started,
+    Usage,
     Widget,
 )
 from src.clients.ezcareer.types import ModelFamily
@@ -27,9 +29,11 @@ __all__ = [
     "ModelCatalog",
     "ModelChoice",
     "ModelFamily",
+    "RecordUsage",
     "Run",
     "RunEvent",
     "RunMetadata",
     "Started",
+    "Usage",
     "Widget",
 ]

@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, SerializeAsAny
 from pydantic.alias_generators import to_camel
 
-from src.clients.ezcareer.schemas import RunMetadata, Step
+from src.clients.ezcareer.schemas import RunMetadata, Step, Usage
 
 
 class TextPart(BaseModel):
@@ -75,6 +75,13 @@ class StatusMessage(BaseModel):
     """A failure's reason as text, or a pause's interrupts as data"""
 
 
+class HistoryMessage(StatusMessage):
+    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True)
+
+    message_id: str
+    """The message's id, the same in every response that returns it"""
+
+
 class TaskStatus(BaseModel):
     state: Literal[
         "TASK_STATE_SUBMITTED",
@@ -120,6 +127,9 @@ class Task(BaseModel):
     artifacts: list[Artifact] = []
     """The reply once the task completed"""
 
+    history: list[HistoryMessage] = []
+    """The task's earlier messages, each status message among them"""
+
 
 class SendMessageResult(BaseModel):
     task: Task
@@ -134,6 +144,11 @@ class SendMessageSuccess(BaseModel):
 class StepData(BaseModel):
     step: Step
     """A step of the run, which a working status carries"""
+
+
+class UsageData(BaseModel):
+    usage: Usage
+    """A model call's usage, which a working status carries"""
 
 
 class StatusUpdate(BaseModel):
@@ -224,4 +239,5 @@ __all__ = [
     "TaskRequest",
     "TaskSuccess",
     "TextPart",
+    "UsageData",
 ]
