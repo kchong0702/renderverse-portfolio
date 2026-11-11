@@ -43,7 +43,6 @@
     "subtitle": "Connections and automation",
     "loadFailed": "Settings could not be loaded: {{reason}}",
     "appearance": {
-      "title": "Appearance",
       "theme": "Theme",
       "modes": {
         "system": "Match system",
@@ -107,7 +106,6 @@
       "gap_other": "{{count}} minutes"
     },
     "ai": {
-      "title": "AI",
       "model": "Model",
       "harnessDefault": "ezcareer-harness default",
       "modelOption": "{{family}} · {{model}}",
@@ -118,6 +116,9 @@
         "glm": "GLM",
         "openai": "OpenAI"
       }
+    },
+    "system": {
+      "title": "System settings"
     }
   },
   "auth": {

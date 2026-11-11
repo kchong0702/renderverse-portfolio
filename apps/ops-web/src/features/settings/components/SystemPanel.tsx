@@ -2,11 +2,13 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { SelectField } from "@/shared/components/fields";
 import Panel from "@/shared/components/Panel";
+import Segmented from "@/shared/components/Segmented";
+import { useThemeStore, type ThemeMode } from "@/shared/theme/themeStore";
 import type { ModelChoice, ModelFamily, SettingsPatch } from "../api/settings";
 import { useModels } from "../hooks/useSettings";
 import { withCurrent } from "../lib/options";
 
-interface AiPanelProps {
+interface SystemPanelProps {
   aiModel: ModelChoice | null;
   onChange: (patch: SettingsPatch) => void;
 }
@@ -19,9 +21,11 @@ const option = ({ family, model }: ModelChoice) => ({
   }),
 });
 
-export default function AiPanel({ aiModel, onChange }: AiPanelProps) {
+export default function SystemPanel({ aiModel, onChange }: SystemPanelProps) {
   const { t } = useTranslation();
   const models = useModels();
+  const { mode, setMode } = useThemeStore();
+  const modes: ThemeMode[] = ["system", "light", "dark"];
 
   const offered = (models.data?.families ?? []).flatMap(({ family, models }) =>
     models.map((model) => option({ family, model })),
@@ -31,7 +35,7 @@ export default function AiPanel({ aiModel, onChange }: AiPanelProps) {
     : [{ value: "", label: t("settings.ai.harnessDefault") }, ...offered];
 
   return (
-    <Panel title={t("settings.ai.title")}>
+    <Panel title={t("settings.system.title")}>
       <SelectField
         label={t("settings.ai.model")}
         options={options}
@@ -59,6 +63,18 @@ export default function AiPanel({ aiModel, onChange }: AiPanelProps) {
           {t("settings.ai.modelsFailed", { reason: models.error.message })}
         </p>
       )}
+      <div className="text-ink-3 flex flex-col items-start gap-1.5 text-sm">
+        {t("settings.appearance.theme")}
+        <Segmented
+          label={t("settings.appearance.theme")}
+          value={mode}
+          options={modes.map((value) => ({
+            value,
+            label: t(`settings.appearance.modes.${value}`),
+          }))}
+          onChange={setMode}
+        />
+      </div>
     </Panel>
   );
 }
