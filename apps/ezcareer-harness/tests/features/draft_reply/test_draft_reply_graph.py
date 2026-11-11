@@ -59,6 +59,25 @@ async def test_a_reply_offers_only_free_slots_and_lists_them_in_the_users_zone()
     assert "unknown_slot" in model.requests[-1][-1].text
 
 
+async def test_only_the_earliest_twelve_free_slots_reach_the_agent():
+    many = [
+        {"start": f"2026-11-{day:02d}T09:00:00Z", "end": f"2026-11-{day:02d}T09:30:00Z"}
+        for day in range(30, 9, -1)
+    ]
+    model = ScriptedChatModel(replies=[_draft(12, 13), _draft(12)])
+
+    result = await _graph(model).ainvoke(
+        {"thread": THREAD, "free_slots": many, "timezone": "UTC", "facts": FACTS}
+    )
+
+    brief = model.requests[0][1].text
+    assert "[1] Tue 10 Nov 09:00 to 09:30" in brief
+    assert "[12] Sat 21 Nov 09:00 to 09:30" in brief
+    assert "[13]" not in brief
+    assert "unknown_slot" in model.requests[-1][-1].text
+    assert result["slots"] == [TimeSlot.model_validate(many[-12])]
+
+
 async def test_a_follow_up_for_an_application_without_a_thread_offers_no_times():
     model = ScriptedChatModel(replies=[_draft(body="Hi, any news on my application?")])
 

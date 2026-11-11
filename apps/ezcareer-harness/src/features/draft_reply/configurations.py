@@ -16,5 +16,8 @@ class DraftReplyConfigurations(BaseModel):
     checks: list[Literal["slots"]]
     """Checks run on each answer; errors go back to the agent"""
 
+    max_free_slots: int = Field(gt=0)
+    """Most free slots shown to the agent, the earliest first"""
+
     recursion_limit: int = Field(gt=0)
     """Most steps the run, and each agent turn within it, may take"""

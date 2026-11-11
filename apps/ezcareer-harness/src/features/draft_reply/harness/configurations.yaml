@@ -1,2 +1,3 @@
 checks: [slots]
+max_free_slots: 12
 recursion_limit: 16

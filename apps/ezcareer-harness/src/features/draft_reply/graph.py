@@ -68,9 +68,10 @@ class DraftReplyState(DraftReplyInput, DraftReplyOutput):
     """What the latest check found"""
 
 
-def _brief(state: DraftReplyState) -> dict:
-    """Ask the agent for the reply or the follow-up, listing the free slots by id in
-    the user's time zone"""
+def _brief(state: DraftReplyState, max_free_slots: int) -> dict:
+    """Ask the agent for the reply or the follow-up, listing the earliest
+    max_free_slots free slots by id in the user's time zone"""
+    free_slots = sorted(state.free_slots, key=lambda slot: slot.start)[:max_free_slots]
     if state.thread:
         task = (
             f"Draft my reply to this email thread.\n\n{untrusted_thread(state.thread)}"
@@ -90,16 +91,17 @@ def _brief(state: DraftReplyState) -> dict:
     slots = "\n".join(
         f"[{number}] {slot.start.astimezone(state.timezone):%a %d %b %H:%M}"
         f" to {slot.end.astimezone(state.timezone):%H:%M}"
-        for number, slot in enumerate(state.free_slots, start=1)
+        for number, slot in enumerate(free_slots, start=1)
     )
     return {
+        "free_slots": free_slots,
         "messages": [
             HumanMessage(
                 f"{task}\n\nMy free slots, in {state.timezone.key}:\n{slots}"
                 if slots
                 else f"{task}\n\nI have no free slots to offer."
             )
-        ]
+        ],
     }
 
 
@@ -149,7 +151,9 @@ def build_graph(
     graph = StateGraph(
         DraftReplyState, input_schema=DraftReplyInput, output_schema=DraftReplyOutput
     )
-    graph.add_node("brief", _brief)
+    graph.add_node(
+        "brief", partial(_brief, max_free_slots=configurations.max_free_slots)
+    )
     graph.add_node(
         "agent",
         agent.with_config(
