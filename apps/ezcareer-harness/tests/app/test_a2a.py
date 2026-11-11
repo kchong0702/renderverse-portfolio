@@ -1,3 +1,4 @@
+import json
 from typing import override
 
 import pytest
@@ -323,3 +324,116 @@ def test_a_served_agent_asks_the_user_and_resumes_on_the_same_task():
     [reply] = [a for a in resumed["artifacts"] if a["name"] == "greeter"]
     assert reply["parts"][0]["text"] == "Hello, Dr Ada!"
     assert model.requests[-1][-1].text == "Dr"
+
+
+@tool
+def title_of(name: str) -> str:
+    """Looks up the title of the person called name"""
+    return "Dr"
+
+
+def _usage_model() -> ScriptedChatModel:
+    return ScriptedChatModel(
+        replies=[
+            AIMessage(
+                "",
+                tool_calls=[{"name": "title_of", "args": {"name": "Ada"}, "id": "c1"}],
+                usage_metadata={
+                    "input_tokens": 120,
+                    "output_tokens": 30,
+                    "total_tokens": 150,
+                    "input_token_details": {"cache_read": 100, "cache_creation": 10},
+                    "output_token_details": {"reasoning": 12},
+                },
+                response_metadata={"stop_reason": "tool_use", "id": "msg_1"},
+            ),
+            AIMessage("Hello, Dr Ada!"),
+        ]
+    )
+
+
+def _usages(messages: list[dict]) -> list[dict]:
+    """The usage of every model call the messages report, without its latency"""
+    usages = [
+        part["data"]["usage"]
+        for message in messages
+        for part in message["parts"]
+        if "usage" in part.get("data", {})
+    ]
+    assert all(usage.pop("latency_ms") >= 0 for usage in usages)
+    return usages
+
+
+USAGES = [
+    {
+        "provider": "glm",
+        "model": "glm-5.3",
+        "agent": "job-finder",
+        "node": "model",
+        "input_tokens": 120,
+        "output_tokens": 30,
+        "cache_read_tokens": 100,
+        "cache_write_tokens": 10,
+        "reasoning_tokens": 12,
+        "stop_reason": "tool_use",
+        "request_id": "msg_1",
+    },
+    {
+        "provider": "glm",
+        "model": "glm-5.3",
+        "agent": "job-finder",
+        "node": "model",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "reasoning_tokens": 0,
+        "stop_reason": None,
+        "request_id": None,
+    },
+]
+
+
+def test_a_streamed_run_reports_each_model_calls_usage_as_it_ends():
+    client = _agent_client(create_agent(_usage_model(), [title_of], name="job-finder"))
+
+    with client.stream(
+        "POST",
+        "/ezcareer/a2a/greeter",
+        headers={"A2A-Version": "1.0"},
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "SendStreamingMessage",
+            "params": {
+                "message": {
+                    "messageId": "m-1",
+                    "role": "ROLE_USER",
+                    "parts": [{"text": "Greet Ada"}],
+                }
+            },
+        },
+    ) as response:
+        events = [
+            json.loads(line.removeprefix("data: "))["result"]
+            for line in response.iter_lines()
+            if line.startswith("data: ")
+        ]
+
+    working = [
+        e["statusUpdate"]["status"]
+        for e in events
+        if "message" in e.get("statusUpdate", {}).get("status", {})
+    ]
+    assert {status["state"] for status in working} == {"TASK_STATE_WORKING"}
+    assert _usages([status["message"] for status in working]) == USAGES
+
+
+def test_a_blocking_runs_history_keeps_each_model_calls_usage():
+    model = _usage_model()
+
+    task = _say(_agent_client(create_agent(model, [title_of])), "Greet Ada")
+
+    agent_messages = [m for m in task["history"] if m["role"] == "ROLE_AGENT"]
+    assert len({m["messageId"] for m in agent_messages}) == len(agent_messages)
+    assert _usages(agent_messages) == [usage | {"agent": "greeter"} for usage in USAGES]

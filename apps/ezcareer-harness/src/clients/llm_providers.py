@@ -33,4 +33,5 @@ def llm_provider(family: str, name: str) -> BaseChatModel:
         base_url=str(settings.gateway_url),
         api_key=settings.gateway_key,
         use_responses_api=False,
+        stream_usage=True,
     )

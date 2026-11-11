@@ -23,6 +23,7 @@ def test_glm_models_go_through_the_gateway(gateway: Settings):
     assert model.openai_api_base == "https://gateway.example/v1"
     assert model.openai_api_key.get_secret_value() == "sk-test"
     assert not model.use_responses_api
+    assert model.stream_usage
 
 
 def test_openai_models_go_to_openai_with_its_own_key(
