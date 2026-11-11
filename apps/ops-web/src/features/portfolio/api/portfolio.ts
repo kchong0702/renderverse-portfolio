@@ -1,4 +1,5 @@
 import { http } from "@/shared/api/http";
+import { config } from "@/shared/config";
 
 export type ChangeKind = "about" | "skill" | "project";
 export type ChangeType = "added" | "changed" | "removed";
@@ -23,7 +24,7 @@ export interface Release {
   live: boolean;
 }
 
-const URL = "/ops-api/v1/portfolio";
+const URL = `${config.opsApiUrl}/portfolio`;
 
 export const fetchDraft = (signal?: AbortSignal) =>
   http.get<Draft>(`${URL}/draft`, signal);
