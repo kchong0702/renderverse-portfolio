@@ -240,10 +240,14 @@ class DocumentService:
         return await self._read(document)
 
     async def delete(self, user_id: UUID, document_id: UUID) -> None:
-        """Remove a document with its versions and changesets"""
-        await self._repository.delete(
-            await _load(self._repository, user_id, document_id)
-        )
+        """Remove a document with its versions and changesets; Conflict for a master"""
+        document = await _load(self._repository, user_id, document_id)
+        if document.master:
+            raise Conflict(
+                f"Set another {document.kind.value.replace('_', ' ')} as master"
+                " before deleting this one"
+            )
+        await self._repository.delete(document)
 
     async def templates(self, kind: DocumentKind) -> list[TemplateSpec]:
         """The templates a document of this kind can be printed with"""

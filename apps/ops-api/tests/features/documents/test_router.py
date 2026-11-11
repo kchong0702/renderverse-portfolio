@@ -166,6 +166,23 @@ async def test_one_master_per_kind(client):
     ]
 
 
+async def test_the_master_cannot_be_deleted_but_another_document_can(client):
+    master = await _create(client, "Master résumé")
+    other = await _create(client, "Résumé for Lumen Pay")
+    await client.put(f"{DOCUMENTS}/{master['id']}/master")
+
+    refused = await client.delete(f"{DOCUMENTS}/{master['id']}")
+    deleted = await client.delete(f"{DOCUMENTS}/{other['id']}")
+
+    assert refused.status_code == 409
+    assert refused.json() == {
+        "detail": "Set another resume as master before deleting this one"
+    }
+    assert deleted.status_code == 204
+    listed = (await client.get(DOCUMENTS)).json()
+    assert [(d["title"], d["master"]) for d in listed] == [("Master résumé", True)]
+
+
 async def test_keep_and_restore_a_version(client):
     document = await _create(client)
     url = f"{DOCUMENTS}/{document['id']}"
