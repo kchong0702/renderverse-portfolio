@@ -3,10 +3,10 @@ from __future__ import annotations
 from uuid import UUID
 
 from pydantic import TypeAdapter
-from sqlalchemy import ForeignKey, String, Text, false, text
+from sqlalchemy import CheckConstraint, ForeignKey, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.db.base import Base, EnumString, JsonType, PydanticJson
+from src.db.base import Base, EnumString, JsonType, PydanticJson, TextArray
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 from src.features.profile.enums import ChangeKind, EntryKind, ImportSource, SalaryPeriod
 from src.features.profile.schemas import ImportedEntry, NetworkingCopy, ProfileLink
@@ -15,6 +15,11 @@ from src.features.profile.types import ChangeField, FieldValue
 
 class Profile(AuditMixin, Base):
     __tablename__ = "profiles"
+    __table_args__ = (
+        CheckConstraint("jsonb_array_length(links) <= 3", name="links").ddl_if(
+            dialect="postgresql"
+        ),
+    )
 
     user_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
@@ -97,7 +102,7 @@ class ProfileEntry(IdMixin, UserScopedMixin, AuditMixin, Base):
     summary: Mapped[str] = mapped_column(Text(), default="")
     """One line about it; a project's tagline"""
 
-    highlights: Mapped[list[str]] = mapped_column(JsonType, default=list)
+    highlights: Mapped[list[str]] = mapped_column(TextArray, default=list)
     """What the user achieved, one sentence each"""
 
     link: Mapped[str | None] = mapped_column(String(500), default=None)
@@ -106,9 +111,7 @@ class ProfileEntry(IdMixin, UserScopedMixin, AuditMixin, Base):
     code_link: Mapped[str | None] = mapped_column(String(500), default=None)
     """Where a project's code is; only projects use it"""
 
-    tools: Mapped[list[str]] = mapped_column(
-        JsonType, default=list, server_default=text("'[]'")
-    )
+    tools: Mapped[list[str]] = mapped_column(TextArray, default=list)
     """Languages, frameworks and tools a project used; only projects use it"""
 
     archived: Mapped[bool] = mapped_column(default=False)

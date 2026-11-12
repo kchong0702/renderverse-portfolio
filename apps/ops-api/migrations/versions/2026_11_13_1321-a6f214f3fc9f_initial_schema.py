@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: da2f49141511
+Revision ID: a6f214f3fc9f
 Revises:
-Create Date: 2026-11-13 13:21:11.838023
+Create Date: 2026-11-13 13:21:26.949734
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "da2f49141511"
+revision: str = "a6f214f3fc9f"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -566,6 +566,9 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
+        sa.CheckConstraint(
+            "jsonb_array_length(links) <= 3", name=op.f("ck_profiles_links")
+        ),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["users.id"],
@@ -803,19 +806,14 @@ def upgrade() -> None:
         sa.Column("summary", sa.Text(), nullable=False),
         sa.Column(
             "highlights",
-            sa.JSON().with_variant(
-                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
+            postgresql.ARRAY(sa.Text()).with_variant(sa.JSON(), "sqlite"),
             nullable=False,
         ),
         sa.Column("link", sa.String(length=500), nullable=True),
         sa.Column("code_link", sa.String(length=500), nullable=True),
         sa.Column(
             "tools",
-            sa.JSON().with_variant(
-                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-            server_default=sa.text("'[]'"),
+            postgresql.ARRAY(sa.Text()).with_variant(sa.JSON(), "sqlite"),
             nullable=False,
         ),
         sa.Column("archived", sa.Boolean(), nullable=False),

@@ -3,11 +3,13 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from src.core.auth.models import User
 from src.core.config import get_settings
 from src.features.profile.enums import EntryKind
 from src.features.profile.models import Profile, ProfileEntry
+from src.features.profile.schemas import ProfileLink
 from tests.conftest import PREFIX, _client
 from tests.core.conftest import DATABASE_URL
 
@@ -284,6 +286,27 @@ async def test_a_first_read_that_overlaps_another_gets_the_profile(postgres_app)
 
     assert response.status_code == 200
     assert response.json()["name"] == "Kelvin Chong"
+
+
+@pytest.mark.postgres
+@pytest.mark.skipif(not DATABASE_URL, reason="OPS_API_TEST_DATABASE_URL is not set")
+async def test_the_database_refuses_a_fourth_link(postgres_app):
+    async with postgres_app.state.session_factory() as session:
+        user = User(email=get_settings().auth.dev_email)
+        session.add(user)
+        await session.commit()
+        session.add(
+            Profile(
+                user_id=user.id,
+                links=[
+                    ProfileLink(label=f"Link {n}", url=f"https://example.com/{n}")
+                    for n in range(4)
+                ],
+            )
+        )
+
+        with pytest.raises(IntegrityError, match="ck_profiles_links"):
+            await session.commit()
 
 
 async def test_entries_stay_off_the_site_until_turned_on(client):
