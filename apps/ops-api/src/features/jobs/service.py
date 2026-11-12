@@ -3,31 +3,36 @@ from __future__ import annotations
 from uuid import UUID, uuid4
 
 from document_schema import DocumentKind
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.ezcareer import Completed, EzcareerClient, Failed, InputRequired
 from src.core.exceptions import Conflict, InvalidInput, NotFound, ServiceUnavailable
+from src.core.logging import get_logger
 from src.db.base import utcnow
 from src.features.documents import DocumentService
-from src.features.jobs.enums import JobStatus, Match
+from src.features.jobs.enums import JobStatus, Match, RunStatus, RunTrigger
 from src.features.jobs.models import Job, JobRun
 from src.features.jobs.repository import JobRepository
 from src.features.jobs.schemas import (
     AnalyseJobInput,
     AnalyseJobOutput,
-    FindJobsInput,
     FindJobsOutput,
     FitAnalysis,
     JobCreate,
     JobList,
     JobRead,
+    JobRunCreate,
     JobRunRead,
     JobSearch,
     JobUpdate,
     TailorRead,
 )
+from src.features.preferences import PreferencesService
 from src.features.profile import ProfileService
 from src.features.settings import SettingsService
+
+logger = get_logger(__name__)
 
 
 def _tailor_request(job: JobRead, document: str) -> str:
@@ -63,9 +68,11 @@ class JobService:
         ezcareer: EzcareerClient,
     ):
         """Hold the session to commit on and a repository on it, the profile the agents
-        read, the user's model settings, the documents tailored to jobs, and the harness"""
+        read, the job preferences on the same session, the user's model settings, the
+        documents tailored to jobs, and the harness"""
         self._session = session
         self._repository = JobRepository(session)
+        self._preferences = PreferencesService(session)
         self._profile = profile
         self._settings = settings
         self._documents = documents
@@ -129,66 +136,81 @@ class JobService:
         return JobRead.model_validate(row, from_attributes=True)
 
     async def latest_run(self, user_id: UUID) -> JobRunRead:
-        """What the user's most recent find run found; NotFound before the first"""
+        """The user's most recently queued run with its status; NotFound before the
+        first"""
         run = await self._repository.latest_run(user_id)
         if run is None:
             raise NotFound("The job agent has not run yet")
         return JobRunRead.model_validate(run, from_attributes=True)
 
-    async def find(
-        self, user_id: UUID, search: JobSearch | None
-    ) -> Completed[list[JobRead]] | Failed:
-        """Run find-jobs on the profile and the search, store each job it found as a
-        pick with its analysis, and record the run's counts"""
-        profile = await self._profile.agent_profile(user_id)
-        metadata = await self._settings.run_metadata(user_id)
-        await self._session.commit()
-        run = await self._ezcareer.send(
-            "find-jobs",
-            FindJobsOutput,
-            user_id=user_id,
-            context_id=f"{user_id}:{uuid4()}",
-            data=FindJobsInput(
-                facts=profile.facts, preferences=profile.preferences, search=search
-            ),
-            metadata=metadata,
+    async def queue_run(
+        self, user_id: UUID, trigger: RunTrigger, run: JobRunCreate
+    ) -> JobRunRead:
+        """Queue a run of find-jobs for a worker; Conflict while one with the same
+        trigger is queued"""
+        try:
+            queued = await self._repository.queue_run(
+                user_id, trigger, run.search, run.run_after
+            )
+        except IntegrityError as error:
+            raise Conflict("A job agent run is already queued") from error
+        return JobRunRead.model_validate(queued, from_attributes=True)
+
+    async def find(self, user_id: UUID, search: JobSearch | None) -> JobRunRead:
+        """Queue a manual run of find-jobs on the search; Conflict while a run is
+        running or a manual one is queued"""
+        if await self._repository.running(user_id):
+            raise Conflict("The job agent is already running")
+        return await self.queue_run(
+            user_id, RunTrigger.MANUAL, JobRunCreate(search=search)
         )
-        match run:
-            case Completed(reply=reply):
-                added = [
-                    await self.add(
-                        user_id,
-                        JobCreate(
-                            external_id=job.posting.id,
-                            source="JSearch",
-                            title=job.posting.title,
-                            company=job.posting.company,
-                            location=f"{job.posting.location}, remote"
-                            if job.posting.remote
-                            else job.posting.location,
-                            url=job.posting.apply_url,
-                            posted_at=job.posting.posted_at,
-                            analysis=FitAnalysis(
-                                fit=job.fit, requirements=job.requirements
-                            ),
-                        ),
-                    )
-                    for job in reply.jobs
-                ]
-                await self._repository.add(
-                    JobRun(
-                        user_id=user_id,
-                        found=len(added),
-                        new=sum(created for _, created in added),
-                        scored_70=sum(job.fit >= 70 for job in reply.jobs),
-                    )
+
+    async def cancel_run(self, user_id: UUID, run_id: UUID) -> None:
+        """Remove one of the user's queued runs; NotFound when it is not theirs,
+        Conflict once a worker has taken it or it ended"""
+        row = await self._repository.owned(JobRun, user_id, run_id)
+        if row is None:
+            raise NotFound("No such run")
+        if row.status is not RunStatus.QUEUED:
+            raise Conflict("The run has already started")
+        await self._repository.delete(row)
+
+    async def keep_found(self, run: JobRun, reply: FindJobsOutput) -> None:
+        """Store each job find-jobs found as a pick, cut to fit or skipped when its URL
+        is too long, count them on the run against min_score, and keep the quota read"""
+        kept = []
+        for job in reply.jobs:
+            if len(job.posting.apply_url) > 2000:
+                logger.warning(
+                    "job_url_too_long", run_id=str(run.id), posting_id=job.posting.id
                 )
-                await self._settings.record_quota(user_id, reply.quota)
-                return Completed(reply=[job for job, _ in added])
-            case InputRequired():
-                raise ServiceUnavailable("find-jobs asked for input ops cannot give")
-            case Failed():
-                return run
+            else:
+                kept.append(job)
+        added = [
+            await self.add(
+                run.user_id,
+                JobCreate(
+                    external_id=job.posting.id,
+                    source="JSearch",
+                    title=job.posting.title[:200],
+                    company=job.posting.company[:200],
+                    location=(
+                        f"{job.posting.location}, remote"
+                        if job.posting.remote
+                        else job.posting.location
+                    )[:200],
+                    url=job.posting.apply_url,
+                    posted_at=job.posting.posted_at,
+                    analysis=FitAnalysis(fit=job.fit, requirements=job.requirements),
+                ),
+            )
+            for job in kept
+        ]
+        min_score = (await self._preferences.get(run.user_id)).min_score
+        run.found = len(added)
+        run.new = sum(created for _, created in added)
+        run.matched = sum(job.fit >= min_score for job in kept)
+        await self._settings.record_quota(run.user_id, reply.quota)
 
     async def analyse_posting(
         self, user_id: UUID, job_id: UUID

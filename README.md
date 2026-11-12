@@ -57,7 +57,7 @@ pnpm run dev:renderverse      # web app only
 pnpm run dev:ezbot-harness    # chatbot API on the host (http://localhost:8000/docs), starts the Laya container first
 pnpm run dev:ops-web          # Ops UI only (http://localhost:5174)
 pnpm run dev:ops-api          # Ops API on the host (http://localhost:8100/ops-api/docs), starts Postgres first
-pnpm nx run ops-api:worker    # ops-worker, which processes the files uploaded to Documents and Data
+pnpm nx run ops-api:worker    # ops-worker, which processes uploaded files and runs the job agent
 pnpm run dev:ops              # the Ops UI, API and worker, in one terminal
 pnpm run migrate              # apply ops-api's database migrations
 pnpm nx run ezcareer-harness:dev  # career agents (http://localhost:8200/ezcareer/docs)
@@ -133,7 +133,7 @@ pnpm run dev:ops
 
 The UI on http://localhost:5174 proxies `/ops-api` to ops-api, the same path `tailscale serve` routes on the VM. Locally auth is off and every request acts as `auth.dev_email` from [config.toml](apps/ops-api/config.toml), as an admin. ops-api refuses to start with auth off unless `app.env` is `dev` and `auth.web_url` is on localhost, 127.0.0.1 or ::1.
 
-Files uploaded to Documents and Data are stored and queued as imports, which ops-worker claims and processes; several workers can run at once. Run one with `pnpm nx run ops-api:worker` (`pnpm run dev:ops` starts it with the API). Without it, uploads stay queued.
+Files uploaded to Documents and Data are stored and queued as imports, which ops-worker claims and processes; several workers can run at once. Run one with `pnpm nx run ops-api:worker` (`pnpm run dev:ops` starts it with the API). Without it, uploads stay queued. ops-worker also runs the job agent: once a minute it queues a run for every user whose local time has passed the `run_at` in their job preferences, and the Find button and the chat assistant queue runs too, one at a time per user.
 
 The agents and documents need two more services. ops-api calls the ezcareer harness (http://localhost:8200) for the assistant, job search, tailoring, résumé import and email, and artifact-service (http://localhost:8210) to export PDFs and list the templates. The harness also uses artifact-service, to read and print imported résumés. `pnpm run dev` starts everything; on its own, start them with `pnpm nx run ezcareer-harness:dev` and `pnpm nx run artifact-service:dev`.
 

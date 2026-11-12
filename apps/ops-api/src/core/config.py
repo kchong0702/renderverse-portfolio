@@ -123,6 +123,9 @@ class WorkerSettings(BaseModel):
     poll_seconds: float = Field(default=2, gt=0)
     """How long a worker waits before looking for work again when none was due"""
 
+    tick_seconds: float = Field(default=60, gt=0)
+    """How often a worker queues the scheduled job runs that are due"""
+
 
 class ProfileSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}

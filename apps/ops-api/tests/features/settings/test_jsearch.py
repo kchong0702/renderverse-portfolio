@@ -3,7 +3,7 @@ from sqlalchemy import select
 
 from src.core.config import reload_settings
 from src.features.connections import Connection, Provider
-from tests.conftest import JSEARCH_ENCRYPTION_KEY, PREFIX, a2a_sent, a2a_task
+from tests.conftest import JSEARCH_ENCRYPTION_KEY, PREFIX, a2a_sent, a2a_task, work
 
 SETTINGS = f"{PREFIX}/settings"
 JSEARCH = f"{SETTINGS}/connections/jsearch"
@@ -36,7 +36,7 @@ async def test_a_jsearch_key_is_stored_encrypted_and_never_returned(app, client)
     assert Fernet(JSEARCH_ENCRYPTION_KEY).decrypt(stored.secret) == API_KEY.encode()
 
 
-async def test_runs_send_the_jsearch_key_in_metadata(client, harness):
+async def test_runs_send_the_jsearch_key_in_metadata(app, client, harness):
     await client.put(JSEARCH, json={"api_key": API_KEY})
     harness.outcomes = [
         a2a_task("COMPLETED", artifact_parts=[{"data": {"jobs": []}}]),
@@ -45,8 +45,10 @@ async def test_runs_send_the_jsearch_key_in_metadata(client, harness):
     model = {"family": "claude", "model": "claude-sonnet-4-5"}
 
     await client.post(f"{PREFIX}/jobs/find")
+    await work(app)
     await client.patch(SETTINGS, json={"ai_model": model})
     await client.post(f"{PREFIX}/jobs/find")
+    await work(app)
 
     first, second = a2a_sent(harness)
     assert first["params"]["metadata"] == {"jsearch": {"api_key": API_KEY}}
@@ -59,12 +61,13 @@ async def test_runs_send_the_jsearch_key_in_metadata(client, harness):
     )
 
 
-async def test_a_removed_jsearch_key_is_no_longer_sent(client, harness):
+async def test_a_removed_jsearch_key_is_no_longer_sent(app, client, harness):
     await client.put(JSEARCH, json={"api_key": API_KEY})
     harness.outcomes = [a2a_task("COMPLETED", artifact_parts=[{"data": {"jobs": []}}])]
 
     removed = await client.delete(JSEARCH)
     await client.post(f"{PREFIX}/jobs/find")
+    await work(app)
 
     assert removed.status_code == 200
     assert _jsearch(removed.json()) == {
@@ -76,7 +79,7 @@ async def test_a_removed_jsearch_key_is_no_longer_sent(client, harness):
     assert "metadata" not in a2a_sent(harness)[0]["params"]
 
 
-async def test_the_connection_shows_the_last_find_runs_quota(client, harness):
+async def test_the_connection_shows_the_last_find_runs_quota(app, client, harness):
     await client.put(JSEARCH, json={"api_key": API_KEY})
     harness.outcomes = [
         a2a_task(
@@ -94,7 +97,9 @@ async def test_the_connection_shows_the_last_find_runs_quota(client, harness):
     ]
 
     await client.post(f"{PREFIX}/jobs/find")
+    await work(app)
     await client.post(f"{PREFIX}/jobs/find")
+    await work(app)
 
     connection = _jsearch((await client.get(SETTINGS)).json())
     assert connection == {
@@ -107,7 +112,7 @@ async def test_the_connection_shows_the_last_find_runs_quota(client, harness):
     assert _jsearch(changed.json())["quota"] is None
 
 
-async def test_a_run_on_the_servers_key_shows_no_quota(client, harness):
+async def test_a_run_on_the_servers_key_shows_no_quota(app, client, harness):
     harness.outcomes = [
         a2a_task(
             "COMPLETED",
@@ -118,6 +123,7 @@ async def test_a_run_on_the_servers_key_shows_no_quota(client, harness):
     ]
 
     await client.post(f"{PREFIX}/jobs/find")
+    await work(app)
 
     assert _jsearch((await client.get(SETTINGS)).json()) == {
         "id": "jsearch",
@@ -137,10 +143,13 @@ async def test_an_unreadable_jsearch_key_stops_runs_with_a_clear_error(
         stored.secret = Fernet(Fernet.generate_key()).encrypt(b"other")
         await session.commit()
 
-    response = await client.post(f"{PREFIX}/jobs/find")
+    queued = await client.post(f"{PREFIX}/jobs/find")
+    await work(app)
 
-    assert response.status_code == 409
-    assert "change it in Settings" in response.json()["detail"]
+    assert queued.status_code == 202
+    failed = (await client.get(f"{PREFIX}/jobs/runs/latest")).json()
+    assert failed["status"] == "failed"
+    assert "change it in Settings" in failed["error"]
     assert harness.received == []
 
 

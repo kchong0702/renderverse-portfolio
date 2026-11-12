@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, computed_field
 
 from src.features.documents import TailoredDocument
-from src.features.jobs.enums import Importance, JobStatus, Match
+from src.features.jobs.enums import Importance, JobStatus, Match, RunStatus, RunTrigger
 from src.features.profile import AgentProfile
 from src.features.settings import SearchQuota
 
@@ -111,18 +111,44 @@ class JobSearch(BaseModel):
     """Only postings this recent"""
 
 
+class JobRunCreate(BaseModel):
+    run_after: datetime | None = None
+    """The earliest the run may start; None starts it as soon as a worker is free"""
+
+    search: JobSearch | None = None
+    """The search the run hands find-jobs; None searches from the preferences"""
+
+
 class JobRunRead(BaseModel):
+    id: UUID
+    """The run's id"""
+
+    trigger: RunTrigger
+    """What queued the run: the daily schedule, the Find button or the assistant"""
+
+    status: RunStatus
+    """How far the run has got"""
+
+    run_after: datetime
+    """The earliest a worker may claim it"""
+
     found: int
-    """How many jobs the find run returned"""
+    """How many jobs find-jobs returned"""
 
     new: int
     """How many of them were not stored before"""
 
-    scored_70: int
-    """How many of them fit 70 or more"""
+    matched: int
+    """How many of them fit at or above the user's min_score"""
 
-    finished_at: datetime
-    """When the run ended"""
+    error: str
+    """Why the last attempt failed; empty otherwise"""
+
+    created_at: datetime
+    """When it was queued"""
+
+    finished_at: datetime | None
+    """When it was done or failed; None while it is queued or running"""
 
 
 class FindJobsInput(AgentProfile):
@@ -200,6 +226,7 @@ __all__ = [
     "JobCreate",
     "JobList",
     "JobRead",
+    "JobRunCreate",
     "JobRunRead",
     "JobSearch",
     "JobUpdate",

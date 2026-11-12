@@ -23,6 +23,7 @@ max_per_kind = 10
 lease_seconds = 60
 heartbeat_seconds = 15
 poll_seconds = 2
+tick_seconds = 60
 
 [auth]
 enabled = false

@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 9eb5982b9fd8
+Revision ID: 7ffcd3e9dbc2
 Revises:
-Create Date: 2026-11-13 13:22:45.776745
+Create Date: 2026-11-13 13:22:58.347747
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "9eb5982b9fd8"
+revision: str = "7ffcd3e9dbc2"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -401,10 +401,30 @@ def upgrade() -> None:
     )
     op.create_table(
         "job_runs",
+        sa.Column("trigger", sa.String(), nullable=False),
+        sa.Column("scheduled_for", sa.Date(), nullable=True),
+        sa.Column(
+            "run_after",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "search",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=True,
+        ),
+        sa.Column("status", sa.String(), nullable=False),
+        sa.Column("claim_token", sa.Uuid(), nullable=True),
+        sa.Column("lease_until", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("attempts", sa.Integer(), nullable=False),
+        sa.Column("error", sa.Text(), nullable=False),
         sa.Column("found", sa.Integer(), nullable=False),
         sa.Column("new", sa.Integer(), nullable=False),
-        sa.Column("scored_70", sa.Integer(), nullable=False),
-        sa.Column("finished_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("matched", sa.Integer(), nullable=False),
+        sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column(
@@ -434,6 +454,30 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("pk_job_runs")),
     )
     op.create_index(op.f("ix_job_runs_user_id"), "job_runs", ["user_id"], unique=False)
+    op.create_index(
+        "uq_job_runs_queued",
+        "job_runs",
+        ["user_id", "trigger"],
+        unique=True,
+        postgresql_where=sa.text("status = 'queued'"),
+        sqlite_where=sa.text("status = 'queued'"),
+    )
+    op.create_index(
+        "uq_job_runs_running",
+        "job_runs",
+        ["user_id"],
+        unique=True,
+        postgresql_where=sa.text("status = 'running'"),
+        sqlite_where=sa.text("status = 'running'"),
+    )
+    op.create_index(
+        "uq_job_runs_scheduled_day",
+        "job_runs",
+        ["user_id", "scheduled_for"],
+        unique=True,
+        postgresql_where=sa.text("trigger = 'scheduled'"),
+        sqlite_where=sa.text("trigger = 'scheduled'"),
+    )
     op.create_table(
         "jobs",
         sa.Column("external_id", sa.String(length=200), nullable=True),
@@ -1438,6 +1482,24 @@ def downgrade() -> None:
     op.drop_table("networking_copies")
     op.drop_index(op.f("ix_jobs_user_id"), table_name="jobs")
     op.drop_table("jobs")
+    op.drop_index(
+        "uq_job_runs_scheduled_day",
+        table_name="job_runs",
+        postgresql_where=sa.text("trigger = 'scheduled'"),
+        sqlite_where=sa.text("trigger = 'scheduled'"),
+    )
+    op.drop_index(
+        "uq_job_runs_running",
+        table_name="job_runs",
+        postgresql_where=sa.text("status = 'running'"),
+        sqlite_where=sa.text("status = 'running'"),
+    )
+    op.drop_index(
+        "uq_job_runs_queued",
+        table_name="job_runs",
+        postgresql_where=sa.text("status = 'queued'"),
+        sqlite_where=sa.text("status = 'queued'"),
+    )
     op.drop_index(op.f("ix_job_runs_user_id"), table_name="job_runs")
     op.drop_table("job_runs")
     op.drop_table("job_preferences")

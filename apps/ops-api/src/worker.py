@@ -11,10 +11,15 @@ from src.core.logging import configure_logging, get_logger
 from src.db import models  # noqa: F401
 from src.db.queue import Claimable, Queue, claim, fail_lapsed, heartbeat, release
 from src.features.imports.processing import IMPORTS, process_import
+from src.features.jobs.processing import (
+    JOB_RUNS,
+    enqueue_scheduled_runs,
+    process_job_run,
+)
 
 logger = get_logger(__name__)
 
-QUEUES = ((IMPORTS, process_import),)
+QUEUES = ((IMPORTS, process_import), (JOB_RUNS, process_job_run))
 """Each queue the worker claims from, with what processes a claimed row"""
 
 
@@ -70,11 +75,12 @@ async def _process[R: Claimable](
             logger.info("released", table=table, id=str(row_id))
 
 
-async def _work(container: Container, stop: asyncio.Event) -> bool:
-    """Fail lapsed rows and process the first row due on any queue; whether one was"""
+async def _work(container: Container, stop: asyncio.Event, first: int) -> bool:
+    """Fail lapsed rows and process the first row due on any queue, trying the
+    queues from the one at first; whether one was"""
     settings = container.settings().worker
     factory = container.session_factory()
-    for queue, process in QUEUES:
+    for queue, process in QUEUES[first:] + QUEUES[:first]:
         table = queue.model.__tablename__
         async with factory() as session, session.begin():
             lapsed = await fail_lapsed(session, queue)
@@ -95,21 +101,40 @@ async def _work(container: Container, stop: asyncio.Event) -> bool:
 
 
 async def run(container: Container, stop: asyncio.Event) -> None:
-    """Claim and process rows, one at a time, until stop is set"""
+    """Claim and process rows, one at a time and each queue first in turn, until
+    stop is set"""
     settings = container.settings().worker
+    turn = 0
     while not stop.is_set():
         try:
-            worked = await _work(container, stop)
+            worked = await _work(container, stop, turn)
         except Exception:
             logger.exception("worker_iteration_failed")
             worked = False
+        turn = (turn + 1) % len(QUEUES)
         if not worked:
             with suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), settings.poll_seconds)
 
 
+async def tick(container: Container, stop: asyncio.Event) -> None:
+    """Queue the scheduled job runs due, every tick_seconds until stop is set"""
+    settings = container.settings().worker
+    factory = container.session_factory()
+    while not stop.is_set():
+        try:
+            async with factory() as session, session.begin():
+                queued = await enqueue_scheduled_runs(session)
+            if queued:
+                logger.info("job_runs_scheduled", count=queued)
+        except Exception:
+            logger.exception("tick_failed")
+        with suppress(TimeoutError):
+            await asyncio.wait_for(stop.wait(), settings.tick_seconds)
+
+
 async def main() -> None:
-    """Run the worker until SIGINT or SIGTERM"""
+    """Run the worker's claim loop and its tick until SIGINT or SIGTERM"""
     settings = get_settings()
     configure_logging(settings)
     container = Container()
@@ -118,7 +143,7 @@ async def main() -> None:
         asyncio.get_running_loop().add_signal_handler(signum, stop.set)
     logger.info("worker_started")
     try:
-        await run(container, stop)
+        await asyncio.gather(run(container, stop), tick(container, stop))
     finally:
         await container.runner().aclose()
         await container.artifact().aclose()
