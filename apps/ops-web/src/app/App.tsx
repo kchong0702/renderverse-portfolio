@@ -3,6 +3,7 @@ import { ApplicationsPage } from "@/features/applications";
 import { RequireAuth, SignInPage, useIsAdmin } from "@/features/auth";
 import { CalendarPage } from "@/features/calendar";
 import { DashboardPage } from "@/features/dashboard";
+import { DataPage, ReviewPage } from "@/features/data";
 import { DocumentsPage, ImportPage } from "@/features/documents";
 import { InboxPage } from "@/features/inbox";
 import { JobsPage } from "@/features/jobs";
@@ -32,6 +33,8 @@ const router = createBrowserRouter(
         { path: "/documents", element: <DocumentsPage /> },
         { path: "/documents/import", element: <ImportPage /> },
         { path: "/portfolio", element: <PortfolioRoute /> },
+        { path: "/data", element: <DataPage /> },
+        { path: "/data/review", element: <ReviewPage /> },
         { path: "/inbox", element: <InboxPage /> },
         { path: "/calendar", element: <CalendarPage /> },
         { path: "/settings", element: <SettingsPage /> },

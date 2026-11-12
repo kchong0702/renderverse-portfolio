@@ -6,6 +6,7 @@ import {
   TextAreaField,
   TextField,
 } from "@/shared/components/fields";
+import { cn } from "@/shared/lib/cn";
 import type { EntryKind, EntryWrite, YearMonth } from "../api/profile";
 
 interface EntryFormProps {
@@ -15,6 +16,7 @@ interface EntryFormProps {
   error: string | null;
   onSubmit: (entry: EntryWrite) => void;
   onCancel: () => void;
+  onDelete?: () => void;
 }
 
 export default function EntryForm({
@@ -24,6 +26,7 @@ export default function EntryForm({
   error,
   onSubmit,
   onCancel,
+  onDelete,
 }: EntryFormProps) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState({
@@ -173,6 +176,22 @@ export default function EntryForm({
         <button type="button" onClick={onCancel} className={buttonClass()}>
           {t("portfolio.form.cancel")}
         </button>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={() => {
+              if (
+                window.confirm(
+                  t("portfolio.table.confirmDelete", { name: entry.title }),
+                )
+              )
+                onDelete();
+            }}
+            className={cn(buttonClass("danger"), "ml-auto")}
+          >
+            {t("portfolio.form.delete")}
+          </button>
+        )}
       </div>
     </form>
   );

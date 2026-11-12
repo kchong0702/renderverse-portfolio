@@ -2,6 +2,7 @@ import { createLucideIcon, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useApplications } from "@/features/applications";
 import { useIsAdmin } from "@/features/auth";
+import { reviewCards, useChanges } from "@/features/data";
 import { useInbox } from "@/features/inbox";
 import { useJobs } from "@/features/jobs";
 import { useDraft } from "@/features/portfolio";
@@ -13,6 +14,7 @@ export type NavKey =
   | "applications"
   | "documents"
   | "portfolio"
+  | "data"
   | "inbox"
   | "calendar"
   | "settings";
@@ -109,6 +111,19 @@ export const navGroups: NavGroup[] = [
           ],
         ]),
       },
+      {
+        key: "data",
+        path: "/data",
+        icon: createLucideIcon("Data", [
+          [
+            "path",
+            {
+              d: "M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM9 9a2 2 0 1 0 0 4a2 2 0 1 0 0-4zM6 16c.6-1.4 1.7-2 3-2s2.4.6 3 2M15 10h3M15 14h3",
+              key: "0",
+            },
+          ],
+        ]),
+      },
     ],
   },
   {
@@ -172,6 +187,8 @@ export function useNavBadges(): Partial<Record<NavKey, string>> {
   const { account } = useGoogleAccount();
   const inbox = useInbox(account !== null);
   const { data: draft } = useDraft(useIsAdmin());
+  const { data: changes } = useChanges();
+  const waiting = changes ? reviewCards(changes).length : 0;
   return {
     jobs: newJobs ? t("nav.badges.newJobs", { count: newJobs }) : undefined,
     applications: active?.length ? String(active.length) : undefined,
@@ -180,5 +197,6 @@ export function useNavBadges(): Partial<Record<NavKey, string>> {
       draft?.site_url && draft.changes.length > 0
         ? t("nav.badges.draft", { count: draft.changes.length })
         : undefined,
+    data: waiting ? String(waiting) : undefined,
   };
 }

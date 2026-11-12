@@ -34,6 +34,7 @@
       "applications": "Applications",
       "documents": "Documents",
       "portfolio": "Portfolio",
+      "data": "Data",
       "inbox": "Inbox",
       "calendar": "Calendar",
       "settings": "Settings"
@@ -1039,6 +1040,11 @@
         "Which projects should be featured?",
         "What changed since the last release?"
       ],
+      "data": [
+        "What should my headline say?",
+        "Which of my jobs matter most for the roles I want?",
+        "What is missing from my details?"
+      ],
       "inbox": [
         "Draft a reply to the latest employer email",
         "Which emails need an answer today?",
@@ -1060,7 +1066,6 @@
     "title": "Portfolio",
     "subtitle": "The facts your agents use, and your portfolio site",
     "loadFailed": "The profile could not be loaded: {{reason}}",
-    "addProject": "Add project",
     "save": {
       "saving": "Saving…",
       "saved": "All changes saved",
@@ -1088,7 +1093,6 @@
         "heading": "Experience",
         "description": "Jobs you have held. Their dates count towards your years of experience.",
         "column": "Role",
-        "add": "+ Add role",
         "empty": "No roles yet.",
         "title": "Job title",
         "organisation": "Employer",
@@ -1098,7 +1102,6 @@
         "heading": "Education",
         "description": "Degrees, diplomas and courses.",
         "column": "Education",
-        "add": "+ Add education",
         "empty": "No education yet.",
         "title": "Degree or course",
         "organisation": "School",
@@ -1108,7 +1111,6 @@
         "heading": "Projects",
         "description": "Active projects are facts the agents can use when they write your résumés and letters. Archived ones are kept but left out.",
         "column": "Project",
-        "add": "+ Add project",
         "empty": "No projects here.",
         "title": "Project name",
         "organisation": "Built for",
@@ -1116,14 +1118,11 @@
       }
     },
     "table": {
-      "agentContext": "Agent context",
       "archived": "Archived",
       "deleteColumn": "Delete",
       "edit": "Edit {{name}}",
       "delete": "Delete {{name}}",
-      "useInAgent": "Use {{name}} in agent context",
       "confirmDelete": "Delete {{name}}? This cannot be undone.",
-      "toggleFailed": "Agent context not changed: {{reason}}",
       "deleteFailed": "Not deleted: {{reason}}",
       "onSite": "On site",
       "showOnSite": "Show {{name}} on your portfolio site",
@@ -1145,6 +1144,7 @@
       "save": "Save",
       "saving": "Saving…",
       "cancel": "Cancel",
+      "delete": "Delete",
       "failed": "Not saved: {{reason}}"
     },
     "about": {
@@ -1193,10 +1193,7 @@
       "heading": "Skills",
       "description": "Active skills are facts the agents can use. Group them the way your résumé does.",
       "name": "Skill",
-      "namePlaceholder": "e.g. Python",
       "group": "Group",
-      "groupPlaceholder": "e.g. Platform",
-      "add": "Add skill",
       "empty": "No skills yet."
     },
     "previewSite": "Preview site",
@@ -1281,6 +1278,323 @@
         "added": "Added",
         "changed": "Changed",
         "removed": "Removed"
+      }
+    }
+  },
+  "data": {
+    "title": "Data",
+    "subtitle": "Your work history in one place, ready to copy into any job site",
+    "addFile": "Add a file",
+    "loadFailed": "Your details could not be loaded: {{reason}}",
+    "edit": "Edit",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "copy": "Copy",
+    "copyAll": "Copy all",
+    "copyNamed": "Copy {{name}}",
+    "copied": "Copied",
+    "notSaved": "Not saved: {{reason}}",
+    "choose": "Choose",
+    "pending_one": "{{count}} thing in your files differs from what you have. Nothing changes until you choose.",
+    "pending_other": "{{count}} things in your files differ from what you have. Nothing changes until you choose.",
+    "roleAt": "{{title}} at {{organisation}}",
+    "period": {
+      "range": "{{from}} to {{to}}",
+      "now": "now"
+    },
+    "how": {
+      "title": "How it works",
+      "dismiss": "Got it",
+      "steps": {
+        "file": {
+          "title": "Add a file",
+          "text": "Upload your résumé, or a profile you saved from a job site."
+        },
+        "check": {
+          "title": "Check your details",
+          "text": "Fix anything that’s wrong, and choose what the assistant uses."
+        },
+        "networking": {
+          "title": "Networking",
+          "text": "Optimized content for your job portal and networking."
+        }
+      }
+    },
+    "tabs": {
+      "label": "Data sections",
+      "about": "About you",
+      "networking": "Networking"
+    },
+    "contact": {
+      "title": "Contact details",
+      "hint": "How employers reach you",
+      "empty": "Nothing added yet",
+      "nothing": "Nothing here yet. Add your details, or add a file.",
+      "parts": {
+        "name": "name",
+        "email": "email",
+        "phone": "phone",
+        "links_one": "{{count}} link",
+        "links_other": "{{count}} links"
+      },
+      "name": "Name",
+      "headline": "Headline",
+      "headlinePlaceholder": "e.g. Senior Software Engineer",
+      "location": "Location",
+      "email": "Email",
+      "phone": "Phone",
+      "summary": "Summary",
+      "links": "Links",
+      "linkLabel": "Link {{number}} name",
+      "linkLabelPlaceholder": "Name, e.g. LinkedIn",
+      "linkUrl": "Link {{number}} address",
+      "removeLink": "Remove link {{number}}",
+      "remove": "Remove",
+      "addLink": "+ Add link",
+      "linkLimit": "· up to 3"
+    },
+    "preferences": {
+      "title": "What you’re looking for",
+      "hint": "Pay, where you’d work, and visas",
+      "salary": "Lowest salary you’d accept",
+      "salaryLabel": "Lowest salary",
+      "salaryNote": "Before tax. Leave it empty if you’d rather not say.",
+      "salaryValue": "{{currency}} {{amount}} {{period}}",
+      "beforeTax": "{{amount}}, before tax",
+      "notSet": "Not set",
+      "currency": "Currency",
+      "period": "Paid per",
+      "periods": {
+        "hour": "an hour",
+        "month": "a month",
+        "year": "a year"
+      },
+      "modes": "Where you’d work",
+      "modesLabel": "Where you’d work",
+      "modesNote": "Pick none if any is fine.",
+      "modeNames": {
+        "onsite": "At the office",
+        "hybrid": "Hybrid",
+        "remote": "Remote"
+      },
+      "countries": "Countries you’d like to work in",
+      "countriesLabel": "Countries you’d like",
+      "visaFree": "Countries you can work in without a visa",
+      "visaFreeLabel": "Without a visa",
+      "anywhere": "Anywhere",
+      "noneYet": "None yet"
+    },
+    "entries": {
+      "uses": "Assistant uses this",
+      "use": "Let the assistant use {{name}}",
+      "edit": "Edit {{name}}",
+      "off": "Assistant won’t use it",
+      "offCount": "{{count}} off",
+      "role": {
+        "title": "Experience",
+        "hint": "Every job you’ve had, newest first",
+        "column": "Job",
+        "add": "+ Add job",
+        "empty": "No jobs yet.",
+        "count_one": "{{count}} job",
+        "count_other": "{{count}} jobs"
+      },
+      "education": {
+        "title": "Education",
+        "hint": "Degrees, diplomas and courses",
+        "column": "Course",
+        "add": "+ Add course",
+        "empty": "No courses yet.",
+        "count_one": "{{count}} course",
+        "count_other": "{{count}} courses"
+      },
+      "project": {
+        "title": "Projects",
+        "hint": "What you built or led. Whether one shows on your website is set in Portfolio.",
+        "column": "Project",
+        "add": "+ Add project",
+        "empty": "No projects yet.",
+        "count_one": "{{count}} project",
+        "count_other": "{{count}} projects"
+      }
+    },
+    "skills": {
+      "title": "Skills",
+      "hint": "Click a skill to stop the assistant using it. Click it again to bring it back.",
+      "count_one": "{{count}} skill",
+      "count_other": "{{count}} skills",
+      "empty": "No skills yet.",
+      "addButton": "+ Add skill",
+      "name": "Skill",
+      "namePlaceholder": "e.g. Python",
+      "group": "Group, if you like",
+      "groupPlaceholder": "e.g. Languages",
+      "add": "Add",
+      "done": "Done",
+      "turnOff": "Click to stop the assistant using it",
+      "turnOn": "Click to let the assistant use it"
+    },
+    "networking": {
+      "loadFailed": "Your networking copy could not be loaded: {{reason}}",
+      "aim": "Aim for jobs like",
+      "aimPlaceholder": "e.g. Senior backend roles",
+      "write": "Write it",
+      "writeAgain": "Write again",
+      "writing": "Writing…",
+      "writeFailed": "Not written: {{reason}}",
+      "notWritten": "Not written yet",
+      "toPaste": "Text to paste",
+      "characters_one": "{{formatted}} character",
+      "characters_other": "{{formatted}} characters",
+      "rewrite": "Rewrite",
+      "rewriteNamed": "Rewrite {{name}}",
+      "editNamed": "Edit {{name}}",
+      "doneEditing": "Done editing",
+      "basedOn": "Based on: {{facts}}",
+      "showSources": "Show what each part is based on",
+      "jobTitle": "Job title",
+      "description": "Description",
+      "offRole": "{{when}} · the assistant won’t use it, but it’s still listed here",
+      "facts": {
+        "about": "Your details",
+        "role": "{{organisation}} role"
+      },
+      "headline": {
+        "title": "Headline",
+        "hint": "The short line under your name. Recruiters search it."
+      },
+      "summary": {
+        "title": "Summary",
+        "hint": "The About or Summary box on your profile."
+      },
+      "experience": {
+        "title": "Experience",
+        "hint": "For each job on your profile, replace its title and description."
+      },
+      "skills": {
+        "title": "Skills",
+        "hint": "Add these to the skills list. Click one to copy it."
+      }
+    },
+    "importDialog": {
+      "title": "Add a file",
+      "intro": "Your résumé, or a profile you saved from a job site. Anything new is added to your details. If something differs from what you have, we ask you first.",
+      "choose": "Choose a file",
+      "orDrop": "or drop it here",
+      "types": "PDF, Word or ZIP file",
+      "remove": "Remove",
+      "wrongType": "{{name}} isn’t a PDF, Word or ZIP file.",
+      "failed": "Not added: {{reason}}",
+      "networkFailed": "The upload stopped. Check your connection and try again.",
+      "add": "Add",
+      "reading": "Reading {{name}}",
+      "keepsGoing": "You can close this. It keeps going, and you’ll see the result here when it’s done.",
+      "sending": "Sending the file",
+      "comparing": "Reading it and comparing it with your details",
+      "close": "Close",
+      "done": "Done",
+      "again": "You added this file on {{date}}",
+      "sameFile": "Adding the same file again changes nothing.",
+      "finish": "Done",
+      "chooseNow": "Choose now",
+      "groups": {
+        "added": {
+          "label": "Added to your details",
+          "hint": "New jobs, courses, projects, skills and details"
+        },
+        "conflicts": {
+          "label": "Need your choice",
+          "hint": "They differ from what you have, so we ask first"
+        },
+        "matched": {
+          "label": "Already there",
+          "hint": "Same as what you have, so nothing changed"
+        }
+      }
+    },
+    "review": {
+      "title": "Review profile changes",
+      "subtitle": "Conflicts from all your imports, one per field",
+      "loadFailed": "The changes could not be loaded: {{reason}}",
+      "listLabel": "Changes to review",
+      "intro": "Each change would replace something you already have. Click the value to keep for each field. Current stays until you save.",
+      "waitingCount_one": "{{count}} waiting",
+      "waitingCount_other": "{{count}} waiting",
+      "allDone": "All decided",
+      "emptyTitle": "Nothing waiting for you",
+      "emptyText": "Everything in your files matches your details, or you’ve already chosen.",
+      "back": "Back to Data",
+      "kinds": {
+        "about": "Profile",
+        "role": "Job",
+        "education": "Course",
+        "project": "Project"
+      },
+      "aboutTitle": "Contact details",
+      "missing": "A removed entry",
+      "unsure": "Unsure match",
+      "source": "Conflict from {{source}}",
+      "earlierImport": "an earlier import",
+      "field": "Field",
+      "current": "Current",
+      "conflict": "Conflict",
+      "empty": "Empty",
+      "keep": {
+        "current": "Keep current: {{value}}",
+        "conflict": "Use conflict: {{value}}"
+      },
+      "keepAll": "Keep all current",
+      "save": "Save choices",
+      "fields": {
+        "name": "Name",
+        "headline": "Headline",
+        "location": "Location",
+        "email": "Email",
+        "phone": "Phone",
+        "summary": "Summary",
+        "title": "Title",
+        "organisation": "Organisation",
+        "start": "Start",
+        "end": "End",
+        "highlights": "Highlights",
+        "link": "Live link",
+        "code_link": "Code link",
+        "tools": "Tools"
+      },
+      "match": {
+        "question": {
+          "role": "These look alike. Are they the same job?",
+          "education": "These look alike. Are they the same course?",
+          "project": "These look alike. Are they the same project?"
+        },
+        "same": {
+          "role": "Same job",
+          "education": "Same course",
+          "project": "Same project"
+        },
+        "different": {
+          "role": "Different jobs, add it",
+          "education": "Different courses, add it",
+          "project": "Different projects, add it"
+        }
+      },
+      "waiting": "Waiting for you",
+      "imports": "From your imports",
+      "noImports": "No imports yet.",
+      "sources": {
+        "data": "Data",
+        "documents": "Documents"
+      },
+      "added_one": "{{count}} added",
+      "added_other": "{{count}} added",
+      "conflicts_one": "{{count}} conflict",
+      "conflicts_other": "{{count}} conflicts",
+      "rulesTitle": "When you import again",
+      "rules": {
+        "one": "Each field keeps one conflict. A newer import replaces it.",
+        "match": "A conflict that now matches Current goes away.",
+        "same": "Importing the same file again changes nothing."
       }
     }
   }
