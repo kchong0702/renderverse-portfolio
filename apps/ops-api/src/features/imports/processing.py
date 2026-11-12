@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime
 from pathlib import PurePath
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from pydantic import ValidationError
-from sqlalchemy import and_, exists, or_, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import ColumnElement, and_, exists
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import aliased
 
@@ -15,7 +14,7 @@ from src.app.container import Container
 from src.clients.ezcareer import RunMetadata
 from src.core.exceptions import InvalidInput, ServiceException, ServiceUnavailable
 from src.core.logging import get_logger
-from src.db.base import utcnow
+from src.db.queue import Queue, complete, fail
 from src.features.documents import document_service
 from src.features.imports.enums import ImportSource, ImportStatus
 from src.features.imports.models import File, Import
@@ -28,14 +27,45 @@ from src.features.settings import settings_service
 
 logger = get_logger(__name__)
 
-MAX_ATTEMPTS = 3
-"""How many times an import is tried before it fails"""
 
-RETRY_SECONDS = 30
-"""The wait before the second attempt, doubling for each one after"""
+def _data_turn(due: type[Import], now: datetime) -> ColumnElement[bool]:
+    """Whether a due import may be claimed: a queued Data import waits while the same
+    user has another Data import processing under a live lease or an older one queued"""
+    other = aliased(Import)
+    data_turn = and_(due.source == ImportSource.DATA, due.status == ImportStatus.QUEUED)
+    return and_(
+        ~and_(
+            data_turn,
+            exists().where(
+                other.user_id == due.user_id,
+                other.source == ImportSource.DATA,
+                other.status == ImportStatus.PROCESSING,
+                other.lease_until >= now,
+            ),
+        ),
+        ~and_(
+            data_turn,
+            exists().where(
+                other.user_id == due.user_id,
+                other.source == ImportSource.DATA,
+                other.status == ImportStatus.QUEUED,
+                other.created_at < due.created_at,
+            ),
+        ),
+    )
 
-LAPSED = "The worker stopped while reading this file"
-"""The error of an import whose last attempt's worker stopped extending its lease"""
+
+IMPORTS = Queue(
+    model=Import,
+    queued=ImportStatus.QUEUED,
+    running=ImportStatus.PROCESSING,
+    done=ImportStatus.DONE,
+    failed=ImportStatus.FAILED,
+    lapsed="The worker stopped while reading this file",
+    abandoned=ImportStatus.ABANDONED,
+    eligible=_data_turn,
+)
+"""The imports a worker claims, one Data import per user at a time"""
 
 
 async def _read(
@@ -104,187 +134,6 @@ async def _store(
     await ProfileService(session).sync(row, imported)
 
 
-async def fail_lapsed(session: AsyncSession) -> int:
-    """Fail every import whose worker stopped extending its lease on its last
-    attempt, releasing its claim; how many"""
-    now = utcnow()
-    lapsed = (
-        select(Import.id)
-        .where(
-            Import.status == ImportStatus.PROCESSING,
-            Import.lease_until < now,
-            Import.attempts >= MAX_ATTEMPTS,
-        )
-        .with_for_update(skip_locked=True)
-        .scalar_subquery()
-    )
-    result = await session.execute(
-        update(Import)
-        .where(Import.id.in_(lapsed))
-        .values(
-            status=ImportStatus.FAILED,
-            claim_token=None,
-            lease_until=None,
-            error=LAPSED,
-            finished_at=now,
-        )
-    )
-    return result.rowcount
-
-
-async def claim_import(session: AsyncSession, lease: timedelta) -> Import | None:
-    """The next import due, claimed under a fresh token and lease; None when none is
-    due or another worker took the same user's Data turn first"""
-    now = utcnow()
-    due, other = aliased(Import), aliased(Import)
-    data_turn = and_(due.source == ImportSource.DATA, due.status == ImportStatus.QUEUED)
-    next_due = (
-        select(due.id)
-        .where(
-            or_(
-                and_(due.status == ImportStatus.QUEUED, due.run_after <= now),
-                and_(
-                    due.status == ImportStatus.PROCESSING,
-                    due.lease_until < now,
-                    due.attempts < MAX_ATTEMPTS,
-                ),
-            ),
-            ~and_(
-                data_turn,
-                exists().where(
-                    other.user_id == due.user_id,
-                    other.source == ImportSource.DATA,
-                    other.status == ImportStatus.PROCESSING,
-                    other.lease_until >= now,
-                ),
-            ),
-            ~and_(
-                data_turn,
-                exists().where(
-                    other.user_id == due.user_id,
-                    other.source == ImportSource.DATA,
-                    other.status == ImportStatus.QUEUED,
-                    other.created_at < due.created_at,
-                ),
-            ),
-        )
-        .order_by(due.run_after, due.created_at)
-        .limit(1)
-        .with_for_update(skip_locked=True)
-        .scalar_subquery()
-    )
-    try:
-        async with session.begin_nested():
-            return await session.scalar(
-                update(Import)
-                .where(Import.id == next_due)
-                .values(
-                    status=ImportStatus.PROCESSING,
-                    claim_token=uuid4(),
-                    lease_until=now + lease,
-                    attempts=Import.attempts + 1,
-                )
-                .returning(Import)
-            )
-    except IntegrityError:
-        return None
-
-
-async def heartbeat(
-    session: AsyncSession, import_id: UUID, claim_token: UUID, lease: timedelta
-) -> bool:
-    """Extend the lease of an import still processing under the claim; False once
-    the claim was lost to a newer upload or another worker"""
-    result = await session.execute(
-        update(Import)
-        .where(
-            Import.id == import_id,
-            Import.claim_token == claim_token,
-            Import.status == ImportStatus.PROCESSING,
-        )
-        .values(lease_until=utcnow() + lease)
-    )
-    if result.rowcount == 1:
-        return True
-    status = await session.scalar(
-        select(Import.status).where(
-            Import.id == import_id, Import.claim_token == claim_token
-        )
-    )
-    return status is not None and status is not ImportStatus.ABANDONED
-
-
-async def complete_import(
-    session: AsyncSession, import_id: UUID, claim_token: UUID
-) -> Import | None:
-    """Mark an import still processing under the claim done and return it; None when
-    the claim was lost"""
-    return await session.scalar(
-        update(Import)
-        .where(
-            Import.id == import_id,
-            Import.claim_token == claim_token,
-            Import.status == ImportStatus.PROCESSING,
-        )
-        .values(status=ImportStatus.DONE, finished_at=utcnow(), error="")
-        .returning(Import)
-    )
-
-
-async def fail_import(
-    session: AsyncSession,
-    import_id: UUID,
-    claim_token: UUID,
-    error: str,
-    *,
-    retry: bool,
-) -> Import | None:
-    """Queue an import still processing under the claim again after a backoff when
-    retry is set and attempts are left, else fail it; None when the claim was lost"""
-    row = await session.scalar(
-        select(Import)
-        .where(
-            Import.id == import_id,
-            Import.claim_token == claim_token,
-            Import.status == ImportStatus.PROCESSING,
-        )
-        .with_for_update(of=Import)
-    )
-    if row is None:
-        return None
-    row.error = error
-    if retry and row.attempts < MAX_ATTEMPTS:
-        row.status = ImportStatus.QUEUED
-        row.run_after = utcnow() + timedelta(seconds=RETRY_SECONDS * 2**row.attempts)
-    else:
-        row.status = ImportStatus.FAILED
-        row.finished_at = utcnow()
-    await session.flush()
-    return row
-
-
-async def release_import(
-    session: AsyncSession, import_id: UUID, claim_token: UUID
-) -> bool:
-    """Queue an import still processing under the claim again at once, the attempt
-    uncounted; False when the claim was lost"""
-    result = await session.execute(
-        update(Import)
-        .where(
-            Import.id == import_id,
-            Import.claim_token == claim_token,
-            Import.status == ImportStatus.PROCESSING,
-        )
-        .values(
-            status=ImportStatus.QUEUED,
-            claim_token=None,
-            lease_until=None,
-            attempts=Import.attempts - 1,
-        )
-    )
-    return result.rowcount == 1
-
-
 async def _fail(
     factory: async_sessionmaker[AsyncSession],
     import_id: UUID,
@@ -294,7 +143,7 @@ async def _fail(
 ) -> None:
     """Fail the import's attempt on a session of its own"""
     async with factory() as session, session.begin():
-        await fail_import(session, import_id, claim_token, error, retry=retry)
+        await fail(session, IMPORTS, import_id, claim_token, error, retry=retry)
 
 
 async def process_import(
@@ -318,7 +167,7 @@ async def process_import(
         content = await container.storage().read_private(f"{row.user_id}/{file.sha256}")
         outcome = await _read(file, content, row.user_id, metadata, container)
         async with factory() as session, session.begin():
-            done = await complete_import(session, import_id, claim_token)
+            done = await complete(session, IMPORTS, import_id, claim_token)
             if done is None:
                 logger.info("import_claim_lost", import_id=str(import_id))
                 return
@@ -337,15 +186,4 @@ async def process_import(
         await _fail(factory, import_id, claim_token, str(error), retry=True)
 
 
-__all__ = [
-    "LAPSED",
-    "MAX_ATTEMPTS",
-    "RETRY_SECONDS",
-    "claim_import",
-    "complete_import",
-    "fail_import",
-    "fail_lapsed",
-    "heartbeat",
-    "process_import",
-    "release_import",
-]
+__all__ = ["IMPORTS", "process_import"]

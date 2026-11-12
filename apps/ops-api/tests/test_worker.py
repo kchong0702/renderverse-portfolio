@@ -4,8 +4,8 @@ from uuid import UUID
 from dependency_injector import providers
 
 from src import worker
+from src.db.queue import claim
 from src.features.imports.models import Import
-from src.features.imports.processing import claim_import
 from tests.conftest import PREFIX, work
 from tests.features.imports.test_processing import _imported, _listed, _upload
 
@@ -17,7 +17,7 @@ def _quick(app) -> None:
         providers.Object(
             settings.model_copy(
                 update={
-                    "imports": settings.imports.model_copy(
+                    "worker": settings.worker.model_copy(
                         update={"poll_seconds": 0.01, "heartbeat_seconds": 0.02}
                     )
                 }
@@ -34,13 +34,13 @@ async def test_the_worker_goes_on_after_an_iteration_fails(
     harness.outcomes = [_imported()]
     claims = []
 
-    async def flaky(session, lease):
+    async def flaky(session, queue, lease):
         claims.append(len(claims))
         if len(claims) == 1:
             raise RuntimeError("the database went away")
-        return await claim_import(session, lease)
+        return await claim(session, queue, lease)
 
-    monkeypatch.setattr(worker, "claim_import", flaky)
+    monkeypatch.setattr(worker, "claim", flaky)
     stop = asyncio.Event()
 
     async def until_done() -> None:

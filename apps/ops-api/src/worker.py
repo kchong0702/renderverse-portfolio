@@ -1,5 +1,6 @@
 import asyncio
 import signal
+from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from datetime import timedelta
 from uuid import UUID
@@ -8,25 +9,29 @@ from src.app.container import Container
 from src.core.config import get_settings
 from src.core.logging import configure_logging, get_logger
 from src.db import models  # noqa: F401
-from src.features.imports.processing import (
-    claim_import,
-    fail_lapsed,
-    heartbeat,
-    process_import,
-    release_import,
-)
+from src.db.queue import Claimable, Queue, claim, fail_lapsed, heartbeat, release
+from src.features.imports.processing import IMPORTS, process_import
 
 logger = get_logger(__name__)
 
+QUEUES = ((IMPORTS, process_import),)
+"""Each queue the worker claims from, with what processes a claimed row"""
 
-async def _process(
-    container: Container, import_id: UUID, claim_token: UUID, stop: asyncio.Event
+
+async def _process[R: Claimable](
+    container: Container,
+    queue: Queue[R],
+    process: Callable[[UUID, UUID, Container], Awaitable[None]],
+    row_id: UUID,
+    claim_token: UUID,
+    stop: asyncio.Event,
 ) -> None:
-    """Process the claimed import, extending its lease until it ends; stop it once
-    the claim is lost, or when stop is set, releasing the claim"""
-    settings = container.settings().imports
+    """Process the claimed row, extending its lease until it ends; stop it once the
+    claim is lost, or when stop is set, releasing the claim"""
+    settings = container.settings().worker
     factory = container.session_factory()
-    task = asyncio.create_task(process_import(import_id, claim_token, container))
+    table = queue.model.__tablename__
+    task = asyncio.create_task(process(row_id, claim_token, container))
     stopping = asyncio.create_task(stop.wait())
     while True:
         await asyncio.wait(
@@ -40,12 +45,13 @@ async def _process(
             async with factory() as session, session.begin():
                 held = await heartbeat(
                     session,
-                    import_id,
+                    queue,
+                    row_id,
                     claim_token,
                     timedelta(seconds=settings.lease_seconds),
                 )
         except Exception:
-            logger.exception("import_heartbeat_failed", import_id=str(import_id))
+            logger.exception("heartbeat_failed", table=table, id=str(row_id))
             continue
         if not held:
             task.cancel()
@@ -56,39 +62,50 @@ async def _process(
         await task
     except asyncio.CancelledError:
         if not stop.is_set():
-            logger.info("import_claim_lost", import_id=str(import_id))
+            logger.info("claim_lost", table=table, id=str(row_id))
             return
         async with factory() as session, session.begin():
-            released = await release_import(session, import_id, claim_token)
+            released = await release(session, queue, row_id, claim_token)
         if released:
-            logger.info("import_released", import_id=str(import_id))
+            logger.info("released", table=table, id=str(row_id))
+
+
+async def _work(container: Container, stop: asyncio.Event) -> bool:
+    """Fail lapsed rows and process the first row due on any queue; whether one was"""
+    settings = container.settings().worker
+    factory = container.session_factory()
+    for queue, process in QUEUES:
+        table = queue.model.__tablename__
+        async with factory() as session, session.begin():
+            lapsed = await fail_lapsed(session, queue)
+            claimed = await claim(
+                session, queue, timedelta(seconds=settings.lease_seconds)
+            )
+        if lapsed:
+            logger.warning("lapsed", table=table, count=lapsed)
+        if claimed is not None:
+            logger.info(
+                "claimed", table=table, id=str(claimed.id), attempt=claimed.attempts
+            )
+            await _process(
+                container, queue, process, claimed.id, claimed.claim_token, stop
+            )
+            return True
+    return False
 
 
 async def run(container: Container, stop: asyncio.Event) -> None:
-    """Claim and process imports, one at a time, until stop is set"""
-    settings = container.settings().imports
-    factory = container.session_factory()
+    """Claim and process rows, one at a time, until stop is set"""
+    settings = container.settings().worker
     while not stop.is_set():
         try:
-            async with factory() as session, session.begin():
-                lapsed = await fail_lapsed(session)
-                claimed = await claim_import(
-                    session, timedelta(seconds=settings.lease_seconds)
-                )
-            if lapsed:
-                logger.warning("imports_lapsed", count=lapsed)
-            if claimed is not None:
-                logger.info(
-                    "import_claimed",
-                    import_id=str(claimed.id),
-                    attempt=claimed.attempts,
-                )
-                await _process(container, claimed.id, claimed.claim_token, stop)
-                continue
+            worked = await _work(container, stop)
         except Exception:
             logger.exception("worker_iteration_failed")
-        with suppress(TimeoutError):
-            await asyncio.wait_for(stop.wait(), settings.poll_seconds)
+            worked = False
+        if not worked:
+            with suppress(TimeoutError):
+                await asyncio.wait_for(stop.wait(), settings.poll_seconds)
 
 
 async def main() -> None:

@@ -19,7 +19,7 @@ timeout_seconds = 60
 [documents]
 max_per_kind = 10
 
-[imports]
+[worker]
 lease_seconds = 60
 heartbeat_seconds = 15
 poll_seconds = 2
