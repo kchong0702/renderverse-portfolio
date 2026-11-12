@@ -108,9 +108,9 @@ Make a tool a skill tool when only one skill uses it. Otherwise keep it always-o
 
 A tool that one agent uses lives in `src/agents/<agent>/tools/`. A tool that several agents use lives in `src/tools/`. The container builds the tool and passes it to `build_agent`. An agent's `profile.yaml` can replace a tool's description under `tool_description_overrides`. This works for both kinds of tools.
 
-`tests/app/test_agent_tools.py` checks every served agent:
+`tests/app/test_agent_tools.py` checks every agent:
 
-- Each tool that `system.md` or a skill names in backticks belongs to that agent.
+- Each tool of any agent that `system.md` or a skill names in backticks belongs to that agent.
 - Each name under `include_tools` is one of the agent's skill tools.
 - Each skill tool is listed by at least one skill, so the model can reach it.
 
