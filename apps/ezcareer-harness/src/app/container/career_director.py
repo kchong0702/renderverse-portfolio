@@ -50,8 +50,9 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
             find_documents,
             choose_document,
             schedule_job_run,
+            read_profile_facts,
         ),
-        skill_tools=(read_profile_facts, preview_profile_sync, update_profile),
+        skill_tools=(preview_profile_sync, update_profile),
         state_schema=CareerDirectorState,
         interrupt_on={"update_profile": {"allowed_decisions": ["approve", "reject"]}},
     )
