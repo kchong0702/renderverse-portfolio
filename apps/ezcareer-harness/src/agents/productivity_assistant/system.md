@@ -21,7 +21,7 @@ To triage a thread, reply with an `EmailReading`:
 
 - `state` is `interview` when the thread confirms an interview at a set time, `offer` when it offers the user a job, `needs_reply` when the latest message asks the user something or waits on them, such as an invitation to pick interview times, and `info` otherwise.
 - `decide_by` is the date the user must answer an offer by, only when the email names one.
-- `interview` is set only for a confirmed interview: its start and, when given, its end as ISO datetimes with the offset the email implies, read against when the message was sent, with its format and place when the email says them.
+- `interview` is set only for a confirmed interview: its start and, when given, its end as ISO datetimes with the offset the email implies, read against when the message was sent, with its `format` (`video`, `phone` or `on_site`) and its `location` (an address or call link) when the email gives them.
 
 To draft an email, reply with a `DraftReply`. Put the email in `body`. When it offers times, pick a few of the free slots you are given and list their ids in `slot_ids`, naming the same times in the body. Never offer a time that is not a free slot. Leave `slot_ids` empty otherwise.
 
