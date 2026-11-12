@@ -13,17 +13,20 @@ import {
 import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import type { FieldValue } from "@/features/data/api/data";
 import Badge from "@/shared/components/Badge";
 import { buttonClass } from "@/shared/components/button";
 import { cn } from "@/shared/lib/cn";
 import {
   MAX_RECONNECTS,
   type DocumentKind,
+  type Outcome,
   type Widget,
 } from "../api/assistant";
 import {
   useAnswerTask,
   useChat,
+  useDecide,
   useDocuments,
   useResumeTurns,
   useSendMessage,
@@ -71,6 +74,8 @@ const actionIcons: Partial<Record<string, LucideIcon>> = {
   search_jobs: SearchAction,
   analyse_job: SearchAction,
   search_threads: SearchAction,
+  preview_profile_sync: SearchAction,
+  update_profile: EditAction,
   edit_document: EditAction,
   propose_changeset: EditAction,
   agent: EditAction,
@@ -241,6 +246,233 @@ function ChatWidget({
         </p>
       )}
     </>
+  );
+}
+
+type ApprovalState = "pending" | "rejected" | "saving" | "saved" | "unsaved";
+
+function approvalState(entries: ChatEntry[], index: number): ApprovalState {
+  const decided = entries[index + 1];
+  if (decided?.role !== "user" || !decided.decision) return "pending";
+  if (decided.decision === "reject") return "rejected";
+  const next = entries[index + 2];
+  if (next?.role !== "assistant" || !next.outcome) return "saving";
+  return next.parts.some((part) => part.kind === "saved") ? "saved" : "unsaved";
+}
+
+function ApprovalCard({
+  taskId,
+  source,
+  rows,
+  state,
+  live,
+  decide,
+}: {
+  taskId: string;
+  source: string;
+  rows: Extract<Outcome, { status: "profile_approval" }>["rows"];
+  state: ApprovalState;
+  live: boolean;
+  decide: ReturnType<typeof useDecide>;
+}) {
+  const { t, i18n } = useTranslation();
+  const chat = useChat();
+  const month = (value: string) =>
+    value === "present"
+      ? t("data.period.now")
+      : value.length === 4
+        ? value
+        : new Intl.DateTimeFormat(i18n.language, {
+            month: "short",
+            year: "numeric",
+          }).format(new Date(`${value}-01T00:00`));
+  const show = (field: string, value: FieldValue) =>
+    (Array.isArray(value)
+      ? field === "highlights"
+        ? value.map((line) => `• ${line}`).join("\n")
+        : value.join(", ")
+      : (field === "start" || field === "end") && value
+        ? month(value)
+        : value) || t("assistant.approval.empty");
+  const decideWith = (approve: boolean) =>
+    decide.mutate({ chat, taskId, decision: { approve } });
+
+  return (
+    <div
+      role="group"
+      aria-label={t("assistant.approval.label")}
+      className={cn(
+        "flex flex-col overflow-hidden rounded-xl border",
+        state === "pending" && live ? "border-amber" : "border-hair",
+      )}
+    >
+      <div className="border-hair-soft flex items-center justify-between gap-2 border-b px-3.5 py-3">
+        <span className="font-semibold">{t("assistant.approval.title")}</span>
+        {source && (
+          <span className="text-ink-3 text-xs">
+            {t("assistant.approval.from", { source })}
+          </span>
+        )}
+      </div>
+      {rows.map(({ edit, entry, current }, index) => {
+        const key =
+          edit.kind === "about" || edit.kind === "entry" ? edit.field : null;
+        const field = key ? t(`data.review.fields.${key}`) : "";
+        const what =
+          edit.kind === "about"
+            ? field
+            : edit.kind === "entry"
+              ? entry
+                ? t("assistant.approval.entryField", {
+                    entry,
+                    field: field.toLocaleLowerCase(i18n.language),
+                  })
+                : field
+              : edit.kind === "new_entry"
+                ? t(`assistant.approval.newEntry.${edit.entry.kind}`)
+                : edit.kind === "new_skill"
+                  ? t("assistant.approval.skill")
+                  : t("assistant.approval.link");
+        const value =
+          edit.kind === "new_entry"
+            ? [
+                edit.entry.organisation
+                  ? t("data.roleAt", {
+                      title: edit.entry.title,
+                      organisation: edit.entry.organisation,
+                    })
+                  : edit.entry.title,
+                edit.entry.start &&
+                  (edit.entry.end
+                    ? t("data.period.range", {
+                        from: month(edit.entry.start),
+                        to: month(edit.entry.end),
+                      })
+                    : month(edit.entry.start)),
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            : edit.kind === "new_skill"
+              ? edit.name
+              : edit.kind === "new_link"
+                ? t("assistant.approval.linkValue", {
+                    label: edit.label,
+                    url: edit.url,
+                  })
+                : show(edit.field, edit.value);
+        const change =
+          (edit.kind === "about" || edit.kind === "entry") &&
+          (Array.isArray(current) ? current.length > 0 : Boolean(current));
+        return (
+          <div
+            key={index}
+            className={cn(
+              "border-hair-soft flex flex-col gap-1 border-b px-3.5 py-3",
+              state === "rejected" && "opacity-[0.55]",
+            )}
+          >
+            <span className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "text-[11px] font-bold tracking-[0.04em] uppercase",
+                  change ? "text-amber" : "text-ok",
+                )}
+              >
+                {t(
+                  change
+                    ? "assistant.approval.change"
+                    : "assistant.approval.add",
+                )}
+              </span>
+              <span className="text-ink-3 text-[13px]">{what}</span>
+            </span>
+            {change ? (
+              <span className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-sm whitespace-pre-wrap">
+                <span className="text-ink-3">
+                  {t("assistant.approval.current")}
+                </span>
+                <span className="text-ink-2">{show(key ?? "", current)}</span>
+                <span className="text-ink-3">
+                  {t("assistant.approval.new")}
+                </span>
+                <span className="text-ink font-medium">{value}</span>
+              </span>
+            ) : (
+              <span className="text-ink text-sm whitespace-pre-wrap">
+                {value}
+              </span>
+            )}
+          </div>
+        );
+      })}
+      {state === "pending" ? (
+        live && (
+          <div className="bg-well flex items-center justify-between gap-2.5 px-3.5 py-3">
+            <span className="text-ink-3 text-xs">
+              {t("assistant.approval.note")}
+            </span>
+            <span className="flex gap-2">
+              <button
+                type="button"
+                disabled={decide.isPending}
+                onClick={() => decideWith(false)}
+                className={buttonClass()}
+              >
+                {t("assistant.approval.cancel")}
+              </button>
+              <button
+                type="button"
+                disabled={decide.isPending}
+                onClick={() => decideWith(true)}
+                className={buttonClass("primary")}
+              >
+                {t("assistant.approval.approve")}
+              </button>
+            </span>
+          </div>
+        )
+      ) : (
+        <div
+          role="status"
+          className="bg-well flex items-center justify-between gap-2.5 px-3.5 py-3 text-sm"
+        >
+          {state === "saving" ? (
+            <span className="text-ink-3 flex items-center gap-2">
+              <LoaderCircle size={14} className="animate-spin" />
+              {t("assistant.approval.saving")}
+            </span>
+          ) : state === "saved" ? (
+            <>
+              <span className="text-ok flex items-center gap-2 font-semibold">
+                <Check size={14} strokeWidth={2.4} />
+                {t("assistant.approval.saved")}
+              </span>
+              <Link
+                to="/data"
+                className="text-amber text-[13px] font-semibold no-underline"
+              >
+                {t("assistant.approval.openData")}
+              </Link>
+            </>
+          ) : (
+            <span className="text-ink-3">
+              {t(
+                state === "rejected"
+                  ? "assistant.approval.cancelled"
+                  : "assistant.approval.notSaved",
+              )}
+            </span>
+          )}
+        </div>
+      )}
+      {live && decide.error && (
+        <p role="alert" className="text-crit m-0 px-3.5 py-2 text-[13px]">
+          {t("assistant.approval.decideFailed", {
+            reason: decide.error.message,
+          })}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -417,11 +649,15 @@ function Turn({
   turn,
   last,
   answer,
+  decide,
+  approval,
   onRetry,
 }: {
   turn: AssistantTurn;
   last: boolean;
   answer: ReturnType<typeof useAnswerTask>;
+  decide: ReturnType<typeof useDecide>;
+  approval: ApprovalState;
   onRetry?: () => void;
 }) {
   const { t } = useTranslation();
@@ -549,6 +785,15 @@ function Turn({
           live={last}
           answer={answer}
         />
+      ) : turn.outcome?.status === "profile_approval" ? (
+        <ApprovalCard
+          taskId={turn.outcome.task_id}
+          source={turn.outcome.source}
+          rows={turn.outcome.rows}
+          state={approval}
+          live={last}
+          decide={decide}
+        />
       ) : turn.outcome?.status === "failed" ? (
         <div
           role="alert"
@@ -604,6 +849,7 @@ export default function AssistantDock({
   )?.kind;
   const send = useSendMessage();
   const answer = useAnswerTask();
+  const decide = useDecide();
   const stop = useStop();
   useResumeTurns();
   const current = entries.at(-1);
@@ -618,6 +864,8 @@ export default function AssistantDock({
       outcome.widget.choose === "document")
       ? outcome
       : undefined;
+  const approving =
+    outcome?.status === "profile_approval" ? outcome : undefined;
   const [draft, setDraft] = useState("");
   const toggleRef = useRef<HTMLButtonElement>(null);
   const transcriptRef = useRef<HTMLOListElement>(null);
@@ -626,11 +874,13 @@ export default function AssistantDock({
   const empty = entries.length === 0;
   const placeholder = asking
     ? (asking.widget.input_placeholder ?? t("assistant.documents.typeTitle"))
-    : document
-      ? t(`assistant.placeholders.${documentKind ?? "document"}`)
-      : empty
-        ? t("assistant.placeholder")
-        : t("assistant.followUp");
+    : approving
+      ? t("assistant.approval.placeholder")
+      : document
+        ? t(`assistant.placeholders.${documentKind ?? "document"}`)
+        : empty
+          ? t("assistant.placeholder")
+          : t("assistant.followUp");
 
   useEffect(() => {
     if (pinned.current)
@@ -645,9 +895,15 @@ export default function AssistantDock({
   };
 
   const submit = (text: string) => {
-    if (!text.trim() || running || answer.isPending) return;
+    if (!text.trim() || running || answer.isPending || decide.isPending) return;
     pinned.current = true;
-    if (asking)
+    if (approving)
+      decide.mutate({
+        chat,
+        taskId: approving.task_id,
+        decision: { approve: false, message: text.trim() },
+      });
+    else if (asking)
       answer.mutate({
         chat,
         taskId: asking.task_id,
@@ -734,34 +990,40 @@ export default function AssistantDock({
               }}
               className="m-0 flex min-h-0 flex-1 list-none flex-col gap-3.5 overflow-y-auto px-4 py-[18px]"
             >
-              {entries.map((entry, index) => (
-                <Fragment key={index}>
-                  {entry.role === "user" && index > 0 && !entry.answered && (
-                    <li
-                      role="presentation"
-                      className="bg-hair-soft my-1 h-px shrink-0"
-                    />
-                  )}
-                  <li className="flex flex-col">
-                    {entry.role === "user" ? (
-                      <p className="bg-bubble text-ink m-0 max-w-[85%] self-end rounded-2xl rounded-br-[4px] px-[13px] py-[9px] text-sm whitespace-pre-wrap">
-                        {entry.text}
-                      </p>
-                    ) : (
-                      <Turn
-                        turn={entry}
-                        last={entry === current}
-                        answer={answer}
-                        onRetry={
-                          entry === current && retryable?.role === "user"
-                            ? () => submit(retryable.text)
-                            : undefined
-                        }
+              {entries.map((entry, index) =>
+                entry.role === "user" &&
+                entry.decision &&
+                !entry.text ? null : (
+                  <Fragment key={index}>
+                    {entry.role === "user" && index > 0 && !entry.answered && (
+                      <li
+                        role="presentation"
+                        className="bg-hair-soft my-1 h-px shrink-0"
                       />
                     )}
-                  </li>
-                </Fragment>
-              ))}
+                    <li className="flex flex-col">
+                      {entry.role === "user" ? (
+                        <p className="bg-bubble text-ink m-0 max-w-[85%] self-end rounded-2xl rounded-br-[4px] px-[13px] py-[9px] text-sm whitespace-pre-wrap">
+                          {entry.text}
+                        </p>
+                      ) : (
+                        <Turn
+                          turn={entry}
+                          last={entry === current}
+                          answer={answer}
+                          decide={decide}
+                          approval={approvalState(entries, index)}
+                          onRetry={
+                            entry === current && retryable?.role === "user"
+                              ? () => submit(retryable.text)
+                              : undefined
+                          }
+                        />
+                      )}
+                    </li>
+                  </Fragment>
+                ),
+              )}
             </ol>
           )}
           <form
@@ -824,7 +1086,7 @@ export default function AssistantDock({
                 type="submit"
                 aria-label={t("assistant.send")}
                 title={t("assistant.send")}
-                disabled={!draft.trim() || answer.isPending}
+                disabled={!draft.trim() || answer.isPending || decide.isPending}
                 className="bg-primary text-on-primary flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 disabled:cursor-default disabled:opacity-40"
               >
                 <ArrowUp size={16} strokeWidth={2.2} />

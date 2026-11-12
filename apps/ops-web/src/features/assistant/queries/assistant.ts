@@ -5,6 +5,7 @@ import { queryClient } from "@/shared/api/queryClient";
 import {
   answerTask,
   cancelTask,
+  decideTask,
   fetchDocuments,
   resumeTurn,
   sendMessage,
@@ -13,6 +14,7 @@ import {
   type RunEvent,
   type Task,
   type TaskAnswer,
+  type TaskDecision,
   type TurnCursor,
 } from "../api/assistant";
 import { useAssistantStore } from "../state/assistantStore";
@@ -48,6 +50,13 @@ const startTurn = (chat: Chat) => {
 
 const receive = (chat: Chat) => (event: RunEvent, id?: string) => {
   apply(chat, event, id);
+  if (event.status === "profile_saved") {
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["profile"] }),
+      queryClient.invalidateQueries({ queryKey: ["portfolio"] }),
+    ]);
+    return;
+  }
   if (event.status !== "changeset") return;
   const document = [...documentsQueryOptions.queryKey, event.document_id];
   void Promise.all([
@@ -95,6 +104,29 @@ export const answerTaskMutationOptions = mutationOptions({
     error instanceof ApiError && result
       ? restore(answer.chat, result.previous)
       : failTurn(error, answer),
+});
+
+export const decideMutationOptions = mutationOptions({
+  mutationKey: ["assistant", "decide"],
+  mutationFn: (task: TaskDecision) =>
+    decideTask(task, startTurn(task.chat), receive(task.chat), (attempt) =>
+      reconnect(task.chat, attempt),
+    ),
+  onMutate: ({ chat, decision }) => {
+    const previous =
+      useAssistantStore.getState().chats[chat.kind][chat.id] ?? [];
+    add(chat, {
+      role: "user",
+      text: decision.message ?? "",
+      answered: true,
+      decision: decision.approve ? "approve" : "reject",
+    });
+    return { previous };
+  },
+  onError: (error, task, result) =>
+    error instanceof ApiError && result
+      ? restore(task.chat, result.previous)
+      : failTurn(error, task),
 });
 
 export const followTurnMutationOptions = mutationOptions({

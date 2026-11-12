@@ -12,7 +12,8 @@ export type Part =
   | { kind: "thinking"; turn: string; text: string }
   | { kind: "text"; turn: string; text: string }
   | { kind: "step"; step: Step; substeps: Step[] }
-  | { kind: "changeset"; changeset: Changeset };
+  | { kind: "changeset"; changeset: Changeset }
+  | { kind: "saved"; saved: number };
 
 export interface AssistantTurn {
   role: "assistant";
@@ -26,7 +27,13 @@ export interface AssistantTurn {
 }
 
 export type ChatEntry =
-  { role: "user"; text: string; answered?: boolean } | AssistantTurn;
+  | {
+      role: "user";
+      text: string;
+      answered?: boolean;
+      decision?: "approve" | "reject";
+    }
+  | AssistantTurn;
 
 const upsert = (steps: Step[], step: Step) =>
   steps.some(({ id }) => id === step.id)
@@ -85,6 +92,11 @@ function applyEvent(turn: AssistantTurn, event: RunEvent): AssistantTurn {
       return {
         ...turn,
         parts: [...turn.parts, { kind: "changeset", changeset: event }],
+      };
+    case "profile_saved":
+      return {
+        ...turn,
+        parts: [...turn.parts, { kind: "saved", saved: event.saved }],
       };
     case "completed": {
       const written = turn.parts.filter((part) => part.kind === "text").at(-1);

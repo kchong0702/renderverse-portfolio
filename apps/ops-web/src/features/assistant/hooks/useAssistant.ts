@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import type { Chat } from "../api/assistant";
 import {
   answerTaskMutationOptions,
+  decideMutationOptions,
   documentsQueryOptions,
   followTurnMutationOptions,
   resumeTurnMutationOptions,
@@ -26,6 +27,10 @@ export function useSendMessage() {
 
 export function useAnswerTask() {
   return useMutation(answerTaskMutationOptions);
+}
+
+export function useDecide() {
+  return useMutation(decideMutationOptions);
 }
 
 export function useStop() {
