@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import StringConstraints
+from pydantic import AfterValidator, StringConstraints
+
+
+def clipped(limit: int) -> AfterValidator:
+    """A validator that cuts text to its first limit characters"""
+    return AfterValidator(lambda text: text[:limit])
+
 
 YearMonth = Annotated[str, StringConstraints(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")]
 """A month as YYYY-MM"""
@@ -65,4 +71,5 @@ __all__ = [
     "LooseMonth",
     "Tool",
     "YearMonth",
+    "clipped",
 ]

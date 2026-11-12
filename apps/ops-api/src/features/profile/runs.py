@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.ezcareer import Completed, EzcareerClient, Failed, InputRequired
@@ -90,12 +90,18 @@ class ProfileRunService:
             return earlier
         if export:
             read = read_export(content, self._limits.max_unzipped_bytes)
-            imported = await self._run(
+            reply = await self._run(
                 "import-profile",
-                ImportedProfile,
+                dict,
                 user_id,
                 ImportProfileInput(files=read.files),
             )
+            try:
+                imported = ImportedProfile.model_validate(reply)
+            except ValidationError as error:
+                raise InvalidInput(
+                    "import-profile replied with values ops cannot store"
+                ) from error
             imported.about = imported.about.model_copy(
                 update={"name": read.name, "email": read.email, "phone": read.phone}
             )

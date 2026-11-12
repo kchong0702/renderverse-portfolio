@@ -500,6 +500,53 @@ async def test_a_resume_syncs_the_profile_without_making_a_document(client, harn
     }
 
 
+async def test_a_year_only_end_is_kept_as_its_december(client, harness):
+    await _import(
+        client,
+        harness,
+        _profile(ACME | {"start": "2019", "end": "2021"}),
+        _export(Positions=POSITIONS),
+    )
+
+    [entry] = (await client.get(f"{PROFILE}/entries")).json()
+    assert (entry["start"], entry["end"]) == ("2019-01", "2021-12")
+
+
+async def test_long_imported_values_are_cut_to_fit(client, harness):
+    imported = await _import(
+        client,
+        harness,
+        _profile(
+            RENDERVERSE | {"title": "T" * 250, "tools": ["x" * 60]},
+            about={"headline": "H" * 220},
+            skills=[{"name": "S" * 120, "group": ""}],
+        ),
+        _export(Positions=POSITIONS),
+    )
+
+    assert imported.status_code == 201
+    [entry] = (await client.get(f"{PROFILE}/entries")).json()
+    assert (len(entry["title"]), entry["tools"]) == (200, ["x" * 50])
+    assert len((await client.get(PROFILE)).json()["headline"]) == 200
+    [skill] = (await client.get(f"{PROFILE}/skills")).json()
+    assert len(skill["name"]) == 100
+
+
+async def test_a_reply_ops_cannot_store_fails_the_import(client, harness):
+    failed = await _import(
+        client,
+        harness,
+        _profile(ACME | {"title": ""}),
+        _export(Positions=POSITIONS),
+    )
+
+    assert failed.status_code == 422
+    assert failed.json()["detail"] == (
+        "import-profile replied with values ops cannot store"
+    )
+    assert (await client.get(f"{PROFILE}/imports")).json() == []
+
+
 async def test_a_failed_import_adds_nothing(client, harness):
     reason = "The file has no text to read"
 

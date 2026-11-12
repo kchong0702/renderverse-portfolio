@@ -6,7 +6,14 @@ from typing import Annotated, Literal, Self
 from uuid import UUID
 
 from document_schema import ResumeDocument
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PlainSerializer,
+    StringConstraints,
+    model_validator,
+)
 
 from src.features.profile.enums import (
     ChangeChoice,
@@ -28,6 +35,7 @@ from src.features.profile.types import (
     LooseMonth,
     Tool,
     YearMonth,
+    clipped,
 )
 
 
@@ -239,13 +247,13 @@ class ProfileExport(BaseModel):
     files: list[ExportFile]
     """The profile, job, education, project and skill files"""
 
-    name: str
+    name: Annotated[str, clipped(200)]
     """Full name from the export's profile; empty when it has none"""
 
-    email: str
+    email: Annotated[str, clipped(320)]
     """The primary email, else the first; empty when it has none"""
 
-    phone: str
+    phone: Annotated[str, clipped(50)]
     """The first phone number; empty when it has none"""
 
 
@@ -270,19 +278,19 @@ class ImportedResume(BaseModel):
 
 
 class ImportedAbout(BaseModel):
-    name: str = Field(default="", max_length=200)
+    name: Annotated[str, clipped(200)] = ""
     """Full name; empty when the import has none"""
 
-    headline: str = Field(default="", max_length=200)
+    headline: Annotated[str, clipped(200)] = ""
     """One line under the name"""
 
-    location: str = Field(default="", max_length=200)
+    location: Annotated[str, clipped(200)] = ""
     """Where the user lives"""
 
-    email: str = Field(default="", max_length=320)
+    email: Annotated[str, clipped(320)] = ""
     """Contact email"""
 
-    phone: str = Field(default="", max_length=50)
+    phone: Annotated[str, clipped(50)] = ""
     """Contact phone"""
 
     summary: str = ""
@@ -296,13 +304,13 @@ class ImportedEntry(BaseModel):
     kind: EntryKind
     """Role, education or project"""
 
-    title: str = Field(min_length=1, max_length=200)
+    title: Annotated[str, clipped(200)] = Field(min_length=1)
     """Job title, degree or project name"""
 
-    organisation: str = Field(default="", max_length=200)
+    organisation: Annotated[str, clipped(200)] = ""
     """Employer, school, or who the project was for"""
 
-    location: str = Field(default="", max_length=200)
+    location: Annotated[str, clipped(200)] = ""
     """Where it took place"""
 
     start: LooseMonth | None = None
@@ -323,15 +331,17 @@ class ImportedEntry(BaseModel):
     code_link: Link | None = None
     """Where a project's code is"""
 
-    tools: list[Tool] = Field(default_factory=list, max_length=20)
+    tools: list[Annotated[str, StringConstraints(min_length=1), clipped(50)]] = Field(
+        default_factory=list, max_length=20
+    )
     """Languages, frameworks and tools a project used"""
 
 
 class ImportedSkill(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
+    name: Annotated[str, clipped(100)] = Field(min_length=1)
     """The skill or spoken language"""
 
-    group: str = Field(default="", max_length=100)
+    group: Annotated[str, clipped(100)] = ""
     """Heading it sits under"""
 
 
