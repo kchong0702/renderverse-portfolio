@@ -43,7 +43,7 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
         Executable,
         kind="agent",
         name="career-consultant",
-        description="Talk to career-consultant about the user's résumé or cover letter",
+        description="Talk to career-consultant about the user's résumé, CV, cover letter or job portal content",
         graph=agent.provided.copy.call(
             update=providers.Dict(checkpointer=checkpointer)
         ),
