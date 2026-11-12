@@ -11,22 +11,11 @@ from document_schema import (
     DocumentKind,
 )
 from pydantic import TypeAdapter
-from sqlalchemy import (
-    DateTime,
-    ForeignKey,
-    Index,
-    LargeBinary,
-    String,
-    Text,
-    UniqueConstraint,
-    text,
-)
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base, EnumString, PydanticJson
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
-from src.features.documents.enums import ImportStatus
-from src.features.documents.schemas import LookSuggestion, SourceLine
 
 
 class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -56,12 +45,6 @@ class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
         PydanticJson(TypeAdapter[AnyDocument](AnyDocument))
     )
     """The current draft as document-schema's AnyDocument"""
-
-    lines: Mapped[list[SourceLine]] = mapped_column(
-        PydanticJson(TypeAdapter(list[SourceLine])), default=list
-    )
-    """The imported file's lines, which edit-document checks citations against;
-    empty for a document not imported"""
 
     job_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("jobs.id", ondelete="SET NULL"), default=None
@@ -143,45 +126,4 @@ class DocumentChangeset(IdMixin, UserScopedMixin, AuditMixin, Base):
         )
 
 
-class DocumentImport(IdMixin, UserScopedMixin, AuditMixin, Base):
-    __tablename__ = "document_imports"
-
-    filename: Mapped[str] = mapped_column(String(255))
-    """Name of the uploaded file"""
-
-    media_type: Mapped[str] = mapped_column(String(100))
-    """PDF or Word"""
-
-    size: Mapped[int] = mapped_column()
-    """Bytes in the file"""
-
-    content: Mapped[bytes] = mapped_column(LargeBinary(), deferred=True)
-    """The file itself; loaded only when asked for"""
-
-    status: Mapped[ImportStatus] = mapped_column(
-        EnumString(ImportStatus), default=ImportStatus.PENDING
-    )
-    """How far the import has got"""
-
-    document_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("documents.id", ondelete="SET NULL"), default=None
-    )
-    """The draft import-resume made, once it is done"""
-
-    error: Mapped[str] = mapped_column(Text(), default="")
-    """Why the import failed; empty otherwise"""
-
-    suggestion: Mapped[LookSuggestion | None] = mapped_column(
-        PydanticJson(TypeAdapter(LookSuggestion)), default=None
-    )
-    """The look import-resume suggests from the file's layout, once it is done"""
-
-
-__all__ = [
-    "Document",
-    "DocumentChangeset",
-    "DocumentImport",
-    "DocumentVersion",
-    "LookSuggestion",
-    "SourceLine",
-]
+__all__ = ["Document", "DocumentChangeset", "DocumentVersion"]

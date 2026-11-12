@@ -30,6 +30,12 @@ class Storage(Protocol):
     def download_url(self, key: str) -> str:
         """A short-lived URL the browser reads a private file from"""
 
+    async def put_private(self, key: str, body: bytes, content_type: str) -> None:
+        """Write a private file, replacing any at the key"""
+
+    async def read_private(self, key: str) -> bytes:
+        """A private file's bytes"""
+
     async def size(self, key: str) -> int | None:
         """A private file's size, or None when it is missing"""
 
@@ -71,6 +77,17 @@ class LocalStorage:
     def download_url(self, key: str) -> str:
         """The ops-api route that reads the private file"""
         return f"{self._url}/{PurePosixPath(key).name}"
+
+    async def put_private(self, key: str, body: bytes, content_type: str) -> None:
+        """Write the file under the private root"""
+        await self._write(self._private_root / key, body)
+
+    async def read_private(self, key: str) -> bytes:
+        """The private file's bytes"""
+        try:
+            return await asyncio.to_thread((self._private_root / key).read_bytes)
+        except OSError as error:
+            raise ServiceUnavailable(f"{key} could not be read") from error
 
     async def size(self, key: str) -> int | None:
         """The private file's size, or None when it is missing"""
@@ -179,6 +196,26 @@ class R2Storage:
             Params={"Bucket": self._private_bucket, "Key": key},
             ExpiresIn=60 * 60,
         )
+
+    async def put_private(self, key: str, body: bytes, content_type: str) -> None:
+        """Upload the file to the private bucket with its content type"""
+        await self._call(
+            "put_object",
+            Bucket=self._private_bucket,
+            Key=key,
+            Body=body,
+            ContentType=content_type,
+        )
+
+    async def read_private(self, key: str) -> bytes:
+        """The private object's bytes"""
+        try:
+            response = await asyncio.to_thread(
+                self._client.get_object, Bucket=self._private_bucket, Key=key
+            )
+            return await asyncio.to_thread(response["Body"].read)
+        except (BotoCoreError, ClientError) as error:
+            raise ServiceUnavailable(f"{key} could not be read from R2") from error
 
     async def size(self, key: str) -> int | None:
         """The private object's size, or None when it is missing"""

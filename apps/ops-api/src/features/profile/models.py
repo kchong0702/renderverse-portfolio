@@ -21,7 +21,7 @@ from sqlalchemy.orm import Mapped, Mapper, mapped_column, object_session
 from src.app.actor import current_actor
 from src.db.base import Base, EnumString, JsonType, PydanticJson, TextArray, utcnow
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
-from src.features.profile.enums import ChangeKind, EntryKind, ImportSource
+from src.features.profile.enums import ChangeKind, EntryKind
 from src.features.profile.schemas import (
     ImportedEntry,
     NetworkingDescription,
@@ -195,39 +195,11 @@ class ProfileSkill(IdMixin, UserScopedMixin, AuditMixin, Base):
     """Kept but left out of what the agents see"""
 
 
-class ProfileImport(IdMixin, UserScopedMixin, AuditMixin, Base):
-    __tablename__ = "profile_imports"
-
-    filename: Mapped[str] = mapped_column(String(255))
-    """Name of the uploaded file"""
-
-    media_type: Mapped[str] = mapped_column(String(100))
-    """PDF, Word or zip"""
-
-    size: Mapped[int] = mapped_column()
-    """Bytes in the file"""
-
-    digest: Mapped[str] = mapped_column(String(64))
-    """Sha256 of the file"""
-
-    source: Mapped[ImportSource] = mapped_column(EnumString(ImportSource))
-    """Whether it was uploaded on the Data page or in Documents"""
-
-    added: Mapped[int] = mapped_column(default=0)
-    """Entries, skills, links and empty fields it filled in"""
-
-    conflicts: Mapped[int] = mapped_column(default=0)
-    """Fields and matches it left for the user to settle"""
-
-    matched: Mapped[int] = mapped_column(default=0)
-    """Entries and skills it found already there"""
-
-
 class ProfileChange(IdMixin, UserScopedMixin, AuditMixin, Base):
     __tablename__ = "profile_changes"
 
     import_id: Mapped[UUID] = mapped_column(
-        ForeignKey("profile_imports.id", ondelete="CASCADE")
+        ForeignKey("imports.id", ondelete="CASCADE")
     )
     """The import it came from last; a newer import takes it over"""
 
@@ -259,7 +231,6 @@ __all__ = [
     "Profile",
     "ProfileChange",
     "ProfileEntry",
-    "ProfileImport",
     "ProfileProject",
     "ProfileSkill",
 ]

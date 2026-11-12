@@ -2,10 +2,8 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
 from contextlib import suppress
-from datetime import timedelta
 from functools import partial
-from pathlib import PurePath
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from document_schema import (
     AnyDocument,
@@ -27,27 +25,18 @@ from src.clients.ezcareer import (
     Completed,
     DataRequest,
     EzcareerClient,
-    Failed,
-    InputRequired,
     Published,
     RunEvent,
 )
 from src.core.config import DocumentsSettings
-from src.core.exceptions import (
-    Conflict,
-    InvalidInput,
-    NotFound,
-    ServiceUnavailable,
-)
+from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.core.logging import get_logger
 from src.core.runner import Runner
 from src.db.base import utcnow
 from src.db.session import session_scope
-from src.features.documents.enums import ImportStatus
 from src.features.documents.models import (
     Document,
     DocumentChangeset,
-    DocumentImport,
     DocumentVersion,
 )
 from src.features.documents.repository import DocumentRepository
@@ -68,15 +57,12 @@ from src.features.documents.schemas import (
     EditDocumentInput,
     EditDocumentOutput,
     FetchError,
-    ImportRead,
-    ImportResumeInput,
-    ImportResumeOutput,
     LineRead,
     TailoredDocument,
     VersionCreate,
     VersionRead,
 )
-from src.features.profile import ImportSource, ProfileService, resume_profile
+from src.features.profile import ProfileService
 from src.features.settings import SettingsService
 
 logger = get_logger(__name__)
@@ -215,6 +201,18 @@ class DocumentService:
         )
         await self._keep(document, "Created")
         return await self._read(document)
+
+    async def import_draft(
+        self, user_id: UUID, title: str, body: AnyDocument
+    ) -> Document:
+        """Store a document an import made and keep its draft as version 1; Conflict
+        when the user keeps the most of its kind already"""
+        await self._make_room(user_id, body.kind)
+        document = await self._repository.add(
+            Document(user_id=user_id, kind=body.kind, title=title, body=body)
+        )
+        await self._keep(document, "Imported")
+        return document
 
     async def update(
         self, user_id: UUID, document_id: UUID, patch: DocumentUpdate
@@ -375,7 +373,10 @@ class DocumentService:
                 case DocumentRequest(id=document_id):
                     document = await repository.owned(Document, user_id, document_id)
                     answer = (
-                        DocumentAnswer(document=document.body, lines=document.lines)
+                        DocumentAnswer(
+                            document=document.body,
+                            lines=await repository.lines(document),
+                        )
                         if document
                         else FetchError(error="No such document")
                     )
@@ -460,7 +461,6 @@ class DocumentService:
                     kind=kind,
                     title=title,
                     body=master.body,
-                    lines=master.lines,
                     job_id=job_id,
                 )
             )
@@ -580,110 +580,6 @@ class DocumentService:
             "edit-document", task_id, f"{user_id}:document:{document_id}"
         )
 
-    async def imports(self, user_id: UUID) -> list[ImportRead]:
-        """Every uploaded résumé file, the latest first"""
-        return [
-            ImportRead.model_validate(row, from_attributes=True)
-            for row in await self._repository.imports(user_id)
-        ]
-
-    async def start_import(
-        self, user_id: UUID, filename: str, media_type: str, content: bytes
-    ) -> ImportRead:
-        """Store an uploaded PDF or Word résumé as a pending import for
-        read_import to run import-resume on"""
-        if media_type not in self._limits.upload_types:
-            raise InvalidInput("Upload a PDF or Word (.docx) file")
-        if not content or len(content) > self._limits.max_upload_bytes:
-            raise InvalidInput(
-                f"The file must be between 1 byte and "
-                f"{self._limits.max_upload_bytes // (1024 * 1024)} MB"
-            )
-        row = await self._repository.add(
-            DocumentImport(
-                user_id=user_id,
-                filename=filename[:255],
-                media_type=media_type,
-                size=len(content),
-                content=content,
-            )
-        )
-        return ImportRead.model_validate(row, from_attributes=True)
-
-    async def read_import(self, user_id: UUID, import_id: UUID) -> ImportRead:
-        """Claim a pending or failed import and run import-resume on it with no
-        transaction open: it becomes a draft and syncs the profile, or fails"""
-        row = await self._repository.claim_import(
-            user_id,
-            import_id,
-            utcnow() - timedelta(seconds=self._ezcareer.run_timeout_seconds),
-        )
-        if row is None:
-            if await self._repository.owned(DocumentImport, user_id, import_id) is None:
-                raise NotFound("No such import")
-            raise Conflict("This import is already done or being read")
-        data = ImportResumeInput(file=await self._repository.file(row))
-        metadata = await self._settings.run_metadata(user_id)
-        await self._session.commit()
-        try:
-            run = await self._ezcareer.send(
-                "import-resume",
-                ImportResumeOutput,
-                user_id=user_id,
-                context_id=f"{user_id}:{uuid4()}",
-                data=data,
-                metadata=metadata,
-            )
-        except ServiceUnavailable:
-            row.status = ImportStatus.PENDING
-            await self._session.commit()
-            raise
-        match run:
-            case Completed(reply=reply):
-                await self._profile.sync(
-                    user_id,
-                    ImportSource.DOCUMENTS,
-                    row.filename,
-                    row.media_type,
-                    data.file,
-                    resume_profile(reply.document.content),
-                )
-                try:
-                    await self._make_room(user_id, reply.document.kind)
-                except Conflict as error:
-                    row.status = ImportStatus.FAILED
-                    row.error = error.message
-                else:
-                    document = await self._repository.add(
-                        Document(
-                            user_id=user_id,
-                            kind=reply.document.kind,
-                            title=PurePath(row.filename).stem[:200] or "Résumé",
-                            body=reply.document,
-                            lines=reply.lines,
-                        )
-                    )
-                    await self._keep(document, "Imported")
-                    row.status = ImportStatus.DONE
-                    row.document_id = document.id
-                    row.suggestion = reply.suggestion
-                    row.error = ""
-            case InputRequired():
-                row.status = ImportStatus.FAILED
-                row.error = "import-resume asked for input ops cannot give"
-            case Failed(reason=reason):
-                row.status = ImportStatus.FAILED
-                row.error = reason
-        await self._repository.flush()
-        return ImportRead.model_validate(row, from_attributes=True)
-
-    async def delete_import(self, user_id: UUID, import_id: UUID) -> None:
-        """Remove an import and its file; a draft it made stays"""
-        row = await self._repository.owned(DocumentImport, user_id, import_id)
-        if row is None:
-            raise NotFound("No such import")
-        await self._repository.delete(row)
-
     async def _read(self, document: Document) -> DocumentRead:
         """The document as the API returns it, flushed so updated_at is current"""
         await self._repository.flush()
@@ -692,7 +588,10 @@ class DocumentService:
         return DocumentRead(
             **_summary(document, _pending(changesets)).model_dump(),
             body=document.body,
-            lines=[LineRead(id=line.id, text=line.text) for line in document.lines],
+            lines=[
+                LineRead(id=line.id, text=line.text)
+                for line in await self._repository.lines(document)
+            ],
             pending_body=_applied(document.body, pending.changeset.edits)
             if pending
             else None,

@@ -1,20 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
 from uuid import UUID
 
 from document_schema import DocumentKind
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import func, select, update
 
 from src.db.repository import Repository
-from src.features.documents.enums import ImportStatus
-from src.features.documents.models import (
-    Document,
-    DocumentChangeset,
-    DocumentImport,
-    DocumentVersion,
-)
+from src.features.documents.models import Document, DocumentChangeset, DocumentVersion
+from src.features.imports import Import, SourceLine
 
 
 class DocumentRepository(Repository):
@@ -83,44 +77,28 @@ class DocumentRepository(Repository):
         changeset = await self._session.get(DocumentChangeset, changeset_id)
         return changeset if changeset and changeset.document_id == document_id else None
 
-    async def imports(self, user_id: UUID) -> Sequence[DocumentImport]:
-        """The user's imports, the latest first"""
+    async def lines(self, document: Document) -> list[SourceLine]:
+        """The lines of the import that made the document, or the user's master of
+        its kind for a job's copy; none for one not imported"""
+        made = document.id
+        if document.job_id is not None:
+            made = (
+                select(Document.id)
+                .where(
+                    Document.user_id == document.user_id,
+                    Document.kind == document.kind,
+                    Document.master,
+                )
+                .scalar_subquery()
+            )
         return (
-            await self._session.scalars(
-                select(DocumentImport)
-                .where(DocumentImport.user_id == user_id)
-                .order_by(DocumentImport.created_at.desc())
+            await self._session.scalar(
+                select(Import.lines)
+                .where(Import.document_id == made, Import.lines.is_not(None))
+                .limit(1)
             )
-        ).all()
-
-    async def claim_import(
-        self, user_id: UUID, import_id: UUID, stale_before: datetime
-    ) -> DocumentImport | None:
-        """Mark the user's import running unless it is done or a read claimed it after
-        stale_before; None when there is no such import to claim"""
-        return await self._session.scalar(
-            update(DocumentImport)
-            .where(
-                DocumentImport.id == import_id,
-                DocumentImport.user_id == user_id,
-                or_(
-                    DocumentImport.status.in_(
-                        [ImportStatus.PENDING, ImportStatus.FAILED]
-                    ),
-                    and_(
-                        DocumentImport.status == ImportStatus.RUNNING,
-                        DocumentImport.updated_at < stale_before,
-                    ),
-                ),
-            )
-            .values(status=ImportStatus.RUNNING)
-            .returning(DocumentImport)
+            or []
         )
-
-    async def file(self, row: DocumentImport) -> bytes:
-        """The import's uploaded file, which loads only when asked for"""
-        await self._session.refresh(row, ["content"])
-        return row.content
 
     async def flush(self) -> None:
         """Write pending changes so update timestamps are filled in"""

@@ -5,9 +5,9 @@ from src.features.connections.models import Connection
 from src.features.documents.models import (
     Document,
     DocumentChangeset,
-    DocumentImport,
     DocumentVersion,
 )
+from src.features.imports.models import File, Import
 from src.features.inbox.models import EmailThread
 from src.features.jobs.models import Job, JobRun
 from src.features.portfolio.models import Asset, PortfolioRelease
@@ -17,7 +17,6 @@ from src.features.profile.models import (
     Profile,
     ProfileChange,
     ProfileEntry,
-    ProfileImport,
     ProfileSkill,
 )
 from src.features.settings.models import UserSettings
@@ -32,9 +31,10 @@ __all__ = [
     "Connection",
     "Document",
     "DocumentChangeset",
-    "DocumentImport",
     "DocumentVersion",
     "EmailThread",
+    "File",
+    "Import",
     "Job",
     "JobPreferences",
     "JobRun",
@@ -43,7 +43,6 @@ __all__ = [
     "Profile",
     "ProfileChange",
     "ProfileEntry",
-    "ProfileImport",
     "ProfileSkill",
     "SignInAttempts",
     "User",

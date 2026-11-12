@@ -7,12 +7,12 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects import postgresql, sqlite
 
 from src.db.repository import Repository
+from src.features.imports import Import, ImportStatus
 from src.features.profile.models import (
     Networking,
     Profile,
     ProfileChange,
     ProfileEntry,
-    ProfileImport,
     ProfileSkill,
 )
 
@@ -65,22 +65,30 @@ class ProfileRepository(Repository):
             )
         ).all()
 
-    async def imports(self, user_id: UUID) -> Sequence[ProfileImport]:
-        """The user's imports, the latest first"""
-        return (
-            await self._session.scalars(
-                select(ProfileImport)
-                .where(ProfileImport.user_id == user_id)
-                .order_by(ProfileImport.created_at.desc())
+    async def lock(self, user_id: UUID) -> None:
+        """Hold the user's profile against other transactions until this one ends;
+        only Postgres locks"""
+        if self._session.get_bind().dialect.name == "postgresql":
+            await self._session.execute(
+                select(
+                    func.pg_advisory_xact_lock(func.hashtextextended(str(user_id), 0))
+                )
             )
-        ).all()
 
-    async def imported(self, user_id: UUID, digest: str) -> ProfileImport | None:
-        """The user's earlier import of the file with this sha256, if any"""
-        return await self._session.scalar(
-            select(ProfileImport)
-            .where(ProfileImport.user_id == user_id, ProfileImport.digest == digest)
-            .limit(1)
+    async def imported(self, user_id: UUID, file_id: UUID, import_id: UUID) -> bool:
+        """Whether another import of the user's file is done already"""
+        return (
+            await self._session.scalar(
+                select(Import.id)
+                .where(
+                    Import.user_id == user_id,
+                    Import.file_id == file_id,
+                    Import.status == ImportStatus.DONE,
+                    Import.id != import_id,
+                )
+                .limit(1)
+            )
+            is not None
         )
 
     async def changes(self, user_id: UUID) -> list[ProfileChange]:
