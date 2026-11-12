@@ -56,7 +56,7 @@ def _to_read(profile: Profile) -> ProfileRead:
 
 
 def _entry_fact(entry: ProfileEntry) -> ProfileFact:
-    """An entry as one fact, its heading then summary and highlights a line each;
+    """An entry as one fact, a line each for heading, summary, highlights, tools, links;
     only a role carries its span, as the agents count spans as years of experience"""
     where = ", ".join(part for part in (entry.organisation, entry.location) if part)
     match entry.kind:

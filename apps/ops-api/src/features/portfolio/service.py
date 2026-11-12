@@ -240,8 +240,8 @@ class PortfolioService:
         setattr(project, f"{slot}_id", asset_id)
 
     async def _snapshot(self, user_id: UUID) -> Snapshot:
-        """The draft: the profile without contact details, every skill, and the
-        projects that are on the site, whether or not the agents use them"""
+        """The draft: the profile without contact details, every skill, and every
+        project on the site, archived or not"""
         urls = {
             asset.id: f"/{_key(asset)}"
             for asset in await self._repository.assets(user_id)
