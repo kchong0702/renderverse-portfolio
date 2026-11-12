@@ -5,6 +5,7 @@ from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal, override
+from urllib.parse import urlsplit
 
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
@@ -170,9 +171,6 @@ class AuthSettings(BaseModel):
     enabled: bool = False
     """Require a signed-in session on every request"""
 
-    allowed_emails: Annotated[list[str], NoDecode] = []
-    """Emails allowed to sign in, with a password or a verified SSO email"""
-
     dev_email: str = "owner@localhost"
     """Who a request acts as while auth is disabled"""
 
@@ -191,27 +189,16 @@ class AuthSettings(BaseModel):
     github: GitHubOAuthSettings = Field(default_factory=GitHubOAuthSettings)
     """Sign in with GitHub"""
 
-    @field_validator("allowed_emails", mode="before")
-    @classmethod
-    def _emails_processor(cls, v: object) -> object:
-        return _split_csv(v)
-
-    @field_validator("allowed_emails", mode="after")
-    @classmethod
-    def _normalise_emails(cls, v: list[str]) -> list[str]:
-        return [email.lower() for email in v]
-
     @field_validator("web_url", mode="after")
     @classmethod
     def _strip_trailing_slash(cls, v: str) -> str:
         return v.rstrip("/")
 
     @model_validator(mode="after")
-    def _enabled_requires_allowlist_and_key(self) -> AuthSettings:
+    def _enabled_requires_key(self) -> AuthSettings:
+        """Refuse enabled auth without a secret key of 32+ characters"""
         if not self.enabled:
             return self
-        if not self.allowed_emails:
-            raise ValueError("auth.enabled is True but auth.allowed_emails is empty")
         if len(self.secret_key.get_secret_value()) < 32:
             raise ValueError("auth.enabled needs auth.secret_key of 32+ characters")
         return self
@@ -496,6 +483,19 @@ class Settings(BaseSettings):
 
     storage: StorageSettings = Field(default_factory=StorageSettings)
     """Where published files are written"""
+
+    @model_validator(mode="after")
+    def _disabled_auth_only_in_local_dev(self) -> Settings:
+        """Refuse disabled auth anywhere but app.env dev with a local auth.web_url"""
+        if self.auth.enabled:
+            return self
+        host = urlsplit(self.auth.web_url).hostname
+        if self.app.env != "dev" or host not in {"localhost", "127.0.0.1", "::1"}:
+            raise ValueError(
+                "auth.enabled is False, which needs app.env dev and a localhost "
+                f"auth.web_url, not {self.app.env} and {self.auth.web_url}"
+            )
+        return self
 
     @classmethod
     @override
