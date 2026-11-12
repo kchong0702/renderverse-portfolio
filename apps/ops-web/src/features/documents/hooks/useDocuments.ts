@@ -13,7 +13,6 @@ import {
   editDocumentMutationOptions,
   exportPdfMutationOptions,
   importsQueryOptions,
-  readImportMutationOptions,
   setMasterMutationOptions,
   startImportMutationOptions,
   undoEditMutationOptions,
@@ -72,10 +71,6 @@ export function useStartImport() {
 
 export function useCancelImport() {
   return useMutation(cancelImportMutationOptions);
-}
-
-export function useReadImport() {
-  return useMutation(readImportMutationOptions);
 }
 
 export function useChangesets(id: string) {

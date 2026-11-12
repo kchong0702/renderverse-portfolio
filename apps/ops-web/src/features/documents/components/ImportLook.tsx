@@ -5,9 +5,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { buttonClass } from "@/shared/components/button";
 import StateMessage from "@/shared/components/StateMessage";
 import { cn } from "@/shared/lib/cn";
-import type { DocumentImport } from "../api/documents";
+import type { ImportRecord } from "@/features/imports";
 import {
-  useCancelImport,
   useDeleteDocument,
   useDesignDocument,
   useDocument,
@@ -34,7 +33,7 @@ export default function ImportLook({
   upload,
   documentId,
 }: {
-  upload: DocumentImport;
+  upload: ImportRecord;
   documentId: string;
 }) {
   const { t } = useTranslation();
@@ -42,7 +41,6 @@ export default function ImportLook({
   const draft = useDocument(documentId);
   const design = useDesignDocument();
   const remove = useDeleteDocument();
-  const cancel = useCancelImport();
   const [picked, setPicked] = useState<string>();
   const [sized, setSized] = useState<PageSize>();
 
@@ -291,10 +289,7 @@ export default function ImportLook({
                     ],
                   },
                   {
-                    onSuccess: () => {
-                      navigate(to);
-                      cancel.mutate(upload.id);
-                    },
+                    onSuccess: () => navigate(to),
                   },
                 )
               }
@@ -307,10 +302,7 @@ export default function ImportLook({
               disabled={busy}
               onClick={() =>
                 remove.mutate(record.id, {
-                  onSuccess: () => {
-                    navigate("/documents");
-                    cancel.mutate(upload.id);
-                  },
+                  onSuccess: () => navigate("/documents"),
                 })
               }
               className="border-hair bg-panel text-ink inline-flex min-h-11 cursor-pointer items-center rounded-lg px-5 text-sm font-semibold disabled:cursor-default disabled:opacity-60 border"

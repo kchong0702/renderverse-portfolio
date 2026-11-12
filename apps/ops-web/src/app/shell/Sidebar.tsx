@@ -3,6 +3,7 @@ import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
 import { AccountMenu, useIsAdmin, useMe } from "@/features/auth";
+import { ProcessingIndicator } from "@/features/imports";
 import { useProfile } from "@/features/portfolio";
 import { cn } from "@/shared/lib/cn";
 import { navGroups, useNavBadges } from "./nav";
@@ -117,7 +118,9 @@ export default function Sidebar() {
           ))}
         </div>
 
-        <div className="mb-3 min-h-4 flex-1" />
+        <div className="mb-3 flex min-h-4 flex-1 flex-col justify-end px-3.5">
+          <ProcessingIndicator />
+        </div>
 
         <AccountMenu>
           <span

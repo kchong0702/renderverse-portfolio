@@ -20,7 +20,9 @@
     },
     "signOut": "Sign out",
     "loadFailed": "Ops could not load: {{reason}}",
-    "retry": "Try again"
+    "retry": "Try again",
+    "processing_one": "{{count}} file processing",
+    "processing_other": "{{count}} files processing"
   },
   "nav": {
     "groups": {
@@ -563,13 +565,12 @@
         "hint": "A PDF or Word (.docx) file, up to 10 MB. Every fact will link back to the line it came from.",
         "choose": "Choose a file",
         "uploading": "Uploading…",
-        "failed": "Not uploaded: {{reason}}",
-        "reading": "Reading…"
+        "failed": "Not uploaded: {{reason}}"
       },
       "loadFailed": "Imports could not load: {{reason}}",
       "reading": "Reading your résumé and checking every value against the line it came from. This can take a few minutes.",
       "readFailed": "Not read: {{reason}}",
-      "retry": "Try again",
+      "retrying": "Not read: {{reason}}. Trying again shortly.",
       "cancel": "Cancel import",
       "look": {
         "title": "Choose a look",
@@ -615,7 +616,8 @@
         "pdf": "Every fact links back to the line it came from in your PDF.",
         "word": "Every fact links back to the line it came from in your Word file.",
         "review": "Review facts"
-      }
+      },
+      "queued": "Your résumé is queued; a worker will read it in a moment."
     },
     "assistant": {
       "conversation": "Conversation",
@@ -1550,6 +1552,7 @@
       "sending": "Sending the file",
       "comparing": "Reading it and comparing it with your details",
       "close": "Close",
+      "retrying": "Not read: {{reason}}. Trying again shortly.",
       "done": "Done",
       "again": "You added this file on {{date}}",
       "sameFile": "Adding the same file again changes nothing.",

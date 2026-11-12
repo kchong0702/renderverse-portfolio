@@ -1,4 +1,5 @@
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
+import { activeImportsQueryOptions, isActive } from "@/features/imports";
 import {
   fetchChanges,
   fetchImports,
@@ -11,6 +12,7 @@ import {
 export const importsQueryOptions = queryOptions({
   queryKey: ["profile", "imports"],
   queryFn: ({ signal }) => fetchImports(signal),
+  refetchInterval: ({ state }) => (state.data?.some(isActive) ? 3000 : false),
 });
 
 export const changesQueryOptions = queryOptions({
@@ -29,7 +31,9 @@ export const importFileMutationOptions = mutationOptions({
   onSettled: (_import, _error, _upload, _result, { client }) =>
     Promise.all([
       client.invalidateQueries({ queryKey: ["profile"] }),
-      client.invalidateQueries({ queryKey: ["portfolio"] }),
+      client.invalidateQueries({
+        queryKey: activeImportsQueryOptions.queryKey,
+      }),
     ]),
 });
 

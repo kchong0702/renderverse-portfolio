@@ -2,6 +2,7 @@ import { Check, ChevronLeft } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import type { ImportRecord } from "@/features/imports";
 import { useEntries, type Entry, type EntryKind } from "@/features/portfolio";
 import Badge from "@/shared/components/Badge";
 import { buttonClass } from "@/shared/components/button";
@@ -9,12 +10,7 @@ import PageBody from "@/shared/components/PageBody";
 import StateMessage from "@/shared/components/StateMessage";
 import { dayMonth } from "@/shared/lib/dates";
 import { cn } from "@/shared/lib/cn";
-import type {
-  ChangeField,
-  FieldValue,
-  ImportedEntry,
-  ProfileImport,
-} from "../api/data";
+import type { ChangeField, FieldValue, ImportedEntry } from "../api/data";
 import { useChanges, useImports, useResolveChanges } from "../hooks/useData";
 import { heading, period, reviewCards, type ReviewCard } from "../lib/facts";
 
@@ -257,7 +253,7 @@ export default function ReviewPage() {
   const imports = useImports();
   const cards = changes.data ? reviewCards(changes.data) : [];
   const failed = [changes, entries, imports].find((query) => query.isError);
-  const label = (row: ProfileImport) =>
+  const label = (row: ImportRecord) =>
     `${row.filename}, ${dayMonth(new Date(row.created_at), i18n.language)}`;
   const sourcesOf = (ids: string[]) =>
     [...new Set(ids)].map((id) => {
@@ -372,29 +368,31 @@ export default function ReviewPage() {
                 <span className="text-ink-3 text-[13px] font-semibold">
                   {t("data.review.imports")}
                 </span>
-                {imports.data.length === 0 && (
+                {imports.data.every((row) => row.status !== "done") && (
                   <span className="text-ink-3 py-2 text-[13px]">
                     {t("data.review.noImports")}
                   </span>
                 )}
-                {imports.data.map((row) => (
-                  <div
-                    key={row.id}
-                    className="border-hair-soft flex flex-col gap-0.5 border-b py-2"
-                  >
-                    <span className="text-sm font-semibold [overflow-wrap:anywhere]">
-                      {row.filename}
-                    </span>
-                    <span className="text-ink-3 text-[13px]">
-                      {[
-                        dayMonth(new Date(row.created_at), i18n.language),
-                        t(`data.review.sources.${row.source}`),
-                        t("data.review.added", { count: row.added }),
-                        t("data.review.conflicts", { count: row.conflicts }),
-                      ].join(" · ")}
-                    </span>
-                  </div>
-                ))}
+                {imports.data
+                  .filter((row) => row.status === "done")
+                  .map((row) => (
+                    <div
+                      key={row.id}
+                      className="border-hair-soft flex flex-col gap-0.5 border-b py-2"
+                    >
+                      <span className="text-sm font-semibold [overflow-wrap:anywhere]">
+                        {row.filename}
+                      </span>
+                      <span className="text-ink-3 text-[13px]">
+                        {[
+                          dayMonth(new Date(row.created_at), i18n.language),
+                          t(`data.review.sources.${row.source}`),
+                          t("data.review.added", { count: row.added }),
+                          t("data.review.conflicts", { count: row.conflicts }),
+                        ].join(" · ")}
+                      </span>
+                    </div>
+                  ))}
               </div>
               <div className="flex flex-col gap-1.5">
                 <span className="text-ink-3 text-[13px] font-semibold">
