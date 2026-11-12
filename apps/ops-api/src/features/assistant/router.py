@@ -6,7 +6,8 @@ from fastapi.sse import EventSourceResponse
 
 from src.clients.ezcareer import Answer
 from src.core.auth import CurrentUserDep
-from src.features.assistant.schemas import ChatMessage
+from src.features.assistant.profile_edits import ProfileEdits
+from src.features.assistant.schemas import ChatMessage, ProfileDecision
 from src.features.assistant.service import AssistantService
 from src.features.documents import DocumentServiceDep
 from src.features.inbox import InboxServiceDep
@@ -24,12 +25,13 @@ def get_assistant_service(
     request: Request,
 ) -> AssistantService:
     """The assistant service on its profile, settings, documents and inbox services,
-    the harness and the app's runner"""
+    the profile edits, the harness and the app's runner"""
     return AssistantService(
         profile,
         settings,
         documents,
         inbox,
+        ProfileEdits(request.app.state.session_factory, documents),
         request.app.state.ezcareer,
         request.app.state.runner,
     )
@@ -60,6 +62,21 @@ async def answer_task(
 ) -> EventSourceResponse:
     """Answer the widget a paused turn of the chat asked, and stream the rest of it"""
     return EventSourceResponse(await service.answer(user.id, chat_id, task_id, answer))
+
+
+@router.post("/chats/{chat_id}/tasks/{task_id}/decision")
+async def decide_task(
+    chat_id: UUID,
+    task_id: str,
+    decision: ProfileDecision,
+    user: CurrentUserDep,
+    service: AssistantServiceDep,
+) -> EventSourceResponse:
+    """Approve or cancel the profile changes a paused turn of the chat proposed, and
+    stream the rest of it"""
+    return EventSourceResponse(
+        await service.decide(user.id, chat_id, task_id, decision)
+    )
 
 
 @router.get("/chats/{chat_id}/stream")

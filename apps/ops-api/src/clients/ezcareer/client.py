@@ -27,17 +27,20 @@ from src.clients.ezcareer.a2a import (
     UsageData,
 )
 from src.clients.ezcareer.schemas import (
+    Action,
     Answer,
     AnswerDataRequest,
     Cancelled,
     Completed,
     DataRequest,
+    Decisions,
     Failed,
     InputRequired,
     ModelCatalog,
     NextScreen,
     Published,
     RecordUsage,
+    ReviewRequired,
     Run,
     RunEvent,
     RunMetadata,
@@ -79,6 +82,20 @@ def _data_request(status: TaskStatus) -> DataRequest | None:
     return (
         DataRequest.model_validate(data)
         if isinstance(data, dict) and "fetch" in data
+        else None
+    )
+
+
+def _review(task_id: str, status: TaskStatus) -> ReviewRequired | None:
+    """The tool calls a paused task waits for the user to approve, or None when it
+    asks something else"""
+    data = status.message.parts[0].data if status.message else None
+    return (
+        ReviewRequired(
+            task_id=task_id,
+            actions=TypeAdapter(list[Action]).validate_python(data["action_requests"]),
+        )
+        if isinstance(data, dict) and "action_requests" in data
         else None
     )
 
@@ -284,11 +301,12 @@ class EzcareerClient:
         user_id: UUID,
         context_id: str,
         task_id: str,
-        answer: Answer,
+        answer: Answer | Decisions,
         metadata: RunMetadata | None,
         answer_data_request: AnswerDataRequest | None = None,
     ) -> AsyncIterator[RunEvent[R]]:
-        """Answer a paused task as resume does, streaming the rest of its run"""
+        """Answer a paused task as resume does, or approve or reject the tool calls
+        it waits on, streaming the rest of its run"""
         return self._stream(
             executable,
             reply,
@@ -429,6 +447,12 @@ class EzcareerClient:
                                         update.task_id,
                                         await answer_data_request(asked),
                                     )
+                                case "TASK_STATE_INPUT_REQUIRED" if review := _review(
+                                    update.task_id, status
+                                ):
+                                    ended = True
+                                    yield review
+                                    return
                                 case "TASK_STATE_INPUT_REQUIRED" if status.message:
                                     ended = True
                                     yield InputRequired(

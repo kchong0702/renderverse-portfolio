@@ -77,6 +77,19 @@ class Answer(BaseModel):
     """True for submit, False for cancel, None when neither was pressed"""
 
 
+class Decision(BaseModel):
+    type: Literal["approve", "reject"]
+    """Whether the user lets the tool call run"""
+
+    message: str | None = Field(default=None, exclude_if=lambda v: v is None)
+    """Why the user rejected it, which the model gets; None says nothing"""
+
+
+class Decisions(BaseModel):
+    decisions: list[Decision]
+    """One decision per tool call the paused task asked about, in its order"""
+
+
 class Completed[R](BaseModel):
     status: Literal["completed"] = "completed"
     """The run finished"""
@@ -94,6 +107,25 @@ class InputRequired(BaseModel):
 
     widget: Widget
     """What to ask the user"""
+
+
+class Action(BaseModel):
+    name: str
+    """The tool the model called, such as update_profile"""
+
+    args: dict[str, JsonValue]
+    """The arguments the model gave it, not yet checked"""
+
+
+class ReviewRequired(BaseModel):
+    status: Literal["review_required"] = "review_required"
+    """The run paused before tool calls the user must approve"""
+
+    task_id: str
+    """The paused task; the decisions go back on it"""
+
+    actions: list[Action]
+    """The tool calls waiting, in the order the decisions answer them"""
 
 
 class NextScreen(BaseModel):
@@ -253,6 +285,7 @@ type RunEvent[R] = (
     | Published
     | Completed[R]
     | InputRequired
+    | ReviewRequired
     | Failed
     | Cancelled
 )
@@ -260,11 +293,14 @@ type RunEvent[R] = (
 
 
 __all__ = [
+    "Action",
     "Answer",
     "AnswerDataRequest",
     "Cancelled",
     "Completed",
     "DataRequest",
+    "Decision",
+    "Decisions",
     "Failed",
     "FamilyModels",
     "InputRequired",
@@ -274,6 +310,7 @@ __all__ = [
     "NextScreen",
     "Published",
     "RecordUsage",
+    "ReviewRequired",
     "Run",
     "RunEvent",
     "RunMetadata",
