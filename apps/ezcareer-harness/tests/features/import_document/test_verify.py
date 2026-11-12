@@ -2,7 +2,7 @@ from pydantic import JsonValue
 
 from src.features.import_document.configurations import ImportResumeConfigurations
 from src.features.import_document.nodes import verify
-from src.features.import_document.schemas import LookSuggestion, ResumeImport
+from src.features.import_document.schemas import ImportedResume, LookSuggestion
 from src.shared.checks import CheckError, CheckRule
 from src.shared.extraction import Line
 
@@ -86,7 +86,7 @@ def check(
     """What verify finds in a reply to lines"""
     return verify(
         {
-            "structured_response": ResumeImport.model_validate(draft),
+            "structured_response": ImportedResume.model_validate(draft),
             "lines": lines,
             "suggestion": SUGGESTION,
         },
@@ -99,7 +99,7 @@ def test_a_faithful_reply_passes_and_becomes_the_draft_in_the_suggested_template
 ):
     result = verify(
         {
-            "structured_response": ResumeImport.model_validate(reply()),
+            "structured_response": ImportedResume.model_validate(reply()),
             "lines": LINES,
             "suggestion": SUGGESTION,
         },
@@ -109,7 +109,8 @@ def test_a_faithful_reply_passes_and_becomes_the_draft_in_the_suggested_template
     assert result["errors"] == []
     assert result["document"].design.template == "serif"
     assert (
-        result["document"].content.blocks == ResumeImport.model_validate(reply()).blocks
+        result["document"].content.blocks
+        == ImportedResume.model_validate(reply()).blocks
     )
 
 
@@ -119,17 +120,17 @@ def test_a_reply_that_is_no_resume_import_fails_schema_and_asks_for_a_fix(
     result = verify(
         {
             "structured_response": None,
-            "parsing_error": "the reply holds no ResumeImport",
+            "parsing_error": "the reply holds no ImportedResume",
         },
         configurations,
     )
 
     assert result["errors"] == [
         CheckError(
-            rule=CheckRule.SCHEMA, at="", message="the reply holds no ResumeImport"
+            rule=CheckRule.SCHEMA, at="", message="the reply holds no ImportedResume"
         )
     ]
-    assert "the reply holds no ResumeImport" in result["messages"][0].content
+    assert "the reply holds no ImportedResume" in result["messages"][0].content
 
 
 def test_reworded_or_uncited_text_fails_verbatim(

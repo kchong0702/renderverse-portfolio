@@ -6,7 +6,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic_core import to_jsonable_python
 
 from src.agents import AgentOverride
-from src.features.import_document.schemas import ResumeImport
+from src.features.import_document.schemas import ImportedResume
 from src.features.import_document.state import ImportState
 
 
@@ -33,12 +33,12 @@ async def structure(state: ImportState, agent: CompiledStateGraph) -> ImportStat
                     *state.get("messages", []),
                 ]
             },
-            AgentOverride(response_format=ResumeImport).config(),
+            AgentOverride(response_format=ImportedResume).config(),
         )
     except StructuredOutputValidationError as error:
         return {"structured_response": None, "parsing_error": str(error.source)}
     response = reply.get("structured_response")
     return {
         "structured_response": response,
-        "parsing_error": None if response else "the reply holds no ResumeImport",
+        "parsing_error": None if response else "the reply holds no ImportedResume",
     }

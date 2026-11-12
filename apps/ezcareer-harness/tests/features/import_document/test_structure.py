@@ -32,8 +32,8 @@ REPLY: dict[str, JsonValue] = {
 
 
 def _model() -> ScriptedChatModel:
-    """A model that answers with REPLY as its ResumeImport"""
-    return ScriptedChatModel(replies=[_call("ResumeImport", **REPLY)])
+    """A model that answers with REPLY as its ImportedResume"""
+    return ScriptedChatModel(replies=[_call("ImportedResume", **REPLY)])
 
 
 async def test_the_llm_reads_the_lines_and_its_reply_becomes_the_draft():

@@ -10,7 +10,7 @@ from pydantic import JsonValue
 from src.app.container import Container
 from src.features.import_document import build_graph
 from src.features.import_document.exceptions import ImportFailed
-from src.features.import_document.schemas import ImportInput, ResumeImport
+from src.features.import_document.schemas import ImportedResume, ImportInput
 from src.shared.run_context import RunContext
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
@@ -24,7 +24,7 @@ UPLOAD = ImportInput(
 
 
 def _reply(headline: str) -> dict[str, JsonValue]:
-    """A ResumeImport of UPLOAD whose headline reads headline"""
+    """A ImportedResume of UPLOAD whose headline reads headline"""
     return {
         "blocks": [
             {
@@ -40,14 +40,14 @@ def _reply(headline: str) -> dict[str, JsonValue]:
 def _model(
     *replies: dict[str, JsonValue] | None, model_name: str = "glm-5.3"
 ) -> ScriptedChatModel:
-    """model_name answering each call with the next reply as its ResumeImport, or
+    """model_name answering each call with the next reply as its ImportedResume, or
     with plain text for None"""
     return ScriptedChatModel(
         model_name=model_name,
         replies=[
             AIMessage("Here is the résumé.")
             if reply is None
-            else _call("ResumeImport", **reply)
+            else _call("ImportedResume", **reply)
             for reply in replies
         ],
     )
@@ -99,7 +99,7 @@ async def test_a_failed_reply_goes_back_to_the_llm_with_its_errors():
 
     system, human, fix = model.requests[1]
     assert system.content == model.requests[0][0].content
-    assert json.loads(human.content)["previous_reply"] == ResumeImport.model_validate(
+    assert json.loads(human.content)["previous_reply"] == ImportedResume.model_validate(
         _reply("Engineering lead")
     ).model_dump(mode="json")
     assert "blocks/profile/headline (verbatim)" in fix.content
@@ -132,7 +132,9 @@ async def test_a_reply_without_a_resume_import_gets_another_round():
         _artifact_service(partial(_print, sent=[])),
     ).ainvoke(UPLOAD)
 
-    assert "(schema): the reply holds no ResumeImport" in model.requests[1][-1].content
+    assert (
+        "(schema): the reply holds no ImportedResume" in model.requests[1][-1].content
+    )
     assert json.loads(model.requests[1][1].content)["previous_reply"] is None
 
 

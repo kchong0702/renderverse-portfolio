@@ -20,9 +20,9 @@ from src.features.import_profile.schemas import (
     ExportFile,
     ImportedAbout,
     ImportedEntry,
+    ImportedProfile,
     ImportedSkill,
     ImportProfileInput,
-    ProfileImport,
 )
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
 
@@ -34,11 +34,11 @@ class ImportProfileState(TypedDict, total=False):
     files: list[ExportFile]
     """The export's profile files"""
 
-    structured_response: ProfileImport | None
-    """The agent's last reply; None when it held no ProfileImport"""
+    structured_response: ImportedProfile | None
+    """The agent's last reply; None when it held no ImportedProfile"""
 
     parsing_error: str | None
-    """Why the last reply held no ProfileImport; None when it did"""
+    """Why the last reply held no ImportedProfile; None when it did"""
 
     errors: list[CheckError]
     """What the latest check found"""
@@ -81,14 +81,14 @@ async def _structure(
                     *state.get("messages", []),
                 ]
             },
-            AgentOverride(response_format=ProfileImport).config(),
+            AgentOverride(response_format=ImportedProfile).config(),
         )
     except StructuredOutputValidationError as error:
         return {"structured_response": None, "parsing_error": str(error.source)}
     response = reply.get("structured_response")
     return {
         "structured_response": response,
-        "parsing_error": None if response else "the reply holds no ProfileImport",
+        "parsing_error": None if response else "the reply holds no ImportedProfile",
     }
 
 
@@ -138,7 +138,7 @@ def build_graph(
     graph = StateGraph(
         ImportProfileState,
         input_schema=ImportProfileInput,
-        output_schema=ProfileImport,
+        output_schema=ImportedProfile,
     )
     graph.add_node("structure", partial(_structure, agent=agent))
     graph.add_node("verify", partial(_verify, configurations=configurations))

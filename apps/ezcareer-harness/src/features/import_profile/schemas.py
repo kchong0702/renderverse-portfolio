@@ -131,7 +131,7 @@ class ImportedSkill(BaseModel):
     """Heading it sits under, such as Platform or Spoken languages"""
 
 
-class ProfileImport(BaseModel):
+class ImportedProfile(BaseModel):
     model_config = ConfigDict(
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )

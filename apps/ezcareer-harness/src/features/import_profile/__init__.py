@@ -1,4 +1,4 @@
 from src.features.import_profile.graph import build_graph
-from src.features.import_profile.schemas import ImportProfileInput, ProfileImport
+from src.features.import_profile.schemas import ImportedProfile, ImportProfileInput
 
-__all__ = ["ImportProfileInput", "ProfileImport", "build_graph"]
+__all__ = ["ImportProfileInput", "ImportedProfile", "build_graph"]

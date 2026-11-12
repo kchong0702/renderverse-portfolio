@@ -1,4 +1,4 @@
-from src.features.import_profile.schemas import ExportFile, ProfileImport
+from src.features.import_profile.schemas import ExportFile, ImportedProfile
 from src.shared.checks import CheckError, CheckRule
 
 
@@ -8,7 +8,7 @@ def _plain(text: str) -> str:
     return " ".join(text.split()).strip(" .,;:•·*–—-").casefold()
 
 
-def check_verbatim(reply: ProfileImport, files: list[ExportFile]) -> list[CheckError]:
+def check_verbatim(reply: ImportedProfile, files: list[ExportFile]) -> list[CheckError]:
     """Errors for each copied value not word for word in the export, and each entry
     value, highlight or date's year not in a row holding the entry's title"""
     rows = [_plain("\n".join(row.values())) for file in files for row in file.rows]

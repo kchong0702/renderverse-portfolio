@@ -19,7 +19,10 @@ class ImportDocumentContainer(containers.DeclarativeContainer):
     agent = providers.Singleton(
         build_agent,
         agent=registry.provided["document-analyst"],
-        response_formats=(import_document.ResumeImport, import_profile.ProfileImport),
+        response_formats=(
+            import_document.ImportedResume,
+            import_profile.ImportedProfile,
+        ),
     )
     """The document-analyst agent, built once"""
 

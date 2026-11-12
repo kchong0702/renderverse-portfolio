@@ -52,7 +52,7 @@ EXPORT = ImportProfileInput.model_validate(
 
 
 def _reply(highlight: str, start: str = "2021-01") -> dict[str, JsonValue]:
-    """A ProfileImport of EXPORT's Acme role whose second highlight reads highlight,
+    """A ImportedProfile of EXPORT's Acme role whose second highlight reads highlight,
     starting at start"""
     return {
         "about": {
@@ -77,13 +77,13 @@ def _reply(highlight: str, start: str = "2021-01") -> dict[str, JsonValue]:
 
 
 def _model(*replies: dict[str, JsonValue] | None) -> ScriptedChatModel:
-    """A model answering each call with the next reply as its ProfileImport, or
+    """A model answering each call with the next reply as its ImportedProfile, or
     with plain text for None"""
     return ScriptedChatModel(
         replies=[
             AIMessage("Here is the profile.")
             if reply is None
-            else _call("ProfileImport", **reply)
+            else _call("ImportedProfile", **reply)
             for reply in replies
         ]
     )
@@ -166,7 +166,9 @@ async def test_a_reply_without_a_profile_import_gets_another_round():
 
     await _graph(model).ainvoke(EXPORT)
 
-    assert "(schema): the reply holds no ProfileImport" in model.requests[1][-1].content
+    assert (
+        "(schema): the reply holds no ImportedProfile" in model.requests[1][-1].content
+    )
 
 
 async def test_the_users_note_stays_ahead_of_the_checks_errors():

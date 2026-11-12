@@ -7,8 +7,8 @@ from pydantic import BaseModel
 from src.clients.llm_providers import llm_provider
 from src.features.analyse_job import JobRequirements
 from src.features.find_jobs import RankedJobs
-from src.features.import_document import ResumeImport
-from src.features.import_profile import ProfileImport
+from src.features.import_document import ImportedResume
+from src.features.import_profile import ImportedProfile
 from src.features.write_networking import NetworkingCopy
 
 
@@ -37,10 +37,10 @@ def _empty_objects(node: object, at: str) -> list[str]:
     "response_format",
     [
         Changeset,
-        ResumeImport,
+        ImportedResume,
         JobRequirements,
         RankedJobs,
-        ProfileImport,
+        ImportedProfile,
         NetworkingCopy,
     ],
 )
