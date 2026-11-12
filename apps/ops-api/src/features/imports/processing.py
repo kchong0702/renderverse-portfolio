@@ -152,18 +152,20 @@ async def process_import(
     """Read the import's file through the harness and write its results under the
     claim; a lost claim writes nothing, and a failure queues a retry or ends it"""
     factory = container.session_factory()
-    async with factory() as session:
-        row = await session.get(Import, import_id)
-        if (
-            row is None
-            or row.claim_token != claim_token
-            or row.status is not ImportStatus.PROCESSING
-        ):
-            return
-        file = row.file
-        metadata = await settings_service(session, container).run_metadata(row.user_id)
-    set_actor(user_actor(row.user_id))
     try:
+        async with factory() as session:
+            row = await session.get(Import, import_id)
+            if (
+                row is None
+                or row.claim_token != claim_token
+                or row.status is not ImportStatus.PROCESSING
+            ):
+                return
+            file = row.file
+            set_actor(user_actor(row.user_id))
+            metadata = await settings_service(session, container).run_metadata(
+                row.user_id
+            )
         content = await container.storage().read_private(f"{row.user_id}/{file.sha256}")
         outcome = await _read(file, content, row.user_id, metadata, container)
         async with factory() as session, session.begin():
