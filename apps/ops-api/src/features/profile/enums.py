@@ -36,4 +36,41 @@ class SalaryPeriod(StrEnum):
     """Paid per year"""
 
 
-__all__ = ["EntryKind", "SalaryPeriod", "WorkMode"]
+class ImportSource(StrEnum):
+    DATA = "data"
+    """Uploaded on the Data page"""
+
+    DOCUMENTS = "documents"
+    """A résumé imported in Documents, which also made a document"""
+
+
+class ChangeKind(StrEnum):
+    FIELD = "field"
+    """An import's value for a field that differs from the current one"""
+
+    MATCH = "match"
+    """An imported entry that may be the same as one already there"""
+
+
+class ChangeChoice(StrEnum):
+    CURRENT = "current"
+    """Keep the field's current value"""
+
+    CONFLICT = "conflict"
+    """Take the import's value for the field"""
+
+    SAME = "same"
+    """The imported entry is the one already there"""
+
+    DIFFERENT = "different"
+    """The imported entry is another one; add it"""
+
+
+__all__ = [
+    "ChangeChoice",
+    "ChangeKind",
+    "EntryKind",
+    "ImportSource",
+    "SalaryPeriod",
+    "WorkMode",
+]

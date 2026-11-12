@@ -88,6 +88,24 @@ async def test_reading_an_import_makes_its_draft(client, harness):
     assert b64decode(part["data"]["file"], validate=True) == PDF
 
 
+async def test_reading_an_import_syncs_the_profile_once(client, harness):
+    await _import(client, harness, _imported())
+
+    assert (await client.get(f"{PREFIX}/profile")).json()["name"] == "Kelvin Chong"
+    [synced] = (await client.get(f"{PREFIX}/profile/imports")).json()
+    assert (synced["source"], synced["filename"], synced["added"]) == (
+        "documents",
+        "kelvin-chong-resume.pdf",
+        1,
+    )
+    again = await client.post(
+        f"{PREFIX}/profile/imports",
+        files={"file": ("resume.pdf", PDF, "application/pdf")},
+    )
+    assert again.json()["id"] == synced["id"]
+    assert len(harness.received) == 1
+
+
 async def test_an_import_keeps_the_blocks_its_design_places(client, harness):
     layouts = [{"template": "serif", "region": "top", "blocks": ["profile"]}]
     design = {"template": "serif", "layouts": layouts}
@@ -200,3 +218,4 @@ async def test_an_import_past_the_documents_limit_fails_with_the_reason(
     )
     assert read.json()["document_id"] is None
     assert len((await client.get(DOCUMENTS)).json()) == 10
+    assert (await client.get(f"{PREFIX}/profile")).json()["name"] == "Kelvin Chong"

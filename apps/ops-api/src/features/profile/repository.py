@@ -7,7 +7,13 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects import postgresql, sqlite
 
 from src.db.repository import Repository
-from src.features.profile.models import Profile, ProfileEntry, ProfileSkill
+from src.features.profile.models import (
+    Profile,
+    ProfileChange,
+    ProfileEntry,
+    ProfileImport,
+    ProfileSkill,
+)
 
 
 class ProfileRepository(Repository):
@@ -50,6 +56,40 @@ class ProfileRepository(Repository):
                 .order_by(ProfileSkill.group, ProfileSkill.name)
             )
         ).all()
+
+    async def imports(self, user_id: UUID) -> Sequence[ProfileImport]:
+        """The user's imports, the latest first"""
+        return (
+            await self._session.scalars(
+                select(ProfileImport)
+                .where(ProfileImport.user_id == user_id)
+                .order_by(ProfileImport.created_at.desc())
+            )
+        ).all()
+
+    async def imported(self, user_id: UUID, digest: str) -> ProfileImport | None:
+        """The user's earlier import of the file with this sha256, if any"""
+        return await self._session.scalar(
+            select(ProfileImport)
+            .where(ProfileImport.user_id == user_id, ProfileImport.digest == digest)
+            .limit(1)
+        )
+
+    async def changes(self, user_id: UUID) -> list[ProfileChange]:
+        """The user's pending changes, the oldest first"""
+        return list(
+            (
+                await self._session.scalars(
+                    select(ProfileChange)
+                    .where(ProfileChange.user_id == user_id)
+                    .order_by(ProfileChange.created_at, ProfileChange.id)
+                )
+            ).all()
+        )
+
+    async def flush(self) -> None:
+        """Write pending changes so defaults and updated_at are filled in"""
+        await self._session.flush()
 
 
 __all__ = ["ProfileRepository"]

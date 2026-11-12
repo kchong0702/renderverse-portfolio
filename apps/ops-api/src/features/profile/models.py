@@ -8,8 +8,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base, EnumString, JsonType, PydanticJson
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
-from src.features.profile.enums import EntryKind, SalaryPeriod
-from src.features.profile.schemas import ProfileLink
+from src.features.profile.enums import ChangeKind, EntryKind, ImportSource, SalaryPeriod
+from src.features.profile.schemas import ImportedEntry, NetworkingCopy, ProfileLink
+from src.features.profile.types import ChangeField, FieldValue
 
 
 class Profile(AuditMixin, Base):
@@ -62,6 +63,16 @@ class Profile(AuditMixin, Base):
         EnumString(SalaryPeriod), default=None
     )
     """What min_salary_amount is paid for"""
+
+    networking_aim: Mapped[str] = mapped_column(
+        String(200), default="", server_default=""
+    )
+    """The roles the Networking copy is written for"""
+
+    networking: Mapped[NetworkingCopy | None] = mapped_column(
+        PydanticJson(TypeAdapter(NetworkingCopy)), default=None
+    )
+    """The latest copy to paste into job portals; None until written"""
 
 
 class ProfileEntry(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -128,4 +139,69 @@ class ProfileSkill(IdMixin, UserScopedMixin, AuditMixin, Base):
     """Kept but left out of what the agents see"""
 
 
-__all__ = ["Profile", "ProfileEntry", "ProfileSkill"]
+class ProfileImport(IdMixin, UserScopedMixin, AuditMixin, Base):
+    __tablename__ = "profile_imports"
+
+    filename: Mapped[str] = mapped_column(String(255))
+    """Name of the uploaded file"""
+
+    media_type: Mapped[str] = mapped_column(String(100))
+    """PDF, Word or zip"""
+
+    size: Mapped[int] = mapped_column()
+    """Bytes in the file"""
+
+    digest: Mapped[str] = mapped_column(String(64))
+    """Sha256 of the file, so the same file is imported once"""
+
+    source: Mapped[ImportSource] = mapped_column(EnumString(ImportSource))
+    """Whether it was uploaded on the Data page or in Documents"""
+
+    added: Mapped[int] = mapped_column(default=0)
+    """Entries, skills, links and empty fields it filled in"""
+
+    conflicts: Mapped[int] = mapped_column(default=0)
+    """Fields and matches it left for the user to settle"""
+
+    matched: Mapped[int] = mapped_column(default=0)
+    """Entries and skills it found already there"""
+
+
+class ProfileChange(IdMixin, UserScopedMixin, AuditMixin, Base):
+    __tablename__ = "profile_changes"
+
+    import_id: Mapped[UUID] = mapped_column(
+        ForeignKey("profile_imports.id", ondelete="CASCADE")
+    )
+    """The import it came from last; a newer import takes it over"""
+
+    kind: Mapped[ChangeKind] = mapped_column(EnumString(ChangeKind))
+    """A differing field or an unsure match"""
+
+    entry_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("profile_entries.id", ondelete="CASCADE"), default=None
+    )
+    """The entry it would change or may match; None for the profile's details"""
+
+    field: Mapped[ChangeField | None] = mapped_column(String(20), default=None)
+    """Which field differs; None for a match"""
+
+    current: Mapped[FieldValue] = mapped_column(JsonType, default=None)
+    """The field's value when the import ran"""
+
+    conflict: Mapped[FieldValue] = mapped_column(JsonType, default=None)
+    """The import's value for the field"""
+
+    entry: Mapped[ImportedEntry | None] = mapped_column(
+        PydanticJson(TypeAdapter(ImportedEntry)), default=None
+    )
+    """What the import brought for a match; None for a field"""
+
+
+__all__ = [
+    "Profile",
+    "ProfileChange",
+    "ProfileEntry",
+    "ProfileImport",
+    "ProfileSkill",
+]
