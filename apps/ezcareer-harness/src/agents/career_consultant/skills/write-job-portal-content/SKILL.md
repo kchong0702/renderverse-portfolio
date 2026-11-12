@@ -11,7 +11,7 @@ This content makes the user's profile easy for recruiters to find and choose. It
 2. Write only the fields the request asks for, within the caps it gives:
    - `headline` is the line recruiters see in search results. Lead with the role title recruiters search for, as the facts support it, then the user's specialism and two or three core skills, such as `Backend Engineer | Payments and billing platforms | Go, Kubernetes`.
    - `summary` is the about section: two to four short paragraphs, one per line, in the first person. Portals hide all but the first lines behind "see more", so those carry the pitch: what the user does, for which kind of role, and their strongest result. Use the main role title and core skills once or twice, naturally. End with the kind of role the user is open to.
-   - `descriptions` has one description per role or project fact the request names, with that fact's id in `fact`. Open with one line on the scope, then the results as bullets, each line starting with `• `, leading with numbers where the facts have them.
+   - `descriptions` has one description per role or project fact the request names, with that fact's id in `fact`, without `fact:`, such as `role-1`. Open with one line on the scope, then the results as bullets, each line starting with `• `, leading with numbers where the facts have them.
 3. Use the role titles and skill names recruiters search for, as the facts name them. Never stuff keywords, and never list a skill no fact shows.
 4. Never claim anything no fact shows. Keep every number, name, employer and job title exactly as the facts have them. Never present a target role as a job the user has held.
 5. List the facts each field rests on in its `facts`, by id without `fact:`, such as `role-1` for `fact:role-1`. A description already rests on the fact it describes, so its `facts` lists only the other facts it uses. A field that names a number, a tool or an employer cites the fact that has it.
@@ -19,4 +19,4 @@ This content makes the user's profile easy for recruiters to find and choose. It
 
 ## Checks
 
-A check verifies your answer. Each field asked for must be there. Each cited fact must exist. Each field must keep to its cap and be plain text. When it reports errors, fix only what it names.
+A check verifies your answer. Each field asked for must be there, and each description must be of a role or project fact. Each cited fact must exist. Each field must keep to its cap and be plain text. When it reports errors, fix only what it names.
