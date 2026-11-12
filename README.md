@@ -65,7 +65,7 @@ pnpm nx run artifact-service:dev  # PDFs and Word conversion (http://localhost:8
 pnpm run build                # production artifacts: renderverse and ops-web dist, the app images
 pnpm run preview:renderverse  # serve the built dist locally
 pnpm run preview:ops-web      # serve the built Ops UI (http://localhost:4174), proxying to ops-api like dev
-pnpm run start                # run the built images as the server does (collector, Laya, Ezbot, ezcareer-harness, artifact-service)
+pnpm run start                # run the built images as the server does (collector, Laya, Ezbot, ezcareer-harness, artifact-service, ops-api, ops-web)
 pnpm run lint                 # ESLint + Ruff
 pnpm run test
 pnpm run format               # Prettier + Ruff
@@ -112,6 +112,12 @@ In production the frontend and API must share a site (e.g. `example.com` and `ap
 ## Deployment
 
 The frontend is built to `apps/renderverse/dist` for Cloudflare Pages. The backend runs on a server from Docker images: [apps/ezbot-harness/Dockerfile](apps/ezbot-harness/Dockerfile) builds both `ezbot` and `ezbot-laya` (one target each), and [apps/ezbot-harness/docker-compose.yaml](apps/ezbot-harness/docker-compose.yaml) runs them. The root [docker-compose.yaml](docker-compose.yaml) includes it, adds the collector, and puts every service on the `renderverse` network, where Ezbot reaches Laya and the collector by service name.
+
+Ops runs from images too. [apps/ops-api/Dockerfile](apps/ops-api/Dockerfile) builds ops-api, and [apps/ops-web/Dockerfile](apps/ops-web/Dockerfile) builds the UI and serves it with nginx on port 5174, forwarding `/ops-api` to ops-api, so `tailscale serve` on the VM only needs to point at it. ops-web's `build` target stays the Vite `dist`; build its image with `docker compose build ops-web`. ops-api reads its database URL and keys from `apps/ops-api/.env` (Supabase in production) and keeps local files in the `ops-api-data` volume while R2 is not set up. Apply its migrations with:
+
+```bash
+docker compose run --rm --no-deps ops-api alembic upgrade head
+```
 
 `pnpm run build` tags the images `:dev`; set `TAG` to tag them otherwise (e.g. a git SHA), and set the same `TAG` for `pnpm run start`, which runs the built images without building. Containers publish their ports on `127.0.0.1` only, for a Cloudflare Tunnel to reach.
 

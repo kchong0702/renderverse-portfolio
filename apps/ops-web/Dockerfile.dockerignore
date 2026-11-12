@@ -1,0 +1,10 @@
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!apps/ops-web
+!packages/document-renderer
+apps/ops-web/.env
+apps/ops-web/dist
+**/node_modules
+packages/document-renderer/dist

@@ -5,6 +5,7 @@ include:
   - apps/artifact-service/docker-compose.yaml
   - apps/ezcareer-harness/docker-compose.yaml
   - apps/ops-api/docker-compose.yaml
+  - apps/ops-web/docker-compose.yaml
 
 x-base: &base
   env_file:
