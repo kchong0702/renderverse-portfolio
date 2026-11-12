@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: a6f214f3fc9f
+Revision ID: 5791f9cd2377
 Revises:
-Create Date: 2026-11-13 13:21:26.949734
+Create Date: 2026-11-13 13:21:34.137818
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "a6f214f3fc9f"
+revision: str = "5791f9cd2377"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -289,6 +289,68 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("user_id", name=op.f("pk_google_accounts")),
     )
     op.create_table(
+        "job_preferences",
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column("target_roles", sa.Text(), nullable=False),
+        sa.Column("location", sa.String(length=200), nullable=False),
+        sa.Column(
+            "countries",
+            postgresql.ARRAY(sa.Text()).with_variant(sa.JSON(), "sqlite"),
+            nullable=False,
+        ),
+        sa.Column(
+            "visa_free_countries",
+            postgresql.ARRAY(sa.Text()).with_variant(sa.JSON(), "sqlite"),
+            nullable=False,
+        ),
+        sa.Column(
+            "work_modes",
+            postgresql.ARRAY(sa.Text()).with_variant(sa.JSON(), "sqlite"),
+            nullable=False,
+        ),
+        sa.Column("min_salary_amount", sa.Integer(), nullable=True),
+        sa.Column("min_salary_currency", sa.String(length=3), nullable=True),
+        sa.Column("min_salary_period", sa.String(), nullable=True),
+        sa.Column("min_score", sa.Integer(), nullable=False),
+        sa.Column("run_at", sa.Time(), nullable=False),
+        sa.Column(
+            "created_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "updated_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.CheckConstraint(
+            "work_modes <@ ARRAY['onsite', 'hybrid', 'remote']::text[]",
+            name=op.f("ck_job_preferences_work_modes"),
+        ),
+        sa.CheckConstraint(
+            "(min_salary_amount is null) = (min_salary_currency is null) and (min_salary_amount is null) = (min_salary_period is null)",
+            name=op.f("ck_job_preferences_min_salary"),
+        ),
+        sa.CheckConstraint(
+            "min_score between 0 and 100", name=op.f("ck_job_preferences_min_score")
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_job_preferences_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("user_id", name=op.f("pk_job_preferences")),
+    )
+    op.create_table(
         "job_runs",
         sa.Column("found", sa.Integer(), nullable=False),
         sa.Column("new", sa.Integer(), nullable=False),
@@ -515,30 +577,6 @@ def upgrade() -> None:
         ),
         sa.Column("summary", sa.Text(), nullable=False),
         sa.Column(
-            "work_modes",
-            sa.JSON().with_variant(
-                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-            nullable=False,
-        ),
-        sa.Column(
-            "countries",
-            sa.JSON().with_variant(
-                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-            nullable=False,
-        ),
-        sa.Column(
-            "authorised_countries",
-            sa.JSON().with_variant(
-                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-            nullable=False,
-        ),
-        sa.Column("min_salary_amount", sa.Integer(), nullable=True),
-        sa.Column("min_salary_currency", sa.String(length=3), nullable=True),
-        sa.Column("min_salary_period", sa.String(), nullable=True),
-        sa.Column(
             "profession", sa.String(length=200), server_default="", nullable=False
         ),
         sa.Column(
@@ -580,10 +618,6 @@ def upgrade() -> None:
     op.create_table(
         "user_settings",
         sa.Column("user_id", sa.Uuid(), nullable=False),
-        sa.Column("job_query", sa.String(length=200), nullable=False),
-        sa.Column("job_location", sa.String(length=200), nullable=False),
-        sa.Column("job_agent_run_at", sa.Time(), nullable=False),
-        sa.Column("job_min_score", sa.Integer(), nullable=False),
         sa.Column("tailor_strong_matches", sa.Boolean(), nullable=False),
         sa.Column("follow_up_reminders", sa.Boolean(), nullable=False),
         sa.Column("suggest_replies", sa.Boolean(), nullable=False),
@@ -1161,6 +1195,7 @@ def upgrade() -> None:
     op.enable_rls("auth_identities")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("auth_sessions")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("google_accounts")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("job_preferences")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("job_runs")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("jobs")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("portfolio_releases")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1201,6 +1236,7 @@ def downgrade() -> None:
     op.disable_rls("portfolio_releases")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("jobs")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("job_runs")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("job_preferences")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("google_accounts")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("auth_sessions")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("auth_identities")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1255,6 +1291,7 @@ def downgrade() -> None:
     op.drop_table("jobs")
     op.drop_index(op.f("ix_job_runs_user_id"), table_name="job_runs")
     op.drop_table("job_runs")
+    op.drop_table("job_preferences")
     op.drop_table("google_accounts")
     op.drop_index(op.f("ix_auth_sessions_user_id"), table_name="auth_sessions")
     op.drop_table("auth_sessions")

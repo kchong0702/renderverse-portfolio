@@ -1,13 +1,13 @@
 import { Pencil } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { CountryPicker } from "@/features/portfolio";
 import {
-  CountryPicker,
-  useUpdateProfile,
+  useUpdatePreferences,
   type Preferences,
   type SalaryPeriod,
   type WorkMode,
-} from "@/features/portfolio";
+} from "@/features/preferences";
 import { buttonClass } from "@/shared/components/button";
 import { cn } from "@/shared/lib/cn";
 import Section from "./Section";
@@ -24,7 +24,7 @@ interface PreferencesFormProps {
 
 function PreferencesForm({ preferences, onDone }: PreferencesFormProps) {
   const { t, i18n } = useTranslation();
-  const update = useUpdateProfile();
+  const update = useUpdatePreferences();
   const [draft, setDraft] = useState(preferences);
   const [amount, setAmount] = useState(
     preferences.min_salary ? String(preferences.min_salary.amount) : "",
@@ -44,12 +44,12 @@ function PreferencesForm({ preferences, onDone }: PreferencesFormProps) {
     event.preventDefault();
     update.mutate(
       {
-        preferences: {
-          ...draft,
-          min_salary: Number(digits)
-            ? { amount: Number(digits), currency, period }
-            : null,
-        },
+        work_modes: draft.work_modes,
+        countries: draft.countries,
+        visa_free_countries: draft.visa_free_countries,
+        min_salary: Number(digits)
+          ? { amount: Number(digits), currency, period }
+          : null,
       },
       { onSuccess: onDone },
     );
@@ -143,9 +143,9 @@ function PreferencesForm({ preferences, onDone }: PreferencesFormProps) {
       <CountryPicker
         label={t("data.preferences.visaFree")}
         emptyLabel={t("data.preferences.noneYet")}
-        value={draft.authorised_countries}
-        onChange={(authorised_countries) =>
-          setDraft({ ...draft, authorised_countries })
+        value={draft.visa_free_countries}
+        onChange={(visa_free_countries) =>
+          setDraft({ ...draft, visa_free_countries })
         }
       />
       {update.isError && (
@@ -218,10 +218,10 @@ export default function PreferencesCard({
     },
     {
       label: t("data.preferences.visaFreeLabel"),
-      value: preferences.authorised_countries.length
-        ? list(preferences.authorised_countries)
+      value: preferences.visa_free_countries.length
+        ? list(preferences.visa_free_countries)
         : t("data.preferences.noneYet"),
-      set: preferences.authorised_countries.length > 0,
+      set: preferences.visa_free_countries.length > 0,
     },
   ];
 

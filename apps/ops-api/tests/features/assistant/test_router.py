@@ -52,9 +52,7 @@ async def _ignore_usage(*args: object) -> None:
 async def test_a_message_streams_career_directors_turn_with_the_profile(
     client, harness
 ):
-    await client.patch(
-        f"{PREFIX}/profile", json={"preferences": {"work_modes": ["remote"]}}
-    )
+    await client.patch(f"{PREFIX}/preferences", json={"work_modes": ["remote"]})
     agent_profile = (await client.get(f"{PREFIX}/profile/agent")).json()
     me = (await client.get(f"{PREFIX}/me")).json()
     harness.outcomes = [

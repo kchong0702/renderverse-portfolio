@@ -3,21 +3,20 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { useIsAdmin } from "@/features/auth";
 import type { JobRun } from "@/features/jobs";
-import type { Settings } from "@/features/settings";
+import type { Preferences } from "@/features/preferences";
 import { daysFromToday } from "@/shared/lib/dates";
 
 const card =
   "bg-panel border-hair shadow-card text-ink flex flex-col gap-1.5 rounded-xl border px-[26px] py-[22px] no-underline";
 
 export default function ShortcutCards({
-  settings,
+  preferences,
   run,
 }: {
-  settings: Settings | undefined;
+  preferences: Preferences | undefined;
   run: JobRun | null | undefined;
 }) {
   const { t } = useTranslation();
-  const agent = settings?.job_agent;
   const isAdmin = useIsAdmin();
 
   return (
@@ -27,11 +26,15 @@ export default function ShortcutCards({
           <Sparkle size={15} className="text-amber" />
           {t("dashboard.agent.title")}
         </span>
-        {agent && (
+        {preferences && (
           <span className="text-ink-3 text-sm">
             {[
-              t("dashboard.agent.daily", { time: agent.run_at.slice(0, 5) }),
-              [agent.query, agent.location].filter(Boolean).join(", "),
+              t("dashboard.agent.daily", {
+                time: preferences.run_at.slice(0, 5),
+              }),
+              [preferences.target_roles, preferences.location]
+                .filter(Boolean)
+                .join(", "),
             ]
               .filter(Boolean)
               .join(" · ")}

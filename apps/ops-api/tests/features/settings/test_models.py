@@ -46,7 +46,7 @@ async def test_patch_rejects_a_model_the_harness_does_not_offer(client):
     response = await client.patch(
         f"{PREFIX}/settings",
         json={
-            "job_agent": {"min_score": 90},
+            "scheduling": {"meeting_gap_minutes": 15},
             "ai_model": {"family": "claude", "model": "gpt-5"},
         },
     )
@@ -57,7 +57,7 @@ async def test_patch_rejects_a_model_the_harness_does_not_offer(client):
     )
     reread = await client.get(f"{PREFIX}/settings")
     assert reread.json()["ai_model"] is None
-    assert reread.json()["job_agent"]["min_score"] == 70
+    assert reread.json()["scheduling"]["meeting_gap_minutes"] == 30
 
 
 async def test_patch_rejects_an_unknown_family(client):

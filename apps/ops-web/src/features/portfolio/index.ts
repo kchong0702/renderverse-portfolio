@@ -18,11 +18,7 @@ export type {
   Entry,
   EntryKind,
   EntryWrite,
-  Preferences,
   Profile,
   ProfileLink,
-  Salary,
-  SalaryPeriod,
   Skill,
-  WorkMode,
 } from "./api/profile";

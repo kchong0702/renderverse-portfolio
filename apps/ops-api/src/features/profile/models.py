@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base, EnumString, JsonType, PydanticJson, TextArray
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
-from src.features.profile.enums import ChangeKind, EntryKind, ImportSource, SalaryPeriod
+from src.features.profile.enums import ChangeKind, EntryKind, ImportSource
 from src.features.profile.schemas import ImportedEntry, NetworkingCopy, ProfileLink
 from src.features.profile.types import ChangeField, FieldValue
 
@@ -48,26 +48,6 @@ class Profile(AuditMixin, Base):
 
     summary: Mapped[str] = mapped_column(Text(), default="")
     """A short paragraph about the user"""
-
-    work_modes: Mapped[list[str]] = mapped_column(JsonType, default=list)
-    """WorkMode values the user accepts; empty accepts any"""
-
-    countries: Mapped[list[str]] = mapped_column(JsonType, default=list)
-    """ISO country codes the user wants to work in; empty accepts any"""
-
-    authorised_countries: Mapped[list[str]] = mapped_column(JsonType, default=list)
-    """ISO country codes the user may work in without visa sponsorship"""
-
-    min_salary_amount: Mapped[int | None] = mapped_column(default=None)
-    """Lowest pay accepted, before tax; None when not set"""
-
-    min_salary_currency: Mapped[str | None] = mapped_column(String(3), default=None)
-    """ISO 4217 code of min_salary_amount"""
-
-    min_salary_period: Mapped[SalaryPeriod | None] = mapped_column(
-        EnumString(SalaryPeriod), default=None
-    )
-    """What min_salary_amount is paid for"""
 
     profession: Mapped[str] = mapped_column(String(200), default="", server_default="")
     """The profession the Networking copy is written for"""

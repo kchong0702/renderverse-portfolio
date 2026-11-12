@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import get_settings
 from src.core.exceptions import InvalidInput, NotFound
+from src.features.preferences import PreferencesService
 from src.features.profile.enums import ChangeChoice, ChangeKind, EntryKind, ImportSource
 from src.features.profile.models import (
     Profile,
@@ -34,7 +35,6 @@ from src.features.profile.schemas import (
     ProfileImportRead,
     ProfileRead,
     ProfileUpdate,
-    Salary,
     SkillRead,
     SkillWrite,
 )
@@ -51,24 +51,6 @@ from src.features.profile.types import ChangeField, FieldValue
 _CHANGE: TypeAdapter[ChangeRead] = TypeAdapter(ChangeRead)
 
 
-def _preferences(profile: Profile) -> Preferences:
-    """The preference columns as one Preferences"""
-    return Preferences(
-        work_modes=profile.work_modes,
-        countries=profile.countries,
-        authorised_countries=profile.authorised_countries,
-        min_salary=Salary(
-            amount=profile.min_salary_amount,
-            currency=profile.min_salary_currency,
-            period=profile.min_salary_period,
-        )
-        if profile.min_salary_amount is not None
-        and profile.min_salary_currency is not None
-        and profile.min_salary_period is not None
-        else None,
-    )
-
-
 def _to_read(profile: Profile) -> ProfileRead:
     """The profile row as the API returns it"""
     return ProfileRead(
@@ -79,7 +61,6 @@ def _to_read(profile: Profile) -> ProfileRead:
         phone=profile.phone,
         links=profile.links,
         summary=profile.summary,
-        preferences=_preferences(profile),
     )
 
 
@@ -126,8 +107,10 @@ def _skill_fact(skill: ProfileSkill) -> ProfileFact:
 
 class ProfileService:
     def __init__(self, session: AsyncSession):
-        """Read and write the profile through a repository on the session"""
+        """Read and write the profile through a repository on the session, and read
+        the job preferences on the same session"""
         self._repository = ProfileRepository(session)
+        self._preferences = PreferencesService(session)
 
     async def get(self, user_id: UUID) -> ProfileRead:
         """The user's profile, created empty on first read"""
@@ -137,19 +120,11 @@ class ProfileService:
         """Change the fields sent and leave the rest"""
         profile = await self._load(user_id)
         for field, value in patch.model_dump(
-            exclude_none=True, exclude={"preferences", "links"}
+            exclude_none=True, exclude={"links"}
         ).items():
             setattr(profile, field, value)
         if patch.links is not None:
             profile.links = patch.links
-        if patch.preferences is not None:
-            salary = patch.preferences.min_salary
-            profile.work_modes = [mode.value for mode in patch.preferences.work_modes]
-            profile.countries = patch.preferences.countries
-            profile.authorised_countries = patch.preferences.authorised_countries
-            profile.min_salary_amount = salary.amount if salary else None
-            profile.min_salary_currency = salary.currency if salary else None
-            profile.min_salary_period = salary.period if salary else None
         return _to_read(profile)
 
     async def entries(self, user_id: UUID) -> list[EntryRead]:
@@ -221,10 +196,16 @@ class ProfileService:
         and skills as facts, and the preferences"""
         entries = await self._repository.entries(user_id)
         skills = await self._repository.skills(user_id)
+        preferences = await self._preferences.get(user_id)
         return AgentProfile(
             facts=[_entry_fact(e) for e in entries if not e.archived]
             + [_skill_fact(s) for s in skills if not s.archived],
-            preferences=_preferences(await self._load(user_id)),
+            preferences=Preferences(
+                work_modes=preferences.work_modes,
+                countries=preferences.countries,
+                authorised_countries=preferences.visa_free_countries,
+                min_salary=preferences.min_salary,
+            ),
         )
 
     async def networking_facts(self, user_id: UUID) -> list[ProfileFact]:

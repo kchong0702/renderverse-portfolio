@@ -38,46 +38,20 @@ async def test_profile_starts_empty(client):
         "phone": "",
         "links": [],
         "summary": "",
-        "preferences": {
-            "work_modes": [],
-            "countries": [],
-            "authorised_countries": [],
-            "min_salary": None,
-        },
     }
 
 
 async def test_patch_changes_only_the_fields_sent(client):
     await client.patch(PROFILE, json={"name": "Kelvin Chong", "location": "KL"})
-    preferences = {
-        "work_modes": ["hybrid", "remote"],
-        "countries": ["MY", "SG"],
-        "authorised_countries": ["MY"],
-        "min_salary": {"amount": 14000, "currency": "MYR", "period": "month"},
-    }
 
-    response = await client.patch(
-        PROFILE, json={"headline": "Backend engineer", "preferences": preferences}
-    )
+    response = await client.patch(PROFILE, json={"headline": "Backend engineer"})
 
     assert response.status_code == 200
     body = response.json()
     assert body["name"] == "Kelvin Chong"
     assert body["location"] == "KL"
     assert body["headline"] == "Backend engineer"
-    assert body["preferences"] == preferences
     assert (await client.get(PROFILE)).json() == body
-
-
-async def test_rejects_preferences_the_agents_cannot_read(client):
-    for preferences in (
-        {"work_modes": ["office"]},
-        {"countries": ["Malaysia"]},
-        {"min_salary": {"amount": 0, "currency": "MYR", "period": "month"}},
-        {"min_salary": {"amount": 100, "currency": "rm", "period": "month"}},
-    ):
-        response = await client.patch(PROFILE, json={"preferences": preferences})
-        assert response.status_code == 422, preferences
 
 
 async def test_entries_add_list_replace_and_delete(client):
@@ -153,8 +127,12 @@ async def test_skills_add_replace_and_delete(client):
 
 async def test_agent_profile_has_the_harness_shape(client):
     await client.patch(
-        PROFILE,
-        json={"preferences": {"work_modes": ["remote"], "countries": ["MY"]}},
+        f"{PREFIX}/preferences",
+        json={
+            "work_modes": ["remote"],
+            "countries": ["MY"],
+            "visa_free_countries": ["SG"],
+        },
     )
     role = (await client.post(f"{PROFILE}/entries", json=ACME)).json()
     degree = (
@@ -208,7 +186,7 @@ async def test_agent_profile_has_the_harness_shape(client):
         "preferences": {
             "work_modes": ["remote"],
             "countries": ["MY"],
-            "authorised_countries": [],
+            "authorised_countries": ["SG"],
             "min_salary": None,
         },
     }

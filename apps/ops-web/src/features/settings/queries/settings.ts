@@ -17,7 +17,6 @@ const updateSettingsKey = ["settings", "update"] as const;
 function applyPatch(settings: Settings, patch: SettingsPatch): Settings {
   return {
     ...settings,
-    job_agent: { ...settings.job_agent, ...patch.job_agent },
     automation: { ...settings.automation, ...patch.automation },
     scheduling: { ...settings.scheduling, ...patch.scheduling },
     ai_model: patch.ai_model ?? settings.ai_model,

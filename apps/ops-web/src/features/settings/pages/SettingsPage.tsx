@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
+import { usePreferences, useUpdatePreferences } from "@/features/preferences";
 import PageBody from "@/shared/components/PageBody";
 import PageHeader from "@/shared/components/PageHeader";
 import StateMessage from "@/shared/components/StateMessage";
@@ -15,15 +16,20 @@ export default function SettingsPage() {
   const { t } = useTranslation();
   const settings = useSettings();
   const update = useUpdateSettings();
+  const preferences = usePreferences();
+  const updatePreferences = useUpdatePreferences();
   const params = useSearchParams()[0];
   const googleError = params.get("google_error");
   const linkError = params.get("link_error");
 
-  const saveStatus = update.isPending
+  const failed = [settings, preferences].find((query) => query.isError);
+  const saves = [update, updatePreferences];
+  const saveFailed = saves.find((save) => save.isError)?.error;
+  const saveStatus = saves.some((save) => save.isPending)
     ? t("settings.save.saving")
-    : update.isError
-      ? t("settings.save.failed", { reason: update.error.message })
-      : update.isSuccess
+    : saveFailed
+      ? t("settings.save.failed", { reason: saveFailed.message })
+      : saves.some((save) => save.isSuccess)
         ? t("settings.save.saved")
         : null;
 
@@ -37,7 +43,7 @@ export default function SettingsPage() {
             <span
               role="status"
               className={
-                update.isError ? "text-crit text-sm" : "text-ink-3 text-sm"
+                saveFailed ? "text-crit text-sm" : "text-ink-3 text-sm"
               }
             >
               {saveStatus}
@@ -60,12 +66,12 @@ export default function SettingsPage() {
             )}
           </StateMessage>
         )}
-        {settings.isPending ? (
-          <StateMessage>{t("common.loading")}</StateMessage>
-        ) : settings.isError ? (
+        {failed?.error ? (
           <StateMessage tone="error">
-            {t("settings.loadFailed", { reason: settings.error.message })}
+            {t("settings.loadFailed", { reason: failed.error.message })}
           </StateMessage>
+        ) : !settings.data || !preferences.data ? (
+          <StateMessage>{t("common.loading")}</StateMessage>
         ) : (
           <div className="grid grid-cols-[repeat(auto-fit,minmax(min(420px,100%),1fr))] items-start gap-6">
             <div className="flex flex-col gap-6">
@@ -78,8 +84,8 @@ export default function SettingsPage() {
             </div>
             <div className="flex flex-col gap-6">
               <JobAgentPanel
-                jobAgent={settings.data.job_agent}
-                onChange={update.mutate}
+                preferences={preferences.data}
+                onChange={updatePreferences.mutate}
               />
               <SchedulingPanel
                 scheduling={settings.data.scheduling}

@@ -4,13 +4,6 @@ import { config } from "@/shared/config";
 export type ModelFamily = "claude" | "glm" | "openai";
 export type ConnectionId = "google" | "jsearch" | "portfolio_site";
 
-export interface JobAgent {
-  query: string;
-  location: string;
-  run_at: string;
-  min_score: number;
-}
-
 export interface Automation {
   tailor_strong_matches: boolean;
   follow_up_reminders: boolean;
@@ -47,7 +40,6 @@ export interface ModelCatalog {
 }
 
 export interface Settings {
-  job_agent: JobAgent;
   automation: Automation;
   scheduling: Scheduling;
   ai_model: ModelChoice | null;
@@ -55,7 +47,6 @@ export interface Settings {
 }
 
 export interface SettingsPatch {
-  job_agent?: Partial<JobAgent>;
   automation?: Partial<Automation>;
   scheduling?: Partial<Scheduling>;
   ai_model?: ModelChoice | null;
