@@ -75,9 +75,8 @@ def _about(content: ResumeContent) -> ImportedAbout:
                     if contact.kind in _LINK_LABELS:
                         links.append(
                             ProfileLink(
-                                label=contact.label.text[:40]
-                                if contact.label
-                                else _LINK_LABELS[contact.kind],
+                                label=(contact.label.text[:40] if contact.label else "")
+                                or _LINK_LABELS[contact.kind],
                                 url=value
                                 if value.startswith(("http://", "https://"))
                                 else f"https://{value}",
