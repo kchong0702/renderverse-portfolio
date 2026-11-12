@@ -10,7 +10,7 @@ from src.agents.career_consultant.tools import (
 )
 from src.app.a2a import Executable
 from src.clients.artifact_service import ArtifactServiceClient
-from src.features import write_document
+from src.features import write_document, write_networking
 from src.tools import clarify, permission, read_profile_facts
 
 
@@ -27,6 +27,7 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
     agent = providers.Singleton(
         build_agent,
         agent=registry.provided["career-consultant"],
+        response_formats=(write_networking.NetworkingCopy,),
         tools=(read_profile_facts, clarify, permission),
         skill_tools=providers.List(
             read_pdf_lines,
@@ -62,3 +63,13 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
         ),
     )
     """The write-document workflow served over A2A as edit-document"""
+
+    write_networking_executable = providers.Singleton(
+        Executable,
+        name="write-networking",
+        description="Write the user's networking copy from all their profile facts, aimed at the jobs they want: a headline, a summary and a description of each role and project, each citing its facts",
+        graph=providers.Singleton(
+            write_networking.build_graph, agent=agent, checkpointer=checkpointer
+        ),
+    )
+    """The write-networking workflow served over A2A"""

@@ -82,8 +82,16 @@ name = "write-document"
 path = "src/features/write_document/harness/configurations.yaml"
 
 [[graph_profiles]]
+name = "write-networking"
+path = "src/features/write_networking/harness/configurations.yaml"
+
+[[graph_profiles]]
 name = "import-resume"
 path = "src/features/import_document/harness/configurations.yaml"
+
+[[graph_profiles]]
+name = "import-profile"
+path = "src/features/import_profile/harness/configurations.yaml"
 
 [[graph_profiles]]
 name = "triage-email"
