@@ -44,12 +44,16 @@ class ApplicationStep(IdMixin, UserScopedMixin, AuditMixin, Base):
             "ends_at is null or (starts_at is not null and ends_at >= starts_at)",
             name="ends_after_start",
         ),
+        CheckConstraint(
+            "application_id is not null or email_thread_id is not null", name="owner"
+        ),
     )
 
-    application_id: Mapped[UUID] = mapped_column(
-        ForeignKey("applications.id", ondelete="CASCADE"), index=True
+    application_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), index=True, default=None
     )
-    """The application it belongs to"""
+    """The application it belongs to; None for a step found in an email thread
+    about no tracked application"""
 
     kind: Mapped[StepKind] = mapped_column(EnumString(StepKind))
     """An interview, a follow-up, a take-home or an offer deadline"""
@@ -79,12 +83,20 @@ class ApplicationStep(IdMixin, UserScopedMixin, AuditMixin, Base):
     """Where it happens, such as an address or a meeting link"""
 
     event_id: Mapped[str | None] = mapped_column(String(1024), default=None)
-    """The Google Calendar event Ops added for it, so it adds it once"""
+    """The Google Calendar event added for it"""
 
     email_thread_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("email_threads.id", ondelete="SET NULL"), default=None
+        ForeignKey("email_threads.id", ondelete="CASCADE"), index=True, default=None
     )
-    """The email thread triage found it in, if any"""
+    """The email thread it came from, if any"""
+
+    email_starts_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+    """The start its email thread last gave; None when the thread gave none"""
+
+    email_due_on: Mapped[date | None] = mapped_column(default=None)
+    """The due day its email thread last gave; None when the thread gave none"""
 
     status: Mapped[StepStatus] = mapped_column(
         EnumString(StepStatus), default=StepStatus.OPEN

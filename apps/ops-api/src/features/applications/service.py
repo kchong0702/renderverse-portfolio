@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.exceptions import Conflict, NotFound
+from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.db.base import as_utc, utcnow
 from src.features.applications.enums import StepKind, StepStatus
 from src.features.applications.models import Application, ApplicationStep
@@ -22,6 +22,7 @@ from src.features.applications.schemas import (
     StepRead,
     StepWrite,
 )
+from src.features.calendar import CalendarService
 from src.features.jobs import JobRead, JobService
 from src.features.jobs.enums import JobStatus
 from src.features.jobs.schemas import JobCreate, JobUpdate
@@ -83,12 +84,18 @@ def _to_read(
 
 class ApplicationService:
     def __init__(
-        self, session: AsyncSession, jobs: JobService, settings: SettingsService
+        self,
+        session: AsyncSession,
+        jobs: JobService,
+        settings: SettingsService,
+        calendar: CalendarService,
     ):
-        """Read and write the user's applications, their steps and their jobs"""
+        """Read and write the user's applications, their steps and their jobs, and
+        keep the steps' calendar events at their times"""
         self._repository = ApplicationRepository(session)
         self._jobs = jobs
         self._settings = settings
+        self._calendar = calendar
 
     async def _zone(self, user_id: UUID) -> ZoneInfo:
         """The user's time zone, UTC until they choose one"""
@@ -102,11 +109,12 @@ class ApplicationService:
         return row
 
     async def _owned_step(
-        self, user_id: UUID, application_id: UUID, step_id: UUID
+        self, user_id: UUID, application_id: UUID | None, step_id: UUID
     ) -> ApplicationStep:
-        """The user's step of the application; NotFound when it is not one"""
+        """The user's step, of the application when one is given; NotFound when it is
+        not one"""
         step = await self._repository.owned(ApplicationStep, user_id, step_id)
-        if step is None or step.application_id != application_id:
+        if step is None or application_id not in (None, step.application_id):
             raise NotFound("No such step")
         return step
 
@@ -236,19 +244,40 @@ class ApplicationService:
         return StepRead.model_validate(row, from_attributes=True)
 
     async def replace_step(
-        self, user_id: UUID, application_id: UUID, step_id: UUID, step: StepWrite
+        self,
+        user_id: UUID,
+        application_id: UUID | None,
+        step_id: UUID,
+        step: StepWrite,
     ) -> StepRead:
-        """Overwrite every field of a step, such as its time after a reschedule or
-        its status once done or cancelled"""
+        """Overwrite every field of a step, moving or deleting its calendar event to
+        match; a step found in an email keeps its kind"""
         row = await self._owned_step(user_id, application_id, step_id)
+        if row.email_thread_id is not None and step.kind is not row.kind:
+            raise InvalidInput("A step found in an email keeps its kind")
+        if row.event_id and step.status is StepStatus.CANCELLED:
+            await self._calendar.delete(user_id, row.event_id)
+            row.event_id = None
+        elif (
+            row.event_id
+            and step.starts_at
+            and (step.starts_at, step.ends_at)
+            != (
+                row.starts_at and as_utc(row.starts_at),
+                row.ends_at and as_utc(row.ends_at),
+            )
+        ):
+            await self._calendar.move(
+                user_id, row.event_id, step.starts_at, step.ends_at
+            )
         for field, value in step.model_dump().items():
             setattr(row, field, value)
         return StepRead.model_validate(row, from_attributes=True)
 
     async def delete_step(
-        self, user_id: UUID, application_id: UUID, step_id: UUID
+        self, user_id: UUID, application_id: UUID | None, step_id: UUID
     ) -> None:
-        """Remove a step"""
+        """Remove a step, of the application when one is given"""
         await self._repository.delete(
             await self._owned_step(user_id, application_id, step_id)
         )

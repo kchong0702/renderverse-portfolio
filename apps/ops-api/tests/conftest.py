@@ -336,12 +336,28 @@ class FakeGoogle:
             json={"id": f"event-{len(self.created)}", "status": "confirmed", **body},
         )
 
+    def _change(self, request: httpx2.Request) -> httpx2.Response:
+        """Move or delete an added event as Google does; a deleted one keeps its id"""
+        event_id = request.url.path.rsplit("/", 1)[1]
+        event = next((e for e in self.created if e.get("id") == event_id), None)
+        if event is None:
+            return httpx2.Response(404)
+        if request.method == "DELETE":
+            if event.get("status") == "cancelled":
+                return httpx2.Response(410)
+            event["status"] = "cancelled"
+            return httpx2.Response(204)
+        event |= json.loads(request.content)
+        return httpx2.Response(200, json=event)
+
     def _api(self, request: httpx2.Request) -> httpx2.Response:
         """Gmail and Calendar for a request that carries an access token"""
         if self.failing:
             return httpx2.Response(500, text="backend detail for Google's engineers")
         if request.method == "POST":
             return self._write(request)
+        if request.method in ("PATCH", "DELETE"):
+            return self._change(request)
         path = request.url.path
         query = parse_qs(urlsplit(str(request.url)).query, keep_blank_values=True)
         if path == "/gmail/v1/users/me/profile":

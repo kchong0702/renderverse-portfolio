@@ -103,8 +103,12 @@ class StepRead(StepWrite):
     id: UUID
     """The step's id"""
 
-    application_id: UUID
-    """The application it belongs to"""
+    application_id: UUID | None
+    """The application it belongs to; None for a step found in an email thread
+    about no tracked application"""
+
+    email_thread_id: UUID | None
+    """The email thread triage found it in; None for a step added by hand"""
 
     @field_validator("starts_at", "ends_at", mode="before")
     @classmethod

@@ -16,6 +16,7 @@ from src.features.applications.schemas import (
     StepWrite,
 )
 from src.features.applications.service import ApplicationService
+from src.features.calendar import CalendarServiceDep
 from src.features.inbox import InboxServiceDep
 from src.features.inbox.schemas import FollowUpDraft
 from src.features.jobs.router import job_service
@@ -25,14 +26,15 @@ router = APIRouter(prefix="/applications", tags=["applications"])
 
 
 def get_application_service(
-    session: SessionDep, request: Request
+    session: SessionDep, calendar: CalendarServiceDep, request: Request
 ) -> ApplicationService:
-    """The application service on the request's database session"""
+    """The application service on the request's database session, with Calendar"""
     container = request.app.state.container
     return ApplicationService(
         session,
         job_service(session, container),
         settings_service(session, container),
+        calendar,
     )
 
 
@@ -56,6 +58,23 @@ async def list_steps_between(
 ) -> list[StepRead]:
     """The user's steps that start from start until end, soonest first"""
     return await service.steps_between(user.id, start, end)
+
+
+@router.put("/steps/{step_id}")
+async def replace_step_by_id(
+    step_id: UUID, step: StepWrite, user: CurrentUserDep, service: ApplicationServiceDep
+) -> StepRead:
+    """Save every field of one of the user's steps, linked to an application or
+    not; 422 when a step found in an email changes kind"""
+    return await service.replace_step(user.id, None, step_id, step)
+
+
+@router.delete("/steps/{step_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_step_by_id(
+    step_id: UUID, user: CurrentUserDep, service: ApplicationServiceDep
+) -> None:
+    """Remove one of the user's steps, linked to an application or not"""
+    await service.delete_step(user.id, None, step_id)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -116,7 +135,8 @@ async def replace_step(
     user: CurrentUserDep,
     service: ApplicationServiceDep,
 ) -> StepRead:
-    """Save every field of a step, such as a new time or done"""
+    """Save every field of a step, such as a new time or done; 422 when a step
+    found in an email changes kind"""
     return await service.replace_step(user.id, application_id, step_id, step)
 
 

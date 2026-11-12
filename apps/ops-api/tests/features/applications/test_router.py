@@ -2,7 +2,7 @@ from datetime import date, datetime
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, inspect, select
 from sqlalchemy.exc import IntegrityError
 
 from src.core.auth.models import User
@@ -284,6 +284,7 @@ async def test_steps_add_list_reschedule_and_delete(client):
         **INTERVIEW,
         "id": step["id"],
         "application_id": harbor["id"],
+        "email_thread_id": None,
         "due_on": None,
         "status": "open",
     }
@@ -403,6 +404,19 @@ async def test_a_step_ends_after_it_starts_in_the_database(app, client):
                         **when,
                     )
                 )
+
+
+async def test_a_step_belongs_to_an_application_or_a_thread(app, client):
+    await client.get(APPLICATIONS)
+
+    with pytest.raises(IntegrityError):
+        async with app.state.session_factory() as session, session.begin():
+            user = await session.scalar(select(User))
+            session.add(
+                ApplicationStep(
+                    user_id=user.id, kind="follow_up", due_on=date(2030, 11, 1)
+                )
+            )
 
 
 async def test_the_next_step_is_the_soonest_open_step_still_ahead(client):
@@ -606,6 +620,50 @@ async def test_steps_of_another_application_are_not_found(client):
     missing = f"{APPLICATIONS}/{uuid4()}/steps"
     assert (await client.get(missing)).status_code == 404
     assert (await client.post(missing, json=INTERVIEW)).status_code == 404
+
+
+async def test_steps_are_saved_and_deleted_by_id_for_their_user_only(app, client):
+    harbor = (await client.post(APPLICATIONS, json=HARBOR)).json()
+    step = (
+        await client.post(f"{APPLICATIONS}/{harbor['id']}/steps", json=INTERVIEW)
+    ).json()
+    async with app.state.session_factory() as session:
+        other = User(email="other@example.com")
+        session.add(other)
+        await session.flush()
+        application = Application(
+            user_id=other.id, job=Job(user_id=other.id, title="Their role")
+        )
+        session.add(application)
+        await session.flush()
+        theirs = ApplicationStep(
+            user_id=other.id,
+            application_id=application.id,
+            kind="follow_up",
+            due_on=date(2030, 11, 1),
+        )
+        session.add(theirs)
+        await session.commit()
+
+    done = await client.put(
+        f"{APPLICATIONS}/steps/{step['id']}", json={**INTERVIEW, "status": "done"}
+    )
+    deleted = await client.delete(f"{APPLICATIONS}/steps/{step['id']}")
+    put_theirs = await client.put(f"{APPLICATIONS}/steps/{theirs.id}", json=INTERVIEW)
+    delete_theirs = await client.delete(f"{APPLICATIONS}/steps/{theirs.id}")
+
+    assert done.json()["status"] == "done"
+    assert deleted.status_code == 204
+    assert (put_theirs.status_code, delete_theirs.status_code) == (404, 404)
+
+
+async def test_steps_are_indexed_by_their_email_thread(app):
+    async with app.state.session_factory.kw["bind"].connect() as connection:
+        indexes = await connection.run_sync(
+            lambda sync: inspect(sync).get_indexes("application_steps")
+        )
+
+    assert ["email_thread_id"] in [index["column_names"] for index in indexes]
 
 
 @pytest.mark.postgres
