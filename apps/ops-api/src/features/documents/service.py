@@ -84,13 +84,13 @@ logger = get_logger(__name__)
 
 def _pending(changesets: Sequence[DocumentChangeset]) -> int:
     """How many of these changesets wait for the user's answer"""
-    return sum(row.changeset.status is ChangesetStatus.PENDING for row in changesets)
+    return sum(row.status is ChangesetStatus.PENDING for row in changesets)
 
 
 def _waiting(changesets: Sequence[DocumentChangeset]) -> DocumentChangeset | None:
     """The changeset still waiting for the user's answer, if any"""
     return next(
-        (row for row in changesets if row.changeset.status is ChangesetStatus.PENDING),
+        (row for row in changesets if row.status is ChangesetStatus.PENDING),
         None,
     )
 
@@ -133,22 +133,24 @@ async def _propose(
     if changeset.status is not ChangesetStatus.PENDING:
         raise InvalidInput("A new changeset must be pending")
     pending = _waiting(await repository.changesets([document.id]))
-    edits = [*(pending.changeset.edits if pending else []), *changeset.edits]
+    edits = [*(pending.edits if pending else []), *changeset.edits]
     try:
         apply_edits(document.body, edits)
     except ValueError as error:
         raise InvalidInput(str(error)) from error
     if pending:
-        pending.changeset = pending.changeset.model_copy(
-            update={"edits": edits, "reason": changeset.reason}
-        )
+        pending.edits = edits
+        pending.reason = changeset.reason
         await repository.flush()
         return pending
     return await repository.add(
         DocumentChangeset(
             user_id=document.user_id,
             document_id=document.id,
-            changeset=changeset,
+            key=changeset.id,
+            agent=changeset.agent,
+            reason=changeset.reason,
+            edits=changeset.edits,
         )
     )
 
@@ -317,15 +319,14 @@ class DocumentService:
         is left; Conflict when the edits left no longer fit the draft"""
         document = await _load(self._repository, user_id, document_id)
         row = await self._repository.changeset(document.id, changeset_id)
-        if row is None or not 0 <= index < len(row.changeset.edits):
+        if row is None or not 0 <= index < len(row.edits):
             raise NotFound("No such edit")
-        if row.changeset.status is not ChangesetStatus.PENDING:
+        if row.status is not ChangesetStatus.PENDING:
             raise Conflict("This changeset is already answered")
-        edits = [e for i, e in enumerate(row.changeset.edits) if i != index]
+        edits = [e for i, e in enumerate(row.edits) if i != index]
         if not edits:
-            row.changeset = row.changeset.model_copy(
-                update={"status": ChangesetStatus.REJECTED}
-            )
+            row.status = ChangesetStatus.REJECTED
+            row.decided_at = utcnow()
         else:
             try:
                 apply_edits(document.body, edits)
@@ -333,7 +334,7 @@ class DocumentService:
                 raise Conflict(
                     f"The other edits need this one to fit the document: {error}"
                 ) from error
-            row.changeset = row.changeset.model_copy(update={"edits": edits})
+            row.edits = edits
         return ChangesetRead.model_validate(row, from_attributes=True)
 
     async def propose_from_run(
@@ -350,7 +351,7 @@ class DocumentService:
                     document_id=document.id,
                     title=document.title,
                     changeset_id=row.id,
-                    edits=len(row.changeset.edits),
+                    edits=len(row.edits),
                 )
         except (NotFound, InvalidInput) as error:
             logger.warning("changeset_skipped", reason=error.message)
@@ -420,20 +421,21 @@ class DocumentService:
         row = await self._repository.changeset(document.id, changeset_id)
         if row is None:
             raise NotFound("No such changeset")
-        if row.changeset.status is decision.status:
+        if row.status is decision.status:
             return ChangesetRead.model_validate(row, from_attributes=True)
-        if row.changeset.status is not ChangesetStatus.PENDING:
+        if row.status is not ChangesetStatus.PENDING:
             raise Conflict("This changeset is already answered")
         if decision.status is ChangesetStatus.ACCEPTED:
             try:
-                edited = apply_edits(document.body, row.changeset.edits)
+                edited = apply_edits(document.body, row.edits)
             except ValueError as error:
                 raise Conflict(
                     f"These edits no longer fit the document: {error}"
                 ) from error
-            await self._keep(document, f"Before {row.changeset.agent}'s edits")
+            await self._keep(document, f"Before {row.agent}'s edits")
             document.body = edited
-        row.changeset = row.changeset.model_copy(update={"status": decision.status})
+        row.status = decision.status
+        row.decided_at = utcnow()
         return ChangesetRead.model_validate(row, from_attributes=True)
 
     async def copy_for_job(
@@ -473,7 +475,7 @@ class DocumentService:
         """Start the copy's chat turn on text unless a changeset still waits for the
         user; a turn already running carries on"""
         waiting = any(
-            row.changeset.status is ChangesetStatus.PENDING
+            row.status is ChangesetStatus.PENDING
             for row in await self._repository.changesets([document.id])
         )
         if not waiting:

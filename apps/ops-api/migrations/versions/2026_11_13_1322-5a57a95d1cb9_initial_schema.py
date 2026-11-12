@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: fdae3a36dec0
+Revision ID: 5a57a95d1cb9
 Revises:
-Create Date: 2026-11-13 13:22:13.785441
+Create Date: 2026-11-13 13:22:37.616990
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "fdae3a36dec0"
+revision: str = "5a57a95d1cb9"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -1046,13 +1046,18 @@ def upgrade() -> None:
     op.create_table(
         "document_changesets",
         sa.Column("document_id", sa.Uuid(), nullable=False),
+        sa.Column("key", sa.String(length=64), nullable=False),
+        sa.Column("agent", sa.String(length=100), nullable=False),
+        sa.Column("reason", sa.Text(), nullable=False),
         sa.Column(
-            "changeset",
+            "edits",
             sa.JSON().with_variant(
                 postgresql.JSONB(astext_type=sa.Text()), "postgresql"
             ),
             nullable=False,
         ),
+        sa.Column("status", sa.String(), nullable=False),
+        sa.Column("decided_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column(
@@ -1098,6 +1103,14 @@ def upgrade() -> None:
         "document_changesets",
         ["user_id"],
         unique=False,
+    )
+    op.create_index(
+        "uq_document_changesets_pending",
+        "document_changesets",
+        ["document_id"],
+        unique=True,
+        postgresql_where=sa.text("status = 'pending'"),
+        sqlite_where=sa.text("status = 'pending'"),
     )
     op.create_table(
         "document_imports",
@@ -1338,6 +1351,12 @@ def downgrade() -> None:
     op.drop_table("document_versions")
     op.drop_index(op.f("ix_document_imports_user_id"), table_name="document_imports")
     op.drop_table("document_imports")
+    op.drop_index(
+        "uq_document_changesets_pending",
+        table_name="document_changesets",
+        postgresql_where=sa.text("status = 'pending'"),
+        sqlite_where=sa.text("status = 'pending'"),
+    )
     op.drop_index(
         op.f("ix_document_changesets_user_id"), table_name="document_changesets"
     )
