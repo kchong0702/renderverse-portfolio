@@ -126,3 +126,17 @@ async def test_only_a_role_or_project_description_is_rewritten(client, harness):
     assert [r.status_code for r in responses] == [422, 422]
     assert "description" in responses[0].json()["detail"]
     assert harness.received == []
+
+
+async def test_the_profession_is_the_target_roles_until_one_is_kept(client, harness):
+    await client.patch(
+        f"{PREFIX}/preferences", json={"target_roles": "Backend engineer, Python"}
+    )
+    before = await client.get(f"{PROFILE}/networking")
+    harness.outcomes = [_written({})]
+    await client.post(f"{PROFILE}/networking", json={"profession": PROFESSION})
+
+    after = await client.get(f"{PROFILE}/networking")
+
+    assert before.json()["profession"] == "Backend engineer, Python"
+    assert after.json()["profession"] == PROFESSION

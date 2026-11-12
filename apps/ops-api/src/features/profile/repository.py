@@ -8,6 +8,7 @@ from sqlalchemy.dialects import postgresql, sqlite
 
 from src.db.repository import Repository
 from src.features.profile.models import (
+    Networking,
     Profile,
     ProfileChange,
     ProfileEntry,
@@ -21,14 +22,21 @@ class ProfileRepository(Repository):
         """The user's profile row, if it exists yet"""
         return await self._session.get(Profile, user_id)
 
-    async def create(self, user_id: UUID) -> Profile:
-        """Insert an empty profile unless the user has one, and return the user's row"""
+    async def networking(self, user_id: UUID) -> Networking | None:
+        """The user's Networking copy row, if it exists yet"""
+        return await self._session.get(Networking, user_id)
+
+    async def create[T: (Profile, Networking)](
+        self, model: type[T], user_id: UUID
+    ) -> T:
+        """Insert an empty row of the model unless the user has one, and return the
+        user's row"""
         dialect = self._session.get_bind().dialect.name
         insert = postgresql.insert if dialect == "postgresql" else sqlite.insert
         await self._session.execute(
-            insert(Profile).values(user_id=user_id).on_conflict_do_nothing()
+            insert(model).values(user_id=user_id).on_conflict_do_nothing()
         )
-        return await self._session.get_one(Profile, user_id)
+        return await self._session.get_one(model, user_id)
 
     async def entries(self, user_id: UUID) -> Sequence[ProfileEntry]:
         """The user's entries, latest first; "present" sorts above any YYYY-MM,

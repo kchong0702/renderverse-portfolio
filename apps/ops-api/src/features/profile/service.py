@@ -9,9 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import get_settings
 from src.core.exceptions import InvalidInput, NotFound
+from src.db.base import utcnow
 from src.features.preferences import PreferencesService
 from src.features.profile.enums import ChangeChoice, ChangeKind, EntryKind, ImportSource
 from src.features.profile.models import (
+    Networking,
     Profile,
     ProfileChange,
     ProfileEntry,
@@ -223,12 +225,21 @@ class ProfileService:
             *map(_skill_fact, await self._repository.skills(user_id)),
         ]
 
+    async def _networking(self, user_id: UUID) -> Networking:
+        """The user's Networking copy row, created empty when missing"""
+        networking = await self._repository.networking(user_id)
+        return networking or await self._repository.create(Networking, user_id)
+
     async def networking(self, user_id: UUID) -> NetworkingRead:
-        """The latest Networking copy and the profession it was written for"""
-        profile = await self._load(user_id)
+        """The latest Networking copy and the profession it was written for, or the
+        target roles before any profession is kept"""
+        networking = await self._networking(user_id)
         return NetworkingRead(
-            profession=profile.profession,
-            **(profile.networking or NetworkingCopy()).model_dump(),
+            profession=networking.profession
+            or (await self._preferences.get(user_id)).target_roles,
+            headline=networking.headline,
+            summary=networking.summary,
+            descriptions=networking.descriptions,
         )
 
     async def keep_networking(
@@ -236,8 +247,8 @@ class ProfileService:
     ) -> NetworkingRead:
         """Keep newly written copy: all of it, or only the headline, summary or
         one fact's description"""
-        profile = await self._load(user_id)
-        copy = profile.networking or NetworkingCopy()
+        networking = await self._networking(user_id)
+        copy = NetworkingCopy.model_validate(networking, from_attributes=True)
         match only:
             case None:
                 copy = written
@@ -252,8 +263,11 @@ class ProfileService:
                         ]
                     }
                 )
-        profile.networking = copy
-        profile.profession = profession
+        networking.profession = profession
+        networking.headline = copy.headline
+        networking.summary = copy.summary
+        networking.descriptions = copy.descriptions
+        networking.written_at = utcnow()
         return await self.networking(user_id)
 
     async def imports(self, user_id: UUID) -> list[ProfileImportRead]:
@@ -503,7 +517,7 @@ class ProfileService:
     async def _load(self, user_id: UUID) -> Profile:
         """The user's profile row, created empty when missing"""
         return await self._repository.profile(user_id) or await self._repository.create(
-            user_id
+            Profile, user_id
         )
 
 

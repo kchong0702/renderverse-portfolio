@@ -13,6 +13,7 @@ from src.features.jobs.models import Job, JobRun
 from src.features.portfolio.models import Asset, PortfolioRelease
 from src.features.preferences.models import JobPreferences
 from src.features.profile.models import (
+    Networking,
     Profile,
     ProfileChange,
     ProfileEntry,
@@ -37,6 +38,7 @@ __all__ = [
     "Job",
     "JobPreferences",
     "JobRun",
+    "Networking",
     "PortfolioRelease",
     "Profile",
     "ProfileChange",

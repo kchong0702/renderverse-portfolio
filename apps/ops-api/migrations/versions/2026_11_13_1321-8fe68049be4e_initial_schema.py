@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 5791f9cd2377
+Revision ID: 8fe68049be4e
 Revises:
-Create Date: 2026-11-13 13:21:34.137818
+Create Date: 2026-11-13 13:21:41.176614
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "5791f9cd2377"
+revision: str = "8fe68049be4e"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -435,6 +435,58 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_jobs_user_id"), "jobs", ["user_id"], unique=False)
     op.create_table(
+        "networking_copies",
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column("profession", sa.String(length=200), nullable=False),
+        sa.Column(
+            "headline",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=True,
+        ),
+        sa.Column(
+            "summary",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=True,
+        ),
+        sa.Column(
+            "descriptions",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=False,
+        ),
+        sa.Column("written_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "created_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "updated_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_networking_copies_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("user_id", name=op.f("pk_networking_copies")),
+    )
+    op.create_table(
         "portfolio_releases",
         sa.Column("number", sa.Integer(), nullable=False),
         sa.Column(
@@ -576,16 +628,6 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("summary", sa.Text(), nullable=False),
-        sa.Column(
-            "profession", sa.String(length=200), server_default="", nullable=False
-        ),
-        sa.Column(
-            "networking",
-            sa.JSON().with_variant(
-                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-            nullable=True,
-        ),
         sa.Column(
             "created_by", sa.String(length=100), server_default="system", nullable=False
         ),
@@ -1198,6 +1240,7 @@ def upgrade() -> None:
     op.enable_rls("job_preferences")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("job_runs")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("jobs")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("networking_copies")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("portfolio_releases")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("profile_imports")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("profile_skills")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1234,6 +1277,7 @@ def downgrade() -> None:
     op.disable_rls("profile_skills")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("profile_imports")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("portfolio_releases")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("networking_copies")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("jobs")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("job_runs")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("job_preferences")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1287,6 +1331,7 @@ def downgrade() -> None:
         op.f("ix_portfolio_releases_user_id"), table_name="portfolio_releases"
     )
     op.drop_table("portfolio_releases")
+    op.drop_table("networking_copies")
     op.drop_index(op.f("ix_jobs_user_id"), table_name="jobs")
     op.drop_table("jobs")
     op.drop_index(op.f("ix_job_runs_user_id"), table_name="job_runs")

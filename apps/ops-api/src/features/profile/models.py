@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import TypeAdapter
-from sqlalchemy import CheckConstraint, ForeignKey, String, Text, false
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base, EnumString, JsonType, PydanticJson, TextArray
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 from src.features.profile.enums import ChangeKind, EntryKind, ImportSource
-from src.features.profile.schemas import ImportedEntry, NetworkingCopy, ProfileLink
+from src.features.profile.schemas import (
+    ImportedEntry,
+    NetworkingDescription,
+    NetworkingText,
+    ProfileLink,
+)
 from src.features.profile.types import ChangeField, FieldValue
 
 
@@ -49,13 +55,37 @@ class Profile(AuditMixin, Base):
     summary: Mapped[str] = mapped_column(Text(), default="")
     """A short paragraph about the user"""
 
-    profession: Mapped[str] = mapped_column(String(200), default="", server_default="")
-    """The profession the Networking copy is written for"""
 
-    networking: Mapped[NetworkingCopy | None] = mapped_column(
-        PydanticJson(TypeAdapter(NetworkingCopy)), default=None
+class Networking(AuditMixin, Base):
+    __tablename__ = "networking_copies"
+
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
-    """The latest copy to paste into job portals; None until written"""
+    """Whose copy; one row per user, created empty on first read"""
+
+    profession: Mapped[str] = mapped_column(String(200), default="")
+    """The profession the copy is written for; empty until copy is first kept"""
+
+    headline: Mapped[NetworkingText | None] = mapped_column(
+        PydanticJson(TypeAdapter(NetworkingText)), default=None
+    )
+    """One line under the name; None until written"""
+
+    summary: Mapped[NetworkingText | None] = mapped_column(
+        PydanticJson(TypeAdapter(NetworkingText)), default=None
+    )
+    """The About paragraph; None until written"""
+
+    descriptions: Mapped[list[NetworkingDescription]] = mapped_column(
+        PydanticJson(TypeAdapter(list[NetworkingDescription])), default=list
+    )
+    """A description for each role and project"""
+
+    written_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+    """When copy was last kept; None until then"""
 
 
 class ProfileEntry(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -180,6 +210,7 @@ class ProfileChange(IdMixin, UserScopedMixin, AuditMixin, Base):
 
 
 __all__ = [
+    "Networking",
     "Profile",
     "ProfileChange",
     "ProfileEntry",
