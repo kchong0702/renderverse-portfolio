@@ -9,7 +9,7 @@ class WriteNetworkingConfigurations(BaseModel):
     )
 
     checks: list[Literal["coverage", "citations", "form"]]
-    """Checks run on each answer; errors go back to the agent"""
+    """Checks run on each answer"""
 
     max_headline_chars: int = Field(gt=0)
     """Most characters the headline may have"""

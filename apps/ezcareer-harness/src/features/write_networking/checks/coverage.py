@@ -11,7 +11,7 @@ def check_coverage(
     """Errors for each field asked for that the copy leaves out, and for each
     description of a fact that isn't a role or project"""
     written = copy.written()
-    described = request.described()
+    describable = request.describable()
     return [
         CheckError(
             rule=CheckRule.MISSING,
@@ -29,5 +29,5 @@ def check_coverage(
             message=f"{description.fact} is not a role or project to describe",
         )
         for description in copy.descriptions
-        if description.fact not in described
+        if description.fact not in describable
     ]

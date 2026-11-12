@@ -77,14 +77,14 @@ class WriteNetworkingInput(BaseModel):
     @model_validator(mode="after")
     def _only_names_a_field(self) -> Self:
         """Rejects an only that isn't headline, summary or a role or project fact"""
-        if self.only not in (None, "headline", "summary", *self.described()):
+        if self.only not in (None, "headline", "summary", *self.describable()):
             raise ValueError(
                 f"{self.only} is not headline, summary or a role or project"
             )
         return self
 
-    def described(self) -> list[Id]:
-        """Ids of the role and project facts, each of which gets a description"""
+    def describable(self) -> list[Id]:
+        """Ids of the role and project facts"""
         return [
             fact.id for fact in self.facts if fact.id.startswith(("role-", "project-"))
         ]
@@ -93,5 +93,5 @@ class WriteNetworkingInput(BaseModel):
         """What to write: headline, summary and each role and project fact's id, or
         only the one field asked for"""
         if self.only is None:
-            return ["headline", "summary", *self.described()]
+            return ["headline", "summary", *self.describable()]
         return [self.only]

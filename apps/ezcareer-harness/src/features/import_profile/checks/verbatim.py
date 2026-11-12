@@ -4,13 +4,13 @@ from src.shared.checks import CheckError, CheckRule
 
 def _plain(text: str) -> str:
     """The text case folded, with its spacing collapsed and its edge punctuation and
-    list markers dropped, so splitting a description into sentences doesn't count"""
+    list markers dropped"""
     return " ".join(text.split()).strip(" .,;:•·*–—-").casefold()
 
 
 def check_verbatim(reply: ProfileImport, files: list[ExportFile]) -> list[CheckError]:
-    """Each copied value is word for word in the export, and each entry's values,
-    highlights and dates' years included, all in the one row its title is from"""
+    """Errors for each copied value not word for word in the export, and each entry
+    value, highlight or date's year not in a row holding the entry's title"""
     rows = [_plain("\n".join(row.values())) for file in files for row in file.rows]
     about = reply.about
     copied = [

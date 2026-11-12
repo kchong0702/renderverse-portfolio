@@ -9,7 +9,7 @@ class ImportProfileConfigurations(BaseModel):
     )
 
     checks: list[Literal["verbatim"]]
-    """Checks run on each reply; errors go back to the LLM"""
+    """Checks run on each reply"""
 
     recursion_limit: int = Field(gt=0)
     """Graph steps a run may take across all check rounds"""
