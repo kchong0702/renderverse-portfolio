@@ -118,12 +118,16 @@ class ProfileRunService:
         self, user_id: UUID, request: NetworkingWrite
     ) -> NetworkingRead:
         """Write the Networking copy from every fact, archived ones included, or
-        only its headline, summary or one fact's description"""
+        only its headline, summary or one role's or project's description"""
         facts = await self._profile.networking_facts(user_id)
-        if request.only not in (None, "headline", "summary") and request.only not in {
-            fact.id for fact in facts
-        }:
-            raise NotFound("No such fact")
+        if request.only not in (None, "headline", "summary"):
+            if not request.only.startswith(("role-", "project-")):
+                raise InvalidInput(
+                    "Only the headline, the summary or a role's or project's"
+                    " description can be rewritten"
+                )
+            if request.only not in {fact.id for fact in facts}:
+                raise NotFound("No such fact")
         written = await self._run(
             "write-networking",
             NetworkingCopy,

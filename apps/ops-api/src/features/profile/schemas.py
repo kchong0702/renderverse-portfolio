@@ -463,7 +463,8 @@ class NetworkingWrite(BaseModel):
     """The roles the copy is written for, such as Senior backend roles"""
 
     only: Literal["headline", "summary"] | FactId | None = None
-    """Rewrite only the headline, summary or one fact's description; None for all"""
+    """Rewrite only the headline, summary or one role's or project's description;
+    None for all"""
 
 
 class WriteNetworkingInput(BaseModel):

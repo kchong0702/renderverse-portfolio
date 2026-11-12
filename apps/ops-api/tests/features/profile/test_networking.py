@@ -107,3 +107,16 @@ async def test_rewriting_a_fact_that_is_gone_is_not_found(client, harness):
 
     assert response.status_code == 404
     assert harness.received == []
+
+
+async def test_only_a_role_or_project_description_is_rewritten(client, harness):
+    skill = (await client.post(f"{PROFILE}/skills", json={"name": "Python"})).json()
+
+    responses = [
+        await client.post(f"{PROFILE}/networking", json={"aim": AIM, "only": only})
+        for only in ("about", f"skill-{skill['id']}")
+    ]
+
+    assert [r.status_code for r in responses] == [422, 422]
+    assert "description" in responses[0].json()["detail"]
+    assert harness.received == []
