@@ -5,6 +5,7 @@ import {
   fetchJobs,
   fetchLatestRun,
   findJobs,
+  isActive,
   tailorJob,
   updateJob,
   type JobUpdate,
@@ -18,6 +19,7 @@ export const jobsQueryOptions = queryOptions({
 export const latestRunQueryOptions = queryOptions({
   queryKey: ["jobs", "runs", "latest"],
   queryFn: ({ signal }) => fetchLatestRun(signal),
+  refetchInterval: ({ state }) => (isActive(state.data) ? 2000 : false),
 });
 
 export const updateJobMutationOptions = mutationOptions({
@@ -46,8 +48,10 @@ export const updateJobMutationOptions = mutationOptions({
 export const findJobsMutationOptions = mutationOptions({
   mutationKey: ["jobs", "find"],
   mutationFn: findJobs,
-  onSettled: (_run, _error, _variables, _result, { client }) =>
-    client.invalidateQueries({ queryKey: jobsQueryOptions.queryKey }),
+  onMutate: (_search, { client }) =>
+    client.cancelQueries({ queryKey: latestRunQueryOptions.queryKey }),
+  onSuccess: (run, _variables, _result, { client }) =>
+    client.setQueryData(latestRunQueryOptions.queryKey, run),
 });
 
 export const analyseJobMutationOptions = mutationOptions({

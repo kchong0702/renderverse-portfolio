@@ -1,4 +1,6 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { isActive } from "../api/jobs";
 import {
   analyseJobMutationOptions,
   findJobsMutationOptions,
@@ -13,7 +15,16 @@ export function useJobs() {
 }
 
 export function useLatestJobRun() {
-  return useQuery(latestRunQueryOptions);
+  const client = useQueryClient();
+  const run = useQuery(latestRunQueryOptions);
+  const active = useRef(false);
+  useEffect(() => {
+    const now = isActive(run.data);
+    if (active.current && !now)
+      void client.invalidateQueries({ queryKey: jobsQueryOptions.queryKey });
+    active.current = now;
+  }, [run.data, client]);
+  return run;
 }
 
 export function useUpdateJob() {

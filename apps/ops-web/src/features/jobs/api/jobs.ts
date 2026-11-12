@@ -47,12 +47,25 @@ export interface JobSearch {
   posted_within: PostedWithin | null;
 }
 
+export type RunTrigger = "scheduled" | "manual" | "agent";
+export type RunStatus = "queued" | "running" | "done" | "failed";
+
 export interface JobRun {
+  id: string;
+  trigger: RunTrigger;
+  status: RunStatus;
+  run_after: string;
   found: number;
   new: number;
-  scored_70: number;
-  finished_at: string;
+  matched: number;
+  error: string;
+  created_at: string;
+  finished_at: string | null;
 }
+
+export const isActive = (run: JobRun | null | undefined) =>
+  run?.status === "running" ||
+  (run?.status === "queued" && Date.parse(run.run_after) <= Date.now());
 
 export type RunResult<R> =
   { status: "completed"; reply: R } | { status: "failed"; reason: string };
@@ -88,7 +101,7 @@ export const updateJob = ({ id, ...patch }: JobUpdate) =>
   http.patch<Job>(`${URL}/${id}`, patch);
 
 export const findJobs = (search: JobSearch) =>
-  http.post<RunResult<Job[]>>(`${URL}/find`, search);
+  http.post<JobRun>(`${URL}/find`, search);
 
 export const analyseJob = (id: string) =>
   http.post<RunResult<Job>>(`${URL}/${id}/analyse`);

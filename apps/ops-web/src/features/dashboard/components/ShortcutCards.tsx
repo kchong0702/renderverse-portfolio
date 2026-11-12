@@ -40,12 +40,12 @@ export default function ShortcutCards({
               .join(" · ")}
           </span>
         )}
-        {run && daysFromToday(run.finished_at) === 0 && (
+        {run?.finished_at && daysFromToday(run.finished_at) === 0 && (
           <span className="mt-1.5 tabular-nums">
             {t("dashboard.agent.today", {
               found: run.found,
               new: run.new,
-              scored: run.scored_70,
+              matched: run.matched,
             })}
           </span>
         )}
