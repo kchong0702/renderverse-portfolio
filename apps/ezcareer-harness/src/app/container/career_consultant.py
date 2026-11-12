@@ -67,7 +67,7 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
     write_networking_executable = providers.Singleton(
         Executable,
         name="write-networking",
-        description="Write the user's networking copy from all their profile facts, aimed at the jobs they want: a headline, a summary and a description of each role and project, each citing its facts",
+        description="Write the user's job portal content from all their profile facts, to attract recruiters looking for the jobs they want: a headline, a summary and a description of each role and project, each citing its facts",
         graph=providers.Singleton(
             write_networking.build_graph, agent=agent, checkpointer=checkpointer
         ),

@@ -48,12 +48,12 @@ def _brief(
         else f"a description of fact:{field}"
         for field in state.fields()
     ]
-    aim = f"jobs like: {state.aim}" if state.aim else "the jobs my facts point to"
+    aim = f"jobs like {state.aim}" if state.aim else "the jobs my facts point to"
     return {
         "messages": [
             HumanMessage(
-                "Write my networking copy, to paste into job portals and networking"
-                f" sites, aimed at {aim}.\n\n"
+                "Write my job portal content, to paste into my job portal and networking"
+                f" profiles so recruiters looking for {aim} find me.\n\n"
                 + ("Write " if state.only is None else "Write only ")
                 + ", ".join(asked)
                 + ".\n\nCaps: the headline at most"

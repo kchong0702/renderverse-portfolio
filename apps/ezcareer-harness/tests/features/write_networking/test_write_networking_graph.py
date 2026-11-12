@@ -58,7 +58,7 @@ def _answer(
 def _scripted(*answers: AIMessage) -> ScriptedChatModel:
     return ScriptedChatModel(
         replies=[
-            _call("read_file", file_path="/write-networking-copy/SKILL.md"),
+            _call("read_file", file_path="/write-job-portal-content/SKILL.md"),
             _call("read_profile_facts"),
             *answers,
         ]
@@ -85,7 +85,7 @@ async def test_the_copy_comes_back_with_its_citations():
     assert result["summary"].text == "I lead payments engineering at Acme."
     assert [d.model_dump() for d in result["descriptions"]] == [ROLE, PROJECT]
     brief = model.requests[0][1].text
-    assert "aimed at jobs like: Staff backend engineer" in brief
+    assert "recruiters looking for jobs like Staff backend engineer" in brief
     assert "a description of fact:role-acme, a description of fact:project-ledger." in (
         brief
     )
