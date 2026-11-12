@@ -15,7 +15,7 @@ export default function Kpis({ applications, sent, days }: KpisProps) {
   const replied = sent.filter((a) => hasReached(a, "replied")).length;
   const interviews = sent.filter((a) => hasReached(a, "interview")).length;
   const offers = sent.filter((a) => hasReached(a, "offer"));
-  const nextOffer = offers.find((a) => a.next_step_due)?.next_step_due;
+  const nextOffer = offers.find((a) => a.offer_deadline)?.offer_deadline;
 
   const kpis = [
     {

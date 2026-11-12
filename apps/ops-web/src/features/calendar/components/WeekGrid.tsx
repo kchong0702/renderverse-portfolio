@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/cn";
 import { isoDay } from "../lib/dates";
 import { itemTone, onDay, type CalendarItem } from "../lib/items";
+import ItemBox from "./ItemBox";
 
 const HOUR_PX = 60;
 
@@ -36,6 +37,7 @@ interface WeekGridProps {
   items: CalendarItem[];
   workDayStart: string;
   workDayEnd: string;
+  onSelect: (stepId: string) => void;
 }
 
 export default function WeekGrid({
@@ -43,6 +45,7 @@ export default function WeekGrid({
   items,
   workDayStart,
   workDayEnd,
+  onSelect,
 }: WeekGridProps) {
   const { t, i18n } = useTranslation();
   const today = isoDay(new Date());
@@ -115,15 +118,17 @@ export default function WeekGrid({
                 {allDay
                   .filter((item) => onDay(item, day))
                   .map((item) => (
-                    <span
+                    <ItemBox
                       key={item.id}
+                      item={item}
+                      onSelect={onSelect}
                       className={cn(
                         "truncate rounded-lg border px-2 py-0.5 text-[12px] font-semibold",
                         itemTone[item.kind],
                       )}
                     >
                       {item.title || t("calendar.busy")}
-                    </span>
+                    </ItemBox>
                   ))}
               </span>
             ))}
@@ -152,8 +157,10 @@ export default function WeekGrid({
           >
             {sideBySide(timed.filter((slot) => slot.day === isoDay(day))).map(
               ({ item, from, to, label, column, columns }) => (
-                <div
+                <ItemBox
                   key={item.id}
+                  item={item}
+                  onSelect={onSelect}
                   className={cn(
                     "absolute overflow-hidden rounded-lg border px-2 py-1.5 text-[12px] leading-[1.35]",
                     itemTone[item.kind],
@@ -169,7 +176,7 @@ export default function WeekGrid({
                     {item.title || t("calendar.busy")}
                   </div>
                   <div className="truncate">{label}</div>
-                </div>
+                </ItemBox>
               ),
             )}
           </div>

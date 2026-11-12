@@ -73,7 +73,9 @@ export default function JobDetail({ job }: { job: Job }) {
                   t("jobs.posted", {
                     when: relativeDay(job.posted_at, i18n.language),
                   }),
-                job.source && t("jobs.via", { source: job.source }),
+                job.source === "manual"
+                  ? t("jobs.addedByHand")
+                  : job.source && t("jobs.via", { source: job.source }),
               ]
                 .filter(Boolean)
                 .join(" "),

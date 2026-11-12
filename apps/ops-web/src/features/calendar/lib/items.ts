@@ -1,4 +1,4 @@
-import type { Application } from "@/features/applications";
+import type { Application, Step } from "@/features/applications";
 import type { CalendarEvent } from "../api/calendar";
 import { eventTime, isoDay } from "./dates";
 
@@ -9,6 +9,7 @@ export interface CalendarItem {
   kind: ItemKind;
   title: string;
   step: string;
+  stepId: string | null;
   start: Date;
   end: Date;
   allDay: boolean;
@@ -22,7 +23,9 @@ export const itemTone: Record<ItemKind, string> = {
 
 export function itemsOf(
   events: CalendarEvent[],
+  steps: Step[],
   applications: Application[],
+  title: (step: Step) => string,
 ): CalendarItem[] {
   return [
     ...events.map((event): CalendarItem => ({
@@ -30,33 +33,38 @@ export function itemsOf(
       kind: event.interview ? "interview" : "busy",
       title: event.interview ? event.title : "",
       step: "",
+      stepId: null,
       start: eventTime(event.start, event.all_day),
       end: eventTime(event.end, event.all_day),
       allDay: event.all_day,
     })),
-    ...applications.flatMap(
-      ({ id, company, stage, next_step, next_step_at }): CalendarItem[] =>
-        next_step_at &&
-        stage !== "closed" &&
+    ...steps.flatMap((step): CalendarItem[] => {
+      const application = applications.find(
+        ({ id }) => id === step.application_id,
+      );
+      const start = step.starts_at && new Date(step.starts_at);
+      return start &&
+        step.status !== "cancelled" &&
+        application?.stage !== "closed" &&
         !events.some(
           (event) =>
             event.interview &&
-            eventTime(event.start, event.all_day).getTime() ===
-              new Date(next_step_at).getTime(),
+            eventTime(event.start, event.all_day).getTime() === start.getTime(),
         )
-          ? [
-              {
-                id,
-                kind: stage === "interview" ? "interview" : "task",
-                title: company,
-                step: next_step,
-                start: new Date(next_step_at),
-                end: new Date(next_step_at),
-                allDay: false,
-              },
-            ]
-          : [],
-    ),
+        ? [
+            {
+              id: step.id,
+              kind: step.kind === "interview" ? "interview" : "task",
+              title: application?.company ?? title(step),
+              step: application ? title(step) : "",
+              stepId: step.id,
+              start,
+              end: start,
+              allDay: false,
+            },
+          ]
+        : [];
+    }),
   ].sort((a, b) => a.start.getTime() - b.start.getTime());
 }
 

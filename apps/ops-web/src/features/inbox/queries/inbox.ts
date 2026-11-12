@@ -1,4 +1,5 @@
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
+import { applicationsQueryOptions } from "@/features/applications";
 import {
   draftFollowUp,
   draftReply,
@@ -10,7 +11,13 @@ import {
 
 export const inboxQueryOptions = queryOptions({
   queryKey: ["inbox"],
-  queryFn: ({ signal }) => fetchInbox(signal),
+  queryFn: async ({ signal, client }) => {
+    const inbox = await fetchInbox(signal);
+    void client.invalidateQueries({
+      queryKey: applicationsQueryOptions.queryKey,
+    });
+    return inbox;
+  },
 });
 
 export const messageQueryOptions = (id: string) =>

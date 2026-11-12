@@ -4,13 +4,14 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import {
   followUpDays,
-  isStepDue,
+  stepTitle,
   type Application,
+  type Step,
 } from "@/features/applications";
 import type { Job } from "@/features/jobs";
 import { buttonClass } from "@/shared/components/button";
 import { cn } from "@/shared/lib/cn";
-import { daysLeftThisWeek, relativeDay } from "@/shared/lib/dates";
+import { relativeDay } from "@/shared/lib/dates";
 
 interface Row {
   key: string;
@@ -23,26 +24,50 @@ interface Row {
 
 interface NextStepsProps {
   applications: Application[];
+  steps: Step[];
   jobs: Job[];
   picks: Job[];
 }
 
 export default function NextSteps({
   applications,
+  steps,
   jobs,
   picks,
 }: NextStepsProps) {
   const { t, i18n } = useTranslation();
   const headingId = useId();
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const active = applications.filter((a) => a.stage !== "closed");
 
   const rows: Row[] = [
-    ...applications
-      .filter((a) => isStepDue(a, daysLeftThisWeek()))
-      .sort((a, b) => a.next_step_at.localeCompare(b.next_step_at))
-      .map((a) => {
-        const at = new Date(a.next_step_at);
+    ...active.flatMap((a) =>
+      a.overdue.flatMap((step) =>
+        step.due_on
+          ? [
+              {
+                key: step.id,
+                when: relativeDay(step.due_on, i18n.language),
+                whenInk: "text-warn",
+                title: [a.company, stepTitle(step, t)].join(" · "),
+                detail: a.role,
+                action: {
+                  label: t("dashboard.next.open"),
+                  to: `/applications?edit=${a.id}`,
+                },
+              },
+            ]
+          : [],
+      ),
+    ),
+    ...steps
+      .flatMap((step) => {
+        const a = active.find(({ id }) => id === step.application_id);
+        return a && step.starts_at && step.status === "open"
+          ? [{ a, step, at: new Date(step.starts_at) }]
+          : [];
+      })
+      .map(({ a, step, at }) => {
         const gaps =
           jobs
             .find((job) => job.id === a.job_id)
@@ -50,24 +75,20 @@ export default function NextSteps({
             .length ?? 0;
         const interview = a.stage === "interview";
         return {
-          key: a.id,
-          when:
-            at < today
-              ? relativeDay(a.next_step_at, i18n.language)
-              : new Intl.DateTimeFormat(i18n.language, {
-                  weekday: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hourCycle: "h23",
-                }).format(at),
-          whenInk: at < today ? "text-warn" : "text-amber",
-          title: [a.company, a.next_step].filter(Boolean).join(" · "),
+          key: step.id,
+          when: new Intl.DateTimeFormat(i18n.language, {
+            weekday: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+            hourCycle: "h23",
+          }).format(at),
+          whenInk: at <= now ? "text-warn" : "text-amber",
+          title: [a.company, stepTitle(step, t)].join(" · "),
           detail: [
             a.role,
             [
-              a.next_step_format &&
-                t(`dashboard.next.formats.${a.next_step_format}`),
-              a.next_step_location,
+              step.format && t(`dashboard.next.formats.${step.format}`),
+              step.location,
             ]
               .filter(Boolean)
               .join(", "),

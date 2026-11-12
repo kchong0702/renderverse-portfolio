@@ -2,14 +2,21 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/cn";
 import { isoDay } from "../lib/dates";
 import { itemTone, onDay, type CalendarItem } from "../lib/items";
+import ItemBox from "./ItemBox";
 
 interface MonthGridProps {
   days: Date[];
   month: number;
   items: CalendarItem[];
+  onSelect: (stepId: string) => void;
 }
 
-export default function MonthGrid({ days, month, items }: MonthGridProps) {
+export default function MonthGrid({
+  days,
+  month,
+  items,
+  onSelect,
+}: MonthGridProps) {
   const { t, i18n } = useTranslation();
   const today = isoDay(new Date());
 
@@ -43,15 +50,17 @@ export default function MonthGrid({ days, month, items }: MonthGridProps) {
             {items
               .filter((item) => onDay(item, day))
               .map((item) => (
-                <span
+                <ItemBox
                   key={item.id}
+                  item={item}
+                  onSelect={onSelect}
                   className={cn(
                     "truncate rounded-md border px-1.5 text-[12px] font-semibold",
                     itemTone[item.kind],
                   )}
                 >
                   {item.title || t("calendar.busy")}
-                </span>
+                </ItemBox>
               ))}
           </div>
         ))}
