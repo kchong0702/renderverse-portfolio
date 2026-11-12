@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 5f12eb9b3520
+Revision ID: 79f7f3a1d1b0
 Revises:
-Create Date: 2026-11-13 13:21:48.089113
+Create Date: 2026-11-13 13:22:00.416476
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "5f12eb9b3520"
+revision: str = "79f7f3a1d1b0"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -534,6 +534,14 @@ def upgrade() -> None:
         "portfolio_releases",
         ["user_id"],
         unique=False,
+    )
+    op.create_index(
+        "uq_portfolio_releases_live",
+        "portfolio_releases",
+        ["user_id"],
+        unique=True,
+        postgresql_where=sa.text("live"),
+        sqlite_where=sa.text("live"),
     )
     op.create_table(
         "profile_entries",
@@ -1349,6 +1357,12 @@ def downgrade() -> None:
     op.drop_table("profile_imports")
     op.drop_index(op.f("ix_profile_entries_user_id"), table_name="profile_entries")
     op.drop_table("profile_entries")
+    op.drop_index(
+        "uq_portfolio_releases_live",
+        table_name="portfolio_releases",
+        postgresql_where=sa.text("live"),
+        sqlite_where=sa.text("live"),
+    )
     op.drop_index(
         op.f("ix_portfolio_releases_user_id"), table_name="portfolio_releases"
     )

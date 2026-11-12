@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from pydantic import TypeAdapter
-from sqlalchemy import DateTime, String, UniqueConstraint
+from sqlalchemy import DateTime, Index, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base, EnumString, PydanticJson, utcnow
@@ -14,7 +14,16 @@ from src.features.portfolio.schemas import Snapshot
 
 class PortfolioRelease(IdMixin, UserScopedMixin, AuditMixin, Base):
     __tablename__ = "portfolio_releases"
-    __table_args__ = (UniqueConstraint("user_id", "number"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "number"),
+        Index(
+            "uq_portfolio_releases_live",
+            "user_id",
+            unique=True,
+            postgresql_where=text("live"),
+            sqlite_where=text("live"),
+        ),
+    )
 
     number: Mapped[int]
     """Counts up from 1 for each user"""

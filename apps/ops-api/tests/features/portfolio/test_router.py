@@ -1,17 +1,20 @@
 import json
 import re
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
 
 from src.core.auth.enums import Role
 from src.core.auth.models import User
 from src.core.auth.service import AuthService
 from src.core.config import get_settings, reload_settings
+from src.features.portfolio.models import PortfolioRelease
 from src.features.portfolio.router import router as portfolio_router
-from tests.conftest import OWNER, PREFIX
+from tests.conftest import OWNER, PREFIX, _client
+from tests.core.conftest import DATABASE_URL
 
 PORTFOLIO = f"{PREFIX}/portfolio"
 PROFILE = f"{PREFIX}/profile"
@@ -273,3 +276,31 @@ async def test_draft_names_the_site_once_its_url_is_set(client, monkeypatch):
         "quota": None,
         "account": None,
     } in settings["connections"]
+
+
+@pytest.mark.postgres
+@pytest.mark.skipif(not DATABASE_URL, reason="OPS_API_TEST_DATABASE_URL is not set")
+async def test_publishing_moves_the_one_live_release_the_database_allows(postgres_app):
+    async with _client(postgres_app) as client:
+        await client.post(f"{PROFILE}/skills", json={"name": "Python"})
+        first = (await client.post(f"{PORTFOLIO}/releases")).json()
+        await client.post(f"{PROFILE}/skills", json={"name": "Kotlin"})
+        second = await client.post(f"{PORTFOLIO}/releases")
+        published = (await client.get(f"{PORTFOLIO}/releases")).json()
+        rolled = await client.post(f"{PORTFOLIO}/releases/{first['id']}/live")
+        after_rollback = (await client.get(f"{PORTFOLIO}/releases")).json()
+
+    assert second.status_code == 201
+    assert [(r["number"], r["live"]) for r in published] == [(2, True), (1, False)]
+    assert rolled.status_code == 200
+    assert [(r["number"], r["live"]) for r in after_rollback] == [
+        (2, False),
+        (1, True),
+    ]
+    async with postgres_app.state.session_factory() as session:
+        with pytest.raises(IntegrityError, match="uq_portfolio_releases_live"):
+            await session.execute(
+                update(PortfolioRelease)
+                .where(PortfolioRelease.id == UUID(second.json()["id"]))
+                .values(live=True)
+            )

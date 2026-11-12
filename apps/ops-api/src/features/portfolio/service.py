@@ -128,6 +128,7 @@ class PortfolioService:
             if live.snapshot == snapshot:
                 raise Conflict(f"Nothing has changed since release {live.number}")
             live.live = False
+            await self._session.flush()
         release = await self._repository.add(
             PortfolioRelease(
                 user_id=user_id,
@@ -148,6 +149,7 @@ class PortfolioService:
         live = await self._repository.live(user_id)
         if live is not None:
             live.live = False
+            await self._session.flush()
         release.live = True
         await self._write(release)
         return ReleaseRead.model_validate(release, from_attributes=True)
