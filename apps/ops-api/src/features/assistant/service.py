@@ -17,7 +17,7 @@ from src.clients.ezcareer import (
     RunEvent,
     RunMetadata,
 )
-from src.core.exceptions import NotFound
+from src.core.exceptions import InvalidInput, NotFound
 from src.core.logging import get_logger
 from src.core.runner import Runner
 from src.features.assistant.profile_edits import ProfileEdits
@@ -73,7 +73,7 @@ class AssistantService:
                 review.task_id,
                 UpdateProfileArgs.model_validate(review.actions[0].args),
             )
-        except (ValidationError, NotFound) as error:
+        except (ValidationError, NotFound, InvalidInput) as error:
             return str(error)
 
     async def _turn(

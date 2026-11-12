@@ -1,14 +1,15 @@
 import asyncio
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 
 from src.core.auth.models import User
 from src.core.config import get_settings
+from src.db.base import as_utc
 from src.features.profile.enums import EntryKind
-from src.features.profile.models import Profile, ProfileEntry
+from src.features.profile.models import Profile, ProfileEntry, ProfileProject
 from src.features.profile.schemas import ProfileLink
 from tests.conftest import PREFIX, _client
 from tests.core.conftest import DATABASE_URL
@@ -285,6 +286,84 @@ async def test_the_database_refuses_a_fourth_link(postgres_app):
 
         with pytest.raises(IntegrityError, match="ck_profiles_links"):
             await session.commit()
+
+
+async def test_a_project_row_lives_and_dies_with_its_entry(app, client):
+    async def projects() -> list[tuple]:
+        async with app.state.session_factory() as session:
+            return list(
+                (
+                    await session.execute(
+                        select(ProfileProject.entry_id, ProfileProject.link)
+                    )
+                ).all()
+            )
+
+    project = {"kind": "project", "title": "Renderverse", "tools": ["React"]}
+    created = (
+        await client.post(
+            f"{PROFILE}/entries", json={**project, "link": "https://a.example"}
+        )
+    ).json()
+    assert await projects() == [(UUID(created["id"]), "https://a.example")]
+
+    replaced = await client.put(
+        f"{PROFILE}/entries/{created['id']}",
+        json={**project, "link": "https://b.example", "on_site": True},
+    )
+    assert replaced.json()["link"] == "https://b.example"
+    assert replaced.json()["on_site"] is True
+    assert await projects() == [(UUID(created["id"]), "https://b.example")]
+
+    await client.delete(f"{PROFILE}/entries/{created['id']}")
+    assert await projects() == []
+
+
+async def test_changing_only_a_projects_fields_updates_its_entry(app, client):
+    async with app.state.session_factory() as session:
+        user = User(email=get_settings().auth.dev_email)
+        session.add(user)
+        await session.flush()
+        project = ProfileProject(user_id=user.id, kind=EntryKind.PROJECT, title="R")
+        session.add(project)
+        await session.commit()
+        stamped = project.updated_at
+
+    await client.put(
+        f"{PROFILE}/entries/{project.id}", json={"title": "R", "on_site": True}
+    )
+
+    async with app.state.session_factory() as session:
+        row = await session.get_one(ProfileProject, project.id)
+    assert row.on_site is True
+    assert row.created_by == "system"
+    assert row.updated_by == f"user:{user.id}"
+    assert as_utc(row.updated_at) > stamped
+
+
+async def test_only_a_project_takes_project_fields(client):
+    refusal = "Only a project has a link, code link, tools or a place on the site"
+    project_fields = [
+        {"link": "https://acme.example"},
+        {"code_link": "https://github.com/acme/api"},
+        {"tools": ["Go"]},
+        {"on_site": True},
+    ]
+    role = await client.post(
+        f"{PROFILE}/entries",
+        json={**ACME, "link": None, "code_link": None, "tools": [], "on_site": False},
+    )
+    assert role.status_code == 201
+
+    for fields in project_fields:
+        added = await client.post(f"{PROFILE}/entries", json={**ACME, **fields})
+        replaced = await client.put(
+            f"{PROFILE}/entries/{role.json()['id']}", json={**ACME, **fields}
+        )
+
+        assert (added.status_code, added.json()["detail"]) == (422, refusal)
+        assert (replaced.status_code, replaced.json()["detail"]) == (422, refusal)
+    assert (await client.get(f"{PROFILE}/entries")).json() == [role.json()]
 
 
 async def test_entries_stay_off_the_site_until_turned_on(client):

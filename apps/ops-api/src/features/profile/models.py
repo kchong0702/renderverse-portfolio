@@ -1,13 +1,25 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any, ClassVar
 from uuid import UUID
 
 from pydantic import TypeAdapter
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, false
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import (
+    CheckConstraint,
+    Connection,
+    DateTime,
+    ForeignKey,
+    String,
+    Text,
+    case,
+    event,
+    false,
+)
+from sqlalchemy.orm import Mapped, Mapper, mapped_column, object_session
 
-from src.db.base import Base, EnumString, JsonType, PydanticJson, TextArray
+from src.app.actor import current_actor
+from src.db.base import Base, EnumString, JsonType, PydanticJson, TextArray, utcnow
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 from src.features.profile.enums import ChangeKind, EntryKind, ImportSource
 from src.features.profile.schemas import (
@@ -115,26 +127,59 @@ class ProfileEntry(IdMixin, UserScopedMixin, AuditMixin, Base):
     highlights: Mapped[list[str]] = mapped_column(TextArray, default=list)
     """What the user achieved, one sentence each"""
 
-    link: Mapped[str | None] = mapped_column(String(500), default=None)
-    """Where a project can be seen live; only projects use it"""
-
-    code_link: Mapped[str | None] = mapped_column(String(500), default=None)
-    """Where a project's code is; only projects use it"""
-
-    tools: Mapped[list[str]] = mapped_column(TextArray, default=list)
-    """Languages, frameworks and tools a project used; only projects use it"""
-
     archived: Mapped[bool] = mapped_column(default=False)
     """Kept but left out of what the agents see"""
 
-    on_site: Mapped[bool] = mapped_column(default=False, server_default=false())
-    """Shown on the portfolio site from the next release; only projects use it"""
+    __mapper_args__: ClassVar[dict[str, Any]] = {
+        "polymorphic_on": case((kind == EntryKind.PROJECT, "project"), else_="entry"),
+        "polymorphic_identity": "entry",
+    }
 
-    image_id: Mapped[UUID | None] = mapped_column(ForeignKey("assets.id"), default=None)
+
+class ProfileProject(ProfileEntry):
+    __tablename__ = "profile_projects"
+    __mapper_args__: ClassVar[dict[str, Any]] = {
+        "polymorphic_identity": "project",
+        "polymorphic_load": "inline",
+    }
+
+    entry_id: Mapped[UUID] = mapped_column(
+        ForeignKey("profile_entries.id", ondelete="CASCADE"), primary_key=True
+    )
+    """The entry this project is"""
+
+    link: Mapped[str | None] = mapped_column(String(500), default=None)
+    """Where the project can be seen live"""
+
+    code_link: Mapped[str | None] = mapped_column(String(500), default=None)
+    """Where the project's code is"""
+
+    tools: Mapped[list[str]] = mapped_column(TextArray, default=list)
+    """Languages, frameworks and tools the project used"""
+
+    on_site: Mapped[bool] = mapped_column(default=False, server_default=false())
+    """Shown on the portfolio site from the next release"""
+
+    image_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("assets.id", deferrable=True, initially="DEFERRED"), default=None
+    )
     """The project's cover image on the portfolio site"""
 
-    video_id: Mapped[UUID | None] = mapped_column(ForeignKey("assets.id"), default=None)
+    video_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("assets.id", deferrable=True, initially="DEFERRED"), default=None
+    )
     """The video the portfolio site plays for the project"""
+
+
+@event.listens_for(ProfileProject, "before_update")
+def _stamp_entry(
+    _mapper: Mapper[ProfileProject], _connection: Connection, project: ProfileProject
+) -> None:
+    """Set the entry's updated_at and updated_by when the project has changes to write"""
+    session = object_session(project)
+    if session is not None and session.is_modified(project, include_collections=False):
+        project.updated_at = utcnow()
+        project.updated_by = current_actor()
 
 
 class ProfileSkill(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -215,5 +260,6 @@ __all__ = [
     "ProfileChange",
     "ProfileEntry",
     "ProfileImport",
+    "ProfileProject",
     "ProfileSkill",
 ]

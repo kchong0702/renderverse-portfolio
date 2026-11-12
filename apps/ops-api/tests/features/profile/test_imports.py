@@ -184,6 +184,23 @@ async def test_new_items_are_added_once(client, harness):
     assert await _changes(client) == []
 
 
+async def test_a_roles_project_fields_are_dropped_on_import(client, harness):
+    acme = ACME | {"link": "https://acme.example", "tools": ["Go"]}
+    first = await _import(
+        client, harness, _profile(acme), _export("first", Positions=POSITIONS)
+    )
+
+    again = await _import(
+        client, harness, _profile(acme), _export("again", Positions=POSITIONS)
+    )
+
+    assert (first.status_code, first.json()["added"]) == (201, 1)
+    assert (again.status_code, again.json()["matched"]) == (201, 1)
+    [entry] = (await client.get(f"{PROFILE}/entries")).json()
+    assert (entry["link"], entry["tools"]) == (None, [])
+    assert await _changes(client) == []
+
+
 async def test_differing_values_wait_as_one_conflict_per_field(client, harness):
     await client.patch(PROFILE, json={"headline": "Backend engineer"})
     entry = (await client.post(f"{PROFILE}/entries", json=ACME)).json()

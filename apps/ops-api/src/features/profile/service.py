@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from hashlib import sha256
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import TypeAdapter
@@ -18,6 +18,7 @@ from src.features.profile.models import (
     ProfileChange,
     ProfileEntry,
     ProfileImport,
+    ProfileProject,
     ProfileSkill,
 )
 from src.features.profile.repository import ProfileRepository
@@ -51,6 +52,33 @@ from src.features.profile.sync import (
 from src.features.profile.types import ChangeField, FieldValue
 
 _CHANGE: TypeAdapter[ChangeRead] = TypeAdapter(ChangeRead)
+
+_PROJECT_FIELDS = {"link", "code_link", "tools", "on_site"}
+
+
+def _entry_row(user_id: UUID, kind: EntryKind, fields: dict[str, Any]) -> ProfileEntry:
+    """A new entry of the kind; only a project keeps the project fields"""
+    if kind is EntryKind.PROJECT:
+        return ProfileProject(user_id=user_id, kind=kind, **fields)
+    return ProfileEntry(
+        user_id=user_id,
+        kind=kind,
+        **{
+            field: value
+            for field, value in fields.items()
+            if field not in _PROJECT_FIELDS
+        },
+    )
+
+
+def _refuse_project_fields(kind: EntryKind, entry: EntryWrite) -> None:
+    """InvalidInput when an entry other than a project sets a project-only field"""
+    if kind is not EntryKind.PROJECT and any(
+        getattr(entry, field) for field in _PROJECT_FIELDS
+    ):
+        raise InvalidInput(
+            "Only a project has a link, code link, tools or a place on the site"
+        )
 
 
 def _to_read(profile: Profile) -> ProfileRead:
@@ -86,9 +114,15 @@ def _entry_fact(entry: ProfileEntry) -> ProfileFact:
         heading,
         entry.summary,
         *entry.highlights,
-        f"Tools: {', '.join(entry.tools)}" if entry.tools else "",
-        f"Live at {entry.link}" if entry.link else "",
-        f"Code at {entry.code_link}" if entry.code_link else "",
+        *(
+            (
+                f"Tools: {', '.join(entry.tools)}" if entry.tools else "",
+                f"Live at {entry.link}" if entry.link else "",
+                f"Code at {entry.code_link}" if entry.code_link else "",
+            )
+            if isinstance(entry, ProfileProject)
+            else ()
+        ),
     )
     is_role = entry.kind is EntryKind.ROLE
     return ProfileFact(
@@ -138,8 +172,9 @@ class ProfileService:
 
     async def add_entry(self, user_id: UUID, entry: EntryCreate) -> EntryRead:
         """Store a new entry"""
+        _refuse_project_fields(entry.kind, entry)
         row = await self._repository.add(
-            ProfileEntry(user_id=user_id, **entry.model_dump())
+            _entry_row(user_id, entry.kind, entry.model_dump(exclude={"kind"}))
         )
         return EntryRead.model_validate(row, from_attributes=True)
 
@@ -150,7 +185,10 @@ class ProfileService:
         row = await self._repository.owned(ProfileEntry, user_id, entry_id)
         if row is None:
             raise NotFound("No such entry")
-        for field, value in entry.model_dump().items():
+        _refuse_project_fields(row.kind, entry)
+        for field, value in entry.model_dump(
+            exclude=None if isinstance(row, ProfileProject) else _PROJECT_FIELDS
+        ).items():
             setattr(row, field, value)
         return EntryRead.model_validate(row, from_attributes=True)
 
@@ -362,19 +400,22 @@ class ProfileService:
                 changes, import_id, entry, field, getattr(incoming, field)
             )
             for field in ENTRY_FIELDS
+            if isinstance(entry, ProfileProject) or field not in _PROJECT_FIELDS
         ]
 
     async def _add_entry(self, user_id: UUID, incoming: ImportedEntry) -> ProfileEntry:
         """Store an imported entry as a new one the assistant uses, off the site"""
         return await self._repository.add(
-            ProfileEntry(
-                user_id=user_id,
-                kind=incoming.kind,
-                archived=False,
-                on_site=False,
-                **{
-                    field: stored(field, getattr(incoming, field))
-                    for field in ENTRY_FIELDS
+            _entry_row(
+                user_id,
+                incoming.kind,
+                {
+                    "archived": False,
+                    "on_site": False,
+                    **{
+                        field: stored(field, getattr(incoming, field))
+                        for field in ENTRY_FIELDS
+                    },
                 },
             )
         )

@@ -949,6 +949,21 @@ async def test_a_change_that_cannot_be_made_is_rejected_back_to_the_model(
             ],
             "end must not be before start",
         ),
+        (
+            [
+                {
+                    "edits": [
+                        {
+                            "kind": "entry",
+                            "fact": fact,
+                            "field": "tools",
+                            "value": ["Go"],
+                        }
+                    ]
+                }
+            ],
+            "Only a project",
+        ),
         ([{"edits": [edit]}, {"edits": [edit]}], "one update_profile call"),
     ]
     stored = await _stored(client)
@@ -1162,4 +1177,40 @@ async def test_an_update_saves_all_its_changes_or_none(client, harness):
 
     [part] = a2a_sent(harness)[1]["params"]["message"]["parts"]
     assert part == {"data": {"error": f"No such entry {edits[2]['fact']}"}}
+    assert await _stored(client) == stored
+
+
+async def test_an_update_giving_a_role_a_project_field_saves_nothing(client, harness):
+    fact = await _seed(client)
+    headline = {"kind": "about", "field": "headline", "value": "Staff Engineer"}
+    refused = [
+        {"kind": "entry", "fact": fact, "field": "link", "value": "https://a.example"},
+        {
+            "kind": "new_entry",
+            "entry": {"kind": "role", "title": "CTO", "tools": ["Go"]},
+        },
+    ]
+    stored = await _stored(client)
+
+    for edit in refused:
+        harness.outcomes = [
+            [
+                stream_task(),
+                stream_status(
+                    "INPUT_REQUIRED",
+                    [{"data": {"fetch": "profile_update", "edits": [headline, edit]}}],
+                ),
+            ],
+            _replied("Nothing was saved."),
+        ]
+
+        await client.post(f"{CHAT}/messages", json={"text": "Update me"})
+
+        [part] = a2a_sent(harness)[-1]["params"]["message"]["parts"]
+        assert part == {
+            "data": {
+                "error": "Only a project has a link, code link, tools or a place"
+                " on the site"
+            }
+        }
     assert await _stored(client) == stored

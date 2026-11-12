@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 8fe68049be4e
+Revision ID: 5f12eb9b3520
 Revises:
-Create Date: 2026-11-13 13:21:41.176614
+Create Date: 2026-11-13 13:21:48.089113
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "8fe68049be4e"
+revision: str = "5f12eb9b3520"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -536,6 +536,52 @@ def upgrade() -> None:
         unique=False,
     )
     op.create_table(
+        "profile_entries",
+        sa.Column("kind", sa.String(), nullable=False),
+        sa.Column("title", sa.String(length=200), nullable=False),
+        sa.Column("organisation", sa.String(length=200), nullable=False),
+        sa.Column("location", sa.String(length=200), nullable=False),
+        sa.Column("start", sa.String(length=7), nullable=True),
+        sa.Column("end", sa.String(length=7), nullable=True),
+        sa.Column("summary", sa.Text(), nullable=False),
+        sa.Column(
+            "highlights",
+            postgresql.ARRAY(sa.Text()).with_variant(sa.JSON(), "sqlite"),
+            nullable=False,
+        ),
+        sa.Column("archived", sa.Boolean(), nullable=False),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "created_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "updated_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_profile_entries_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_profile_entries")),
+    )
+    op.create_index(
+        op.f("ix_profile_entries_user_id"), "profile_entries", ["user_id"], unique=False
+    )
+    op.create_table(
         "profile_imports",
         sa.Column("filename", sa.String(length=255), nullable=False),
         sa.Column("media_type", sa.String(length=100), nullable=False),
@@ -872,32 +918,32 @@ def upgrade() -> None:
         sqlite_where=sa.text("master"),
     )
     op.create_table(
-        "profile_entries",
+        "profile_changes",
+        sa.Column("import_id", sa.Uuid(), nullable=False),
         sa.Column("kind", sa.String(), nullable=False),
-        sa.Column("title", sa.String(length=200), nullable=False),
-        sa.Column("organisation", sa.String(length=200), nullable=False),
-        sa.Column("location", sa.String(length=200), nullable=False),
-        sa.Column("start", sa.String(length=7), nullable=True),
-        sa.Column("end", sa.String(length=7), nullable=True),
-        sa.Column("summary", sa.Text(), nullable=False),
+        sa.Column("entry_id", sa.Uuid(), nullable=True),
+        sa.Column("field", sa.String(length=20), nullable=True),
         sa.Column(
-            "highlights",
-            postgresql.ARRAY(sa.Text()).with_variant(sa.JSON(), "sqlite"),
-            nullable=False,
+            "current",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=True,
         ),
-        sa.Column("link", sa.String(length=500), nullable=True),
-        sa.Column("code_link", sa.String(length=500), nullable=True),
         sa.Column(
-            "tools",
-            postgresql.ARRAY(sa.Text()).with_variant(sa.JSON(), "sqlite"),
-            nullable=False,
+            "conflict",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=True,
         ),
-        sa.Column("archived", sa.Boolean(), nullable=False),
         sa.Column(
-            "on_site", sa.Boolean(), server_default=sa.text("false"), nullable=False
+            "entry",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=True,
         ),
-        sa.Column("image_id", sa.Uuid(), nullable=True),
-        sa.Column("video_id", sa.Uuid(), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column(
@@ -919,21 +965,64 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.ForeignKeyConstraint(
-            ["image_id"], ["assets.id"], name=op.f("fk_profile_entries_image_id_assets")
+            ["entry_id"],
+            ["profile_entries.id"],
+            name=op.f("fk_profile_changes_entry_id_profile_entries"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["import_id"],
+            ["profile_imports.id"],
+            name=op.f("fk_profile_changes_import_id_profile_imports"),
+            ondelete="CASCADE",
         ),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["users.id"],
-            name=op.f("fk_profile_entries_user_id_users"),
+            name=op.f("fk_profile_changes_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_profile_changes")),
+    )
+    op.create_index(
+        op.f("ix_profile_changes_user_id"), "profile_changes", ["user_id"], unique=False
+    )
+    op.create_table(
+        "profile_projects",
+        sa.Column("entry_id", sa.Uuid(), nullable=False),
+        sa.Column("link", sa.String(length=500), nullable=True),
+        sa.Column("code_link", sa.String(length=500), nullable=True),
+        sa.Column(
+            "tools",
+            postgresql.ARRAY(sa.Text()).with_variant(sa.JSON(), "sqlite"),
+            nullable=False,
+        ),
+        sa.Column(
+            "on_site", sa.Boolean(), server_default=sa.text("false"), nullable=False
+        ),
+        sa.Column("image_id", sa.Uuid(), nullable=True),
+        sa.Column("video_id", sa.Uuid(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["entry_id"],
+            ["profile_entries.id"],
+            name=op.f("fk_profile_projects_entry_id_profile_entries"),
             ondelete="CASCADE",
         ),
         sa.ForeignKeyConstraint(
-            ["video_id"], ["assets.id"], name=op.f("fk_profile_entries_video_id_assets")
+            ["image_id"],
+            ["assets.id"],
+            name=op.f("fk_profile_projects_image_id_assets"),
+            initially="DEFERRED",
+            deferrable=True,
         ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_profile_entries")),
-    )
-    op.create_index(
-        op.f("ix_profile_entries_user_id"), "profile_entries", ["user_id"], unique=False
+        sa.ForeignKeyConstraint(
+            ["video_id"],
+            ["assets.id"],
+            name=op.f("fk_profile_projects_video_id_assets"),
+            initially="DEFERRED",
+            deferrable=True,
+        ),
+        sa.PrimaryKeyConstraint("entry_id", name=op.f("pk_profile_projects")),
     )
     op.create_table(
         "document_changesets",
@@ -1159,76 +1248,6 @@ def upgrade() -> None:
     op.create_index(
         op.f("ix_email_threads_user_id"), "email_threads", ["user_id"], unique=False
     )
-    op.create_table(
-        "profile_changes",
-        sa.Column("import_id", sa.Uuid(), nullable=False),
-        sa.Column("kind", sa.String(), nullable=False),
-        sa.Column("entry_id", sa.Uuid(), nullable=True),
-        sa.Column("field", sa.String(length=20), nullable=True),
-        sa.Column(
-            "current",
-            sa.JSON().with_variant(
-                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-            nullable=True,
-        ),
-        sa.Column(
-            "conflict",
-            sa.JSON().with_variant(
-                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-            nullable=True,
-        ),
-        sa.Column(
-            "entry",
-            sa.JSON().with_variant(
-                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-            nullable=True,
-        ),
-        sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("user_id", sa.Uuid(), nullable=False),
-        sa.Column(
-            "created_by", sa.String(length=100), server_default="system", nullable=False
-        ),
-        sa.Column(
-            "updated_by", sa.String(length=100), server_default="system", nullable=False
-        ),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.ForeignKeyConstraint(
-            ["entry_id"],
-            ["profile_entries.id"],
-            name=op.f("fk_profile_changes_entry_id_profile_entries"),
-            ondelete="CASCADE",
-        ),
-        sa.ForeignKeyConstraint(
-            ["import_id"],
-            ["profile_imports.id"],
-            name=op.f("fk_profile_changes_import_id_profile_imports"),
-            ondelete="CASCADE",
-        ),
-        sa.ForeignKeyConstraint(
-            ["user_id"],
-            ["users.id"],
-            name=op.f("fk_profile_changes_user_id_users"),
-            ondelete="CASCADE",
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_profile_changes")),
-    )
-    op.create_index(
-        op.f("ix_profile_changes_user_id"), "profile_changes", ["user_id"], unique=False
-    )
     op.enable_rls("auth_sign_in_attempts")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("users")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("agent_model_calls")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1242,6 +1261,7 @@ def upgrade() -> None:
     op.enable_rls("jobs")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("networking_copies")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("portfolio_releases")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("profile_entries")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("profile_imports")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("profile_skills")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("profiles")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1249,12 +1269,12 @@ def upgrade() -> None:
     op.enable_rls("agent_events")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("applications")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("documents")  # pyright: ignore[reportAttributeAccessIssue]
-    op.enable_rls("profile_entries")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("profile_changes")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("profile_projects")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("document_changesets")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("document_imports")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("document_versions")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("email_threads")  # pyright: ignore[reportAttributeAccessIssue]
-    op.enable_rls("profile_changes")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("alembic_version")  # pyright: ignore[reportAttributeAccessIssue]
     # ### end Alembic commands ###
 
@@ -1263,12 +1283,12 @@ def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
     op.disable_rls("alembic_version")  # pyright: ignore[reportAttributeAccessIssue]
-    op.disable_rls("profile_changes")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("email_threads")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("document_versions")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("document_imports")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("document_changesets")  # pyright: ignore[reportAttributeAccessIssue]
-    op.disable_rls("profile_entries")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("profile_projects")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("profile_changes")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("documents")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("applications")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("agent_events")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1276,6 +1296,7 @@ def downgrade() -> None:
     op.disable_rls("profiles")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("profile_skills")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("profile_imports")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("profile_entries")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("portfolio_releases")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("networking_copies")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("jobs")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1289,8 +1310,6 @@ def downgrade() -> None:
     op.disable_rls("agent_model_calls")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("users")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("auth_sign_in_attempts")  # pyright: ignore[reportAttributeAccessIssue]
-    op.drop_index(op.f("ix_profile_changes_user_id"), table_name="profile_changes")
-    op.drop_table("profile_changes")
     op.drop_index(op.f("ix_email_threads_user_id"), table_name="email_threads")
     op.drop_table("email_threads")
     op.drop_index(op.f("ix_document_versions_user_id"), table_name="document_versions")
@@ -1307,8 +1326,9 @@ def downgrade() -> None:
         op.f("ix_document_changesets_document_id"), table_name="document_changesets"
     )
     op.drop_table("document_changesets")
-    op.drop_index(op.f("ix_profile_entries_user_id"), table_name="profile_entries")
-    op.drop_table("profile_entries")
+    op.drop_table("profile_projects")
+    op.drop_index(op.f("ix_profile_changes_user_id"), table_name="profile_changes")
+    op.drop_table("profile_changes")
     op.drop_index(
         "uq_documents_master",
         table_name="documents",
@@ -1327,6 +1347,8 @@ def downgrade() -> None:
     op.drop_table("profile_skills")
     op.drop_index(op.f("ix_profile_imports_user_id"), table_name="profile_imports")
     op.drop_table("profile_imports")
+    op.drop_index(op.f("ix_profile_entries_user_id"), table_name="profile_entries")
+    op.drop_table("profile_entries")
     op.drop_index(
         op.f("ix_portfolio_releases_user_id"), table_name="portfolio_releases"
     )

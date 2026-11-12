@@ -8,7 +8,7 @@ from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.clients.ezcareer import DataRequest
-from src.core.exceptions import NotFound
+from src.core.exceptions import InvalidInput, NotFound
 from src.features.assistant.schemas import (
     AboutEdit,
     ApprovalRow,
@@ -133,8 +133,7 @@ async def _apply(
     service: ProfileService, user_id: UUID, edits: list[ProfileEdit]
 ) -> list[ApprovalRow]:
     """Make the edits through the profile service, each beside the value it replaces;
-    NotFound for an entry the user doesn't have, ValidationError for a value the
-    profile can't keep"""
+    NotFound, InvalidInput or ValidationError for an edit the profile can't take"""
     profile = await service.get(user_id)
     entries = {_fact(entry): entry for entry in await service.entries(user_id)}
     rows: list[ApprovalRow] = []
@@ -242,15 +241,14 @@ class ProfileEdits:
                     async with self._factory() as session, session.begin():
                         await _apply(ProfileService(session), user_id, edits)
                     return ProfileUpdated(saved=len(edits))
-        except (ValidationError, NotFound) as error:
+        except (ValidationError, NotFound, InvalidInput) as error:
             return FetchError(error=str(error))
 
     async def approval(
         self, user_id: UUID, task_id: str, args: UpdateProfileArgs
     ) -> ProfileApproval:
-        """The card asking the user to approve the changes, beside each field's value
-        in the database, found by making them on a session that is rolled back;
-        NotFound or ValidationError when they can't be made"""
+        """The card asking the user to approve the changes beside each field's value in
+        the database; NotFound, InvalidInput or ValidationError if they can't be made"""
         async with self._factory() as session:
             rows = await _apply(ProfileService(session), user_id, args.edits)
             await session.rollback()
