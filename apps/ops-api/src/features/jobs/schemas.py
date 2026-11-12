@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import AwareDatetime, BaseModel, Field, computed_field
 
 from src.features.documents import TailoredDocument
 from src.features.jobs.enums import Importance, JobStatus, Match, RunStatus, RunTrigger
@@ -112,11 +112,24 @@ class JobSearch(BaseModel):
 
 
 class JobRunCreate(BaseModel):
-    run_after: datetime | None = None
+    run_after: AwareDatetime | None = None
     """The earliest the run may start; None starts it as soon as a worker is free"""
 
     search: JobSearch | None = None
     """The search the run hands find-jobs; None searches from the preferences"""
+
+
+class JobRunRequest(JobRunCreate):
+    fetch: Literal["job_run"]
+    """A paused run asks to queue a run of the job agent"""
+
+
+class JobRunQueued(BaseModel):
+    id: UUID
+    """The queued run's id"""
+
+    run_after: datetime
+    """The earliest a worker may start it"""
 
 
 class JobRunRead(BaseModel):
@@ -227,7 +240,9 @@ __all__ = [
     "JobList",
     "JobRead",
     "JobRunCreate",
+    "JobRunQueued",
     "JobRunRead",
+    "JobRunRequest",
     "JobSearch",
     "JobUpdate",
     "Requirement",
