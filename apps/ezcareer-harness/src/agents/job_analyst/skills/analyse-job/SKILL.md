@@ -24,10 +24,10 @@ Some terms are checked by code, not by you. When the posting states one, fill it
 
 - `min_years`: years of experience asked for overall, such as 5 for "5+ years as a backend engineer". Years asked for one skill, such as "3 years of Go", stay a requirement.
 - `work_mode`: `onsite`, `hybrid` or `remote`.
-- `countries`: ISO country codes the job is based in, or open to when remote.
-- `authorisation_countries`: ISO country codes the candidate must already have the right to work in, when the posting says it won't sponsor a visa.
+- `countries`: the countries the job is based in, or open to when remote, as two-letter ISO codes such as `GB`.
+- `authorisation_countries`: the countries the candidate must already have the right to work in, as two-letter ISO codes, when the posting says it won't sponsor a visa.
 - `salary`: the top of the stated pay range, with its ISO currency code and whether it is per `hour`, `month` or `year`.
 
 ## Checks
 
-A check verifies your answer. Each cited line and fact must exist, in requirements and in terms. Each requirement's text must appear word for word in its cited lines. When it reports errors, fix only what it names.
+A check verifies your answer. Each cited line and fact must exist, in requirements and in terms. Each requirement's text must appear word for word in its cited lines, and `met` or `partly` must cite a fact. When it reports errors, fix only what it names.
