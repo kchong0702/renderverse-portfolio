@@ -13,8 +13,8 @@ from src.shared.tool_artifact import StepDetail
 def schedule_job_run(
     run_after: AwareDatetime | None = None, search: JobSearch | None = None
 ) -> tuple[str, StepDetail]:
-    """Queues a job agent run that finds and scores fresh jobs, now or from run_after
-    (ISO 8601 with offset); search replaces the user's preferences' what and where"""
+    """Queues a background job search that finds and scores fresh jobs, as soon as a worker is free
+    or from run_after (ISO 8601 with offset); search, when given, says what, where and how recent to look"""
     try:
         queued = TypeAdapter(JobRunQueued | FetchFailed).validate_python(
             interrupt(
