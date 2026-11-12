@@ -19,7 +19,7 @@ from tests.features.triage_email import test_triage_email_graph as triage_test
 def _assistant(model: ScriptedChatModel) -> CompiledStateGraph:
     return (
         Container()
-        .email_assistant.agent(model=model)
+        .productivity_assistant.agent(model=model)
         .copy(update={"checkpointer": InMemorySaver()})
     )
 
@@ -27,7 +27,7 @@ def _assistant(model: ScriptedChatModel) -> CompiledStateGraph:
 async def _run(
     model: ScriptedChatModel, text: str, *answers: object
 ) -> tuple[list[object], dict]:
-    """Runs email-assistant on text, answering each pause in turn; returns what
+    """Runs productivity-assistant on text, answering each pause in turn; returns what
     each pause asked and the final state"""
     graph = _assistant(model)
     thread = {"configurable": {"thread_id": "t1"}}
@@ -128,7 +128,7 @@ async def test_a_threads_answer_that_does_not_parse_fails_the_run():
         await _run(model, "Show my email", {"threads": "not a list"})
 
 
-async def test_on_its_own_email_assistant_is_never_offered_handoff_to_parent():
+async def test_on_its_own_productivity_assistant_is_never_offered_handoff_to_parent():
     model = ScriptedChatModel(replies=[AIMessage("Hello.")])
 
     await _run(model, "Hi")

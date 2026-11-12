@@ -1,15 +1,15 @@
 from dependency_injector import containers, providers
 
 from src.agents import build_agent
-from src.agents.job_finder import JobFinderState
-from src.agents.job_finder.tools import search_jobs_tool
+from src.agents.job_analyst import JobAnalystState
+from src.agents.job_analyst.tools import search_jobs_tool
 from src.app.a2a import Executable
 from src.core.config import Settings
 from src.features import analyse_job, find_jobs
 from src.tools import read_profile_facts
 
 
-class JobFinderContainer(containers.DeclarativeContainer):
+class JobAnalystContainer(containers.DeclarativeContainer):
     settings = providers.Dependency(instance_of=Settings)
     """The app's settings"""
 
@@ -24,7 +24,7 @@ class JobFinderContainer(containers.DeclarativeContainer):
 
     agent = providers.Singleton(
         build_agent,
-        agent=registry.provided["job-finder"],
+        agent=registry.provided["job-analyst"],
         response_formats=(analyse_job.JobRequirements, find_jobs.RankedJobs),
         tools=(read_profile_facts,),
         skill_tools=providers.List(
@@ -32,20 +32,20 @@ class JobFinderContainer(containers.DeclarativeContainer):
                 search_jobs_tool, job_sources, settings.provided.job_sources
             )
         ),
-        state_schema=JobFinderState,
+        state_schema=JobAnalystState,
     )
-    """The job-finder agent, built once"""
+    """The job-analyst agent, built once"""
 
     agent_executable = providers.Singleton(
         Executable,
         kind="agent",
-        name="job-finder",
-        description="Talk to job-finder about how jobs fit the user's profile",
+        name="job-analyst",
+        description="Talk to job-analyst about how jobs fit the user's profile",
         graph=agent.provided.copy.call(
             update=providers.Dict(checkpointer=checkpointer)
         ),
     )
-    """job-finder served as an agent the user talks to"""
+    """job-analyst served as an agent the user talks to"""
 
     analyse_job_executable = providers.Singleton(
         Executable,

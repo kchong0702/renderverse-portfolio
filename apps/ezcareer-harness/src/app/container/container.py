@@ -6,9 +6,9 @@ from src.agents import load_agents
 from src.app.container.career_consultant import CareerConsultantContainer
 from src.app.container.career_director import CareerDirectorContainer
 from src.app.container.clients import ClientsContainer
-from src.app.container.email_assistant import EmailAssistantContainer
 from src.app.container.import_document import ImportDocumentContainer
-from src.app.container.job_finder import JobFinderContainer
+from src.app.container.job_analyst import JobAnalystContainer
+from src.app.container.productivity_assistant import ProductivityAssistantContainer
 from src.core.config import get_settings
 
 
@@ -29,14 +29,14 @@ class Container(containers.DeclarativeContainer):
     clients = providers.Container(ClientsContainer, settings=settings)
     """Clients of the services the agents and workflows call"""
 
-    job_finder = providers.Container(
-        JobFinderContainer,
+    job_analyst = providers.Container(
+        JobAnalystContainer,
         settings=settings,
         registry=registry,
         checkpointer=checkpointer,
         job_sources=clients.job_sources,
     )
-    """job-finder and the workflows that run on it"""
+    """job-analyst and the workflows that run on it"""
 
     career_consultant = providers.Container(
         CareerConsultantContainer,
@@ -46,21 +46,21 @@ class Container(containers.DeclarativeContainer):
     )
     """career-consultant and the workflows that run on it"""
 
-    email_assistant = providers.Container(
-        EmailAssistantContainer,
+    productivity_assistant = providers.Container(
+        ProductivityAssistantContainer,
         settings=settings,
         registry=registry,
         checkpointer=checkpointer,
     )
-    """email-assistant and the email workflows that run on it"""
+    """productivity-assistant and the email workflows that run on it"""
 
     career_director = providers.Container(
         CareerDirectorContainer,
         registry=registry,
         checkpointer=checkpointer,
-        job_finder=job_finder,
+        job_analyst=job_analyst,
         career_consultant=career_consultant,
-        email_assistant=email_assistant,
+        productivity_assistant=productivity_assistant,
     )
     """career-director, which runs the workflows as its tools"""
 
@@ -73,14 +73,14 @@ class Container(containers.DeclarativeContainer):
     """The import-resume workflow, which turns an uploaded résumé into a draft"""
 
     executables = providers.List(
-        job_finder.agent_executable,
-        job_finder.analyse_job_executable,
-        job_finder.find_jobs_executable,
+        job_analyst.agent_executable,
+        job_analyst.analyse_job_executable,
+        job_analyst.find_jobs_executable,
         career_consultant.agent_executable,
         career_consultant.edit_document_executable,
         career_director.agent_executable,
-        email_assistant.triage_email_executable,
-        email_assistant.draft_reply_executable,
+        productivity_assistant.triage_email_executable,
+        productivity_assistant.draft_reply_executable,
         import_document.import_resume_executable,
     )
     """Agents and workflows served over A2A; add an agent's container above and

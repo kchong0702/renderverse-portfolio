@@ -1,5 +1,5 @@
-system_prompt: src/agents/job_finder/system.md
-skills: src/agents/job_finder/skills
+system_prompt: src/agents/job_analyst/system.md
+skills: src/agents/job_analyst/skills
 tool_description_overrides:
   read_profile_facts: >-
     Lists the user's profile facts, one per line as `fact:<id>`, followed by

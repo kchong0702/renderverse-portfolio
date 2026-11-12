@@ -6,7 +6,7 @@ from src.app.container import Container
 from src.core.config import reload_settings
 from src.features.find_jobs import build_graph
 from src.shared.jobs import Quota
-from tests.agents.job_finder.test_search_jobs import RESPONSE
+from tests.agents.job_analyst.test_search_jobs import RESPONSE
 from tests.conftest import ScriptedChatModel
 
 INPUT = {
@@ -69,7 +69,7 @@ async def test_unknown_jobs_go_back_and_the_ranking_comes_out_by_fit(jsearch):
 
     container = Container()
 
-    result = await build_graph(container.job_finder.agent(model=model)).ainvoke(INPUT)
+    result = await build_graph(container.job_analyst.agent(model=model)).ainvoke(INPUT)
 
     assert [(job.posting.id, job.fit) for job in result["jobs"]] == [
         ("aB3xK9_newer-copy==", 100),
@@ -107,7 +107,7 @@ async def test_the_users_search_reaches_jsearch_and_the_quota_comes_out(
         ]
     )
 
-    result = await build_graph(Container().job_finder.agent(model=model)).ainvoke(
+    result = await build_graph(Container().job_analyst.agent(model=model)).ainvoke(
         INPUT
         | {
             "search": {
@@ -132,7 +132,9 @@ async def test_the_users_search_reaches_jsearch_and_the_quota_comes_out(
 async def test_a_run_without_a_search_has_no_quota(jsearch):
     model = ScriptedChatModel(replies=[_ranked()])
 
-    result = await build_graph(Container().job_finder.agent(model=model)).ainvoke(INPUT)
+    result = await build_graph(Container().job_analyst.agent(model=model)).ainvoke(
+        INPUT
+    )
 
     assert result == {"jobs": [], "quota": None}
     assert "My search" not in model.requests[0][1].text

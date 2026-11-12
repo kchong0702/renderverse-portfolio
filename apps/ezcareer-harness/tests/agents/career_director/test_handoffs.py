@@ -22,7 +22,7 @@ ACME = {
 def _graph(director: ScriptedChatModel, assistant: ScriptedChatModel):
     container = Container()
     container.career_director.agent(model=director)
-    container.email_assistant.agent(model=assistant)
+    container.productivity_assistant.agent(model=assistant)
     return container.career_director.agent_executable().graph
 
 
@@ -47,10 +47,10 @@ async def _turn(
     return asked, result
 
 
-async def test_email_goes_to_email_assistant_which_keeps_the_next_turn_and_hands_back():
+async def test_email_goes_to_productivity_assistant_which_keeps_the_next_turn_and_hands_back():
     director = ScriptedChatModel(
         replies=[
-            _call("handoff_to_child", agent="email-assistant"),
+            _call("handoff_to_child", agent="productivity-assistant"),
             AIMessage("Here are some jobs."),
         ]
     )
@@ -88,7 +88,7 @@ async def test_email_goes_to_email_assistant_which_keeps_the_next_turn_and_hands
             "limit": 20,
         }
     ]
-    assert found["active_agent"] == "email-assistant"
+    assert found["active_agent"] == "productivity-assistant"
     assert found["messages"][-1].text == "Priya from Acme wrote about your interview."
     assert drafted_asked == [
         {"fetch": "thread", "id": "t-1"},
@@ -105,7 +105,7 @@ async def test_email_goes_to_email_assistant_which_keeps_the_next_turn_and_hands
 
 async def test_only_the_child_agents_in_the_graph_are_offered_handoff_to_parent():
     director = ScriptedChatModel(
-        replies=[_call("handoff_to_child", agent="email-assistant")]
+        replies=[_call("handoff_to_child", agent="productivity-assistant")]
     )
     assistant = ScriptedChatModel(replies=[AIMessage("Nothing new.")])
 

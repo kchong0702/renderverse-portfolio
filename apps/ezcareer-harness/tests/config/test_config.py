@@ -64,8 +64,8 @@ def test_an_agent_on_a_model_the_catalog_does_not_offer_is_refused():
             models={"glm": ["glm-5.3"]},
             agents=[
                 {
-                    "name": "job-finder",
-                    "path": "src/agents/job_finder/profile.yaml",
+                    "name": "job-analyst",
+                    "path": "src/agents/job_analyst/profile.yaml",
                     "family": "glm",
                     "model": "glm-9",
                 }

@@ -76,7 +76,7 @@ def _stream(
 
 
 def _container(
-    finder: ScriptedChatModel,
+    analyst: ScriptedChatModel,
     consultant: ScriptedChatModel,
     director: ScriptedChatModel,
 ) -> Container:
@@ -87,7 +87,7 @@ def _container(
             base_url="http://artifact-service",
         )
     )
-    container.job_finder.agent(model=finder)
+    container.job_analyst.agent(model=analyst)
     container.career_consultant.agent(model=consultant)
     container.career_director.agent(model=director)
     return container
@@ -141,9 +141,9 @@ def test_career_director_analyses_the_posting_at_a_url_through_analyse_job():
 
 
 def test_career_director_finds_jobs_for_the_users_preferences_through_find_jobs():
-    finder = ScriptedChatModel(replies=[_call("RankedJobs", jobs=[])])
+    analyst = ScriptedChatModel(replies=[_call("RankedJobs", jobs=[])])
     director = _model(_call("find_jobs"), AIMessage("No jobs fit yet."))
-    container = _container(finder, _model(), director)
+    container = _container(analyst, _model(), director)
 
     task = _send(
         TestClient(create_app(container)),
@@ -161,7 +161,7 @@ def test_career_director_finds_jobs_for_the_users_preferences_through_find_jobs(
     assert task["status"]["state"] == "TASK_STATE_COMPLETED"
     [report] = [m for m in director.requests[1] if isinstance(m, ToolMessage)]
     assert json.loads(report.text) == {"jobs": [], "quota": None}
-    assert '"work_modes":["remote"]' in finder.requests[0][-1].text
+    assert '"work_modes":["remote"]' in analyst.requests[0][-1].text
 
 
 def _director_request() -> list[dict[str, JsonValue]]:
@@ -372,7 +372,7 @@ def test_career_director_streams_its_thinking_steps_and_reply():
         if "usage" in (usage := part.get("data", {})) and (usage := usage["usage"])
     ] == [
         ("career-director", "model", "openai", "gpt-6-luna"),
-        ("job-finder", "model", "glm", "glm-5.3"),
+        ("job-analyst", "model", "glm", "glm-5.3"),
         ("career-director", "model", "openai", "gpt-6-luna"),
     ]
 
@@ -413,8 +413,8 @@ def test_finished_steps_carry_what_their_tools_found_and_worked_on():
     ]
 
 
-def test_email_is_handed_to_email_assistant_which_answers_and_keeps_the_next_turn():
-    director = _model(_call("handoff_to_child", agent="email-assistant"))
+def test_email_is_handed_to_productivity_assistant_which_answers_and_keeps_the_next_turn():
+    director = _model(_call("handoff_to_child", agent="productivity-assistant"))
     assistant = ScriptedChatModel(
         replies=[
             _call("search_threads", sender="acme.com"),
@@ -423,7 +423,7 @@ def test_email_is_handed_to_email_assistant_which_answers_and_keeps_the_next_tur
         ]
     )
     container = _container(_model(), _model(), director)
-    container.email_assistant.agent(model=assistant)
+    container.productivity_assistant.agent(model=assistant)
     client = TestClient(create_app(container))
 
     searching = _stream(client, _director_request())
@@ -443,7 +443,7 @@ def test_email_is_handed_to_email_assistant_which_answers_and_keeps_the_next_tur
         (s["name"], s["status"], s["detail"]) for s in _steps(searching + done)
     ] == [
         ("handoff_to_child", "running", None),
-        ("handoff_to_child", "done", "email-assistant"),
+        ("handoff_to_child", "done", "productivity-assistant"),
         ("search_threads", "running", None),
         ("search_threads", "waiting", None),
         ("search_threads", "running", None),

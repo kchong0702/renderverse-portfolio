@@ -18,10 +18,10 @@ class ImportDocumentContainer(containers.DeclarativeContainer):
 
     agent = providers.Singleton(
         build_agent,
-        agent=registry.provided["resume-importer"],
+        agent=registry.provided["document-analyst"],
         response_formats=(import_document.ResumeImport,),
     )
-    """The resume-importer agent, built once"""
+    """The document-analyst agent, built once"""
 
     import_resume_executable = providers.Singleton(
         Executable,

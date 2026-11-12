@@ -36,7 +36,7 @@ def _reading(**args: object) -> AIMessage:
 
 
 def _graph(model: ScriptedChatModel):
-    return build_graph(Container().email_assistant.agent(model=model))
+    return build_graph(Container().productivity_assistant.agent(model=model))
 
 
 async def test_a_confirmed_interview_comes_out_with_its_time_and_application():
@@ -128,7 +128,7 @@ def test_several_named_companies_are_narrowed_by_role_or_left_unmatched():
 
 def test_triage_email_is_served_over_a2a():
     container = Container()
-    container.email_assistant.agent(
+    container.productivity_assistant.agent(
         model=ScriptedChatModel(replies=[_reading(state="info")])
     )
     sent = datetime(2026, 11, 9, 9, 12, tzinfo=timezone(timedelta(hours=8)))

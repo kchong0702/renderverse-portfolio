@@ -40,8 +40,8 @@ claude = ["claude-opus-5-5", "claude-sonnet-5-5"]
 openai = ["gpt-6-luna"]
 
 [[agents]]
-name = "job-finder"
-path = "src/agents/job_finder/profile.yaml"
+name = "job-analyst"
+path = "src/agents/job_analyst/profile.yaml"
 family = "glm"
 model = "glm-5.3"
 
@@ -58,14 +58,14 @@ family = "openai"
 model = "gpt-6-luna"
 
 [[agents]]
-name = "email-assistant"
-path = "src/agents/email_assistant/profile.yaml"
+name = "productivity-assistant"
+path = "src/agents/productivity_assistant/profile.yaml"
 family = "openai"
 model = "gpt-6-luna"
 
 [[agents]]
-name = "resume-importer"
-path = "src/agents/resume_importer/profile.yaml"
+name = "document-analyst"
+path = "src/agents/document_analyst/profile.yaml"
 family = "openai"
 model = "gpt-6-luna"
 

@@ -25,14 +25,14 @@ def test_an_agent_reads_the_prompt_and_skills_its_profile_names_from_the_app_fol
 ):
     profile = tmp_path / "profile.yaml"
     profile.write_text(
-        "system_prompt: src/agents/job_finder/system.md\n"
-        "skills: src/agents/job_finder/skills\n"
+        "system_prompt: src/agents/job_analyst/system.md\n"
+        "skills: src/agents/job_analyst/skills\n"
     )
 
     agent = _load(profile)
 
-    assert agent.system_prompt == _ROOT_PATH / "src/agents/job_finder/system.md"
-    assert agent.skills == _ROOT_PATH / "src/agents/job_finder/skills"
+    assert agent.system_prompt == _ROOT_PATH / "src/agents/job_analyst/system.md"
+    assert agent.skills == _ROOT_PATH / "src/agents/job_analyst/skills"
 
 
 def test_a_profile_that_names_neither_reads_them_beside_it():

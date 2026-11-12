@@ -368,7 +368,7 @@ USAGES = [
     {
         "provider": "glm",
         "model": "glm-5.3",
-        "agent": "job-finder",
+        "agent": "job-analyst",
         "node": "model",
         "input_tokens": 120,
         "output_tokens": 30,
@@ -381,7 +381,7 @@ USAGES = [
     {
         "provider": "glm",
         "model": "glm-5.3",
-        "agent": "job-finder",
+        "agent": "job-analyst",
         "node": "model",
         "input_tokens": 0,
         "output_tokens": 0,
@@ -395,7 +395,7 @@ USAGES = [
 
 
 def test_a_streamed_run_reports_each_model_calls_usage_as_it_ends():
-    client = _agent_client(create_agent(_usage_model(), [title_of], name="job-finder"))
+    client = _agent_client(create_agent(_usage_model(), [title_of], name="job-analyst"))
 
     with client.stream(
         "POST",

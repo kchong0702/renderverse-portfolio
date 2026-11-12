@@ -4,7 +4,7 @@ from langchain_core.tools import BaseTool, StructuredTool, ToolException
 from langgraph.types import interrupt
 from pydantic import ConfigDict, Field, TypeAdapter, ValidationError, create_model
 
-from src.agents.email_assistant.types import FetchedThread
+from src.agents.productivity_assistant.types import FetchedThread
 from src.core.errors import ExecuteError
 from src.shared.email import latest_messages, untrusted_thread
 from src.shared.fetch_failed import FetchFailed
