@@ -132,7 +132,7 @@ class AuthService:
 
     async def unlink(self, user: User, provider: IdentityProvider) -> None:
         """Remove one way the user signs in, never the last one"""
-        identities = await self._repository.identities(user.id)
+        identities = await self._repository.identities(user.id, lock=True)
         identity = next((i for i in identities if i.provider == provider), None)
         if identity is None:
             raise NotFound(f"No {provider} sign-in is linked")

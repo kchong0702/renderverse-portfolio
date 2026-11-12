@@ -25,11 +25,14 @@ class AuthRepository(Repository):
             )
         )
 
-    async def identities(self, user_id: UUID) -> list[AuthIdentity]:
-        """Every way the user signs in"""
+    async def identities(
+        self, user_id: UUID, *, lock: bool = False
+    ) -> list[AuthIdentity]:
+        """Every way the user signs in, locked until the transaction ends when asked"""
+        statement = select(AuthIdentity).where(AuthIdentity.user_id == user_id)
         return list(
             await self._session.scalars(
-                select(AuthIdentity).where(AuthIdentity.user_id == user_id)
+                statement.with_for_update() if lock else statement
             )
         )
 
