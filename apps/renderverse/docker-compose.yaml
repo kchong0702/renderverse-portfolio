@@ -1,0 +1,17 @@
+services:
+  renderverse:
+    image: renderverse:${TAG:-dev}
+    profiles: ["renderverse"]
+    build:
+      context: ../..
+      dockerfile: apps/renderverse/Dockerfile
+      target: renderverse
+      args:
+        VITE_EZBOT_API_URL: ${VITE_EZBOT_API_URL:-}
+        VITE_CHATBOT_ENABLED: ${VITE_CHATBOT_ENABLED:-false}
+        VITE_SECRET_ROOM_PASSWORD: ${VITE_SECRET_ROOM_PASSWORD:-}
+        VITE_PORTFOLIO_BUCKET_URL: ${VITE_PORTFOLIO_BUCKET_URL:-}
+        VITE_PORTFOLIO_USER_ID: ${VITE_PORTFOLIO_USER_ID:-}
+    restart: always
+    ports:
+      - "127.0.0.1:${RENDERVERSE_HOST_PORT:-5173}:8080"

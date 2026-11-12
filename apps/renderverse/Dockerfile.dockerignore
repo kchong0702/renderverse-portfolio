@@ -1,0 +1,9 @@
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!apps/renderverse
+apps/renderverse/.env
+apps/renderverse/dist
+apps/renderverse/scripts
+**/node_modules
