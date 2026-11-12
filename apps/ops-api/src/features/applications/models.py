@@ -4,26 +4,22 @@ from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base, EnumString
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 from src.features.applications.enums import ApplicationStage, NextStepFormat
+from src.features.jobs.models import Job
 
 
 class Application(IdMixin, UserScopedMixin, AuditMixin, Base):
     __tablename__ = "applications"
 
-    job_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("jobs.id", ondelete="SET NULL"), default=None
-    )
-    """The stored posting it is for; its analysis gives the fit"""
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id"), unique=True)
+    """The job it is for, which holds the company, role and fit"""
 
-    company: Mapped[str] = mapped_column(String(200))
-    """Employer applied to"""
-
-    role: Mapped[str] = mapped_column(String(200))
-    """Job title applied for"""
+    job: Mapped[Job] = relationship(lazy="joined")
+    """The job, loaded with the application"""
 
     stage: Mapped[ApplicationStage] = mapped_column(
         EnumString(ApplicationStage),

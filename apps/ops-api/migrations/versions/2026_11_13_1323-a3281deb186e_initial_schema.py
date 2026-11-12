@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 7ffcd3e9dbc2
+Revision ID: a3281deb186e
 Revises:
-Create Date: 2026-11-13 13:22:58.347747
+Create Date: 2026-11-13 13:23:35.307943
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "7ffcd3e9dbc2"
+revision: str = "a3281deb186e"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -862,9 +862,7 @@ def upgrade() -> None:
     )
     op.create_table(
         "applications",
-        sa.Column("job_id", sa.Uuid(), nullable=True),
-        sa.Column("company", sa.String(length=200), nullable=False),
-        sa.Column("role", sa.String(length=200), nullable=False),
+        sa.Column("job_id", sa.Uuid(), nullable=False),
         sa.Column("stage", sa.String(), nullable=False),
         sa.Column("applied_on", sa.Date(), nullable=True),
         sa.Column("next_step", sa.String(length=200), nullable=False),
@@ -893,10 +891,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.ForeignKeyConstraint(
-            ["job_id"],
-            ["jobs.id"],
-            name=op.f("fk_applications_job_id_jobs"),
-            ondelete="SET NULL",
+            ["job_id"], ["jobs.id"], name=op.f("fk_applications_job_id_jobs")
         ),
         sa.ForeignKeyConstraint(
             ["user_id"],
@@ -905,6 +900,7 @@ def upgrade() -> None:
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_applications")),
+        sa.UniqueConstraint("job_id", name=op.f("uq_applications_job_id")),
     )
     op.create_index(
         op.f("ix_applications_user_id"), "applications", ["user_id"], unique=False

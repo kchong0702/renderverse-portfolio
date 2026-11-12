@@ -1,29 +1,32 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 
 from src.clients.ezcareer import Failed
 from src.core.auth import CurrentUserDep
 from src.db.session import SessionDep
 from src.features.applications.schemas import (
-    ApplicationCreate,
     ApplicationRead,
-    ApplicationWrite,
+    ApplicationUpdate,
+    JobApplicationCreate,
+    ManualApplicationCreate,
 )
 from src.features.applications.service import ApplicationService
 from src.features.inbox import InboxServiceDep
 from src.features.inbox.schemas import FollowUpDraft
-from src.features.jobs import JobServiceDep
+from src.features.jobs.router import job_service
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
 
 def get_application_service(
-    session: SessionDep, jobs: JobServiceDep
+    session: SessionDep, request: Request
 ) -> ApplicationService:
     """The application service on the request's database session"""
-    return ApplicationService(session, jobs)
+    return ApplicationService(
+        session, job_service(session, request.app.state.container)
+    )
 
 
 ApplicationServiceDep = Annotated[ApplicationService, Depends(get_application_service)]
@@ -39,22 +42,23 @@ async def list_applications(
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def add_application(
-    application: ApplicationCreate,
+    application: JobApplicationCreate | ManualApplicationCreate,
     user: CurrentUserDep,
     service: ApplicationServiceDep,
 ) -> ApplicationRead:
-    """Track an application"""
+    """Track an application for a stored job, or for a new saved job made from the
+    company and role; 409 when the job has one already"""
     return await service.add(user.id, application)
 
 
 @router.put("/{application_id}")
 async def replace_application(
     application_id: UUID,
-    application: ApplicationWrite,
+    application: ApplicationUpdate,
     user: CurrentUserDep,
     service: ApplicationServiceDep,
 ) -> ApplicationRead:
-    """Save every field of an application but its job"""
+    """Save every field of an application, and its job's company and role"""
     return await service.replace(user.id, application_id, application)
 
 
@@ -62,7 +66,8 @@ async def replace_application(
 async def delete_application(
     application_id: UUID, user: CurrentUserDep, service: ApplicationServiceDep
 ) -> None:
-    """Stop tracking an application"""
+    """Stop tracking an application, and delete its job when it was tracked by
+    hand"""
     await service.delete(user.id, application_id)
 
 

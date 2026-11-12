@@ -127,15 +127,31 @@ class JobService:
         return JobRead.model_validate(row, from_attributes=True), stored is None
 
     async def update(self, user_id: UUID, job_id: UUID, patch: JobUpdate) -> JobRead:
-        """Save, dismiss or return a job to the picks, or mark it opened"""
+        """Save, dismiss or return a job to the picks, rename one added by hand, or
+        mark it opened; InvalidInput when renaming a found job"""
         row = await self._repository.owned(Job, user_id, job_id)
         if row is None:
             raise NotFound("No such job")
+        if (
+            patch.title is not None or patch.company is not None
+        ) and row.source != "manual":
+            raise InvalidInput("Only a job added by hand can be renamed")
         if patch.status is not None:
             row.status = patch.status
+        if patch.title is not None:
+            row.title = patch.title
+        if patch.company is not None:
+            row.company = patch.company
         if patch.seen and row.seen_at is None:
             row.seen_at = utcnow()
         return JobRead.model_validate(row, from_attributes=True)
+
+    async def delete(self, user_id: UUID, job_id: UUID) -> None:
+        """Remove one of the user's jobs; NotFound when it is not theirs"""
+        row = await self._repository.owned(Job, user_id, job_id)
+        if row is None:
+            raise NotFound("No such job")
+        await self._repository.delete(row)
 
     async def analyse(
         self, user_id: UUID, job_id: UUID, analysis: FitAnalysis

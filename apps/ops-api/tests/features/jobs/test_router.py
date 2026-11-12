@@ -96,6 +96,13 @@ async def test_adding_a_job_again_refreshes_it_and_keeps_its_status(client):
     ]
 
 
+async def test_the_manual_source_is_kept_for_jobs_tracked_by_hand(client):
+    response = await client.post(JOBS, json={**NORTHWIND, "source": "manual"})
+
+    assert response.status_code == 422
+    assert (await client.get(JOBS)).json()["jobs"] == []
+
+
 async def test_save_and_dismiss_a_job(client):
     job = (await client.post(JOBS, json=NORTHWIND)).json()
 

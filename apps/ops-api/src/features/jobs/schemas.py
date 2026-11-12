@@ -96,6 +96,12 @@ class JobUpdate(BaseModel):
     status: JobStatus | None = None
     """Save, dismiss or return the job to the agent's picks; None leaves it"""
 
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    """A new job title for a job added by hand; None leaves it"""
+
+    company: str | None = Field(default=None, max_length=200)
+    """A new employer name for a job added by hand; None leaves it"""
+
     seen: Literal[True] | None = None
     """Mark the job opened; one opened before keeps when it first was"""
 

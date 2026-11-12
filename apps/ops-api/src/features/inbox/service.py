@@ -249,8 +249,12 @@ class InboxService:
         """Triage the threads of these newest messages and store what triage-email
         read in threads; a thread it could not read is left for the next sync"""
         applications = [
-            TriageApplication.model_validate(a, from_attributes=True)
-            for a, _ in await self._applications.applications(user_id)
+            TriageApplication(
+                id=application.id,
+                company=application.job.company,
+                role=application.job.title,
+            )
+            for application in await self._applications.applications(user_id)
         ]
         metadata = await self._settings.run_metadata(user_id)
         await self._session.commit()
@@ -307,7 +311,7 @@ class InboxService:
                 await self._calendar.create(
                     user_id,
                     EventCreate(
-                        title=f"{application.company} {application.role} interview"
+                        title=f"{application.job.company} {application.job.title} interview"
                         if application
                         else "Interview",
                         start=start,
@@ -389,8 +393,8 @@ class InboxService:
             data=DraftReplyInput(
                 thread=_content(thread) if thread else None,
                 application=DraftApplication(
-                    company=application.company,
-                    role=application.role,
+                    company=application.job.company,
+                    role=application.job.title,
                     stage=application.stage,
                     applied_at=application.applied_on,
                 )
