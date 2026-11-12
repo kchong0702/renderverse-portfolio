@@ -9,6 +9,7 @@ from src.agents.career_director.tools import (
     find_documents,
     find_jobs_tool,
     preview_profile_sync,
+    schedule_job_run,
     update_profile,
 )
 from src.app.a2a import Executable
@@ -48,6 +49,7 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
             providers.Callable(handoff_to_child_tool, ["productivity-assistant"]),
             find_documents,
             choose_document,
+            schedule_job_run,
         ),
         skill_tools=(read_profile_facts, preview_profile_sync, update_profile),
         state_schema=CareerDirectorState,

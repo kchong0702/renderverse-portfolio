@@ -1,7 +1,7 @@
 from typing import Annotated, Literal
 
 from document_schema import DocumentKind
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
 class DocumentSummary(BaseModel):
@@ -160,3 +160,13 @@ class ProfileUpdated(BaseModel):
 
     saved: int
     """How many edits were saved"""
+
+
+class JobRunQueued(BaseModel):
+    model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
+
+    id: str
+    """The queued run's id"""
+
+    run_after: AwareDatetime
+    """The earliest a worker may start it"""
