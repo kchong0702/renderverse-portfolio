@@ -3,8 +3,10 @@ import {
   connectJsearchMutationOptions,
   disconnectGoogleMutationOptions,
   disconnectJsearchMutationOptions,
+  identitiesQueryOptions,
   modelsQueryOptions,
   settingsQueryOptions,
+  unlinkIdentityMutationOptions,
   updateSettingsMutationOptions,
 } from "../queries/settings";
 
@@ -43,4 +45,12 @@ export function useDisconnectJsearch() {
 
 export function useDisconnectGoogle() {
   return useMutation(disconnectGoogleMutationOptions);
+}
+
+export function useIdentities() {
+  return useQuery(identitiesQueryOptions);
+}
+
+export function useUnlinkIdentity() {
+  return useMutation(unlinkIdentityMutationOptions);
 }

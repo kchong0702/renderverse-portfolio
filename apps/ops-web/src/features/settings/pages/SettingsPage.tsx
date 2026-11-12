@@ -6,6 +6,7 @@ import StateMessage from "@/shared/components/StateMessage";
 import AutomationPanel from "../components/AutomationPanel";
 import ConnectionsPanel from "../components/ConnectionsPanel";
 import JobAgentPanel from "../components/JobAgentPanel";
+import SignInMethodsPanel from "../components/SignInMethodsPanel";
 import SchedulingPanel from "../components/SchedulingPanel";
 import SystemPanel from "../components/SystemPanel";
 import { useSettings, useUpdateSettings } from "../hooks/useSettings";
@@ -14,7 +15,9 @@ export default function SettingsPage() {
   const { t } = useTranslation();
   const settings = useSettings();
   const update = useUpdateSettings();
-  const googleError = useSearchParams()[0].get("google_error");
+  const params = useSearchParams()[0];
+  const googleError = params.get("google_error");
+  const linkError = params.get("link_error");
 
   const saveStatus = update.isPending
     ? t("settings.save.saving")
@@ -50,6 +53,13 @@ export default function SettingsPage() {
             )}
           </StateMessage>
         )}
+        {linkError && (
+          <StateMessage tone="error">
+            {t(
+              `settings.signInMethods.linkErrors.${linkError === "taken" || linkError === "unverified" ? linkError : "failed"}`,
+            )}
+          </StateMessage>
+        )}
         {settings.isPending ? (
           <StateMessage>{t("common.loading")}</StateMessage>
         ) : settings.isError ? (
@@ -60,6 +70,7 @@ export default function SettingsPage() {
           <div className="grid grid-cols-[repeat(auto-fit,minmax(min(420px,100%),1fr))] items-start gap-6">
             <div className="flex flex-col gap-6">
               <ConnectionsPanel connections={settings.data.connections} />
+              <SignInMethodsPanel />
               <AutomationPanel
                 automation={settings.data.automation}
                 onChange={update.mutate}
