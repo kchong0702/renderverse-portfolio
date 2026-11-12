@@ -240,8 +240,8 @@ class PortfolioService:
         setattr(project, f"{slot}_id", asset_id)
 
     async def _snapshot(self, user_id: UUID) -> Snapshot:
-        """The draft: the profile without contact details, unarchived skills, and
-        unarchived projects that are on the site"""
+        """The draft: the profile without contact details, every skill, and the
+        projects that are on the site, whether or not the agents use them"""
         urls = {
             asset.id: f"/{_key(asset)}"
             for asset in await self._repository.assets(user_id)
@@ -251,7 +251,6 @@ class PortfolioService:
             skills=[
                 SiteSkill.model_validate(skill.model_dump())
                 for skill in await self._profile.skills(user_id)
-                if not skill.archived
             ],
             projects=[
                 SiteProject.model_validate(
@@ -262,9 +261,7 @@ class PortfolioService:
                     }
                 )
                 for entry in await self._profile.entries(user_id)
-                if entry.kind is EntryKind.PROJECT
-                and entry.on_site
-                and not entry.archived
+                if entry.kind is EntryKind.PROJECT and entry.on_site
             ],
         )
 

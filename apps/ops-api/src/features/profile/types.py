@@ -22,8 +22,11 @@ FactId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{1,64}$")]
 Highlight = Annotated[str, StringConstraints(min_length=1)]
 """One achievement sentence"""
 
-Link = Annotated[str, StringConstraints(min_length=1)]
-"""A profile or portfolio URL"""
+Link = Annotated[str, StringConstraints(min_length=1, max_length=500)]
+"""A URL"""
+
+Tool = Annotated[str, StringConstraints(min_length=1, max_length=50)]
+"""A language, framework or tool a project used, such as React or Figma"""
 
 
 __all__ = [
@@ -33,5 +36,6 @@ __all__ = [
     "FactId",
     "Highlight",
     "Link",
+    "Tool",
     "YearMonth",
 ]

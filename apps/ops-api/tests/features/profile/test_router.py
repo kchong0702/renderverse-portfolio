@@ -212,6 +212,55 @@ async def test_agent_profile_has_the_harness_shape(client):
     }
 
 
+async def test_links_are_labelled_and_at_most_three(client):
+    links = [
+        {"label": "Website", "url": "https://kelvinchong.dev"},
+        {"label": "LinkedIn", "url": "https://www.linkedin.com/in/kelvin"},
+        {"label": "GitHub", "url": "https://github.com/kchong0702"},
+    ]
+
+    saved = await client.patch(PROFILE, json={"links": links})
+    too_many = await client.patch(
+        PROFILE, json={"links": [*links, {"label": "X", "url": "https://x.com/k"}]}
+    )
+    unlabelled = await client.patch(
+        PROFILE, json={"links": [{"url": "https://kelvinchong.dev"}]}
+    )
+
+    assert saved.status_code == 200
+    assert saved.json()["links"] == links
+    assert too_many.status_code == 422
+    assert unlabelled.status_code == 422
+    assert (await client.get(PROFILE)).json()["links"] == links
+
+
+async def test_a_projects_tools_and_links_reach_the_agents(client):
+    project = (
+        await client.post(
+            f"{PROFILE}/entries",
+            json={
+                "kind": "project",
+                "title": "Renderverse",
+                "summary": "3D portfolio you can walk through",
+                "link": "https://kelvinchong.dev",
+                "code_link": "https://github.com/kchong0702/renderverse-portfolio",
+                "tools": ["React", "Three.js"],
+            },
+        )
+    ).json()
+
+    assert project["tools"] == ["React", "Three.js"]
+    assert project["link"] == "https://kelvinchong.dev"
+    [fact] = (await client.get(f"{PROFILE}/agent")).json()["facts"]
+    assert fact["text"] == (
+        "Project Renderverse\n"
+        "3D portfolio you can walk through\n"
+        "Tools: React, Three.js\n"
+        "Live at https://kelvinchong.dev\n"
+        "Code at https://github.com/kchong0702/renderverse-portfolio"
+    )
+
+
 @pytest.mark.postgres
 @pytest.mark.skipif(not DATABASE_URL, reason="OPS_API_TEST_DATABASE_URL is not set")
 async def test_a_first_read_that_overlaps_another_gets_the_profile(postgres_app):
