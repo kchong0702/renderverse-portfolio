@@ -1,0 +1,12 @@
+*
+!pyproject.toml
+!uv.lock
+!apps/ops-api
+!packages/document-schema
+apps/ops-api/.env
+apps/ops-api/.data
+apps/ops-api/tests
+packages/document-schema/tests
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache

@@ -1,0 +1,13 @@
+services:
+  ops-web:
+    image: ops-web:${TAG:-dev}
+    profiles: ["apps"]
+    build:
+      context: ../..
+      dockerfile: apps/ops-web/Dockerfile
+      target: ops-web
+    restart: always
+    depends_on:
+      - ops-api
+    ports:
+      - "127.0.0.1:${OPS_WEB_HOST_PORT:-5174}:8080"
