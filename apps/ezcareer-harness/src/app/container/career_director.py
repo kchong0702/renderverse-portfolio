@@ -63,7 +63,7 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
         Executable,
         kind="agent",
         name="career-director",
-        description="Talk to career-director from any page; it runs the other agents and workflows, and hands email to productivity-assistant",
+        description="Talk to career-director from any page; it edits documents and analyses and finds jobs through workflows, queues background job runs, updates the profile once the user approves, and hands email to productivity-assistant",
         graph=providers.Singleton(
             build_graph,
             director=agent,
