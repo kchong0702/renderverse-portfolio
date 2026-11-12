@@ -98,6 +98,25 @@ async def test_the_copy_comes_back_with_its_citations():
     assert "fact:skill-go  Languages: Go" in facts
 
 
+async def test_a_description_rests_on_the_fact_it_describes_without_citing_it():
+    model = _scripted(
+        _answer(
+            descriptions=[
+                {"fact": ROLE["fact"], "text": ROLE["text"]},
+                {**PROJECT, "facts": ["skill-go"]},
+            ]
+        )
+    )
+
+    result = await _graph(model).ainvoke(REQUEST)
+
+    assert [d.model_dump() for d in result["descriptions"]] == [
+        ROLE,
+        {**PROJECT, "facts": ["project-ledger", "skill-go"]},
+    ]
+    assert len(model.requests) == 3
+
+
 async def test_missing_entries_unknown_facts_caps_and_markdown_go_back():
     model = _scripted(
         _answer(

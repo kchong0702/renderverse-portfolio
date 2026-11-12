@@ -1,4 +1,4 @@
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from document_schema.types import Id
 from langchain_core.messages import AnyMessage
@@ -31,8 +31,18 @@ class Description(BaseModel):
     text: str
     """Plain text ready to paste, a scope line then • bullets"""
 
-    facts: list[Id] = Field(min_length=1)
-    """Ids of the profile facts it rests on, such as role-1"""
+    facts: list[Id] = Field(default_factory=list)
+    """Ids of any other profile facts it rests on, such as skill-2; the described
+    fact always counts"""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _rests_on_its_fact(cls, data: Any) -> Any:
+        """Puts the described fact first among the facts it rests on"""
+        if not isinstance(data, dict) or "fact" not in data:
+            return data
+        facts = [fact for fact in data.get("facts") or [] if fact != data["fact"]]
+        return {**data, "facts": [data["fact"], *facts]}
 
 
 class NetworkingCopy(BaseModel):

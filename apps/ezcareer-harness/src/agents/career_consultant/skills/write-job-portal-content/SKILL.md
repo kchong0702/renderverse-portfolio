@@ -14,7 +14,7 @@ This content makes the user's profile easy for recruiters to find and choose. It
    - `descriptions` has one description per role or project fact the request names, with that fact's id in `fact`. Open with one line on the scope, then the results as bullets, each line starting with `• `, leading with numbers where the facts have them.
 3. Use the role titles and skill names recruiters search for, as the facts name them. Never stuff keywords, and never list a skill no fact shows.
 4. Never claim anything no fact shows. Keep every number, name, employer and job title exactly as the facts have them. Never present a target role as a job the user has held.
-5. List the facts each field rests on in its `facts`, by id without `fact:`, such as `role-1` for `fact:role-1`. A field that names a number, a tool or an employer cites the fact that has it.
+5. List the facts each field rests on in its `facts`, by id without `fact:`, such as `role-1` for `fact:role-1`. A description already rests on the fact it describes, so its `facts` lists only the other facts it uses. A field that names a number, a tool or an employer cites the fact that has it.
 6. Write plain text only. No Markdown or HTML: no `#`, `*`, `-` or numbered lists, bold or links. Bullets are `•`.
 
 ## Checks
