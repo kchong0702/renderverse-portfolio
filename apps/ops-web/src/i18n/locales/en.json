@@ -121,7 +121,9 @@
     "search": {
       "label": "Search jobs",
       "keywords": "Keywords",
+      "keywordsPlaceholder": "Job title or keywords, e.g. Backend engineer",
       "location": "Location",
+      "locationPlaceholder": "City, country or Remote",
       "postedWithin": "Posted within",
       "posted": {
         "week": "Past week",
