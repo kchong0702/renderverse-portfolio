@@ -6,7 +6,7 @@ from deepagents import DeepAgentState, FilesystemPermission, create_deep_agent
 from deepagents.backends import CompositeBackend, FilesystemBackend, StateBackend
 from deepagents.middleware.filesystem import FilesystemMiddleware
 from deepagents.middleware.skills import SkillsMiddleware
-from langchain.agents.middleware import AgentMiddleware
+from langchain.agents.middleware import AgentMiddleware, InterruptOnConfig
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
@@ -46,9 +46,11 @@ def build_agent(
     state_schema: type[DeepAgentState] = DeepAgentState,
     context_schema: type | None = None,
     model: BaseChatModel | None = None,
+    interrupt_on: dict[str, InterruptOnConfig] | None = None,
 ) -> CompiledStateGraph:
     """Builds a registered agent as a read-only deep agent replying in any of
-    response_formats, offered each of skill_tools once it reads a skill listing it"""
+    response_formats, offered each of skill_tools once it reads a skill listing it,
+    pausing for the user's decision before each tool interrupt_on names"""
     backend = CompositeBackend(
         default=FilesystemBackend(root_dir=agent.skills, virtual_mode=True),
         routes={"/artifacts/": StateBackend()},
@@ -91,6 +93,7 @@ def build_agent(
         ],
         backend=backend,
         response_format=reduce(or_, response_formats) if response_formats else None,
+        interrupt_on=interrupt_on,
         state_schema=state_schema,
         context_schema=context_schema,
         name=agent.name,

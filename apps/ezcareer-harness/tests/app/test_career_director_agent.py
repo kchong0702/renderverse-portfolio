@@ -18,6 +18,7 @@ from tests.agents.career_director.test_career_director import (
     _model,
 )
 from tests.agents.career_director.test_handoffs import ACME
+from tests.agents.career_director.test_update_profile import HEADLINE, READ_SKILL
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.analyse_job import test_analyse_job_graph as analyse_job
@@ -463,3 +464,43 @@ def test_email_is_handed_to_productivity_assistant_which_answers_and_keeps_the_n
     [reply] = [a for a in again["artifacts"] if a["name"] == "career-director"]
     assert reply["parts"][0]["text"] == "Nothing else from Acme."
     assert len(director.requests) == 1
+
+
+def test_a_profile_update_waits_for_the_users_decision_and_saves_once_approved():
+    director = _model(
+        READ_SKILL,
+        _call("update_profile", edits=[HEADLINE]),
+        AIMessage("I saved your headline."),
+    )
+    client = TestClient(create_app(_container(_model(), _model(), director)))
+
+    reviewing = _stream(client, _director_request())
+    task = reviewing[-1]["statusUpdate"]
+    saving = _stream(
+        client, [{"data": {"decisions": [{"type": "approve"}]}}], task=task
+    )
+    done = _stream(client, [{"data": {"saved": 1}}], task=task)
+
+    assert task["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
+    [review] = task["status"]["message"]["parts"]
+    assert review["data"]["action_requests"][0]["name"] == "update_profile"
+    assert review["data"]["action_requests"][0]["args"] == {"edits": [HEADLINE]}
+    assert review["data"]["review_configs"] == [
+        {"action_name": "update_profile", "allowed_decisions": ["approve", "reject"]}
+    ]
+    assert saving[-1]["statusUpdate"]["status"]["message"]["parts"] == [
+        {"data": {"fetch": "profile_update", "edits": [HEADLINE]}}
+    ]
+    assert [
+        (
+            e["artifactUpdate"]["artifact"]["name"],
+            e["artifactUpdate"]["artifact"]["parts"],
+        )
+        for e in done
+        if "artifactUpdate" in e
+    ] == [
+        ("profile_updated", [{"data": {"saved": 1}}]),
+        ("text", [{"text": "I saved your headline."}]),
+        ("career-director", [{"text": "I saved your headline."}]),
+    ]
+    assert done[-1]["statusUpdate"]["status"]["state"] == "TASK_STATE_COMPLETED"
