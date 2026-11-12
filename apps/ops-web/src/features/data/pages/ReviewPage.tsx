@@ -206,10 +206,7 @@ function MatchCard({
         </span>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))] gap-3">
           {sides.map((side) => (
-            <div
-              key={side.key}
-              className="border-hair flex flex-col gap-0.5 rounded-[10px] border px-3.5 py-3"
-            >
+            <div key={side.key} className="flex flex-col gap-0.5">
               <span className="text-ink-3 text-xs font-semibold">
                 {t(`data.review.${side.key}`)}
               </span>

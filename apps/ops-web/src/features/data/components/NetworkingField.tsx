@@ -100,7 +100,7 @@ export default function NetworkingField({
       ) : (
         <p
           className={cn(
-            "bg-well m-0 rounded-[10px] px-4 py-3.5 leading-[1.7] whitespace-pre-line",
+            "m-0 leading-[1.7] whitespace-pre-line",
             !text && "text-ink-3",
             rewriting && "opacity-60",
           )}
