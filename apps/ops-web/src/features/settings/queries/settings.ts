@@ -47,9 +47,11 @@ export const updateSettingsMutationOptions = mutationOptions({
     if (result?.previous)
       client.setQueryData(settingsQueryOptions.queryKey, result.previous);
   },
-  onSuccess: (settings, _patch, _result, { client }) => {
+  onSuccess: (settings, patch, _result, { client }) => {
     if (client.isMutating({ mutationKey: updateSettingsKey }) === 1)
       client.setQueryData(settingsQueryOptions.queryKey, settings);
+    if (patch.scheduling)
+      client.invalidateQueries({ queryKey: ["calendar", "free-slots"] });
   },
 });
 

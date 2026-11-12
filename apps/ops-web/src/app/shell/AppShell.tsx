@@ -1,9 +1,11 @@
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Outlet, useLocation } from "react-router-dom";
 import { followUpDays, useApplications } from "@/features/applications";
 import { AssistantDock } from "@/features/assistant";
 import { useReplySuggestion } from "@/features/inbox";
 import { useJobs } from "@/features/jobs";
+import { useSettings, useUpdateSettings } from "@/features/settings";
 import { navItemAt } from "./nav";
 import Sidebar from "./Sidebar";
 
@@ -17,6 +19,18 @@ export default function AppShell() {
     (a) => followUpDays(a) !== null,
   );
   const reply = useReplySuggestion();
+  const timezone = useSettings().data?.scheduling.timezone;
+  const { mutate: updateSettings } = useUpdateSettings();
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (timezone !== null || seeded.current) return;
+    seeded.current = true;
+    updateSettings({
+      scheduling: {
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      },
+    });
+  }, [timezone, updateSettings]);
   const fixed = (
     item?.key === "jobs"
       ? [

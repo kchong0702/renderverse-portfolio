@@ -41,6 +41,7 @@ def _to_read(settings: UserSettings, connections: list[Connection]) -> SettingsR
             work_day_start=settings.work_day_start,
             work_day_end=settings.work_day_end,
             meeting_gap_minutes=settings.meeting_gap_minutes,
+            timezone=settings.timezone,
         ),
         ai_model=ModelChoice(family=settings.ai_family, model=settings.ai_model)
         if settings.ai_family is not None and settings.ai_model is not None

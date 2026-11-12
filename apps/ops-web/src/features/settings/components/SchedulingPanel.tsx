@@ -26,6 +26,16 @@ export default function SchedulingPanel({
     })),
     { value: `${start}-${end}`, label: hoursLabel(start, end) },
   );
+  const timezone =
+    scheduling.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const zoneOption = (zone: string) => ({
+    value: zone,
+    label: zone.replaceAll("_", " "),
+  });
+  const zones = withCurrent(
+    Intl.supportedValuesOf("timeZone").map(zoneOption),
+    zoneOption(timezone),
+  );
   const gapLabel = (minutes: number) =>
     t("settings.scheduling.gap", { count: minutes });
   const gaps = withCurrent(
@@ -51,6 +61,14 @@ export default function SchedulingPanel({
               event.target.value.split("-");
             onChange({ scheduling: { work_day_start, work_day_end } });
           }}
+        />
+        <SelectField
+          label={t("settings.scheduling.timezone")}
+          options={zones}
+          value={timezone}
+          onChange={(event) =>
+            onChange({ scheduling: { timezone: event.target.value } })
+          }
         />
         <SelectField
           label={t("settings.scheduling.meetingGap")}

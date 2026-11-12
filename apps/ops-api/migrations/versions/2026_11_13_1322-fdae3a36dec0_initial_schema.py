@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 174493b14911
+Revision ID: fdae3a36dec0
 Revises:
-Create Date: 2026-11-13 13:22:07.466453
+Create Date: 2026-11-13 13:22:13.785441
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "174493b14911"
+revision: str = "fdae3a36dec0"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -745,6 +745,7 @@ def upgrade() -> None:
         sa.Column("work_day_start", sa.Time(), nullable=False),
         sa.Column("work_day_end", sa.Time(), nullable=False),
         sa.Column("meeting_gap_minutes", sa.Integer(), nullable=False),
+        sa.Column("timezone", sa.String(length=64), nullable=True),
         sa.Column("ai_family", sa.String(length=20), nullable=True),
         sa.Column("ai_model", sa.String(length=100), nullable=True),
         sa.Column(

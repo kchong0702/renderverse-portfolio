@@ -32,6 +32,9 @@ class UserSettings(AuditMixin, Base):
     work_day_end: Mapped[time] = mapped_column(Time(), default=time(18, 0))
     meeting_gap_minutes: Mapped[int] = mapped_column(default=30)
 
+    timezone: Mapped[str | None] = mapped_column(String(64))
+    """The user's IANA time zone, such as Asia/Kuala_Lumpur; None until they choose one"""
+
     ai_family: Mapped[ModelFamily | None] = mapped_column(String(20))
     """Provider of the chosen model; None until the user picks one"""
 

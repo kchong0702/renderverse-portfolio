@@ -26,6 +26,7 @@ async def test_defaults_on_first_read(client):
         "work_day_start": "09:00:00",
         "work_day_end": "18:00:00",
         "meeting_gap_minutes": 30,
+        "timezone": None,
     }
     assert body["ai_model"] is None
     assert {c["id"]: c["status"] for c in body["connections"]} == {
@@ -65,6 +66,35 @@ async def test_work_day_must_end_after_it_starts(client):
 
     assert response.status_code == 422
     assert response.json()["detail"] == "The work day must end after it starts"
+
+
+async def test_the_time_zone_is_kept_with_the_work_hours(client):
+    response = await client.patch(
+        f"{PREFIX}/settings", json={"scheduling": {"timezone": "Asia/Kuala_Lumpur"}}
+    )
+
+    assert response.status_code == 200
+    reread = (await client.get(f"{PREFIX}/settings")).json()
+    assert reread["scheduling"] == {
+        "work_day_start": "09:00:00",
+        "work_day_end": "18:00:00",
+        "meeting_gap_minutes": 30,
+        "timezone": "Asia/Kuala_Lumpur",
+    }
+
+
+@pytest.mark.parametrize(
+    "zone", ["Mars/Olympus_Mons", "+08:00", "asia/kuala_lumpur", None]
+)
+async def test_a_time_zone_must_be_an_iana_name(client, zone):
+    response = await client.patch(
+        f"{PREFIX}/settings", json={"scheduling": {"timezone": zone}}
+    )
+
+    assert response.status_code == 422
+    assert (await client.get(f"{PREFIX}/settings")).json()["scheduling"][
+        "timezone"
+    ] is None
 
 
 async def test_rows_record_who_created_and_changed_them(app, client):
