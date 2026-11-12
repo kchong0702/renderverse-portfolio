@@ -15,6 +15,8 @@ def main():
         workers=_settings.app.workers,
         log_level=_settings.app.log_level,
         access_log=_settings.app.access_log,
+        proxy_headers=True,
+        forwarded_allow_ips=_settings.app.forwarded_allow_ips,
         loop="asyncio",
         timeout_keep_alive=30,
     )

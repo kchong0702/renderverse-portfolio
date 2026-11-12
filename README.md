@@ -167,7 +167,7 @@ The first Google or GitHub sign-in with a verified email that matches a seeded u
 
 To revoke access, set `users.disabled_at` (e.g. `UPDATE users SET disabled_at = now() WHERE email = 'you@example.com'`). Sign-in and any open session stop working at once, and the user's data stays. Clear it to restore access.
 
-Password sign-in is limited per email and per client address. Behind a proxy, ops-api only sees the proxy's address unless uvicorn trusts its `X-Forwarded-For` header (`FORWARDED_ALLOW_IPS`).
+Password sign-in is limited per email and per client address. ops-api takes the client address from `X-Forwarded-For` only when the request comes from an address in `app.forwarded_allow_ips` (`127.0.0.1` by default). In docker compose, ops-web's nginx overwrites that header with the client's address, and `OPS_API_APP__FORWARDED_ALLOW_IPS` trusts Docker's private networks, so each client is counted on its own. A proxy in front of nginx, such as `tailscale serve`, is seen as one client unless nginx is set to trust it too.
 
 ## Observability
 

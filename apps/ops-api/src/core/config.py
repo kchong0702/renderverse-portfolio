@@ -70,6 +70,10 @@ class AppSettings(BaseModel):
     access_log: bool = True
     """Enable uvicorn access log"""
 
+    forwarded_allow_ips: str = "127.0.0.1"
+    """Comma-separated addresses or networks whose X-Forwarded-For header gives the
+    client address, as uvicorn's forwarded_allow_ips"""
+
     @field_validator("cors_origin", mode="before")
     @classmethod
     def _cors_processor(cls, v: object) -> object:

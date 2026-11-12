@@ -1,9 +1,11 @@
 from collections.abc import Iterator
 from datetime import timedelta
 
+import httpx2
 import pytest
 from sqlalchemy import Engine, create_engine, func, select, update
 from sqlalchemy.orm import Session
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from src.core.auth.cli import main
 from src.core.auth.enums import Role
@@ -244,6 +246,55 @@ async def test_one_client_is_throttled_across_emails(auth_client):
         assert response.status_code == 401
 
     response = await _sign_in(auth_client, email="y@example.com")
+
+    assert response.status_code == 429
+
+
+def _behind_proxy(app, peer: str) -> httpx2.AsyncClient:
+    """A client whose requests reach the app from peer through uvicorn's proxy headers"""
+    return httpx2.AsyncClient(
+        transport=httpx2.ASGITransport(
+            app=ProxyHeadersMiddleware(
+                app, trusted_hosts=get_settings().app.forwarded_allow_ips
+            ),
+            client=(peer, 123),
+        ),
+        base_url="http://test",
+    )
+
+
+async def test_clients_behind_the_proxy_are_throttled_apart(auth_app):
+    async with _behind_proxy(auth_app, "127.0.0.1") as proxy:
+        for i in range(20):
+            await proxy.post(
+                f"{PREFIX}/auth/password",
+                json={"email": f"x{i}@example.com", "password": "nope"},
+                headers={"X-Forwarded-For": "203.0.113.1"},
+            )
+
+        response = await proxy.post(
+            f"{PREFIX}/auth/password",
+            json={"email": "y@example.com", "password": "nope"},
+            headers={"X-Forwarded-For": "203.0.113.2"},
+        )
+
+    assert response.status_code == 401
+
+
+async def test_an_untrusted_peer_cannot_forge_its_address(auth_app):
+    async with _behind_proxy(auth_app, "198.51.100.9") as client:
+        for i in range(20):
+            await client.post(
+                f"{PREFIX}/auth/password",
+                json={"email": f"x{i}@example.com", "password": "nope"},
+                headers={"X-Forwarded-For": f"203.0.113.{i}"},
+            )
+
+        response = await client.post(
+            f"{PREFIX}/auth/password",
+            json={"email": "y@example.com", "password": "nope"},
+            headers={"X-Forwarded-For": "203.0.113.99"},
+        )
 
     assert response.status_code == 429
 
