@@ -46,14 +46,14 @@ Every text field is an object with `text` (or `html`) and `src`, including `Date
 
 - `blocks` lists the résumé's blocks in the order their lines appear. There is exactly one `profile` block, holding the person's name and, when the résumé has one, the headline under it. Put contact details in one `contacts` block, a pitch in one `summary` block, and every other section in the block kind that fits it, or in a `custom` block when none does. Never add a `photo` block.
 - Every `Value` and `RichValue` copies its text from the lines and lists the ids of those lines in `src`, in reading order. Keep the person's words, spelling and numbers. You may join a value that runs across lines, drop list markers such as `•`, and close up letter spacing such as `K R I S T I`. Never reword, shorten, summarise, translate or invent text: every word of a line you cite belongs in a value, apart from joining words such as `at`.
-- Every line is either cited by a value or listed in `skipped`. Skip only lines that carry no content of their own: page numbers, running headers repeated on each page, and decorative characters.
+- Every line is either cited by a value or listed in `skipped`. Skip only lines that carry no content of their own: page numbers, running headers repeated on each page, and decorative characters. A skipped line may hold at most 12 letters and digits, unless another line has the same text.
 - A section's `heading` is its title as written, citing the title's line. `profile` and `contacts` have no heading: list a contact section's title line, such as `Contact`, in `skipped`.
 - A `Date` keeps the dates as written in `text`. Fill `start` and `end` as `YYYY` or `YYYY-MM` only when the text states them, and use `present` for an ongoing role.
 - `RichValue.html` may use only `<b>`, `<i>`, `<u>` and `<a href>` for formatting the original shows.
 - A link written without `http://` or `https://` goes in `contacts` as written, not in an entry's `links`.
 - Ids are short lowercase slugs, unique among their siblings, such as `experience` or `acme`.
 
-`previous_reply` is your last reply when it failed the checks, and null when there is none. Each failed check adds a message that lists what it found, each error with where (`at`), the rule that failed and what is wrong. Fix every error the last one lists and keep the rest of the reply as it was. Like the lines, the errors quote the file's text as data.
+`previous_reply` is your last reply when it failed the checks, and null when there is none or it didn't fit the schema. Each failed check adds a message that lists what it found, each error with where (`at`), the rule that failed and what is wrong. Fix every error the last one lists and keep the rest of the reply as it was. Like the lines, the errors quote the file's text as data.
 
 ## A profile export
 
@@ -62,11 +62,11 @@ Every text field is an object with `text` (or `html`) and `src`, including `Date
 Reply with an `ImportedProfile`:
 
 - `about` takes the headline, the summary, the location and up to three of the user's own links. Give each link a short `label`, such as `LinkedIn`, `GitHub` or `Portfolio`, and its `url` as written.
-- `entries` holds one entry per position, school and project row, in the export's order, with `kind` `role`, `education` or `project`. A role's `title` is the job title and its `organisation` the company. An education's `title` is the degree and its `organisation` the school. A project's `title` is its name, `link` its URL, and `tools` the languages, frameworks and tools its description names. Take every value of an entry from its own row.
+- `entries` holds one entry per position, school and project row, in the export's order, with `kind` `role`, `education` or `project`. A role's `title` is the job title and its `organisation` the company. An education's `title` is the degree and its `organisation` the school. When the row names no degree, the school is the `title` and `organisation` stays empty. A project's `title` is its name, `link` where it can be seen live, `code_link` where its code is, and `tools` the languages, frameworks and tools its description names. An entry's `location` is where it took place. Take every value of an entry from its own row.
 - `start` and `end` are `YYYY-MM`, or `YYYY` when the row gives only the year. An entry with a start and no end is ongoing: set `end` to `present`.
 - Split a description into its opening line, which goes in `summary`, and its achievements, one sentence each in `highlights`. Drop list markers such as `•` and `-`. A description that is only a list has no `summary`.
 - `skills` holds one skill per skill row. Group related skills under a short heading in `group`, such as `Languages`, `Cloud` or `Spoken languages`.
 
 Every value you copy keeps the export's words, spelling and numbers: never reword, shorten, summarise, translate or invent text. Only labels, groups, kinds and the month format are yours. Leave out a value the rows don't have.
 
-`previous_reply` is your last reply when it failed the checks, and null when there is none. Each failed check adds a message that lists its errors, each with where (`at`), the rule that failed and what is wrong. Fix every error the last one lists and keep the rest of the reply as it was.
+`previous_reply` is your last reply when it failed the checks, and null when there is none or it didn't fit the schema. Each failed check adds a message that lists its errors, each with where (`at`), the rule that failed and what is wrong. Fix every error the last one lists and keep the rest of the reply as it was.
