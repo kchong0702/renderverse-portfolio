@@ -57,7 +57,8 @@ pnpm run dev:renderverse      # web app only
 pnpm run dev:ezbot-harness    # chatbot API on the host (http://localhost:8000/docs), starts the Laya container first
 pnpm run dev:ops-web          # Ops UI only (http://localhost:5174)
 pnpm run dev:ops-api          # Ops API on the host (http://localhost:8100/ops-api/docs), starts Postgres first
-pnpm run dev:ops              # both Ops services, in one terminal
+pnpm nx run ops-api:worker    # ops-worker, which processes the files uploaded to Documents and Data
+pnpm run dev:ops              # the Ops UI, API and worker, in one terminal
 pnpm run migrate              # apply ops-api's database migrations
 pnpm nx run ezcareer-harness:dev  # career agents (http://localhost:8200/ezcareer/docs)
 pnpm nx run artifact-service:dev  # PDFs and Word conversion (http://localhost:8210/artifact-service/docs), builds document-renderer first
@@ -113,7 +114,7 @@ In production the frontend and API must share a site (e.g. `example.com` and `ap
 
 The frontend is built to `apps/renderverse/dist` for Cloudflare Pages. [apps/renderverse/Dockerfile](apps/renderverse/Dockerfile) can also build it as an nginx image, taking its `VITE_*` settings from `apps/renderverse/.env` as build arguments. Its compose service is in the `renderverse` profile, so `pnpm run start` leaves it out; run it with `docker compose --profile renderverse up -d renderverse`. The backend runs on a server from Docker images: [apps/ezbot-harness/Dockerfile](apps/ezbot-harness/Dockerfile) builds both `ezbot` and `ezbot-laya` (one target each), and [apps/ezbot-harness/docker-compose.yaml](apps/ezbot-harness/docker-compose.yaml) runs them. The root [docker-compose.yaml](docker-compose.yaml) includes it, adds the collector, and puts every service on the `renderverse` network, where Ezbot reaches Laya and the collector by service name.
 
-Ops runs from images too. [apps/ops-api/Dockerfile](apps/ops-api/Dockerfile) builds ops-api, and [apps/ops-web/Dockerfile](apps/ops-web/Dockerfile) builds the UI and serves it with nginx on port 5174, forwarding `/ops-api` to ops-api, so `tailscale serve` on the VM only needs to point at it. ops-web's `build` target stays the Vite `dist`; build its image with `docker compose build ops-web`. ops-api reads its database URL and keys from `apps/ops-api/.env` (Supabase in production) and keeps local files in the `ops-api-data` volume while R2 is not set up. Apply its migrations with:
+Ops runs from images too. [apps/ops-api/Dockerfile](apps/ops-api/Dockerfile) builds ops-api, which the `ops-worker` service runs as `python -m src.worker` with no port, and [apps/ops-web/Dockerfile](apps/ops-web/Dockerfile) builds the UI and serves it with nginx on port 5174, forwarding `/ops-api` to ops-api, so `tailscale serve` on the VM only needs to point at it. ops-web's `build` target stays the Vite `dist`; build its image with `docker compose build ops-web`. ops-api reads its database URL and keys from `apps/ops-api/.env` (Supabase in production) and keeps local files in the `ops-api-data` volume while R2 is not set up. Apply its migrations with:
 
 ```bash
 docker compose run --rm --no-deps ops-api alembic upgrade head
@@ -131,6 +132,8 @@ pnpm run dev:ops
 ```
 
 The UI on http://localhost:5174 proxies `/ops-api` to ops-api, the same path `tailscale serve` routes on the VM. Locally auth is off and every request acts as `auth.dev_email` from [config.toml](apps/ops-api/config.toml), as an admin. ops-api refuses to start with auth off unless `app.env` is `dev` and `auth.web_url` is on localhost, 127.0.0.1 or ::1.
+
+Files uploaded to Documents and Data are stored and queued as imports, which ops-worker claims and processes; several workers can run at once. Run one with `pnpm nx run ops-api:worker` (`pnpm run dev:ops` starts it with the API). Without it, uploads stay queued.
 
 The agents and documents need two more services. ops-api calls the ezcareer harness (http://localhost:8200) for the assistant, job search, tailoring, résumé import and email, and artifact-service (http://localhost:8210) to export PDFs and list the templates. The harness also uses artifact-service, to read and print imported résumés. `pnpm run dev` starts everything; on its own, start them with `pnpm nx run ezcareer-harness:dev` and `pnpm nx run artifact-service:dev`.
 

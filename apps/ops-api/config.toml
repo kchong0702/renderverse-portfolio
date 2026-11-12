@@ -19,6 +19,11 @@ timeout_seconds = 60
 [documents]
 max_per_kind = 10
 
+[imports]
+lease_seconds = 60
+heartbeat_seconds = 15
+poll_seconds = 2
+
 [auth]
 enabled = false
 dev_email = "owner@localhost"

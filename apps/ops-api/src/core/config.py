@@ -111,6 +111,19 @@ class DocumentsSettings(BaseModel):
     """The media types an uploaded résumé may have: PDF or Word"""
 
 
+class ImportsSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    lease_seconds: float = Field(default=60, gt=0)
+    """How long a worker's claim on an import lasts unless it extends it"""
+
+    heartbeat_seconds: float = Field(default=15, gt=0)
+    """How often a worker extends the lease of the import it is processing"""
+
+    poll_seconds: float = Field(default=2, gt=0)
+    """How long a worker waits before looking for work again when none was due"""
+
+
 class ProfileSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
@@ -476,6 +489,9 @@ class Settings(BaseSettings):
     google: GoogleSettings = Field(default_factory=GoogleSettings)
     """Reading the user's Gmail and Google Calendar"""
 
+    imports: ImportsSettings = Field(default_factory=ImportsSettings)
+    """Leases, heartbeats and polling for processing imports"""
+
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     """Logging settings"""
 
@@ -540,6 +556,7 @@ __all__ = [
     "DocumentsSettings",
     "EzcareerSettings",
     "GoogleSettings",
+    "ImportsSettings",
     "JSearchSettings",
     "ObservabilitySettings",
     "PortfolioSettings",
