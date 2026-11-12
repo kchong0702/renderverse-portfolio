@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 
 import httpx
-import pytest
 from document_schema import AnyDocument, AnyEdit, Changeset, RichValue, UpdateField
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import BaseTool
@@ -24,7 +23,7 @@ from src.core.config import get_settings
 from src.shared.extraction.types import Line
 from src.shared.profile import ProfileFact
 from src.shared.widget import Answer, WidgetSetting
-from src.tools import clarify, permission, read_profile_facts
+from src.tools import clarify, read_profile_facts
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 
@@ -64,7 +63,6 @@ TOOLS: tuple[BaseTool, ...] = (
         )
     ),
     clarify,
-    permission,
 )
 GOOD_EDIT = UpdateField(
     kind="update_field",
@@ -194,31 +192,6 @@ async def test_clarify_shows_the_user_a_widget_and_returns_what_they_typed():
     assert resumed["messages"][-1].text == DONE.text
 
 
-@pytest.mark.parametrize(
-    ("accept", "reply"),
-    [
-        (True, "Permission granted: Replace the summary. Go ahead."),
-        (False, "Permission refused: Replace the summary. Don't do it."),
-    ],
-)
-async def test_permission_asks_the_user_to_confirm_and_returns_their_choice(
-    accept: bool, reply: str
-):
-    paused, resumed = await _asked(
-        _call("permission", summary="Replace the summary"),
-        Answer(accept=accept).model_dump(),
-    )
-
-    assert [WidgetSetting.model_validate(i.value) for i in paused["__interrupt__"]] == [
-        WidgetSetting(
-            label="May I go ahead? Replace the summary",
-            submit_btn="Confirm",
-            cancel_btn="Cancel",
-        )
-    ]
-    assert _tool_results(resumed)["permission"] == reply
-
-
 async def test_with_a_parent_clarify_asks_the_parent_the_plain_question():
     paused, resumed = await _asked(
         _call("clarify", question="Which job?"),
@@ -228,22 +201,6 @@ async def test_with_a_parent_clarify_asks_the_parent_the_plain_question():
 
     assert [i.value for i in paused["__interrupt__"]] == ["Which job?"]
     assert _tool_results(resumed)["clarify"] == "Lumen Pay"
-
-
-async def test_with_a_parent_permission_asks_the_parent_as_plain_text():
-    paused, resumed = await _asked(
-        _call("permission", summary="Replace the summary"),
-        Answer(accept=True).model_dump(),
-        {"parent": "career-director"},
-    )
-
-    assert [i.value for i in paused["__interrupt__"]] == [
-        "May I go ahead? Replace the summary"
-    ]
-    assert (
-        _tool_results(resumed)["permission"]
-        == "Permission granted: Replace the summary. Go ahead."
-    )
 
 
 async def test_clarify_takes_a_plain_text_answer_as_what_was_typed():
