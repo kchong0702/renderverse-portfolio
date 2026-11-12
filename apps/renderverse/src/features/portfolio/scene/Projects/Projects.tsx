@@ -53,10 +53,10 @@ function Projects({
           proj_name: project.title,
           short_desc: project.summary,
           proj_desc: project.highlights.join(" "),
-          proj_link: "",
-          github_link: null,
+          proj_link: project.link ?? "",
+          github_link: project.code_link ?? null,
           img_path: project.image && CONFIG.portfolioBucketUrl + project.image,
-          proj_stack: [],
+          proj_stack: project.tools ?? [],
           vid_path: project.video && CONFIG.portfolioBucketUrl + project.video,
         }))
       : [

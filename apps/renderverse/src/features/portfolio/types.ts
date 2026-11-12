@@ -21,6 +21,13 @@ export interface SkillItem {
 export interface Release {
   number: number;
   published_at: string;
+  about: {
+    name: string;
+    headline: string;
+    summary: string;
+    location: string;
+    links: (string | { label: string; url: string })[];
+  };
   skills: { id: string; name: string; group: string }[];
   projects: {
     id: string;
@@ -30,6 +37,9 @@ export interface Release {
     end: string | null;
     summary: string;
     highlights: string[];
+    link?: string | null;
+    code_link?: string | null;
+    tools?: string[];
     image: string | null;
     video: string | null;
   }[];
