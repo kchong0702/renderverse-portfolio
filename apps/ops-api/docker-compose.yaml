@@ -1,0 +1,25 @@
+services:
+  ops-api:
+    image: ops-api:${TAG:-dev}
+    profiles: ["apps"]
+    build:
+      context: ../..
+      dockerfile: apps/ops-api/Dockerfile
+      target: ops-api
+    restart: always
+    depends_on:
+      - ezcareer-harness
+      - artifact-service
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      OPS_API_EZCAREER__URL: http://ezcareer-harness:8000/ezcareer
+      OPS_API_ARTIFACT__URL: http://artifact-service:8000/artifact-service
+    volumes:
+      - ops-api-data:/app/apps/ops-api/.data
+    ports:
+      - "127.0.0.1:${OPS_API_HOST_PORT:-8100}:8000"
+
+volumes:
+  ops-api-data:

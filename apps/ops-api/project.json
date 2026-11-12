@@ -65,6 +65,12 @@
         "command": "uv run pytest",
         "cwd": "apps/ops-api"
       }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose build ops-api"
+      }
     }
   }
 }
