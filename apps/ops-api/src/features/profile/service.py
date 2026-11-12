@@ -393,9 +393,8 @@ class ProfileService:
         content: bytes,
         imported: ImportedProfile,
     ) -> ProfileImportRead:
-        """Add what an import brings that the profile lacks and leave a pending change
-        for each value it would overwrite or entry it may be; the same file again
-        changes nothing"""
+        """Add what the profile lacks and a pending change for each value an import
+        would overwrite or entry it may be; the same file again changes nothing"""
         digest = sha256(content).hexdigest()
         if (earlier := await self._repository.imported(user_id, digest)) is not None:
             return ProfileImportRead.model_validate(earlier, from_attributes=True)

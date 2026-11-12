@@ -21,8 +21,8 @@ _CONTACTS = {"email addresses.csv", "phonenumbers.csv"}
 
 
 def read_export(data: bytes, max_unzipped_bytes: int) -> ProfileExport:
-    """The profile, job, education, project and skill files of an export zip for
-    import-profile, and its name, email and phone; every other file is ignored"""
+    """The profile, job, education, project and skill files of an export zip, and
+    its name, email and phone; every other file is ignored"""
     try:
         archive = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile as error:

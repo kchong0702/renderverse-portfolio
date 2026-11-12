@@ -113,7 +113,7 @@ class ProfileSettings(BaseModel):
     """The largest profile export zip a user may upload"""
 
     max_unzipped_bytes: int = Field(default=20 * 1024 * 1024, gt=0)
-    """The most an export's read files may unpack to, against zip bombs"""
+    """The most an export's read files may unpack to"""
 
     export_types: frozenset[str] = frozenset(
         {"application/zip", "application/x-zip-compressed"}

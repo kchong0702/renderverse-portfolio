@@ -237,7 +237,7 @@ class ExportFile(BaseModel):
 
 class ProfileExport(BaseModel):
     files: list[ExportFile]
-    """The profile, job, education, project and skill files import-profile reads"""
+    """The profile, job, education, project and skill files"""
 
     name: str
     """Full name from the export's profile; empty when it has none"""
@@ -251,7 +251,7 @@ class ProfileExport(BaseModel):
 
 class ImportProfileInput(BaseModel):
     files: list[ExportFile]
-    """The export's files import-profile reads"""
+    """The export's profile, job, education, project and skill files"""
 
 
 class ResumeFile(BaseModel):
@@ -266,7 +266,7 @@ class ResumeFile(BaseModel):
 
 class ImportedResume(BaseModel):
     document: ResumeDocument
-    """The draft import-resume made from the file; the rest of its reply is unused"""
+    """The draft document made from the file"""
 
 
 class ImportedAbout(BaseModel):

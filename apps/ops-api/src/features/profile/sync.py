@@ -33,7 +33,7 @@ ENTRY_FIELDS: tuple[ChangeField, ...] = (
 
 
 def normalised(text: str) -> str:
-    """Casefolded words without punctuation, for comparing what an import says"""
+    """Casefolded words without punctuation"""
     return " ".join(re.sub(r"[^\w\s]", " ", text.casefold()).split())
 
 

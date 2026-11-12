@@ -47,8 +47,8 @@ RENDERVERSE = {
 
 
 def _export(*extra: str, **files: str) -> bytes:
-    """A profile export zip holding these CSV files under a folder, as LinkedIn
-    nests them; extra makes otherwise equal exports differ"""
+    """A profile export zip holding these CSV files under a folder; extra makes
+    otherwise equal exports differ"""
     data = io.BytesIO()
     with zipfile.ZipFile(data, "w") as archive:
         for name, content in files.items():

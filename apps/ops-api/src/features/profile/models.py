@@ -152,7 +152,7 @@ class ProfileImport(IdMixin, UserScopedMixin, AuditMixin, Base):
     """Bytes in the file"""
 
     digest: Mapped[str] = mapped_column(String(64))
-    """Sha256 of the file, so the same file is imported once"""
+    """Sha256 of the file"""
 
     source: Mapped[ImportSource] = mapped_column(EnumString(ImportSource))
     """Whether it was uploaded on the Data page or in Documents"""

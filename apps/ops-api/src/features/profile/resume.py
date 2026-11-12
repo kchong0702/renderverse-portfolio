@@ -91,8 +91,8 @@ def _about(content: ResumeContent) -> ImportedAbout:
 
 
 def resume_profile(content: ResumeContent) -> ImportedProfile:
-    """A résumé's details, jobs, degrees, projects, skills and languages in
-    import-profile's shape; other sections have no place in the profile"""
+    """A résumé's details, jobs, degrees, projects, skills and languages as an
+    imported profile; every other section is dropped"""
     entries: list[ImportedEntry] = []
     skills: list[ImportedSkill] = []
     for block in content.blocks:
