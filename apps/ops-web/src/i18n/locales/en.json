@@ -1138,6 +1138,10 @@
       "monthPlaceholder": "YYYY-MM",
       "highlights": "Highlights, one per line",
       "highlightsPlaceholder": "e.g. Led the migration of 30 services to Kubernetes.",
+      "link": "Live link",
+      "codeLink": "Code link",
+      "tools": "Tools, separated by commas",
+      "toolsPlaceholder": "e.g. React, Figma",
       "save": "Save",
       "saving": "Saving…",
       "cancel": "Cancel",
@@ -1151,7 +1155,10 @@
       "location": "Location",
       "email": "Email",
       "phone": "Phone",
-      "links": "Links, one per line",
+      "links": "Links, up to three",
+      "linkLabel": "Link {{number}} name",
+      "linkLabelPlaceholder": "e.g. LinkedIn",
+      "linkUrl": "Link {{number}} address",
       "summary": "Summary"
     },
     "preferences": {

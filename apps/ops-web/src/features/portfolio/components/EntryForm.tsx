@@ -32,6 +32,9 @@ export default function EntryForm({
     end: entry.end === "present" ? "" : (entry.end ?? ""),
     ongoing: entry.end === "present",
     highlights: entry.highlights.join("\n"),
+    link: entry.link ?? "",
+    code_link: entry.code_link ?? "",
+    tools: entry.tools.join(", "),
   });
   const set = (change: Partial<typeof draft>) =>
     setDraft((current) => ({ ...current, ...change }));
@@ -50,6 +53,12 @@ export default function EntryForm({
       highlights: draft.highlights
         .split("\n")
         .map((line) => line.trim())
+        .filter(Boolean),
+      link: draft.link.trim() || null,
+      code_link: draft.code_link.trim() || null,
+      tools: draft.tools
+        .split(",")
+        .map((tool) => tool.trim())
         .filter(Boolean),
       archived: draft.archived,
       on_site: draft.on_site,
@@ -122,6 +131,32 @@ export default function EntryForm({
         value={draft.highlights}
         onChange={(event) => set({ highlights: event.target.value })}
       />
+      {kind === "project" && (
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))] gap-3.5">
+          <TextField
+            label={t("portfolio.form.link")}
+            type="url"
+            maxLength={500}
+            placeholder="https://"
+            value={draft.link}
+            onChange={(event) => set({ link: event.target.value })}
+          />
+          <TextField
+            label={t("portfolio.form.codeLink")}
+            type="url"
+            maxLength={500}
+            placeholder="https://"
+            value={draft.code_link}
+            onChange={(event) => set({ code_link: event.target.value })}
+          />
+          <TextField
+            label={t("portfolio.form.tools")}
+            placeholder={t("portfolio.form.toolsPlaceholder")}
+            value={draft.tools}
+            onChange={(event) => set({ tools: event.target.value })}
+          />
+        </div>
+      )}
       {error && (
         <p role="alert" className="text-crit m-0 text-sm">
           {t("portfolio.form.failed", { reason: error })}
