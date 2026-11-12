@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from cryptography.fernet import Fernet, InvalidToken
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +13,8 @@ from src.clients.ezcareer import (
     RunMetadata,
 )
 from src.core.config import JSearchSettings, get_settings
-from src.core.exceptions import Conflict, InvalidInput, ServiceUnavailable
+from src.core.exceptions import InvalidInput
+from src.features.connections import ConnectionService, JSearchDetails, Provider
 from src.features.google import GoogleService
 from src.features.settings.models import UserSettings
 from src.features.settings.repository import SettingsRepository
@@ -59,25 +59,23 @@ class SettingsService:
     ):
         """Read and write the settings through a repository on the session, list the
         models ezcareer-harness serves, read the user's Google connection, and keep
-        the key that encrypts JSearch keys"""
+        the user's JSearch key through the connection service"""
         self._repository = SettingsRepository(session)
         self._ezcareer = ezcareer
         self._google = google
-        self._jsearch = jsearch
-
-    def _fernet(self) -> Fernet:
-        """The cipher for JSearch keys; ServiceUnavailable until the server has one"""
-        if not self._jsearch.encryption_key.get_secret_value():
-            raise ServiceUnavailable(
-                "JSearch keys are not set up on the server: set "
-                "OPS_API_JSEARCH__ENCRYPTION_KEY"
-            )
-        return Fernet(self._jsearch.encryption_key.get_secret_value())
+        self._jsearch = ConnectionService(
+            session,
+            Provider.JSEARCH,
+            jsearch.encryption_key,
+            "JSearch",
+            "Ops can no longer read your JSearch key; change it in Settings",
+        )
 
     async def _connections(self, settings: UserSettings) -> list[Connection]:
         """Google from its stored grant, JSearch from the stored key and its last
         quota; the portfolio site is connected once portfolio.site_url is set"""
         email = await self._google.email(settings.user_id)
+        jsearch = await self._jsearch.get(settings.user_id)
         google = (
             Connection(
                 id="google",
@@ -96,15 +94,15 @@ class SettingsService:
             google,
             Connection(
                 id="jsearch",
-                status="connected"
-                if settings.jsearch_ciphertext is not None
-                else "not_connected",
+                status="connected" if jsearch is not None else "not_connected",
                 quota=SearchQuota(
-                    remaining=settings.jsearch_quota_remaining,
-                    limit=settings.jsearch_quota_limit,
+                    remaining=jsearch.details.quota_remaining,
+                    limit=jsearch.details.quota_limit,
                 )
-                if settings.jsearch_quota_remaining is not None
-                and settings.jsearch_quota_limit is not None
+                if jsearch is not None
+                and isinstance(jsearch.details, JSearchDetails)
+                and jsearch.details.quota_remaining is not None
+                and jsearch.details.quota_limit is not None
                 else None,
             ),
             Connection(
@@ -153,51 +151,36 @@ class SettingsService:
     async def connect_jsearch(self, user_id: UUID, api_key: SecretStr) -> SettingsRead:
         """Store the user's JSearch key, encrypted, in place of any earlier one, whose
         quota no longer applies"""
-        settings = await self._load(user_id)
-        settings.jsearch_ciphertext = self._fernet().encrypt(
-            api_key.get_secret_value().encode()
-        )
-        settings.jsearch_quota_remaining = None
-        settings.jsearch_quota_limit = None
-        return _to_read(settings, await self._connections(settings))
+        await self._jsearch.connect(user_id, api_key.get_secret_value())
+        return await self.get(user_id)
 
     async def disconnect_jsearch(self, user_id: UUID) -> SettingsRead:
         """Forget the user's JSearch key and its quota; a no-op if none is stored"""
-        settings = await self._load(user_id)
-        settings.jsearch_ciphertext = None
-        settings.jsearch_quota_remaining = None
-        settings.jsearch_quota_limit = None
-        return _to_read(settings, await self._connections(settings))
+        await self._jsearch.disconnect(user_id)
+        return await self.get(user_id)
 
     async def record_quota(self, user_id: UUID, quota: SearchQuota | None) -> None:
         """Keep the quota a find run read on the user's JSearch key; a run on the
         server's key leaves it"""
-        settings = await self._load(user_id)
-        if settings.jsearch_ciphertext is not None:
-            settings.jsearch_quota_remaining = quota.remaining if quota else None
-            settings.jsearch_quota_limit = quota.limit if quota else None
+        await self._jsearch.record_quota(
+            user_id, quota.remaining if quota else None, quota.limit if quota else None
+        )
 
     async def run_metadata(self, user_id: UUID) -> RunMetadata | None:
         """The user's chosen model and JSearch key for a harness run; None when they
         set neither; Conflict when the stored key can no longer be read"""
         settings = await self._repository.get(user_id)
-        if settings is None:
-            return None
-        try:
-            jsearch = (
-                JSearchMetadata(
-                    api_key=self._fernet().decrypt(settings.jsearch_ciphertext).decode()
-                )
-                if settings.jsearch_ciphertext is not None
-                else None
-            )
-        except InvalidToken as error:
-            raise Conflict(
-                "Ops can no longer read your JSearch key; change it in Settings"
-            ) from error
+        connection = await self._jsearch.get(user_id)
+        jsearch = (
+            JSearchMetadata(api_key=self._jsearch.secret(connection))
+            if connection is not None
+            else None
+        )
         model = (
             ModelChoice(family=settings.ai_family, model=settings.ai_model)
-            if settings.ai_family is not None and settings.ai_model is not None
+            if settings is not None
+            and settings.ai_family is not None
+            and settings.ai_model is not None
             else None
         )
         if model is None and jsearch is None:

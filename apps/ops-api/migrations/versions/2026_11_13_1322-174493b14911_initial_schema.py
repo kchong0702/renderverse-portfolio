@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 79f7f3a1d1b0
+Revision ID: 174493b14911
 Revises:
-Create Date: 2026-11-13 13:22:00.416476
+Create Date: 2026-11-13 13:22:07.466453
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "79f7f3a1d1b0"
+revision: str = "174493b14911"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -257,11 +257,24 @@ def upgrade() -> None:
         op.f("ix_auth_sessions_user_id"), "auth_sessions", ["user_id"], unique=False
     )
     op.create_table(
-        "google_accounts",
+        "connections",
         sa.Column("user_id", sa.Uuid(), nullable=False),
-        sa.Column("email", sa.String(length=320), nullable=False),
-        sa.Column("ciphertext", sa.LargeBinary(), nullable=False),
-        sa.Column("scopes", sa.Text(), server_default="", nullable=False),
+        sa.Column("provider", sa.String(), nullable=False),
+        sa.Column("account", sa.String(length=320), nullable=False),
+        sa.Column("secret", sa.LargeBinary(), nullable=False),
+        sa.Column(
+            "details",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=False,
+        ),
+        sa.Column(
+            "connected_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.Column(
             "created_by", sa.String(length=100), server_default="system", nullable=False
         ),
@@ -283,10 +296,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["users.id"],
-            name=op.f("fk_google_accounts_user_id_users"),
+            name=op.f("fk_connections_user_id_users"),
             ondelete="CASCADE",
         ),
-        sa.PrimaryKeyConstraint("user_id", name=op.f("pk_google_accounts")),
+        sa.PrimaryKeyConstraint("user_id", "provider", name=op.f("pk_connections")),
     )
     op.create_table(
         "job_preferences",
@@ -734,9 +747,6 @@ def upgrade() -> None:
         sa.Column("meeting_gap_minutes", sa.Integer(), nullable=False),
         sa.Column("ai_family", sa.String(length=20), nullable=True),
         sa.Column("ai_model", sa.String(length=100), nullable=True),
-        sa.Column("jsearch_ciphertext", sa.LargeBinary(), nullable=True),
-        sa.Column("jsearch_quota_remaining", sa.Integer(), nullable=True),
-        sa.Column("jsearch_quota_limit", sa.Integer(), nullable=True),
         sa.Column(
             "created_by", sa.String(length=100), server_default="system", nullable=False
         ),
@@ -1263,7 +1273,7 @@ def upgrade() -> None:
     op.enable_rls("assets")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("auth_identities")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("auth_sessions")  # pyright: ignore[reportAttributeAccessIssue]
-    op.enable_rls("google_accounts")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("connections")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("job_preferences")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("job_runs")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("jobs")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1310,7 +1320,7 @@ def downgrade() -> None:
     op.disable_rls("jobs")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("job_runs")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("job_preferences")  # pyright: ignore[reportAttributeAccessIssue]
-    op.disable_rls("google_accounts")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("connections")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("auth_sessions")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("auth_identities")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("assets")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1373,7 +1383,7 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_job_runs_user_id"), table_name="job_runs")
     op.drop_table("job_runs")
     op.drop_table("job_preferences")
-    op.drop_table("google_accounts")
+    op.drop_table("connections")
     op.drop_index(op.f("ix_auth_sessions_user_id"), table_name="auth_sessions")
     op.drop_table("auth_sessions")
     op.drop_index(op.f("ix_auth_identities_user_id"), table_name="auth_identities")
