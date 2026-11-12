@@ -133,7 +133,11 @@ async def test_a_single_match_is_edited_by_id_and_the_changeset_is_an_artifact()
     assert found.artifact == {"step_detail": "1 résumé"}
     [report] = _reports(result, "edit_document")
     assert report.text.startswith(career_consultant.DONE.text)
-    assert "Edits proposed: 1." in report.text
+    assert report.text.endswith(
+        "Edits proposed: 1.\n"
+        "- update_field blocks/experience/items/lumen/bullets/queue/text\n"
+        "The user accepts or rejects each in the document."
+    )
     assert report.artifact["name"] == "changeset"
     assert report.artifact["step_detail"] == "Backend résumé"
     assert report.artifact["data"]["document_id"] == "doc-1"

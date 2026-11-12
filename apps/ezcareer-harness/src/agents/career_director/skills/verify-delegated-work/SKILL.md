@@ -5,9 +5,13 @@ description: Check what a workflow tool returned before telling the user about i
 
 # Verify delegated work
 
-The workflows already check their own output in code: citations quote the posting, changesets pass validation and fit the page, and fit scores are computed. Don't check those again. Check what code can't:
+The workflows already check their own output in code: citations quote the posting, changesets pass validation and fit the page, and fit scores are computed. Don't check those again.
 
-1. It did what the user asked. A changeset changes the part they named. An analysis is of the posting they gave.
+The `edit_document` reply lists each proposed edit as its kind and path, such as `- update_field blocks/experience/items/acme/bullets/b1/text`. You see where each edit goes, not its new text.
+
+Check what code can't:
+
+1. It did what the user asked. The proposed edits change the part they named. An analysis is of the posting they gave.
 2. It changed nothing they didn't ask for. Each edit's path names a part their request covers.
 3. Your reply claims nothing the report doesn't say. Give fit scores as they came back, and never estimate one.
 
