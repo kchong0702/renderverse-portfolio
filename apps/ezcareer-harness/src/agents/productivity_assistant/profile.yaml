@@ -1,4 +1,4 @@
-system_prompt: src/agents/email_assistant/system.md
+system_prompt: src/agents/productivity_assistant/system.md
 tool_description_overrides:
   read_profile_facts: >-
     Lists the user's profile facts, one per line as `fact:<id>`, followed by

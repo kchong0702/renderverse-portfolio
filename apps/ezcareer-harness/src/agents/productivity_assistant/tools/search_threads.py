@@ -6,7 +6,7 @@ from langgraph.types import interrupt
 from pydantic import ConfigDict, Field, TypeAdapter, ValidationError, create_model
 from pydantic_core import to_json
 
-from src.agents.email_assistant.types import FoundThreads
+from src.agents.productivity_assistant.types import FoundThreads
 from src.core.errors import ExecuteError
 from src.shared.fetch_failed import FetchFailed
 from src.shared.tool_artifact import StepDetail

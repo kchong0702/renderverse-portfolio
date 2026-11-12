@@ -12,7 +12,7 @@ from pydantic import BaseModel, SecretStr
 
 from src.adapters.job_sources import SearchResult, SourceUnavailable
 from src.adapters.job_sources.jsearch import JSearchAdapter
-from src.agents.job_finder.tools import search_jobs_tool
+from src.agents.job_analyst.tools import search_jobs_tool
 from src.core.config import reload_settings
 from src.core.enums import Screen
 from src.core.errors import ExecuteError

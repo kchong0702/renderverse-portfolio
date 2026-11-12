@@ -5,7 +5,7 @@ from src.shared.jobs import JobSearch
 from src.shared.profile import Preferences
 
 
-class JobFinderState(ProfileState):
+class JobAnalystState(ProfileState):
     preferences: Preferences
     """What the user wants from a job"""
 

@@ -20,30 +20,30 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
     checkpointer = providers.Dependency()
     """Where the served graph keeps checkpoints"""
 
-    job_finder = providers.DependenciesContainer()
-    """job-finder's container, whose workflows become tools"""
+    job_analyst = providers.DependenciesContainer()
+    """job-analyst's container, whose workflows become tools"""
 
     career_consultant = providers.DependenciesContainer()
     """career-consultant's container, whose workflow becomes a tool"""
 
-    email_assistant = providers.DependenciesContainer()
-    """email-assistant's container, whose agent the director hands email to"""
+    productivity_assistant = providers.DependenciesContainer()
+    """productivity-assistant's container, whose agent the director hands email to"""
 
     agent = providers.Singleton(
         build_agent,
         agent=registry.provided["career-director"],
         tools=providers.List(
             providers.Callable(
-                analyse_job_tool, job_finder.analyse_job_executable.provided.graph
+                analyse_job_tool, job_analyst.analyse_job_executable.provided.graph
             ),
             providers.Callable(
-                find_jobs_tool, job_finder.find_jobs_executable.provided.graph
+                find_jobs_tool, job_analyst.find_jobs_executable.provided.graph
             ),
             providers.Callable(
                 edit_document_tool,
                 career_consultant.edit_document_executable.provided.graph,
             ),
-            providers.Callable(handoff_to_child_tool, ["email-assistant"]),
+            providers.Callable(handoff_to_child_tool, ["productivity-assistant"]),
             find_documents,
             choose_document,
         ),
@@ -55,14 +55,14 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
         Executable,
         kind="agent",
         name="career-director",
-        description="Talk to career-director from any page; it runs the other agents and workflows, and hands email to email-assistant",
+        description="Talk to career-director from any page; it runs the other agents and workflows, and hands email to productivity-assistant",
         graph=providers.Singleton(
             build_graph,
             director=agent,
-            children=providers.List(email_assistant.agent),
+            children=providers.List(productivity_assistant.agent),
             checkpointer=checkpointer,
         ),
-        agent_nodes=frozenset({"career-director", "email-assistant"}),
+        agent_nodes=frozenset({"career-director", "productivity-assistant"}),
     )
     """career-director served as an agent the user talks to, with the agents it
     hands the conversation to"""

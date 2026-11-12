@@ -83,7 +83,7 @@ def test_boundary_check_catches_cross_feature_imports(tmp_path: Path):
         "features/analyse_job/graph.py": "from ..find_jobs import graph\n",
         "tools/render.py": "import src.features.write_document\n",
         "adapters/job_sources/protocol.py": "from src.features.find_jobs.schemas import JobPosting\n",
-        "agents/job_finder.py": "from src.features import find_jobs\n",
+        "agents/job_analyst.py": "from src.features import find_jobs\n",
         "app/container.py": "from src.features.find_jobs import graph\n",
     }
     for rel, code in files.items():
@@ -99,7 +99,7 @@ def test_boundary_check_catches_cross_feature_imports(tmp_path: Path):
         "src.features.analyse_job.graph",
         "src.tools.render",
         "src.adapters.job_sources.protocol",
-        "src.agents.job_finder",
+        "src.agents.job_analyst",
     }
 
 

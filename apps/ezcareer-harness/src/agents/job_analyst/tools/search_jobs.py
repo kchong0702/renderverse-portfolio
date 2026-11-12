@@ -12,7 +12,7 @@ from src.adapters.job_sources import (
     SearchResult,
     SourceUnavailable,
 )
-from src.agents.job_finder.state import JobFinderState
+from src.agents.job_analyst.state import JobAnalystState
 from src.shared.factory import Factory
 from src.shared.jobs import JobPosting, broken_filters
 from src.shared.run_context import RunContext
@@ -33,7 +33,7 @@ class _SearchJobsContent(BaseModel):
 
 async def _search_jobs(
     sources: Sequence[SearchProtocol],
-    runtime: ToolRuntime[RunContext | None, JobFinderState],
+    runtime: ToolRuntime[RunContext | None, JobAnalystState],
     **given: object,
 ) -> tuple[str, SearchResult]:
     """Searches job postings, newest first, with each job once and without jobs
@@ -105,7 +105,7 @@ def search_jobs_tool(
             "SearchJobsArgs",
             __config__=ConfigDict(extra="forbid", arbitrary_types_allowed=True),
             runtime=(
-                ToolRuntime[RunContext | None, JobFinderState],
+                ToolRuntime[RunContext | None, JobAnalystState],
                 Field(
                     description="The agent's state, injected by the agent and never set by the model"
                 ),

@@ -1,7 +1,7 @@
 from dependency_injector import containers, providers
 
 from src.agents import build_agent
-from src.agents.email_assistant.tools import (
+from src.agents.productivity_assistant.tools import (
     read_free_slots_tool,
     read_thread_tool,
     search_threads_tool,
@@ -13,7 +13,7 @@ from src.features import draft_reply, triage_email
 from src.tools import read_profile_facts
 
 
-class EmailAssistantContainer(containers.DeclarativeContainer):
+class ProductivityAssistantContainer(containers.DeclarativeContainer):
     settings = providers.Dependency(instance_of=Settings)
     """The app's settings"""
 
@@ -25,7 +25,7 @@ class EmailAssistantContainer(containers.DeclarativeContainer):
 
     agent = providers.Singleton(
         build_agent,
-        agent=registry.provided["email-assistant"],
+        agent=registry.provided["productivity-assistant"],
         response_formats=(draft_reply.DraftReply, triage_email.EmailReading),
         tools=providers.List(
             read_profile_facts,
@@ -43,7 +43,7 @@ class EmailAssistantContainer(containers.DeclarativeContainer):
         ),
         state_schema=ProfileState,
     )
-    """The email-assistant agent, built once"""
+    """The productivity-assistant agent, built once"""
 
     triage_email_executable = providers.Singleton(
         Executable,

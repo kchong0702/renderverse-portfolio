@@ -25,7 +25,7 @@ def _draft(*slot_ids: int, body: str = BODY) -> AIMessage:
 
 
 def _graph(model: ScriptedChatModel):
-    return build_graph(Container().email_assistant.agent(model=model))
+    return build_graph(Container().productivity_assistant.agent(model=model))
 
 
 async def test_a_reply_offers_only_free_slots_and_lists_them_in_the_users_zone():
@@ -110,7 +110,7 @@ def test_a_request_with_neither_a_thread_nor_an_application_is_refused():
 
 def test_draft_reply_is_served_over_a2a():
     container = Container()
-    container.email_assistant.agent(model=ScriptedChatModel(replies=[_draft(1)]))
+    container.productivity_assistant.agent(model=ScriptedChatModel(replies=[_draft(1)]))
 
     response = TestClient(create_app(container)).post(
         "/ezcareer/a2a/draft-reply",

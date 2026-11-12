@@ -16,10 +16,10 @@ def _names(value: object) -> set[str]:
 def _served() -> dict[str, tuple[Agent, set[str], set[str]]]:
     container = Container()
     built = [
-        container.job_finder.agent,
+        container.job_analyst.agent,
         container.career_consultant.agent,
         container.career_director.agent,
-        container.email_assistant.agent,
+        container.productivity_assistant.agent,
         container.import_document.agent,
     ]
     return {
@@ -86,13 +86,13 @@ def test_every_tool_an_agent_names_is_its_own(isolate_env):
 
 def test_the_check_catches_a_tool_an_agent_lacks(isolate_env):
     served = _served()
-    job_finder, tools, _ = served["job-finder"]
+    job_analyst, tools, _ = served["job-analyst"]
     everyone = _everyone(served)
 
-    assert tool_gaps(job_finder, tools, set(), everyone) == [
-        "job-finder includes search_jobs, not one of its skill tools",
-        "job-finder names search_jobs",
+    assert tool_gaps(job_analyst, tools, set(), everyone) == [
+        "job-analyst includes search_jobs, not one of its skill tools",
+        "job-analyst names search_jobs",
     ]
-    assert tool_gaps(job_finder, tools, {"search_jobs", "rank_jobs"}, everyone) == [
-        "job-finder never offers rank_jobs"
+    assert tool_gaps(job_analyst, tools, {"search_jobs", "rank_jobs"}, everyone) == [
+        "job-analyst never offers rank_jobs"
     ]

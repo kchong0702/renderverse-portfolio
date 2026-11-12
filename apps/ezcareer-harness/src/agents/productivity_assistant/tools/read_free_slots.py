@@ -4,7 +4,7 @@ from langchain_core.tools import BaseTool, StructuredTool
 from langgraph.types import interrupt
 from pydantic import ConfigDict, Field, ValidationError, create_model
 
-from src.agents.email_assistant.types import FreeSlots
+from src.agents.productivity_assistant.types import FreeSlots
 from src.core.errors import ExecuteError
 from src.shared.tool_artifact import StepDetail
 

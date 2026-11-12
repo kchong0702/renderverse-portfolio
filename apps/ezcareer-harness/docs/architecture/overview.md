@@ -31,15 +31,15 @@ The harness serves three kinds of graph over A2A:
 - **A workflow**: a LangGraph graph that runs an agent as one of its nodes, to make a run deterministic.
 - **An agent graph**: a main agent and the child agents it hands the conversation to, each a node (see [Agent graphs](#agent-graphs)).
 
-| Agent             | Workflows it runs                                | Served as                                |
-| ----------------- | ------------------------------------------------ | ---------------------------------------- |
-| job-finder        | `analyse-job`, `find-jobs`                       | an agent                                 |
-| career-consultant | `edit-document` (`src/features/write_document`)  | an agent                                 |
-| career-director   | none; it runs the others as its tools            | the main agent of its agent graph        |
-| email-assistant   | `triage-email`, `draft-reply`                    | a child agent in career-director's graph |
-| resume-importer   | `import-resume` (`src/features/import_document`) | not served; only its workflow is         |
+| Agent                  | Workflows it runs                                | Served as                                |
+| ---------------------- | ------------------------------------------------ | ---------------------------------------- |
+| job-analyst            | `analyse-job`, `find-jobs`                       | an agent                                 |
+| career-consultant      | `edit-document` (`src/features/write_document`)  | an agent                                 |
+| career-director        | none; it runs the others as its tools            | the main agent of its agent graph        |
+| productivity-assistant | `triage-email`, `draft-reply`                    | a child agent in career-director's graph |
+| document-analyst       | `import-resume` (`src/features/import_document`) | not served; only its workflow is         |
 
-email-assistant reads the emails of the user's job search and drafts the user's replies. It never sends anything. career-director hands it the conversation when the user asks about their email. It drafts a reply itself, with tools it owns:
+productivity-assistant reads the emails of the user's job search and drafts the user's replies. It never sends anything. career-director hands it the conversation when the user asks about their email. It drafts a reply itself, with tools it owns:
 
 - `search_threads` finds threads.
 - `read_thread` reads one thread. It shows only the latest `max_thread_messages` messages (6), each cut at `max_message_chars` (4000) and marked `[cut]`, and says how many earlier ones are left out.
@@ -49,18 +49,18 @@ These limits are under `[email]` in `config.toml`.
 
 `search_threads` filters by the days a message was sent (`since`, `until`), a keyword, a sender and whether a thread has an attachment. It shows the agent at most `max_threads` threads (20, under `[email]` in `config.toml`), inside `<threads untrusted>` like a thread the agent reads. When more match, its result ends with how many were left out and tells the agent to ask the user to narrow the search.
 
-`draft-reply` is the deterministic version, which Ops' Inbox calls directly with the thread and free slots. It answers a thread, or writes a follow-up for an application when there is no thread. It runs email-assistant with only `read_profile_facts` allowed, and offers free slots by id, so code returns only slots the user has free and its `slots` check holds. Its `configurations.yaml` sets the same three limits as `[email]` for what reaches the agent.
+`draft-reply` is the deterministic version, which Ops' Inbox calls directly with the thread and free slots. It answers a thread, or writes a follow-up for an application when there is no thread. It runs productivity-assistant with only `read_profile_facts` allowed, and offers free slots by id, so code returns only slots the user has free and its `slots` check holds. Its `configurations.yaml` sets the same three limits as `[email]` for what reaches the agent.
 
 `triage-email` uses its model only to read a thread. Code matches the thread to an application by the company it names, narrowed by role, and keeps `decide_by` only for an offer and `interview` only for a confirmed interview.
 
-resume-importer only structures the file's lines. `import-resume` picks the draft's look in code: its `extract` node measures the file's layout (`layout.py`: columns, rules, tinted strips, a coloured band, a photo, the body font and the name's colour) and suggests the closest document-renderer template. The draft is made in that template, and the result's `suggestion` names it with the columns and traits it rests on.
+document-analyst only structures the file's lines. `import-resume` picks the draft's look in code: its `extract` node measures the file's layout (`layout.py`: columns, rules, tinted strips, a coloured band, a photo, the body font and the name's colour) and suggests the closest document-renderer template. The draft is made in that template, and the result's `suggestion` names it with the columns and traits it rests on.
 
 ## Agent graphs
 
 An agent graph is a LangGraph graph whose main node is an agent, with child agents joined as nodes beside it. It follows LangChain's [handoffs pattern](https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs) with agent subgraphs. career-director's is the only one: `src/agents/career_director/graph.py` builds it, and `/ezcareer/a2a/career-director` serves it.
 
-- Each agent is a node named after it: the main agent `career-director`, and its children, today only `email-assistant`.
-- The state keeps `active_agent`, the agent the conversation is with. A turn starts at that agent, and at career-director when there is none yet. The served graph keeps checkpoints per A2A context, so a follow-up about email goes straight to email-assistant and makes no director model call. This is the "active agent" routing that issue #86 asks for.
+- Each agent is a node named after it: the main agent `career-director`, and its children, today only `productivity-assistant`.
+- The state keeps `active_agent`, the agent the conversation is with. A turn starts at that agent, and at career-director when there is none yet. The served graph keeps checkpoints per A2A context, so a follow-up about email goes straight to productivity-assistant and makes no director model call. This is the "active agent" routing that issue #86 asks for.
 - career-director calls `handoff_to_child` with the child's name. Its choices are exactly the children joined to the graph.
 - A child calls `handoff_to_parent` when a message isn't its to answer.
 - A handoff tool returns `Command(goto=..., graph=Command.PARENT)`. It sets `active_agent` and passes on only the AI message that called it and a ToolMessage answering it, so the next agent sees a complete tool call and none of the last agent's own steps.
@@ -70,7 +70,7 @@ Only an agent that joins the graph as a child gets `handoff_to_parent`:
 
 - `build_agent` gives every agent `HandoffToParentMiddleware`. It registers the tool through `AgentMiddleware.tools`, and its `wrap_model_call` removes the tool from each model call with `request.override(tools=...)`, unless the run is a child node of an agent graph.
 - The graph builder joins each child with `child.with_config(configurable={"parent_agent": ...})`. The tool hands back to that agent.
-- So the same email-assistant instance that runs inside `triage-email` and `draft-reply`, or on its own, is never offered the tool.
+- So the same productivity-assistant instance that runs inside `triage-email` and `draft-reply`, or on its own, is never offered the tool.
 
 Both handoff tools live in `src/tools/handoff.py`.
 
@@ -108,7 +108,7 @@ A tool that one agent uses lives in `src/agents/<agent>/tools/`. A tool that sev
 
 Called directly with its state in the A2A data part, an agent does its whole job. A workflow wraps it only to make a run deterministic: it fetches the data, runs fixed steps and checks the result. It never supplies something the agent needs to work.
 
-The direction is one way: a workflow runs an agent, and an agent never runs a workflow built on itself. email-assistant drafts a reply with its own reads, and `draft-reply` wraps it for Ops' Inbox.
+The direction is one way: a workflow runs an agent, and an agent never runs a workflow built on itself. productivity-assistant drafts a reply with its own reads, and `draft-reply` wraps it for Ops' Inbox.
 
 So whatever an agent's model must see comes from the agent itself. career-consultant's `document_prompt` middleware, LangChain's `@dynamic_prompt`, adds `state["document"]` to the system prompt on every model call. The document reaches the model the same way whether a direct caller sent it or edit-document's `load` node fetched it.
 
@@ -144,9 +144,9 @@ The A2A task becomes `input-required`, and its message carries the request as a 
 
 - `{"fetch": "document", "id": ...}`, from `write_document`'s `load` node.
 - `{"fetch": "documents", "name": ..., "kind": ...}`, from career-director's `find_documents` tool.
-- `{"fetch": "thread", "id": ...}`, from email-assistant's `read_thread` tool. ops-api answers `{"thread": ...}`, or `{"error": ...}` when it can't.
-- `{"fetch": "free_slots", "days": ...}`, from email-assistant's `read_free_slots` tool. ops-api answers `{"free_slots": [...], "timezone": ...}`, with no slots when the user offers none.
-- `{"fetch": "threads", "since": ..., "until": ..., "keyword": ..., "sender": ..., "has_attachment": ..., "limit": ...}`, from email-assistant's `search_threads` tool. Each filter is `null` when the agent didn't set it. `since` and `until` are ISO dates and include their day. `sender` matches a name, an address or a domain. `limit` is the most threads to send.
+- `{"fetch": "thread", "id": ...}`, from productivity-assistant's `read_thread` tool. ops-api answers `{"thread": ...}`, or `{"error": ...}` when it can't.
+- `{"fetch": "free_slots", "days": ...}`, from productivity-assistant's `read_free_slots` tool. ops-api answers `{"free_slots": [...], "timezone": ...}`, with no slots when the user offers none.
+- `{"fetch": "threads", "since": ..., "until": ..., "keyword": ..., "sender": ..., "has_attachment": ..., "limit": ...}`, from productivity-assistant's `search_threads` tool. Each filter is `null` when the agent didn't set it. `since` and `until` are ISO dates and include their day. `sender` matches a name, an address or a domain. `limit` is the most threads to send.
 
   ops-api answers with the matching threads, latest first and at most `limit`, and how many match in all:
 
