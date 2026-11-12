@@ -269,6 +269,21 @@ async def test_a_close_match_waits_and_a_newer_import_updates_it(client, harness
     assert len((await client.get(f"{PROFILE}/entries")).json()) == 1
 
 
+async def test_a_close_match_needs_no_organisation(client, harness):
+    entry = (await client.post(f"{PROFILE}/entries", json=RENDERVERSE)).json()
+
+    await _import(
+        client,
+        harness,
+        _profile(RENDERVERSE | {"title": "Renderverse portfolio"}),
+        _export(Positions=POSITIONS),
+    )
+
+    [change] = await _changes(client)
+    assert (change["kind"], change["entry_id"]) == ("match", entry["id"])
+    assert len((await client.get(f"{PROFILE}/entries")).json()) == 1
+
+
 async def test_resolving_a_field_keeps_or_takes_the_imported_value(client, harness):
     await client.patch(PROFILE, json={"headline": "Backend engineer"})
     entry = (await client.post(f"{PROFILE}/entries", json=ACME)).json()

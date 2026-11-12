@@ -74,7 +74,8 @@ def entry_match(
     if all(normalised(a) == normalised(b) for a, b in pairs):
         return "exact"
     if all(
-        fuzz.token_set_ratio(a, b, processor=utils.default_process) >= cutoff
+        normalised(a) == normalised(b)
+        or fuzz.token_set_ratio(a, b, processor=utils.default_process) >= cutoff
         for a, b in pairs
     ):
         return "unsure"
