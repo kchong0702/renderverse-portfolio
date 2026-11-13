@@ -10,11 +10,13 @@ from sqlalchemy import (
     Connection,
     DateTime,
     ForeignKey,
+    Index,
     String,
     Text,
     case,
     event,
     false,
+    text,
 )
 from sqlalchemy.orm import Mapped, Mapper, mapped_column, object_session
 
@@ -184,6 +186,14 @@ def _stamp_entry(
 
 class ProfileSkill(IdMixin, UserScopedMixin, AuditMixin, Base):
     __tablename__ = "profile_skills"
+    __table_args__ = (
+        Index(
+            "uq_profile_skills_name",
+            "user_id",
+            text("lower(name)"),
+            unique=True,
+        ),
+    )
 
     name: Mapped[str] = mapped_column(String(100))
     """The skill or spoken language, such as Python or Malay"""

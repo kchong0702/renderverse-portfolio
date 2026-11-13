@@ -126,6 +126,27 @@ async def test_skills_add_replace_and_delete(client):
     assert (await client.get(f"{PROFILE}/skills")).json() == []
 
 
+async def test_a_skill_the_user_has_is_refused_ignoring_case_and_spaces(client):
+    go = (await client.post(f"{PROFILE}/skills", json={"name": "Go"})).json()
+    rust = (
+        await client.post(f"{PROFILE}/skills", json={"name": "Rust", "archived": True})
+    ).json()
+
+    again = await client.post(f"{PROFILE}/skills", json={"name": " go "})
+    archived = await client.post(f"{PROFILE}/skills", json={"name": "RUST"})
+    renamed = await client.put(f"{PROFILE}/skills/{go['id']}", json={"name": "rust"})
+    recased = await client.put(f"{PROFILE}/skills/{go['id']}", json={"name": "GO"})
+
+    assert (again.status_code, again.json()["detail"]) == (409, "Go is already a skill")
+    assert archived.json()["detail"] == "Rust is already an archived skill"
+    assert renamed.status_code == 409
+    assert recased.json()["name"] == "GO"
+    assert {s["id"] for s in (await client.get(f"{PROFILE}/skills")).json()} == {
+        go["id"],
+        rust["id"],
+    }
+
+
 async def test_agent_profile_has_the_harness_shape(client):
     await client.patch(
         f"{PREFIX}/preferences",

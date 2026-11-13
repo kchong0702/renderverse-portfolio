@@ -9,7 +9,7 @@
     "bootstrap:uv": "node scripts/bootstrap-python.mjs && uv sync --all-packages",
     "bootstrap:env": "node -e \"const fs=require('fs'); if (!fs.existsSync('.env')) fs.copyFileSync('.env.example','.env')\"",
     "bootstrap": "pnpm run bootstrap:env && pnpm run bootstrap:uv && nx run-many -t bootstrap",
-    "infra:up": "pnpm run bootstrap:env && docker compose up -d otel-collector",
+    "infra:up": "pnpm run bootstrap:env && docker compose up -d",
     "infra:down": "docker compose --profile '*' down",
     "infra:logs": "docker compose logs -f",
     "dev": "nx run-many -t dev worker",
