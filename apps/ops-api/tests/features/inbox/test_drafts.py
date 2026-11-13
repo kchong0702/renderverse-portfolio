@@ -1,19 +1,34 @@
 from base64 import urlsafe_b64encode
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
+import httpx2
 import pytest
+from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import create_async_engine
 
+from src.clients.storage import LocalStorage
+from src.core.auth.models import User
+from src.core.config import get_settings
+from src.db.session import create_session_factory
 from src.features.calendar import service as calendar_service
 from tests.conftest import (
     PREFIX,
+    FakeArtifact,
+    FakeGoogle,
+    FakeHarness,
+    _app,
+    _client,
     a2a_sent,
     a2a_task,
     connect_google,
+    idle_in_transaction,
     sse_events,
     stream_chunk,
     stream_status,
     stream_task,
 )
+from tests.core.conftest import DATABASE_URL
 
 INBOX = f"{PREFIX}/inbox"
 
@@ -479,3 +494,66 @@ async def test_a_thread_search_with_an_unsafe_value_never_reaches_gmail(
 
     assert [list(sender), list(keyword), list(day)] == [["error"]] * 3
     assert google.thread_searches == []
+
+
+class _ProbedGoogle(FakeGoogle):
+    def __init__(self):
+        """Count, on each call, the connections left idle in a transaction"""
+        super().__init__()
+        self.idle_in_transaction: list[int] = []
+
+    async def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        """Answer as FakeGoogle once the connections idle in a transaction are
+        counted"""
+        self.idle_in_transaction.append(await idle_in_transaction())
+        return super().__call__(request)
+
+
+@pytest.fixture
+def probed_google() -> _ProbedGoogle:
+    return _ProbedGoogle()
+
+
+@pytest.fixture
+async def probed_client(
+    harness: FakeHarness,
+    artifact: FakeArtifact,
+    probed_google: _ProbedGoogle,
+    storage: LocalStorage,
+) -> AsyncIterator[httpx2.AsyncClient]:
+    """The app on the test Postgres database with probed_google, its dev user
+    deleted after the test"""
+    engine = create_async_engine(DATABASE_URL)
+    async for app in _app(harness, artifact, probed_google, storage, engine=engine):
+        async with _client(app) as http:
+            yield http
+        async with create_session_factory(engine)() as session, session.begin():
+            await session.execute(
+                delete(User).where(User.email == get_settings().auth.dev_email)
+            )
+
+
+@pytest.mark.postgres
+@pytest.mark.skipif(not DATABASE_URL, reason="OPS_API_TEST_DATABASE_URL is not set")
+async def test_the_gmail_and_calendar_tools_hold_no_transaction_while_google_answers(
+    probed_client, probed_google, harness
+):
+    await connect_google(probed_client)
+    probed_google.messages = {"m1": THREAD}
+    probed_google.events = EVENTS
+    probed_google.idle_in_transaction.clear()
+
+    thread = await _executed(
+        probed_client, harness, {"execute_tool": "thread", "id": "t-1"}
+    )
+    threads = await _executed(
+        probed_client, harness, {"execute_tool": "threads", "limit": 5}
+    )
+    free = await _executed(
+        probed_client, harness, {"execute_tool": "free_slots", "days": 3}
+    )
+
+    assert thread["thread"]["subject"] == "Final round"
+    assert [t["id"] for t in threads["threads"]] == ["t-1"]
+    assert free["free_slots"] == FREE[:3]
+    assert set(probed_google.idle_in_transaction) == {0}

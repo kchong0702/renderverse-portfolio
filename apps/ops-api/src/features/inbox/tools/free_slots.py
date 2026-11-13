@@ -10,7 +10,6 @@ from src.clients.google import GoogleClient
 from src.core.agent_runner import ToolError
 from src.core.config import GoogleSettings, get_settings
 from src.core.exceptions import ServiceException
-from src.db.session import session_scope
 from src.features.calendar import CalendarService
 from src.features.calendar.schemas import FreeSlots
 from src.features.google import GoogleService
@@ -33,23 +32,24 @@ async def free_slots(
     request: FreeSlotsRequest,
 ) -> FreeSlots | ToolError:
     """The times the user is free in the days asked, none when they don't offer free
-    slots, on a session of its own"""
-    async for session in session_scope(factory):
-        google = GoogleService(session, client, config)
-        try:
+    slots; its session is closed before Google is called"""
+    try:
+        async with factory() as session, session.begin():
+            google = GoogleService(session, client, config)
             settings = await SettingsService(
                 session, google, get_settings().jsearch
             ).get(user_id)
-            free = await CalendarService(google, client, config).free_slots(
-                user_id, settings.scheduling, request.days
-            )
-            result = (
-                free
-                if settings.automation.offer_free_slots
-                else free.model_copy(update={"free_slots": []})
-            )
-        except ServiceException as error:
-            result = ToolError(error=error.message)
+            refresh_token = await google.refresh_token(user_id)
+        free = await CalendarService(google, client, config).token_free_slots(
+            await client.refresh(refresh_token), settings.scheduling, request.days
+        )
+        result = (
+            free
+            if settings.automation.offer_free_slots
+            else free.model_copy(update={"free_slots": []})
+        )
+    except ServiceException as error:
+        result = ToolError(error=error.message)
     return result
 
 

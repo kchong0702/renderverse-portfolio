@@ -11,7 +11,6 @@ from src.clients.google import GoogleClient
 from src.core.agent_runner import ToolError
 from src.core.config import GoogleSettings
 from src.core.exceptions import ServiceException
-from src.db.session import session_scope
 from src.features.google import GoogleService
 from src.features.inbox.schemas import ThreadsAnswer, ThreadSummary
 
@@ -62,33 +61,36 @@ async def threads(
     user_id: UUID,
     request: ThreadsRequest,
 ) -> ThreadsAnswer | ToolError:
-    """The user's email threads a search finds, on a session of its own"""
-    async for session in session_scope(factory):
-        google = GoogleService(session, client, config)
-        try:
-            found, total = await client.threads(
-                await google.access_token(user_id),
-                _search(request),
-                min(request.limit, config.thread_search_limit),
+    """The user's email threads a search finds, its session closed before Google is
+    called"""
+    try:
+        async with factory() as session:
+            refresh_token = await GoogleService(session, client, config).refresh_token(
+                user_id
             )
-            result = ThreadsAnswer(
-                threads=[
-                    ThreadSummary(
-                        id=thread.id,
-                        subject=thread.messages[0].payload.header("Subject"),
-                        sender=thread.messages[-1].payload.header("From"),
-                        last_sent_at=thread.messages[-1].internal_date,
-                        message_count=len(thread.messages),
-                        has_attachment=any(
-                            m.payload.has_attachment() for m in thread.messages
-                        ),
-                    )
-                    for thread in found
-                ],
-                total=total,
-            )
-        except ServiceException as error:
-            result = ToolError(error=error.message)
+        found, total = await client.threads(
+            await client.refresh(refresh_token),
+            _search(request),
+            min(request.limit, config.thread_search_limit),
+        )
+        result = ThreadsAnswer(
+            threads=[
+                ThreadSummary(
+                    id=thread.id,
+                    subject=thread.messages[0].payload.header("Subject"),
+                    sender=thread.messages[-1].payload.header("From"),
+                    last_sent_at=thread.messages[-1].internal_date,
+                    message_count=len(thread.messages),
+                    has_attachment=any(
+                        m.payload.has_attachment() for m in thread.messages
+                    ),
+                )
+                for thread in found
+            ],
+            total=total,
+        )
+    except ServiceException as error:
+        result = ToolError(error=error.message)
     return result
 
 

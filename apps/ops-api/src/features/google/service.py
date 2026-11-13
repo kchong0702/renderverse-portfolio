@@ -88,14 +88,19 @@ class GoogleService:
                 await self._client.revoke(self._connections.secret(connection))
         await self._connections.disconnect(user_id)
 
-    async def access_token(self, user_id: UUID) -> str:
-        """A fresh access token for the user's Gmail and Calendar;
-        Conflict when Google is not connected or the grant no longer works"""
+    async def refresh_token(self, user_id: UUID) -> str:
+        """The user's stored refresh token in plain text; Conflict when Google is not
+        connected or the token is unreadable"""
         connection = await self._connections.get(user_id)
         if connection is None:
             raise Conflict("Connect a Google account in Settings first")
         self._require_configured()
-        return await self._client.refresh(self._connections.secret(connection))
+        return self._connections.secret(connection)
+
+    async def access_token(self, user_id: UUID) -> str:
+        """A fresh access token for the user's Gmail and Calendar;
+        Conflict when Google is not connected or the grant no longer works"""
+        return await self._client.refresh(await self.refresh_token(user_id))
 
 
 __all__ = ["GoogleService"]

@@ -10,7 +10,6 @@ from src.clients.google import GoogleClient
 from src.core.agent_runner import ToolError
 from src.core.config import GoogleSettings
 from src.core.exceptions import ServiceException
-from src.db.session import session_scope
 from src.features.google import GoogleService
 from src.features.inbox.content import thread_content
 from src.features.inbox.schemas import ThreadAnswer
@@ -31,17 +30,19 @@ async def thread(
     user_id: UUID,
     request: ThreadRequest,
 ) -> ThreadAnswer | ToolError:
-    """One of the user's email threads, on a session of its own"""
-    async for session in session_scope(factory):
-        google = GoogleService(session, client, config)
-        try:
-            result = ThreadAnswer(
-                thread=thread_content(
-                    await client.thread(await google.access_token(user_id), request.id)
-                )
+    """One of the user's email threads, its session closed before Google is called"""
+    try:
+        async with factory() as session:
+            refresh_token = await GoogleService(session, client, config).refresh_token(
+                user_id
             )
-        except ServiceException as error:
-            result = ToolError(error=error.message)
+        result = ThreadAnswer(
+            thread=thread_content(
+                await client.thread(await client.refresh(refresh_token), request.id)
+            )
+        )
+    except ServiceException as error:
+        result = ToolError(error=error.message)
     return result
 
 
