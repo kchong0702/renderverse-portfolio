@@ -1,23 +1,39 @@
 import json
+from collections.abc import AsyncIterator
 from pathlib import Path
 
+import httpx2
 import pytest
 from cryptography.fernet import Fernet
-from sqlalchemy import select
+from fastapi import FastAPI
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import create_async_engine
 from structlog.testing import capture_logs
 
+from src.clients.storage import LocalStorage
+from src.core.auth.models import User
+from src.core.config import get_settings
+from src.db.session import create_session_factory
 from src.features.connections import Connection
 from src.features.jobs.tools.job_search import JobSearchRequest
 from tests.conftest import (
     PREFIX,
+    FakeArtifact,
+    FakeGoogle,
+    FakeHarness,
+    FakeJSearch,
+    _app,
+    _client,
     a2a_sent,
     a2a_task,
+    idle_in_transaction,
     sse_events,
     stream_chunk,
     stream_status,
     stream_task,
     work,
 )
+from tests.core.conftest import DATABASE_URL
 
 JOBS = f"{PREFIX}/jobs"
 JSEARCH = f"{PREFIX}/settings/connections/jsearch"
@@ -269,8 +285,21 @@ async def test_without_a_key_find_fails_at_once_with_the_settings_message(
         "failed",
         "Connect JSearch in Settings to search for jobs",
     )
+    assert run["finished_at"] is not None
     assert jsearch.received == []
-    assert len(harness.received) == 2
+    assert harness.received == []
+
+
+async def test_without_a_key_the_assistant_hears_the_settings_message(
+    client, harness, jsearch
+):
+    events = await _ask_assistant(client, harness)
+
+    assert events[-1] == {"status": "completed", "reply": "None fit yet."}
+    assert _answer(harness) == {
+        "error": "Connect JSearch in Settings to search for jobs"
+    }
+    assert jsearch.received == []
 
 
 async def test_an_unreadable_key_fails_find_with_a_way_to_fix_it(
@@ -288,6 +317,7 @@ async def test_an_unreadable_key_fails_find_with_a_way_to_fix_it(
         "Ops can no longer read your JSearch key; change it in Settings",
     )
     assert jsearch.received == []
+    assert harness.received == []
 
 
 async def test_a_search_with_any_field_beyond_the_neutral_search_is_refused(
@@ -302,3 +332,56 @@ async def test_a_search_with_any_field_beyond_the_neutral_search_is_refused(
     assert run["status"] == "failed"
     assert "Extra inputs are not permitted" in run["error"]
     assert jsearch.received == []
+
+
+class _ProbedJSearch(FakeJSearch):
+    def __init__(self):
+        """Count, on each search, the connections left idle in a transaction"""
+        super().__init__()
+        self.idle_in_transaction: list[int] = []
+
+    async def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        """Answer as FakeJSearch once the connections idle in a transaction are
+        counted"""
+        self.idle_in_transaction.append(await idle_in_transaction())
+        return super().__call__(request)
+
+
+@pytest.fixture
+def probed_jsearch() -> _ProbedJSearch:
+    return _ProbedJSearch()
+
+
+@pytest.fixture
+async def probed_app(
+    harness: FakeHarness,
+    artifact: FakeArtifact,
+    google: FakeGoogle,
+    probed_jsearch: _ProbedJSearch,
+    storage: LocalStorage,
+) -> AsyncIterator[FastAPI]:
+    """The app on the test Postgres database with probed_jsearch, its dev user
+    deleted after the test"""
+    engine = create_async_engine(DATABASE_URL)
+    async for app in _app(
+        harness, artifact, google, probed_jsearch, storage, engine=engine
+    ):
+        yield app
+        async with create_session_factory(engine)() as session, session.begin():
+            await session.execute(
+                delete(User).where(User.email == get_settings().auth.dev_email)
+            )
+
+
+@pytest.mark.postgres
+@pytest.mark.skipif(not DATABASE_URL, reason="OPS_API_TEST_DATABASE_URL is not set")
+async def test_a_search_holds_no_transaction_while_the_source_answers(
+    probed_app, harness, probed_jsearch
+):
+    async with _client(probed_app) as client:
+        await client.put(JSEARCH, json={"api_key": API_KEY})
+
+        run = await _find(probed_app, client, harness)
+
+    assert run["status"] == "done"
+    assert probed_jsearch.idle_in_transaction == [0]

@@ -4,11 +4,11 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, computed_field
+from pydantic import AwareDatetime, BaseModel, Field, computed_field
 
+from src.adapters.job_sources import JobPosting, PostingLine
 from src.features.documents import TailoredDocument
 from src.features.jobs.enums import Importance, JobStatus, Match, RunStatus, RunTrigger
-from src.features.preferences import CountryCode
 from src.features.profile import AgentProfile
 
 
@@ -125,49 +125,6 @@ class JobRunCreate(BaseModel):
     """The search the run hands find-jobs; None searches from the preferences"""
 
 
-class JobSearchRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    execute_tool: Literal["job_search"]
-    """A paused run asks ops-api to search for jobs on the user's key"""
-
-    query: str
-    """Job titles and key skills"""
-
-    location: str | None = None
-    """City or region to search in; None searches the whole country"""
-
-    country: CountryCode | None = None
-    """ISO country code to search in, such as GB"""
-
-    remote_only: bool = False
-    """Only remote jobs"""
-
-    posted_within: Literal["day", "week", "month"] | None = "week"
-    """How recent the jobs must be; None takes jobs of any age"""
-
-    employment_types: list[
-        Literal["full_time", "part_time", "contract", "internship"]
-    ] = Field(default_factory=list)
-    """Kinds of employment to keep; empty keeps every kind"""
-
-    job_requirements: list[
-        Literal[
-            "under_3_years_experience",
-            "more_than_3_years_experience",
-            "no_experience",
-            "no_degree",
-        ]
-    ] = Field(default_factory=list)
-    """Experience or education requirements to keep; empty keeps every job"""
-
-    radius_km: int | None = Field(default=None, gt=0)
-    """How far from the location a job may be"""
-
-    max_jobs: int = Field(default=30, ge=10, le=50, multiple_of=10)
-    """How many jobs to fetch"""
-
-
 class JobRunQueued(BaseModel):
     id: UUID
     """The queued run's id"""
@@ -223,43 +180,6 @@ class AnalyseJobOutput(BaseModel):
     """How the posting fits; the harness also sends lines and filters, unread"""
 
 
-class PostingLine(BaseModel):
-    id: int
-    """Line number, counted from 1"""
-
-    text: str
-    """The line's text; untrusted"""
-
-
-class JobPosting(BaseModel):
-    id: str
-    """Job id at its source"""
-
-    title: str
-    """Job title"""
-
-    company: str
-    """Employer name"""
-
-    location: str
-    """City and country, as the source gives them"""
-
-    country: CountryCode | None
-    """Country the job is in, if the source gives one"""
-
-    remote: bool
-    """Whether the job is remote"""
-
-    posted_at: datetime | None
-    """When the job was posted, if known"""
-
-    apply_url: str
-    """Where to apply"""
-
-    lines: list[PostingLine]
-    """The description, numbered from 1; untrusted"""
-
-
 class JobSearchAnswer(BaseModel):
     jobs: list[JobPosting]
     """The jobs found, newest first, each once and none that breaks the user's
@@ -309,7 +229,6 @@ __all__ = [
     "JobRunRead",
     "JobSearch",
     "JobSearchAnswer",
-    "JobSearchRequest",
     "JobUpdate",
     "PostingLine",
     "Requirement",

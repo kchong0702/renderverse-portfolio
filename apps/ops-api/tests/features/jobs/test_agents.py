@@ -1,6 +1,8 @@
 from datetime import timedelta
 from uuid import UUID, uuid4
 
+import pytest
+
 from src.db.base import utcnow
 from src.db.queue import claim
 from src.features.jobs.models import JobRun
@@ -57,6 +59,14 @@ ANALYSIS = {
     "filters": [],
     "fit": 67,
 }
+
+
+@pytest.fixture(autouse=True)
+async def _job_source_key(client) -> None:
+    """Every run searches on the user's connected job source key"""
+    await client.put(
+        f"{PREFIX}/settings/connections/jsearch", json={"api_key": "rapidapi-key"}
+    )
 
 
 def _found(*jobs: dict) -> dict:

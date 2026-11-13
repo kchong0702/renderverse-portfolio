@@ -296,6 +296,13 @@ class EzcareerSettings(BaseModel):
     """Each model's list prices over time, which cost each model call"""
 
 
+class JobsSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    source: Literal["jsearch"] = "jsearch"
+    """The job source ops-api searches for the user"""
+
+
 class JSearchSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
@@ -498,6 +505,9 @@ class Settings(BaseSettings):
     ezcareer: EzcareerSettings = Field(default_factory=EzcareerSettings)
     """Where ops-api reaches ezcareer-harness"""
 
+    jobs: JobsSettings = Field(default_factory=JobsSettings)
+    """Which job source searches for the user"""
+
     jsearch: JSearchSettings = Field(default_factory=JSearchSettings)
     """Searching JSearch on each user's API key, which ops-api keeps"""
 
@@ -572,6 +582,7 @@ __all__ = [
     "EzcareerSettings",
     "GoogleSettings",
     "JSearchSettings",
+    "JobsSettings",
     "ObservabilitySettings",
     "PortfolioSettings",
     "ProfileSettings",

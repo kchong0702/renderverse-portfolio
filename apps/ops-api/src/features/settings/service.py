@@ -13,7 +13,7 @@ from src.clients.ezcareer import (
 )
 from src.core.config import JSearchSettings, get_settings
 from src.core.exceptions import InvalidInput
-from src.features.connections import ConnectionService, JSearchDetails, Provider
+from src.features.connections import JSearchDetails, Provider, api_key_connections
 from src.features.google import GoogleService
 from src.features.settings.models import UserSettings
 from src.features.settings.repository import SettingsRepository
@@ -25,19 +25,6 @@ from src.features.settings.schemas import (
     SettingsRead,
     SettingsUpdate,
 )
-
-
-def jsearch_connections(
-    session: AsyncSession, settings: JSearchSettings
-) -> ConnectionService:
-    """The users' JSearch keys on the session, encrypted with the server's key"""
-    return ConnectionService(
-        session,
-        Provider.JSEARCH,
-        settings.encryption_key,
-        "JSearch",
-        "Ops can no longer read your JSearch key; change it in Settings",
-    )
 
 
 def _to_read(settings: UserSettings, connections: list[Connection]) -> SettingsRead:
@@ -74,7 +61,9 @@ class SettingsService:
         connection service"""
         self._repository = SettingsRepository(session)
         self._google = google
-        self._jsearch = jsearch_connections(session, jsearch)
+        self._jsearch = api_key_connections(
+            session, Provider.JSEARCH, jsearch.encryption_key, "JSearch"
+        )
 
     async def _connections(self, settings: UserSettings) -> list[Connection]:
         """Google from its stored grant, JSearch from the stored key and its last
@@ -190,4 +179,4 @@ class SettingsService:
         )
 
 
-__all__ = ["SettingsService", "jsearch_connections"]
+__all__ = ["SettingsService"]

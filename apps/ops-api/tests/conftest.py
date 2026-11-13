@@ -508,12 +508,12 @@ async def _app(
     oauth_providers: dict | None = None,
     engine: AsyncEngine | None = None,
 ) -> AsyncIterator[FastAPI]:
+    from src.adapters.job_sources.jsearch import JSearchSource
     from src.app.app import create_app
     from src.app.container import Container
     from src.clients.artifact import ArtifactClient
     from src.clients.ezcareer import EzcareerClient
     from src.clients.google import GoogleClient
-    from src.clients.jsearch import JSearchClient
     from src.core.config import reload_settings
     from src.core.stores import UsageLedger
     from src.db.base import Base
@@ -550,8 +550,8 @@ async def _app(
     container.google.override(
         providers.Object(GoogleClient(settings.google, httpx2.MockTransport(google)))
     )
-    container.jsearch.override(
-        providers.Object(JSearchClient(settings.jsearch, httpx2.MockTransport(jsearch)))
+    container.job_source.override(
+        providers.Object(JSearchSource(settings.jsearch, httpx2.MockTransport(jsearch)))
     )
 
     yield create_app(container)

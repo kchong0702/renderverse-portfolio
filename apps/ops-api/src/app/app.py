@@ -65,7 +65,7 @@ def create_app(container: Container | None = None) -> FastAPI:
         await container.ezcareer().aclose()
         await container.store().aclose()
         await container.google().aclose()
-        await container.jsearch().aclose()
+        await container.job_source().aclose()
 
     app = FastAPI(
         title=settings.app.name.upper(),

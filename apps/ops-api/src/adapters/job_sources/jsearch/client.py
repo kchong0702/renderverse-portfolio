@@ -11,7 +11,11 @@ from tenacity import (
     wait_exponential,
 )
 
-from src.clients.jsearch.schemas import JSearchQuery, JSearchResponse, JSearchResults
+from src.adapters.job_sources.jsearch.schemas import (
+    JSearchQuery,
+    JSearchResponse,
+    JSearchResults,
+)
 from src.core.config import JSearchSettings
 from src.core.exceptions import ServiceUnavailable
 from src.core.logging import get_logger
@@ -40,9 +44,12 @@ class JSearchClient:
     ):
         """One HTTP client for the app's lifetime, sending through transport when given"""
         self._settings = settings
+        """JSearch's URL, timeout and retries"""
+
         self._http = httpx2.AsyncClient(
             timeout=settings.timeout_seconds, transport=transport
         )
+        """The HTTP client every search goes through"""
 
     async def _page(
         self, api_key: str, params: dict[str, str | int | bool]

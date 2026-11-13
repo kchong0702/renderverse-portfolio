@@ -89,4 +89,18 @@ class ConnectionService:
             await self._repository.delete(connection)
 
 
-__all__ = ["ConnectionService"]
+def api_key_connections(
+    session: AsyncSession, provider: Provider, key: SecretStr, label: str
+) -> ConnectionService:
+    """The users' API keys to the provider, named by label, on the session, encrypted
+    with key"""
+    return ConnectionService(
+        session,
+        provider,
+        key,
+        label,
+        f"Ops can no longer read your {label} key; change it in Settings",
+    )
+
+
+__all__ = ["ConnectionService", "api_key_connections"]

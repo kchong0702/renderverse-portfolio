@@ -1,7 +1,7 @@
 import httpx2
 import pytest
 
-from src.clients.jsearch import JSearchClient, JSearchQuery
+from src.adapters.job_sources.jsearch import JSearchClient, JSearchQuery
 from src.core.config import JSearchSettings
 from src.core.exceptions import ServiceUnavailable
 

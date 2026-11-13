@@ -64,6 +64,9 @@ async def test_the_worker_takes_turns_between_imports_and_job_runs(
     _quick(app)
     await _upload(client, f"{PREFIX}/profile/imports")
     await _upload(client, f"{PREFIX}/profile/imports", b"%PDF-1.7 other \xfb\xff")
+    await client.put(
+        f"{PREFIX}/settings/connections/jsearch", json={"api_key": "rapidapi-key"}
+    )
     await client.post(f"{PREFIX}/jobs/find")
     await client.post(f"{PREFIX}/jobs/runs", json={})
     found = a2a_task("COMPLETED", artifact_parts=[{"data": {"jobs": []}}])
