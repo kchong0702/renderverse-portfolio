@@ -4,13 +4,15 @@ import asyncio
 import html
 import re
 from base64 import urlsafe_b64encode
+from collections.abc import Sequence
 from contextlib import suppress
-from datetime import UTC, timedelta
+from datetime import UTC, date, datetime, timedelta
 from email.message import EmailMessage
 from email.utils import parseaddr
 from hashlib import sha256
 from html.parser import HTMLParser
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -41,7 +43,8 @@ from src.core.exceptions import (
 from src.core.logging import get_logger
 from src.db.base import as_utc, utcnow
 from src.db.session import session_scope
-from src.features.applications.models import Application
+from src.features.applications.enums import NextStepFormat, StepKind, StepStatus
+from src.features.applications.models import Application, ApplicationStep
 from src.features.applications.repository import ApplicationRepository
 from src.features.calendar import CalendarService
 from src.features.calendar.schemas import EventCreate, FreeSlots
@@ -78,9 +81,19 @@ from src.features.settings import SettingsService
 logger = get_logger(__name__)
 
 
-def _summary(message: GmailMessage, thread: EmailThread | None) -> InboxMessage:
-    """The list row for a Gmail message, with its thread's triage"""
+def _emailed(step: ApplicationStep) -> datetime | date | None:
+    """When its email thread last said the step happens: its start in UTC, or else
+    its due day"""
+    return as_utc(step.email_starts_at) if step.email_starts_at else step.email_due_on
+
+
+def _summary(
+    message: GmailMessage, thread: EmailThread | None, steps: Sequence[ApplicationStep]
+) -> InboxMessage:
+    """The list row for a Gmail message, with its thread's triage and what the steps
+    triage found in the thread say"""
     name, email = parseaddr(message.payload.header("From"))
+    found = [s for s in steps if thread and s.email_thread_id == thread.id]
     return InboxMessage(
         id=message.id,
         thread_id=message.thread_id,
@@ -91,9 +104,20 @@ def _summary(message: GmailMessage, thread: EmailThread | None) -> InboxMessage:
         received_at=message.internal_date,
         unread="UNREAD" in message.label_ids,
         state=thread.state if thread else None,
-        decide_by=thread.decide_by if thread else None,
+        decide_by=min(
+            (
+                s.due_on
+                for s in found
+                if s.kind is StepKind.OFFER_DEADLINE
+                and s.status is StepStatus.OPEN
+                and s.due_on
+            ),
+            default=None,
+        ),
         application_id=thread.application_id if thread else None,
-        on_calendar=thread is not None and thread.event_id is not None,
+        on_calendar=any(
+            s.kind is StepKind.INTERVIEW and s.event_id is not None for s in found
+        ),
     )
 
 
@@ -239,6 +263,52 @@ class InboxService:
             return None
         return run.reply
 
+    async def _keep_step(
+        self, thread: EmailThread, kind: StepKind, **found: object
+    ) -> None:
+        """Move the thread's upcoming open step of the kind to a time the thread had not
+        given before, or else add the found step as a new round"""
+        step = ApplicationStep(
+            user_id=thread.user_id,
+            application_id=thread.application_id,
+            email_thread_id=thread.id,
+            kind=kind,
+            email_starts_at=found.get("starts_at"),
+            email_due_on=found.get("due_on"),
+            **found,
+        )
+        kept = [
+            s
+            for s in await self._applications.thread_steps(thread.user_id, [thread.id])
+            if s.kind is kind
+        ]
+        if any(_emailed(s) == _emailed(step) for s in kept):
+            return
+        now = utcnow()
+        today = now.astimezone(
+            ZoneInfo(await self._settings.timezone(thread.user_id) or "UTC")
+        ).date()
+        current = next(
+            (
+                s
+                for s in kept
+                if s.status is StepStatus.OPEN
+                and (as_utc(s.starts_at) > now if s.starts_at else s.due_on >= today)
+            ),
+            None,
+        )
+        if current is None:
+            await self._applications.add(step)
+            return
+        for field, value in found.items():
+            setattr(current, field, value)
+        current.email_starts_at = step.email_starts_at
+        current.email_due_on = step.email_due_on
+        if current.event_id and step.starts_at:
+            await self._calendar.move(
+                thread.user_id, current.event_id, step.starts_at, step.ends_at
+            )
+
     async def _sync(
         self,
         user_id: UUID,
@@ -249,8 +319,12 @@ class InboxService:
         """Triage the threads of these newest messages and store what triage-email
         read in threads; a thread it could not read is left for the next sync"""
         applications = [
-            TriageApplication.model_validate(a, from_attributes=True)
-            for a, _ in await self._applications.applications(user_id)
+            TriageApplication(
+                id=application.id,
+                company=application.job.company,
+                role=application.job.title,
+            )
+            for application in await self._applications.applications(user_id)
         ]
         metadata = await self._settings.run_metadata(user_id)
         await self._session.commit()
@@ -263,58 +337,79 @@ class InboxService:
         for message, result in zip(changed, results, strict=True):
             if result is None:
                 continue
-            interview = result.interview
-            start = interview.start.astimezone(UTC) if interview else None
-            threads[message.thread_id] = await self._repository.save(
+            application_id = next(
+                (a.id for a in applications if a.id == result.application_id), None
+            )
+            thread = await self._repository.save(
                 user_id,
                 message.thread_id,
                 last_message_id=message.id,
                 state=result.state,
-                application_id=next(
-                    (a.id for a in applications if a.id == result.application_id), None
-                ),
-                decide_by=result.decide_by,
-                interview_start=start,
-                interview_end=interview.end.astimezone(UTC)
-                if interview and start and interview.end and interview.end > start
-                else None,
-                interview_location=interview.location if interview else None,
+                application_id=application_id,
             )
+            threads[message.thread_id] = thread
+            if application_id is not None:
+                await self._applications.link_thread_steps(thread.id, application_id)
+            if interview := result.interview:
+                start = interview.start.astimezone(UTC)
+                await self._keep_step(
+                    thread,
+                    StepKind.INTERVIEW,
+                    starts_at=start,
+                    ends_at=interview.end.astimezone(UTC)
+                    if interview.end and interview.end > start
+                    else None,
+                    format=NextStepFormat(interview.format)
+                    if interview.format
+                    else None,
+                    location=interview.location,
+                )
+            if result.decide_by:
+                await self._keep_step(
+                    thread, StepKind.OFFER_DEADLINE, due_on=result.decide_by
+                )
         await self._session.commit()
 
     async def _add_interviews(
-        self, user_id: UUID, newest: list[GmailMessage], threads: dict[str, EmailThread]
+        self, user_id: UUID, steps: Sequence[ApplicationStep]
     ) -> None:
-        """Put each upcoming interview a thread confirms on Google Calendar, once"""
-        for message in newest:
-            thread = threads.get(message.thread_id)
-            if thread is None or thread.interview_start is None or thread.event_id:
+        """Put each upcoming open interview step triage found on Google Calendar,
+        once"""
+        for step in steps:
+            if (
+                step.kind is not StepKind.INTERVIEW
+                or step.status is not StepStatus.OPEN
+                or step.starts_at is None
+                or step.event_id
+            ):
                 continue
-            start = as_utc(thread.interview_start)
+            start = as_utc(step.starts_at)
             if start <= utcnow():
                 continue
-            event_id = sha256(f"{user_id}:{message.thread_id}".encode()).hexdigest()
-            if not await self._repository.claim_event(thread, event_id):
+            event_id = sha256(
+                f"{user_id}:{step.email_thread_id}:{_emailed(step)}".encode()
+            ).hexdigest()
+            if not await self._applications.claim_event(step, event_id):
                 continue
             application = (
                 await self._applications.owned(
-                    Application, user_id, thread.application_id
+                    Application, user_id, step.application_id
                 )
-                if thread.application_id
+                if step.application_id
                 else None
             )
             with suppress(AlreadyExists):
                 await self._calendar.create(
                     user_id,
                     EventCreate(
-                        title=f"{application.company} {application.role} interview"
+                        title=f"{application.job.company} {application.job.title} interview"
                         if application
                         else "Interview",
                         start=start,
-                        end=as_utc(thread.interview_end)
-                        if thread.interview_end
+                        end=as_utc(step.ends_at)
+                        if step.ends_at
                         else start + timedelta(minutes=self._config.interview_minutes),
-                        location=thread.interview_location,
+                        location=step.location,
                     ),
                     event_id,
                 )
@@ -341,10 +436,13 @@ class InboxService:
         ]
         if changed:
             await self._sync(user_id, token, changed, threads)
+        steps = await self._applications.thread_steps(
+            user_id, [t.id for t in threads.values()]
+        )
         if (await self._settings.get(user_id)).automation.add_interview_invites:
-            await self._add_interviews(user_id, list(newest.values()), threads)
+            await self._add_interviews(user_id, steps)
         return InboxList(
-            messages=[_summary(m, threads.get(m.thread_id)) for m in found],
+            messages=[_summary(m, threads.get(m.thread_id), steps) for m in found],
             needs_reply=sum(
                 1 for t in threads.values() if t.state is ThreadState.NEEDS_REPLY
             ),
@@ -357,8 +455,13 @@ class InboxService:
         thread = next(
             iter(await self._repository.threads(user_id, [message.thread_id])), None
         )
+        steps = (
+            await self._applications.thread_steps(user_id, [thread.id])
+            if thread
+            else []
+        )
         return InboxMessageDetail(
-            **_summary(message, thread).model_dump(),
+            **_summary(message, thread, steps).model_dump(),
             to=message.payload.header("To"),
             body=_text(message.payload),
         )
@@ -389,8 +492,8 @@ class InboxService:
             data=DraftReplyInput(
                 thread=_content(thread) if thread else None,
                 application=DraftApplication(
-                    company=application.company,
-                    role=application.role,
+                    company=application.job.company,
+                    role=application.job.title,
                     stage=application.stage,
                     applied_at=application.applied_on,
                 )

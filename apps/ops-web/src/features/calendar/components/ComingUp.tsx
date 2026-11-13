@@ -3,8 +3,14 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/cn";
 import { addDays, startOfDay } from "../lib/dates";
 import type { CalendarItem } from "../lib/items";
+import ItemBox from "./ItemBox";
 
-export default function ComingUp({ items }: { items: CalendarItem[] }) {
+interface ComingUpProps {
+  items: CalendarItem[];
+  onSelect: (stepId: string) => void;
+}
+
+export default function ComingUp({ items, onSelect }: ComingUpProps) {
   const { t, i18n } = useTranslation();
   const headingId = useId();
   const now = new Date();
@@ -32,8 +38,10 @@ export default function ComingUp({ items }: { items: CalendarItem[] }) {
         </p>
       )}
       {next.map((item) => (
-        <div
+        <ItemBox
           key={item.id}
+          item={item}
+          onSelect={onSelect}
           className="border-hair-soft flex flex-col border-t py-2.5"
         >
           <span
@@ -61,7 +69,7 @@ export default function ComingUp({ items }: { items: CalendarItem[] }) {
               ? t("calendar.task", { step: item.step, company: item.title })
               : item.title}
           </span>
-        </div>
+        </ItemBox>
       ))}
     </section>
   );

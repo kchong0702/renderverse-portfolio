@@ -2,7 +2,12 @@ import { ChevronLeft, ChevronRight, Sparkle } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import { useApplications } from "@/features/applications";
+import {
+  stepTitle,
+  useApplications,
+  useStepsBetween,
+  type Step,
+} from "@/features/applications";
 import { GoogleNotice, useGoogleAccount } from "@/features/settings";
 import { ApiError } from "@/shared/api/http";
 import { buttonClass } from "@/shared/components/button";
@@ -14,6 +19,7 @@ import AutomationPanel from "../components/AutomationPanel";
 import ComingUp from "../components/ComingUp";
 import MonthGrid from "../components/MonthGrid";
 import ScheduleForm from "../components/ScheduleForm";
+import StepDetail from "../components/StepDetail";
 import WeekGrid from "../components/WeekGrid";
 import { useEvents } from "../hooks/useEvents";
 import {
@@ -32,6 +38,7 @@ export default function CalendarPage() {
   const [params, setParams] = useSearchParams();
   const [now, setNow] = useState(Date.now);
   const [scheduling, setScheduling] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
   const { settings, account, problem } = useGoogleAccount();
   const applications = useApplications();
   const view = params.get("view") === "month" ? "month" : "week";
@@ -50,9 +57,16 @@ export default function CalendarPage() {
     account !== null,
   );
   const upcoming = useEvents(today, addDays(today, 14), account !== null);
+  const steps = useStepsBetween(days[0], addDays(days[days.length - 1], 1));
+  const upcomingSteps = useStepsBetween(today, addDays(today, 14));
   const failed = events.error ?? upcoming.error;
   const minutes = Math.floor((now - events.dataUpdatedAt) / 60_000);
   const dayMonth = { day: "numeric", month: "long" } as const;
+  const title = (step: Step) => stepTitle(step, t);
+  const selectedStep = [
+    ...(steps.data ?? []),
+    ...(upcomingSteps.data ?? []),
+  ].find(({ id }) => id === selected);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
@@ -163,6 +177,18 @@ export default function CalendarPage() {
             }}
           />
         )}
+        {selectedStep && (
+          <StepDetail
+            key={selectedStep.id}
+            step={selectedStep}
+            company={
+              applications.data?.find(
+                ({ id }) => id === selectedStep.application_id,
+              )?.company ?? null
+            }
+            onClose={() => setSelected(null)}
+          />
+        )}
         {settings.isPending ? (
           <StateMessage>{t("common.loading")}</StateMessage>
         ) : settings.isError ? (
@@ -214,7 +240,7 @@ export default function CalendarPage() {
                   })}
                 </span>
               </div>
-              {events.isPending || applications.isPending ? (
+              {events.isPending || applications.isPending || steps.isPending ? (
                 <p className="text-ink-3 m-0 text-[14px]">
                   {t("common.loading")}
                 </p>
@@ -222,24 +248,36 @@ export default function CalendarPage() {
                 <StateMessage tone="error">
                   {t("calendar.loadFailed", { reason: events.error.message })}
                 </StateMessage>
-              ) : applications.isError ? (
+              ) : applications.isError || steps.isError ? (
                 <StateMessage tone="error">
                   {t("applications.loadFailed", {
-                    reason: applications.error.message,
+                    reason: (applications.error ?? steps.error)?.message,
                   })}
                 </StateMessage>
               ) : view === "month" ? (
                 <MonthGrid
                   days={days}
                   month={anchor.getMonth()}
-                  items={itemsOf(events.data, applications.data)}
+                  items={itemsOf(
+                    events.data,
+                    steps.data,
+                    applications.data,
+                    title,
+                  )}
+                  onSelect={setSelected}
                 />
               ) : (
                 <WeekGrid
                   days={days}
-                  items={itemsOf(events.data, applications.data)}
+                  items={itemsOf(
+                    events.data,
+                    steps.data,
+                    applications.data,
+                    title,
+                  )}
                   workDayStart={settings.data.scheduling.work_day_start}
                   workDayEnd={settings.data.scheduling.work_day_end}
+                  onSelect={setSelected}
                 />
               )}
               <div className="text-ink-3 flex flex-wrap gap-[18px] text-[13px]">
@@ -257,20 +295,31 @@ export default function CalendarPage() {
               </div>
             </section>
             <aside className="flex max-w-[300px] min-w-0 flex-[1_1_260px] flex-col gap-4">
-              {upcoming.isPending || applications.isPending ? (
+              {upcoming.isPending ||
+              applications.isPending ||
+              upcomingSteps.isPending ? (
                 <StateMessage>{t("common.loading")}</StateMessage>
               ) : upcoming.isError ? (
                 <StateMessage tone="error">
                   {t("calendar.loadFailed", { reason: upcoming.error.message })}
                 </StateMessage>
-              ) : applications.isError ? (
+              ) : applications.isError || upcomingSteps.isError ? (
                 <StateMessage tone="error">
                   {t("applications.loadFailed", {
-                    reason: applications.error.message,
+                    reason: (applications.error ?? upcomingSteps.error)
+                      ?.message,
                   })}
                 </StateMessage>
               ) : (
-                <ComingUp items={itemsOf(upcoming.data, applications.data)} />
+                <ComingUp
+                  items={itemsOf(
+                    upcoming.data,
+                    upcomingSteps.data,
+                    applications.data,
+                    title,
+                  )}
+                  onSelect={setSelected}
+                />
               )}
               <AutomationPanel automation={settings.data.automation} />
             </aside>

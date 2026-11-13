@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from datetime import datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from src.clients.google import (
+    EventMove,
     EventTime,
     ExtendedProperties,
     GoogleClient,
@@ -12,7 +14,7 @@ from src.clients.google import (
     NewEvent,
 )
 from src.core.config import GoogleSettings
-from src.core.exceptions import InvalidInput
+from src.core.exceptions import InvalidInput, NotFound
 from src.db.base import utcnow
 from src.features.calendar.schemas import CalendarEvent, EventCreate, FreeSlots, Slot
 from src.features.google import GoogleService
@@ -77,6 +79,31 @@ class CalendarService:
             ),
         )
         return _event(created)
+
+    async def move(
+        self, user_id: UUID, event_id: str, start: datetime, end: datetime | None
+    ) -> None:
+        """Move an event to start, ending at end or an interview's length later; one
+        Google no longer has is skipped"""
+        token = await self._google.access_token(user_id)
+        with suppress(NotFound):
+            await self._client.move_event(
+                token,
+                event_id,
+                EventMove(
+                    start=EventTime(date_time=start),
+                    end=EventTime(
+                        date_time=end
+                        or start + timedelta(minutes=self._settings.interview_minutes)
+                    ),
+                ),
+            )
+
+    async def delete(self, user_id: UUID, event_id: str) -> None:
+        """Remove an event from the primary calendar"""
+        await self._client.delete_event(
+            await self._google.access_token(user_id), event_id
+        )
 
     async def free_slots(
         self, user_id: UUID, scheduling: Scheduling, days: int

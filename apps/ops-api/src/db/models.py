@@ -1,6 +1,6 @@
 from src.core.auth.models import AuthIdentity, AuthSession, SignInAttempts, User
 from src.core.stores import AgentEvent, AgentRun
-from src.features.applications.models import Application
+from src.features.applications.models import Application, ApplicationStep
 from src.features.connections.models import Connection
 from src.features.documents.models import (
     Document,
@@ -25,6 +25,7 @@ __all__ = [
     "AgentEvent",
     "AgentRun",
     "Application",
+    "ApplicationStep",
     "Asset",
     "AuthIdentity",
     "AuthSession",

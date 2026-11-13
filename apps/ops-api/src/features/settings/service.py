@@ -167,6 +167,11 @@ class SettingsService:
             user_id, quota.remaining if quota else None, quota.limit if quota else None
         )
 
+    async def timezone(self, user_id: UUID) -> str | None:
+        """The user's IANA time zone; None until they choose one"""
+        settings = await self._repository.get(user_id)
+        return settings.timezone if settings else None
+
     async def run_metadata(self, user_id: UUID) -> RunMetadata | None:
         """The user's chosen model and JSearch key for a harness run; None when they
         set neither; Conflict when the stored key can no longer be read"""

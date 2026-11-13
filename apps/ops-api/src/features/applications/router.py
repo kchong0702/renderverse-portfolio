@@ -1,29 +1,41 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
+from pydantic import AwareDatetime
 
 from src.clients.ezcareer import Failed
 from src.core.auth import CurrentUserDep
 from src.db.session import SessionDep
 from src.features.applications.schemas import (
-    ApplicationCreate,
     ApplicationRead,
-    ApplicationWrite,
+    ApplicationUpdate,
+    JobApplicationCreate,
+    ManualApplicationCreate,
+    StepRead,
+    StepWrite,
 )
 from src.features.applications.service import ApplicationService
+from src.features.calendar import CalendarServiceDep
 from src.features.inbox import InboxServiceDep
 from src.features.inbox.schemas import FollowUpDraft
-from src.features.jobs import JobServiceDep
+from src.features.jobs.router import job_service
+from src.features.settings import settings_service
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
 
 def get_application_service(
-    session: SessionDep, jobs: JobServiceDep
+    session: SessionDep, calendar: CalendarServiceDep, request: Request
 ) -> ApplicationService:
-    """The application service on the request's database session"""
-    return ApplicationService(session, jobs)
+    """The application service on the request's database session, with Calendar"""
+    container = request.app.state.container
+    return ApplicationService(
+        session,
+        job_service(session, container),
+        settings_service(session, container),
+        calendar,
+    )
 
 
 ApplicationServiceDep = Annotated[ApplicationService, Depends(get_application_service)]
@@ -33,28 +45,57 @@ ApplicationServiceDep = Annotated[ApplicationService, Depends(get_application_se
 async def list_applications(
     user: CurrentUserDep, service: ApplicationServiceDep
 ) -> list[ApplicationRead]:
-    """Every application, soonest next step first"""
+    """Every application: overdue ones first, then soonest next step first"""
     return await service.applications(user.id)
+
+
+@router.get("/steps")
+async def list_steps_between(
+    start: AwareDatetime,
+    end: AwareDatetime,
+    user: CurrentUserDep,
+    service: ApplicationServiceDep,
+) -> list[StepRead]:
+    """The user's steps that start from start until end, soonest first"""
+    return await service.steps_between(user.id, start, end)
+
+
+@router.put("/steps/{step_id}")
+async def replace_step_by_id(
+    step_id: UUID, step: StepWrite, user: CurrentUserDep, service: ApplicationServiceDep
+) -> StepRead:
+    """Save every field of one of the user's steps, linked to an application or
+    not; 422 when a step found in an email changes kind"""
+    return await service.replace_step(user.id, None, step_id, step)
+
+
+@router.delete("/steps/{step_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_step_by_id(
+    step_id: UUID, user: CurrentUserDep, service: ApplicationServiceDep
+) -> None:
+    """Remove one of the user's steps, linked to an application or not"""
+    await service.delete_step(user.id, None, step_id)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def add_application(
-    application: ApplicationCreate,
+    application: JobApplicationCreate | ManualApplicationCreate,
     user: CurrentUserDep,
     service: ApplicationServiceDep,
 ) -> ApplicationRead:
-    """Track an application"""
+    """Track an application for a stored job, or for a new saved job made from the
+    company and role; 409 when the job has one already"""
     return await service.add(user.id, application)
 
 
 @router.put("/{application_id}")
 async def replace_application(
     application_id: UUID,
-    application: ApplicationWrite,
+    application: ApplicationUpdate,
     user: CurrentUserDep,
     service: ApplicationServiceDep,
 ) -> ApplicationRead:
-    """Save every field of an application but its job"""
+    """Save every field of an application, and its job's company and role"""
     return await service.replace(user.id, application_id, application)
 
 
@@ -62,8 +103,54 @@ async def replace_application(
 async def delete_application(
     application_id: UUID, user: CurrentUserDep, service: ApplicationServiceDep
 ) -> None:
-    """Stop tracking an application"""
+    """Stop tracking an application, and delete its job when it was tracked by
+    hand"""
     await service.delete(user.id, application_id)
+
+
+@router.get("/{application_id}/steps")
+async def list_steps(
+    application_id: UUID, user: CurrentUserDep, service: ApplicationServiceDep
+) -> list[StepRead]:
+    """The application's steps, soonest first"""
+    return await service.steps(user.id, application_id)
+
+
+@router.post("/{application_id}/steps", status_code=status.HTTP_201_CREATED)
+async def add_step(
+    application_id: UUID,
+    step: StepWrite,
+    user: CurrentUserDep,
+    service: ApplicationServiceDep,
+) -> StepRead:
+    """Add an interview, follow-up, take-home or offer deadline to the application"""
+    return await service.add_step(user.id, application_id, step)
+
+
+@router.put("/{application_id}/steps/{step_id}")
+async def replace_step(
+    application_id: UUID,
+    step_id: UUID,
+    step: StepWrite,
+    user: CurrentUserDep,
+    service: ApplicationServiceDep,
+) -> StepRead:
+    """Save every field of a step, such as a new time or done; 422 when a step
+    found in an email changes kind"""
+    return await service.replace_step(user.id, application_id, step_id, step)
+
+
+@router.delete(
+    "/{application_id}/steps/{step_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_step(
+    application_id: UUID,
+    step_id: UUID,
+    user: CurrentUserDep,
+    service: ApplicationServiceDep,
+) -> None:
+    """Remove a step"""
+    await service.delete_step(user.id, application_id, step_id)
 
 
 @router.post("/{application_id}/follow-up-draft")

@@ -1,7 +1,7 @@
 import { Sparkle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
-import { useApplications } from "@/features/applications";
+import { useApplications, useStepsBetween } from "@/features/applications";
 import { useJobs, useLatestJobRun } from "@/features/jobs";
 import { usePreferences } from "@/features/preferences";
 import { buttonClass } from "@/shared/components/button";
@@ -9,6 +9,7 @@ import PageBody from "@/shared/components/PageBody";
 import PageHeader from "@/shared/components/PageHeader";
 import Segmented from "@/shared/components/Segmented";
 import StateMessage from "@/shared/components/StateMessage";
+import { daysLeftThisWeek } from "@/shared/lib/dates";
 import Kpis from "../components/Kpis";
 import NextSteps from "../components/NextSteps";
 import Pipeline from "../components/Pipeline";
@@ -28,6 +29,16 @@ export default function DashboardPage() {
   const jobs = useJobs();
   const preferences = usePreferences();
   const latestRun = useLatestJobRun();
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const steps = useStepsBetween(
+    today,
+    new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + daysLeftThisWeek() + 1,
+    ),
+  );
   const period: Period =
     PERIODS.find((name) => name === params.get("period")) ?? "30d";
   const days = PERIOD_DAYS[period];
@@ -88,11 +99,22 @@ export default function DashboardPage() {
                 jobs.data.jobs.filter((job) => job.status === "saved").length
               }
             />
-            <NextSteps
-              applications={applications.data}
-              jobs={jobs.data.jobs}
-              picks={newPicks}
-            />
+            {steps.isError ? (
+              <StateMessage tone="error">
+                {t("applications.steps.loadFailed", {
+                  reason: steps.error.message,
+                })}
+              </StateMessage>
+            ) : !steps.data ? (
+              <StateMessage>{t("common.loading")}</StateMessage>
+            ) : (
+              <NextSteps
+                applications={applications.data}
+                steps={steps.data}
+                jobs={jobs.data.jobs}
+                picks={newPicks}
+              />
+            )}
             <ShortcutCards
               preferences={preferences.data}
               run={latestRun.data}

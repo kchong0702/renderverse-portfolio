@@ -11,6 +11,7 @@ import StateMessage from "@/shared/components/StateMessage";
 import ApplicationBoard from "../components/ApplicationBoard";
 import ApplicationForm from "../components/ApplicationForm";
 import ApplicationTable from "../components/ApplicationTable";
+import StepList from "../components/StepList";
 import {
   useAddApplication,
   useApplications,
@@ -93,20 +94,17 @@ export default function ApplicationsPage() {
               <Panel title={t("applications.form.newTitle")}>
                 <ApplicationForm
                   application={{
-                    job_id: null,
-                    company: "",
-                    role: "",
                     stage: "draft",
                     applied_on: null,
-                    next_step: "",
-                    next_step_at: null,
-                    next_step_due: null,
-                    next_step_format: null,
-                    next_step_location: null,
+                    company: "",
+                    role: "",
+                    by_hand: true,
                   }}
                   jobs={
                     jobs.data?.jobs.filter(
-                      (job) => job.status !== "dismissed",
+                      (job) =>
+                        job.status !== "dismissed" &&
+                        !applications.data.some((a) => a.job_id === job.id),
                     ) ?? []
                   }
                   pending={add.isPending}
@@ -153,6 +151,7 @@ export default function ApplicationsPage() {
                     }
                   }}
                 />
+                <StepList application={edited} />
               </Panel>
             )}
             {applications.data.length === 0 ? (

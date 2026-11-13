@@ -209,6 +209,14 @@ class EventList(BaseModel):
     """Events in the range, earliest first"""
 
 
+class EventMove(BaseModel):
+    start: EventTime
+    """When it now starts"""
+
+    end: EventTime
+    """When it now ends"""
+
+
 class NewEvent(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True)
 
@@ -236,6 +244,7 @@ class NewEvent(BaseModel):
 
 __all__ = [
     "EventList",
+    "EventMove",
     "EventTime",
     "ExtendedProperties",
     "GmailList",

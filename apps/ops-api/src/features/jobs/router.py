@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.app.container import Container
 from src.clients.ezcareer import Completed, Failed
 from src.core.auth import CurrentUserDep
+from src.core.exceptions import InvalidInput
 from src.db.session import SessionDep
 from src.features.documents import document_service
 from src.features.jobs.enums import RunTrigger
@@ -60,7 +61,9 @@ async def add_job(
     job: JobCreate, user: CurrentUserDep, service: JobServiceDep, response: Response
 ) -> JobRead:
     """Store a new posting with 201, or refresh the one stored under its external_id
-    with 200"""
+    with 200; 422 for the manual source"""
+    if job.source == "manual":
+        raise InvalidInput("The manual source is kept for jobs tracked by hand")
     added, created = await service.add(user.id, job)
     if not created:
         response.status_code = status.HTTP_200_OK

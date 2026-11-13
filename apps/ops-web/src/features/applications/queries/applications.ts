@@ -3,11 +3,16 @@ import {
   queryOptions,
   type QueryClient,
 } from "@tanstack/react-query";
+import { jobsQueryOptions } from "@/features/jobs";
 import {
   addApplication,
+  addStep,
   deleteApplication,
   fetchApplications,
+  fetchSteps,
+  fetchStepsBetween,
   saveApplication,
+  saveStep,
   type Application,
 } from "../api/applications";
 
@@ -30,7 +35,10 @@ async function changeApplications(
 export const addApplicationMutationOptions = mutationOptions({
   mutationFn: addApplication,
   onSettled: (_application, _error, _create, _result, { client }) =>
-    client.invalidateQueries({ queryKey: applicationsQueryOptions.queryKey }),
+    Promise.all([
+      client.invalidateQueries({ queryKey: applicationsQueryOptions.queryKey }),
+      client.invalidateQueries({ queryKey: jobsQueryOptions.queryKey }),
+    ]),
 });
 
 export const saveApplicationMutationOptions = mutationOptions({
@@ -44,7 +52,10 @@ export const saveApplicationMutationOptions = mutationOptions({
       client.setQueryData(applicationsQueryOptions.queryKey, result.previous);
   },
   onSettled: (_saved, _error, _application, _result, { client }) =>
-    client.invalidateQueries({ queryKey: applicationsQueryOptions.queryKey }),
+    Promise.all([
+      client.invalidateQueries({ queryKey: applicationsQueryOptions.queryKey }),
+      client.invalidateQueries({ queryKey: jobsQueryOptions.queryKey }),
+    ]),
 });
 
 export const deleteApplicationMutationOptions = mutationOptions({
@@ -57,4 +68,35 @@ export const deleteApplicationMutationOptions = mutationOptions({
     if (result?.previous)
       client.setQueryData(applicationsQueryOptions.queryKey, result.previous);
   },
+  onSettled: (_deleted, _error, _id, _result, { client }) =>
+    Promise.all([
+      client.invalidateQueries({ queryKey: jobsQueryOptions.queryKey }),
+      client.invalidateQueries({
+        queryKey: [...applicationsQueryOptions.queryKey, "steps"],
+      }),
+    ]),
+});
+
+export const stepsBetweenQueryOptions = (start: string, end: string) =>
+  queryOptions({
+    queryKey: [...applicationsQueryOptions.queryKey, "steps", start, end],
+    queryFn: ({ signal }) => fetchStepsBetween(start, end, signal),
+  });
+
+export const stepsQueryOptions = (applicationId: string) =>
+  queryOptions({
+    queryKey: [...applicationsQueryOptions.queryKey, applicationId, "steps"],
+    queryFn: ({ signal }) => fetchSteps(applicationId, signal),
+  });
+
+export const addStepMutationOptions = mutationOptions({
+  mutationFn: addStep,
+  onSettled: (_step, _error, _add, _result, { client }) =>
+    client.invalidateQueries({ queryKey: applicationsQueryOptions.queryKey }),
+});
+
+export const saveStepMutationOptions = mutationOptions({
+  mutationFn: saveStep,
+  onSettled: (_step, _error, _save, _result, { client }) =>
+    client.invalidateQueries({ queryKey: applicationsQueryOptions.queryKey }),
 });

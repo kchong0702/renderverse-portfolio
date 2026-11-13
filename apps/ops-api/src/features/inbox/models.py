@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base, EnumString
@@ -28,25 +27,6 @@ class EmailThread(IdMixin, UserScopedMixin, AuditMixin, Base):
         ForeignKey("applications.id", ondelete="SET NULL"), default=None
     )
     """The application the thread is about, if any"""
-
-    decide_by: Mapped[date | None] = mapped_column(default=None)
-    """The deadline of an offer that names one"""
-
-    interview_start: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), default=None
-    )
-    """When the interview the thread confirms starts, in UTC"""
-
-    interview_end: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), default=None
-    )
-    """When it ends, in UTC; None when the email does not say"""
-
-    interview_location: Mapped[str | None] = mapped_column(String(500), default=None)
-    """Where it takes place, such as a video link"""
-
-    event_id: Mapped[str | None] = mapped_column(String(1024), default=None)
-    """The Google Calendar event Ops added for the interview, so it adds it once"""
 
 
 __all__ = ["EmailThread"]

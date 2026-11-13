@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 7ffcd3e9dbc2
+Revision ID: aec020b6b471
 Revises:
-Create Date: 2026-11-13 13:22:58.347747
+Create Date: 2026-11-13 13:23:49.754462
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "7ffcd3e9dbc2"
+revision: str = "aec020b6b471"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -862,16 +862,9 @@ def upgrade() -> None:
     )
     op.create_table(
         "applications",
-        sa.Column("job_id", sa.Uuid(), nullable=True),
-        sa.Column("company", sa.String(length=200), nullable=False),
-        sa.Column("role", sa.String(length=200), nullable=False),
+        sa.Column("job_id", sa.Uuid(), nullable=False),
         sa.Column("stage", sa.String(), nullable=False),
         sa.Column("applied_on", sa.Date(), nullable=True),
-        sa.Column("next_step", sa.String(length=200), nullable=False),
-        sa.Column("next_step_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("next_step_due", sa.Date(), nullable=True),
-        sa.Column("next_step_format", sa.String(), nullable=True),
-        sa.Column("next_step_location", sa.String(length=200), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column(
@@ -893,10 +886,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.ForeignKeyConstraint(
-            ["job_id"],
-            ["jobs.id"],
-            name=op.f("fk_applications_job_id_jobs"),
-            ondelete="SET NULL",
+            ["job_id"], ["jobs.id"], name=op.f("fk_applications_job_id_jobs")
         ),
         sa.ForeignKeyConstraint(
             ["user_id"],
@@ -905,6 +895,7 @@ def upgrade() -> None:
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_applications")),
+        sa.UniqueConstraint("job_id", name=op.f("uq_applications_job_id")),
     )
     op.create_index(
         op.f("ix_applications_user_id"), "applications", ["user_id"], unique=False
@@ -1141,11 +1132,6 @@ def upgrade() -> None:
         sa.Column("last_message_id", sa.String(length=64), nullable=False),
         sa.Column("state", sa.String(), nullable=False),
         sa.Column("application_id", sa.Uuid(), nullable=True),
-        sa.Column("decide_by", sa.Date(), nullable=True),
-        sa.Column("interview_start", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("interview_end", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("interview_location", sa.String(length=500), nullable=True),
-        sa.Column("event_id", sa.String(length=1024), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column(
@@ -1279,6 +1265,91 @@ def upgrade() -> None:
         ),
     )
     op.create_table(
+        "application_steps",
+        sa.Column("application_id", sa.Uuid(), nullable=True),
+        sa.Column("kind", sa.String(), nullable=False),
+        sa.Column("title", sa.String(length=200), nullable=False),
+        sa.Column("starts_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("ends_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("due_on", sa.Date(), nullable=True),
+        sa.Column("format", sa.String(), nullable=True),
+        sa.Column("location", sa.String(length=500), nullable=True),
+        sa.Column("event_id", sa.String(length=1024), nullable=True),
+        sa.Column("email_thread_id", sa.Uuid(), nullable=True),
+        sa.Column("email_starts_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("email_due_on", sa.Date(), nullable=True),
+        sa.Column("status", sa.String(), nullable=False),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "created_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "updated_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.CheckConstraint(
+            "application_id is not null or email_thread_id is not null",
+            name=op.f("ck_application_steps_owner"),
+        ),
+        sa.CheckConstraint(
+            "ends_at is null or (starts_at is not null and ends_at >= starts_at)",
+            name=op.f("ck_application_steps_ends_after_start"),
+        ),
+        sa.CheckConstraint(
+            "starts_at is not null or due_on is not null",
+            name=op.f("ck_application_steps_when"),
+        ),
+        sa.ForeignKeyConstraint(
+            ["application_id"],
+            ["applications.id"],
+            name=op.f("fk_application_steps_application_id_applications"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["email_thread_id"],
+            ["email_threads.id"],
+            name=op.f("fk_application_steps_email_thread_id_email_threads"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_application_steps_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_application_steps")),
+    )
+    op.create_index(
+        op.f("ix_application_steps_application_id"),
+        "application_steps",
+        ["application_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_application_steps_email_thread_id"),
+        "application_steps",
+        ["email_thread_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_application_steps_user_id"),
+        "application_steps",
+        ["user_id"],
+        unique=False,
+    )
+    op.create_table(
         "profile_changes",
         sa.Column("import_id", sa.Uuid(), nullable=False),
         sa.Column("kind", sa.String(), nullable=False),
@@ -1374,6 +1445,7 @@ def upgrade() -> None:
     op.enable_rls("document_versions")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("email_threads")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("imports")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("application_steps")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("profile_changes")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("alembic_version")  # pyright: ignore[reportAttributeAccessIssue]
     # ### end Alembic commands ###
@@ -1384,6 +1456,7 @@ def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
     op.disable_rls("alembic_version")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("profile_changes")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("application_steps")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("imports")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("email_threads")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("document_versions")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1412,6 +1485,14 @@ def downgrade() -> None:
     op.disable_rls("auth_sign_in_attempts")  # pyright: ignore[reportAttributeAccessIssue]
     op.drop_index(op.f("ix_profile_changes_user_id"), table_name="profile_changes")
     op.drop_table("profile_changes")
+    op.drop_index(op.f("ix_application_steps_user_id"), table_name="application_steps")
+    op.drop_index(
+        op.f("ix_application_steps_email_thread_id"), table_name="application_steps"
+    )
+    op.drop_index(
+        op.f("ix_application_steps_application_id"), table_name="application_steps"
+    )
+    op.drop_table("application_steps")
     op.drop_index(
         "uq_imports_documents_active",
         table_name="imports",

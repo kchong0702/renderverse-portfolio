@@ -9,6 +9,7 @@ from pydantic import BaseModel, ValidationError
 
 from src.clients.google.schemas import (
     EventList,
+    EventMove,
     GmailList,
     GmailMessage,
     GmailProfile,
@@ -291,6 +292,28 @@ class GoogleClient:
         return await self._call(
             "POST", _CALENDAR_URL, access_token, GoogleEvent, body=event
         )
+
+    async def move_event(
+        self, access_token: str, event_id: str, move: EventMove
+    ) -> GoogleEvent:
+        """Give an event on the primary calendar a new start and end"""
+        return await self._call(
+            "PATCH", f"{_CALENDAR_URL}/{event_id}", access_token, GoogleEvent, body=move
+        )
+
+    async def delete_event(self, access_token: str, event_id: str) -> None:
+        """Remove an event from the primary calendar; one Google no longer has counts
+        as removed"""
+        response = await self._send(
+            "DELETE", f"{_CALENDAR_URL}/{event_id}", token=access_token
+        )
+        if response.status_code == 401:
+            raise Conflict(RECONNECT)
+        if response.is_error and response.status_code not in (404, 410):
+            logger.warning(
+                "google_error", status_code=response.status_code, body=response.text
+            )
+            raise ServiceUnavailable("Google did not remove the event; try again later")
 
     async def aclose(self) -> None:
         """Close the HTTP client's connections"""

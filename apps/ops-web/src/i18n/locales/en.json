@@ -149,6 +149,7 @@
     "notScored": "Not scored",
     "salaryNotStated": "Salary not stated",
     "via": "via {{source}}",
+    "addedByHand": "Added by hand",
     "bands": {
       "excellent": "Excellent fit",
       "good": "Good fit",
@@ -193,6 +194,8 @@
     "applied": "Applied {{when}}",
     "followUp": "Follow up · {{count}} days",
     "decideBy": "Decide by {{when}}",
+    "dueOn": "{{title}} · due {{when}}",
+    "overdue": "Overdue · {{title}}",
     "views": {
       "label": "View",
       "board": "Board",
@@ -219,25 +222,58 @@
       "noJob": "Not from a saved job",
       "company": "Company",
       "role": "Role",
+      "url": "Posting URL",
       "stage": "Stage",
       "appliedOn": "Applied on",
-      "nextStep": "Next step",
-      "nextStepPlaceholder": "e.g. Technical interview",
-      "nextStepAt": "When",
-      "dueBy": "Due by",
-      "format": "Format",
-      "noFormat": "Not set",
-      "formats": {
-        "video": "Video call",
-        "phone": "Phone call",
-        "on_site": "On site"
-      },
       "location": "Location",
       "failed": "Not saved: {{reason}}",
       "saving": "Saving…",
       "save": "Save",
       "cancel": "Cancel",
       "delete": "Delete"
+    },
+    "steps": {
+      "title": "Steps",
+      "add": "Add step",
+      "empty": "No steps yet. Add an interview, a follow-up, a take-home or an offer deadline.",
+      "loadFailed": "Steps could not be loaded: {{reason}}",
+      "due": "Due {{when}}",
+      "next": "Next",
+      "overdue": "Overdue",
+      "edit": "Edit {{title}}",
+      "editShort": "Edit",
+      "done": "Mark done",
+      "cancel": "Cancel step",
+      "kinds": {
+        "interview": "Interview",
+        "follow_up": "Follow-up",
+        "take_home": "Take-home",
+        "offer_deadline": "Offer deadline"
+      },
+      "statuses": {
+        "done": "Done",
+        "cancelled": "Cancelled"
+      },
+      "form": {
+        "kind": "Kind",
+        "title": "Title",
+        "startsAt": "Starts",
+        "endsAt": "Ends",
+        "dueOn": "Due by",
+        "format": "Format",
+        "noFormat": "Not set",
+        "formats": {
+          "video": "Video call",
+          "phone": "Phone call",
+          "on_site": "On site"
+        },
+        "location": "Location",
+        "needsTime": "Give the step a start time or a due day.",
+        "failed": "Not saved: {{reason}}",
+        "saving": "Saving…",
+        "save": "Save step",
+        "cancel": "Cancel"
+      }
     }
   },
   "documents": {
@@ -892,6 +928,7 @@
       "failed": "Not added: {{reason}}"
     },
     "changeInSettings": "Change in Settings",
+    "close": "Close",
     "loadFailed": "Calendar could not be loaded: {{reason}}"
   },
   "auth": {
