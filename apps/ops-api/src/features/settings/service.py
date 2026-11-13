@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.adapters.job_sources import JobQuery, JobSource
 from src.clients.ezcareer import (
     ModelCatalog,
     ModelChoice,
@@ -60,6 +61,9 @@ class SettingsService:
         """Read and write the settings through a repository on the session, read the
         user's Google connection, and keep the user's JSearch key through the
         connection service"""
+        self._session = session
+        """Committed before JSearch checks a key, so no transaction waits on it"""
+
         self._repository = SettingsRepository(session)
         self._google = google
         self._jsearch = api_key_connections(
@@ -144,10 +148,17 @@ class SettingsService:
             raise InvalidInput("The work day must end after it starts")
         return _to_read(settings, await self._connections(settings))
 
-    async def connect_jsearch(self, user_id: UUID, api_key: SecretStr) -> SettingsRead:
-        """Store the user's JSearch key, encrypted, in place of any earlier one, whose
-        quota no longer applies"""
+    async def connect_jsearch(
+        self, user_id: UUID, api_key: SecretStr, source: JobSource
+    ) -> SettingsRead:
+        """Check the key with one search, then store it, encrypted, in place of any
+        earlier one, with the quota it reports; InvalidInput when JSearch refuses it"""
+        await self._session.commit()
+        found = await source.search(
+            JobQuery(query="software engineer", max_jobs=10), api_key.get_secret_value()
+        )
         await self._jsearch.connect(user_id, api_key.get_secret_value())
+        await self._jsearch.record_quota(user_id, found.remaining, found.limit)
         return await self.get(user_id)
 
     async def disconnect_jsearch(self, user_id: UUID) -> SettingsRead:

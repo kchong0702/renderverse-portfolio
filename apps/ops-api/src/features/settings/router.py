@@ -64,15 +64,21 @@ async def read_models(_: CurrentUserDep, request: Request) -> ModelCatalog:
 
 @router.put("/connections/jsearch")
 async def connect_jsearch(
-    key: JSearchKey, user: CurrentUserDep, service: SettingsServiceDep
+    key: JSearchKey,
+    user: CurrentUserDep,
+    service: SettingsServiceDep,
+    request: Request,
 ) -> SettingsRead:
-    """Store the user's own JSearch API key, encrypted, for find runs to search with"""
-    return await service.connect_jsearch(user.id, key.api_key)
+    """Check the user's own JSearch API key, then store it, encrypted, for find runs
+    to search with"""
+    return await service.connect_jsearch(
+        user.id, key.api_key, request.app.state.container.job_source()
+    )
 
 
 @router.delete("/connections/jsearch")
 async def disconnect_jsearch(
     user: CurrentUserDep, service: SettingsServiceDep
 ) -> SettingsRead:
-    """Remove the user's JSearch API key, so find runs use the server's"""
+    """Remove the user's JSearch API key, so find runs stop until another is saved"""
     return await service.disconnect_jsearch(user.id)

@@ -1,3 +1,4 @@
+import pytest
 from cryptography.fernet import Fernet
 from sqlalchemy import select
 
@@ -17,16 +18,20 @@ def _jsearch(settings: dict) -> dict:
     return connection
 
 
-async def test_a_jsearch_key_is_stored_encrypted_and_never_returned(app, client):
+async def test_a_jsearch_key_is_checked_with_one_search_then_stored_encrypted(
+    app, client, jsearch
+):
     saved = await client.put(JSEARCH, json={"api_key": API_KEY})
 
     assert saved.status_code == 200
     assert _jsearch(saved.json()) == {
         "id": "jsearch",
         "status": "connected",
-        "quota": None,
+        "quota": {"remaining": 180, "limit": 200},
         "account": None,
     }
+    [check] = jsearch.received
+    assert check.headers["X-RapidAPI-Key"] == API_KEY
     reread = await client.get(SETTINGS)
     assert API_KEY not in saved.text + reread.text
     assert _jsearch(reread.json())["status"] == "connected"
@@ -35,6 +40,32 @@ async def test_a_jsearch_key_is_stored_encrypted_and_never_returned(app, client)
     assert stored is not None and stored.provider is Provider.JSEARCH
     assert API_KEY.encode() not in stored.secret
     assert Fernet(JSEARCH_ENCRYPTION_KEY).decrypt(stored.secret) == API_KEY.encode()
+
+
+@pytest.mark.parametrize("status", [401, 403])
+async def test_a_key_jsearch_refuses_is_not_stored(client, jsearch, status):
+    jsearch.status = status
+
+    response = await client.put(JSEARCH, json={"api_key": API_KEY})
+
+    assert (response.status_code, response.json()["detail"]) == (
+        422,
+        "JSearch refused the key",
+    )
+    assert API_KEY not in response.text
+    assert _jsearch((await client.get(SETTINGS)).json())["status"] == "not_connected"
+
+
+async def test_a_key_is_not_stored_when_jsearch_cannot_check_it(client, jsearch):
+    jsearch.status = 503
+
+    response = await client.put(JSEARCH, json={"api_key": API_KEY})
+
+    assert (response.status_code, response.json()["detail"]) == (
+        503,
+        "JSearch answered 503",
+    )
+    assert _jsearch((await client.get(SETTINGS)).json())["status"] == "not_connected"
 
 
 async def test_a_removed_jsearch_key_shows_as_not_connected(client):

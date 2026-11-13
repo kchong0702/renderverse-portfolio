@@ -20,7 +20,7 @@ class JobSource(Protocol):
 
     async def search(self, query: JobQuery, api_key: str) -> JobSearchResults:
         """The postings the query finds on the user's key, with the key's quota;
-        ServiceUnavailable when the source fails"""
+        InvalidInput when the source refuses the key, ServiceUnavailable when it fails"""
         ...
 
     async def aclose(self) -> None:
