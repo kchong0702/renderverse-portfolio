@@ -22,7 +22,7 @@ from tests.agents.career_director.test_update_profile import HEADLINE, READ_SKIL
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.analyse_job import test_analyse_job_graph as analyse_job
-from tests.features.write_document.test_write_document_graph import _fetched, _print
+from tests.features.write_document.test_write_document_graph import _loaded, _print
 
 
 def _send(
@@ -191,19 +191,19 @@ def test_a_found_document_is_edited_and_its_changeset_is_published_as_an_artifac
     client = TestClient(create_app(_container(_model(), consultant, director)))
 
     finding = _send(client, _director_request())
-    fetching = _send(client, [{"data": {"documents": [BACKEND]}}], task=finding)
-    done = _send(client, [{"data": _fetched()}], task=fetching)
+    loading = _send(client, [{"data": {"documents": [BACKEND]}}], task=finding)
+    done = _send(client, [{"data": _loaded()}], task=loading)
 
     assert [
         (task["status"]["state"], task["status"]["message"]["parts"])
-        for task in (finding, fetching)
+        for task in (finding, loading)
     ] == [
         (
             "TASK_STATE_INPUT_REQUIRED",
             [
                 {
                     "data": {
-                        "fetch": "documents",
+                        "execute_tool": "documents",
                         "name": "backend résumé",
                         "kind": "resume",
                     }
@@ -212,7 +212,7 @@ def test_a_found_document_is_edited_and_its_changeset_is_published_as_an_artifac
         ),
         (
             "TASK_STATE_INPUT_REQUIRED",
-            [{"data": {"fetch": "document", "id": "doc-1"}}],
+            [{"data": {"execute_tool": "document", "id": "doc-1"}}],
         ),
     ]
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
@@ -273,8 +273,8 @@ def test_a_workflows_question_reaches_the_user_and_their_answer_finishes_the_tur
     )
     client = TestClient(create_app(_container(_model(), consultant, director)))
 
-    fetching = _send(client, _director_request())
-    asked = _send(client, [{"data": _fetched()}], task=fetching)
+    loading = _send(client, _director_request())
+    asked = _send(client, [{"data": _loaded()}], task=loading)
     done = _send(client, [{"data": {"input": "The queue one"}}], task=asked)
 
     assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
@@ -393,12 +393,12 @@ def test_finished_steps_carry_what_their_tools_found_and_worked_on():
 
     finding = _stream(client, _director_request())
     task = finding[-1]["statusUpdate"]
-    fetching = _stream(client, [{"data": {"documents": [BACKEND]}}], task=task)
-    done = _stream(client, [{"data": _fetched()}], task=task)
+    loading = _stream(client, [{"data": {"documents": [BACKEND]}}], task=task)
+    done = _stream(client, [{"data": _loaded()}], task=task)
 
     details = [
         (s["name"], s["detail"])
-        for s in _steps(finding + fetching + done)
+        for s in _steps(finding + loading + done)
         if s["status"] == "done"
     ]
     assert details == [
@@ -439,7 +439,7 @@ def test_email_is_handed_to_productivity_assistant_which_answers_and_keeps_the_n
         context=task["contextId"],
     )
 
-    assert task["status"]["message"]["parts"][0]["data"]["fetch"] == "threads"
+    assert task["status"]["message"]["parts"][0]["data"]["execute_tool"] == "threads"
     assert [
         (s["name"], s["status"], s["detail"]) for s in _steps(searching + done)
     ] == [
@@ -489,7 +489,7 @@ def test_a_profile_update_waits_for_the_users_decision_and_saves_once_approved()
         {"action_name": "update_profile", "allowed_decisions": ["approve", "reject"]}
     ]
     assert saving[-1]["statusUpdate"]["status"]["message"]["parts"] == [
-        {"data": {"fetch": "profile_update", "edits": [HEADLINE]}}
+        {"data": {"execute_tool": "profile_update", "edits": [HEADLINE]}}
     ]
     assert [
         (

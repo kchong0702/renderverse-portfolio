@@ -31,18 +31,24 @@ CONTAINER = Container()
 
 async def _run_graph(name: str, task: object) -> object:
     """Runs the container's graph served as name on the task in a thread of its own,
-    answering each data request it pauses with from the task's fetch answers"""
+    answering each tool it pauses to have executed from the task's tool results"""
     [graph] = [e.graph for e in CONTAINER.executables() if e.name == name]
     fields = TypeAdapter(dict[str, JsonValue]).validate_python(task)
-    answers = TypeAdapter(dict[str, JsonValue]).validate_python(fields.pop("fetch", {}))
+    results = TypeAdapter(dict[str, JsonValue]).validate_python(
+        fields.pop("tool_results", {})
+    )
     run: RunnableConfig = {"configurable": {"thread_id": str(uuid4())}}
     result = await graph.ainvoke(graph.get_input_schema().model_validate(fields), run)
     while interrupts := result.get("__interrupt__"):
         [request] = interrupts
-        asked = request.value.get("fetch") if isinstance(request.value, dict) else None
-        if asked not in answers:
-            raise ValueError(f"The task has no fetch answer for {request.value!r}")
-        result = await graph.ainvoke(Command(resume=answers[asked]), run)
+        asked = (
+            request.value.get("execute_tool")
+            if isinstance(request.value, dict)
+            else None
+        )
+        if asked not in results:
+            raise ValueError(f"The task has no tool result for {request.value!r}")
+        result = await graph.ainvoke(Command(resume=results[asked]), run)
     return result
 
 
@@ -125,7 +131,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         "--task",
         required=True,
         type=Path,
-        help="the workflow's input as JSON, with each data request's answer under fetch",
+        help="the workflow's input as JSON, with each tool's result under tool_results",
     )
     parser.add_argument(
         "--config",

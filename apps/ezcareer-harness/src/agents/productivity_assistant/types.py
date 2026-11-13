@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.shared.email import EmailThread, TimeSlot
 
 
-class FetchedThread(BaseModel):
+class LoadedThread(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
     thread: EmailThread

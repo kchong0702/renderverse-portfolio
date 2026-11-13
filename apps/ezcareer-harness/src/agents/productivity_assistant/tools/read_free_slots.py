@@ -13,7 +13,7 @@ def _read_free_slots(max_slots: int, days: int = 7) -> tuple[str, StepDetail]:
     """Lists the earliest times the user is free, in their time zone"""
     try:
         free = FreeSlots.model_validate(
-            interrupt({"fetch": "free_slots", "days": days})
+            interrupt({"execute_tool": "free_slots", "days": days})
         )
     except ValidationError as error:
         raise ExecuteError(f"The free slots didn't load: {error}") from error

@@ -56,9 +56,9 @@ async def test_a_synced_document_is_saved_only_after_the_user_approves():
     )
 
     syncing, reviewing, saving = asked
-    assert syncing == {"fetch": "profile_sync", "document_id": "doc-1"}
+    assert syncing == {"execute_tool": "profile_sync", "document_id": "doc-1"}
     assert _review(reviewing) == REVIEW
-    assert saving == {"fetch": "profile_update", "edits": [HEADLINE, SKILL]}
+    assert saving == {"execute_tool": "profile_update", "edits": [HEADLINE, SKILL]}
     assert "update_profile" not in director.offered_tools[0]
     assert {"preview_profile_sync", "update_profile"} <= director.offered_tools[1]
     [preview] = _reports(result, "preview_profile_sync")

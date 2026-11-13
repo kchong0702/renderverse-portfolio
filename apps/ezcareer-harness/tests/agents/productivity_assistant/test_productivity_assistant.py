@@ -76,7 +76,7 @@ async def test_a_search_under_the_limit_lists_every_matching_thread():
 
     assert asked == [
         {
-            "fetch": "threads",
+            "execute_tool": "threads",
             "since": None,
             "until": None,
             "keyword": "interview",
@@ -153,7 +153,7 @@ async def test_read_thread_shows_a_long_threads_latest_messages_cut_to_length():
 
     asked, result = await _run(model, "Read the Acme thread", {"thread": thread})
 
-    assert asked == [{"fetch": "thread", "id": "t-1"}]
+    assert asked == [{"execute_tool": "thread", "id": "t-1"}]
     report = _report(result, "read_thread")
     assert report.text.startswith("2 earlier messages are left out.")
     assert "<thread untrusted>" in report.text
@@ -169,7 +169,7 @@ async def test_a_thread_that_does_not_load_tells_the_agent_why():
 
     asked, result = await _run(model, "Read t-9", {"error": "No thread t-9"})
 
-    assert asked == [{"fetch": "thread", "id": "t-9"}]
+    assert asked == [{"execute_tool": "thread", "id": "t-9"}]
     report = _report(result, "read_thread")
     assert report.status == "error" and "No thread t-9" in report.text
 
@@ -189,7 +189,7 @@ async def test_read_free_slots_lists_only_the_earliest_twelve_in_the_users_zone(
         {"free_slots": many, "timezone": "Asia/Kuala_Lumpur"},
     )
 
-    assert asked == [{"fetch": "free_slots", "days": 21}]
+    assert asked == [{"execute_tool": "free_slots", "days": 21}]
     report = _report(result, "read_free_slots")
     lines = report.text.splitlines()
     assert lines[0] == "The user's free times, in Asia/Kuala_Lumpur:"

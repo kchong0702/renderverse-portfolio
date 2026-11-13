@@ -116,11 +116,11 @@ A tool that one agent uses lives in `src/agents/<agent>/tools/`. A tool that sev
 
 ## An agent works on its own
 
-Called directly with its state in the A2A data part, an agent does its whole job. A workflow wraps it only to make a run deterministic: it fetches the data, runs fixed steps and checks the result. It never supplies something the agent needs to work.
+Called directly with its state in the A2A data part, an agent does its whole job. A workflow wraps it only to make a run deterministic: it loads the data, runs fixed steps and checks the result. It never supplies something the agent needs to work.
 
 The direction is one way: a workflow runs an agent, and an agent never runs a workflow built on itself. productivity-assistant drafts a reply with its own reads, and `draft-reply` wraps it for Ops' Inbox.
 
-So whatever an agent's model must see comes from the agent itself. career-consultant's `document_prompt` middleware, LangChain's `@dynamic_prompt`, adds `state["document"]` to the system prompt on every model call. The document reaches the model the same way whether a direct caller sent it or edit-document's `load` node fetched it.
+So whatever an agent's model must see comes from the agent itself. career-consultant's `document_prompt` middleware, LangChain's `@dynamic_prompt`, adds `state["document"]` to the system prompt on every model call. The document reaches the model the same way whether a direct caller sent it or edit-document's `load` node loaded it.
 
 ## Workflows own no tools
 
@@ -142,23 +142,23 @@ agent.with_config(
 
 `AllowedToolsMiddleware` applies the whitelist to always-on tools with LangChain's `wrap_model_call` and `request.override(tools=...)`. The resolver that `build_agent` gives `SkillsMiddleware` applies it to skill tools. The deepagents file tools that read skills are never whitelisted out.
 
-## Data requests
+## Tools ops-api executes
 
-The harness has no database. When a node or tool needs data that Ops owns, it pauses the run with a data request:
+The harness has no database and no third-party credentials. When a node or tool needs something that Ops owns, it pauses the run and asks ops-api to execute a tool:
 
 ```python
-interrupt({"fetch": "document", "id": document_id})
+interrupt({"execute_tool": "document", "id": document_id})
 ```
 
-The A2A task becomes `input-required`, and its message carries the request as a data part. ops-api answers with the data and resumes the task. These requests exist today:
+The A2A task becomes `input-required`, and its message carries the request as a data part. ops-api executes the tool for the run's user and resumes the task with the tool result, or with `{"error": ...}` when it can't. These tools exist today:
 
-- `{"fetch": "document", "id": ...}`, from `write_document`'s `load` node.
-- `{"fetch": "documents", "name": ..., "kind": ...}`, from career-director's `find_documents` tool.
-- `{"fetch": "thread", "id": ...}`, from productivity-assistant's `read_thread` tool. ops-api answers `{"thread": ...}`, or `{"error": ...}` when it can't.
-- `{"fetch": "free_slots", "days": ...}`, from productivity-assistant's `read_free_slots` tool. ops-api answers `{"free_slots": [...], "timezone": ...}`, with no slots when the user offers none.
-- `{"fetch": "threads", "since": ..., "until": ..., "keyword": ..., "sender": ..., "has_attachment": ..., "limit": ...}`, from productivity-assistant's `search_threads` tool. Each filter is `null` when the agent didn't set it. `since` and `until` are ISO dates and include their day. `sender` matches a name, an address or a domain. `limit` is the most threads to send.
+- `{"execute_tool": "document", "id": ...}`, from `write_document`'s `load` node.
+- `{"execute_tool": "documents", "name": ..., "kind": ...}`, from career-director's `find_documents` tool.
+- `{"execute_tool": "thread", "id": ...}`, from productivity-assistant's `read_thread` tool. ops-api returns `{"thread": ...}`, or `{"error": ...}` when it can't.
+- `{"execute_tool": "free_slots", "days": ...}`, from productivity-assistant's `read_free_slots` tool. ops-api returns `{"free_slots": [...], "timezone": ...}`, with no slots when the user offers none.
+- `{"execute_tool": "threads", "since": ..., "until": ..., "keyword": ..., "sender": ..., "has_attachment": ..., "limit": ...}`, from productivity-assistant's `search_threads` tool. Each filter is `null` when the agent didn't set it. `since` and `until` are ISO dates and include their day. `sender` matches a name, an address or a domain. `limit` is the most threads to send.
 
-  ops-api answers with the matching threads, latest first and at most `limit`, and how many match in all:
+  ops-api returns the matching threads, latest first and at most `limit`, and how many match in all:
 
   ```json
   {
@@ -176,16 +176,16 @@ The A2A task becomes `input-required`, and its message carries the request as a 
   }
   ```
 
-  `sender` and `last_sent_at` are the latest message's. It answers `{"error": ...}` when it can't search, for example when the user's inbox isn't connected.
+  `sender` and `last_sent_at` are the latest message's. It returns `{"error": ...}` when it can't search, for example when the user's inbox isn't connected.
 
-- `{"fetch": "profile_sync", "document_id": ...}`, from career-director's `preview_profile_sync` tool. ops-api dry-runs its profile import of that résumé or CV and answers `{"edits": [...]}`, the edits that would bring the profile in line with it. It saves nothing, and answers `{"error": ...}` when the document can't be synced.
-- `{"fetch": "profile_update", "edits": [...]}`, from career-director's `update_profile` tool, only after the user approves the call (see [Approvals](#approvals)). ops-api saves all the edits or none and answers `{"saved": ...}`, or `{"error": ...}`.
+- `{"execute_tool": "profile_sync", "document_id": ...}`, from career-director's `preview_profile_sync` tool. ops-api dry-runs its profile import of that résumé or CV and returns `{"edits": [...]}`, the edits that would bring the profile in line with it. It saves nothing, and returns `{"error": ...}` when the document can't be synced.
+- `{"execute_tool": "profile_update", "edits": [...]}`, from career-director's `update_profile` tool, only after the user approves the call (see [Approvals](#approvals)). ops-api saves all the edits or none and returns `{"saved": ...}`, or `{"error": ...}`.
 
   Each edit has a `kind`: `about` sets one about field, `entry` sets one field of a role, education or project by its fact id, and `new_entry`, `new_skill` and `new_link` add one. `src/agents/career_director/types.py` defines them as `ProfileEdit`.
 
-- `{"fetch": "job_run", "run_after": ..., "search": ...}`, from career-director's `schedule_job_run` tool. `run_after` is an ISO 8601 time with its offset, or `null` to run as soon as a worker is free; `search` is a `JobSearch` (`query`, `location`, `posted_within`), or `null` to search from the user's preferences. ops-api queues a run of its job agent and answers `{"id": ..., "run_after": ...}`, or `{"error": ...}` when it can't, for example when an agent run is already queued. No approval is needed: the run only adds jobs for the user to look at.
+- `{"execute_tool": "job_run", "run_after": ..., "search": ...}`, from career-director's `schedule_job_run` tool. `run_after` is an ISO 8601 time with its offset, or `null` to run as soon as a worker is free; `search` is a `JobSearch` (`query`, `location`, `posted_within`), or `null` to search from the user's preferences. ops-api queues a run of its job agent and returns `{"id": ..., "run_after": ...}`, or `{"error": ...}` when it can't, for example when an agent run is already queued. No approval is needed: the run only adds jobs for the user to look at.
 
-A question for the user, from `clarify`, pauses the run in the same way, with a widget instead of `fetch`.
+A question for the user, from `clarify`, pauses the run in the same way, with a widget instead of `execute_tool`.
 
 ## Approvals
 

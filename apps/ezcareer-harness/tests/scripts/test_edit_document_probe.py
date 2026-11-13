@@ -12,8 +12,8 @@ from tests.agents.career_consultant.test_career_consultant import (
     _propose,
 )
 from tests.features.write_document.test_write_document_graph import (
-    _fetched,
     _input,
+    _loaded,
     _print,
 )
 
@@ -34,7 +34,7 @@ async def test_a_probe_runs_the_containers_edit_graph_and_records_each_check_rou
 
     result = await probe.probe(
         probe.WORKFLOWS["edit-document"],
-        _input().model_dump(mode="json") | {"fetch": {"document": _fetched()}},
+        _input().model_dump(mode="json") | {"tool_results": {"document": _loaded()}},
     )
 
     assert result["error"] is None
@@ -47,7 +47,7 @@ async def test_a_probe_runs_the_containers_edit_graph_and_records_each_check_rou
     ] == [["unknown_source"], []]
 
 
-async def test_a_task_without_the_fetch_answer_fails_with_the_request():
+async def test_a_task_without_the_tool_result_fails_with_the_request():
     _container(DONE)
 
     result = await probe.probe(
@@ -56,6 +56,6 @@ async def test_a_task_without_the_fetch_answer_fails_with_the_request():
 
     assert result["output"] is None
     assert result["error"] == (
-        "ValueError: The task has no fetch answer for "
-        f"{{'fetch': 'document', 'id': '{_input().document_id}'}}"
+        "ValueError: The task has no tool result for "
+        f"{{'execute_tool': 'document', 'id': '{_input().document_id}'}}"
     )

@@ -1,8 +1,8 @@
 from pydantic import BaseModel, ConfigDict
 
 
-class FetchFailed(BaseModel):
+class ToolError(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
     error: str
-    """Why the client couldn't send what a data request asked for"""
+    """Why ops-api couldn't execute the tool"""

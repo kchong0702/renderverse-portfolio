@@ -130,8 +130,8 @@ def _input() -> EditInput:
     )
 
 
-def _fetched(**update: object) -> dict[str, JsonValue]:
-    """What the client answers the document fetch with"""
+def _loaded(**update: object) -> dict[str, JsonValue]:
+    """What ops-api answers the document tool with"""
     state = _state()
     return to_jsonable_python(
         {"document": state["document"], "lines": state["lines"]} | update
@@ -139,15 +139,15 @@ def _fetched(**update: object) -> dict[str, JsonValue]:
 
 
 async def _run(
-    graph: CompiledStateGraph, fetched: dict[str, JsonValue] | None = None
+    graph: CompiledStateGraph, loaded: dict[str, JsonValue] | None = None
 ) -> EditOutput:
-    """Runs the edit and answers its document fetch"""
+    """Runs the edit and answers its document tool"""
     run = {"configurable": {"thread_id": "t1"}}
     paused = await graph.ainvoke(_input(), run)
     assert [i.value for i in paused["__interrupt__"]] == [
-        {"fetch": "document", "id": "doc-1"}
+        {"execute_tool": "document", "id": "doc-1"}
     ]
-    return await graph.ainvoke(Command(resume=fetched or _fetched()), run)
+    return await graph.ainvoke(Command(resume=loaded or _loaded()), run)
 
 
 async def _edit(*replies: AIMessage) -> tuple[EditOutput, ScriptedChatModel]:
@@ -209,7 +209,7 @@ async def test_an_agent_that_never_stops_proposing_fails_the_edit():
         await _edit(_propose(BAD_EDIT))
 
 
-async def test_a_fetch_the_client_cannot_answer_fails_the_edit_with_its_reason():
+async def test_a_tool_ops_cannot_execute_fails_the_edit_with_its_reason():
     with pytest.raises(ExecuteError, match="No document doc-1"):
         await _run(_graph(_model(DONE)), {"error": "No document doc-1"})
 
@@ -255,23 +255,23 @@ async def test_clarify_pauses_the_edit_until_the_user_answers():
     run = {"configurable": {"thread_id": "t1"}}
 
     await graph.ainvoke(_input(), run)
-    paused = await graph.ainvoke(Command(resume=_fetched()), run)
+    paused = await graph.ainvoke(Command(resume=_loaded()), run)
     done = await graph.ainvoke(Command(resume={"input": "Lumen Pay"}), run)
 
     assert [i.value["label"] for i in paused["__interrupt__"]] == ["Which job?"]
     assert done["changeset"].edits == [GOOD_EDIT]
 
 
-async def test_page_fit_prints_the_document_first_with_the_fetched_files():
+async def test_page_fit_prints_the_document_first_with_the_loaded_files():
     sent: list[httpx.Request] = []
 
     await _run(
         _graph(_model(_propose(GOOD_EDIT), DONE), sent),
-        _fetched(assets={"a" * 64: "cGhvdG8="}),
+        _loaded(assets={"a" * 64: "cGhvdG8="}),
     )
 
     assert len(sent) == 2
-    assert json.loads(sent[0].content)["document"] == _fetched()["document"]
+    assert json.loads(sent[0].content)["document"] == _loaded()["document"]
     assert all(
         json.loads(request.content)["assets"] == {"a" * 64: "cGhvdG8="}
         for request in sent

@@ -4,8 +4,8 @@ from pydantic import TypeAdapter, ValidationError
 
 from src.agents.career_director.types import ProfileEdit, ProfileUpdated
 from src.core.errors import ExecuteError
-from src.shared.fetch_failed import FetchFailed
 from src.shared.tool_artifact import StepDetail, ToolArtifact
+from src.shared.tool_error import ToolError
 
 
 @tool(response_format="content_and_artifact")
@@ -15,17 +15,17 @@ def update_profile(
     """Saves edits to the user's profile, all or none, once the user approves them;
     source is the title of the document they come from, empty when the user asked"""
     try:
-        updated = TypeAdapter(ProfileUpdated | FetchFailed).validate_python(
+        updated = TypeAdapter(ProfileUpdated | ToolError).validate_python(
             interrupt(
                 {
-                    "fetch": "profile_update",
+                    "execute_tool": "profile_update",
                     "edits": [edit.model_dump(mode="json") for edit in edits],
                 }
             )
         )
     except ValidationError as error:
         raise ExecuteError(f"The profile didn't update: {error}") from error
-    if isinstance(updated, FetchFailed):
+    if isinstance(updated, ToolError):
         return f"Nothing was saved: {updated.error}", {}
     changes = f"{updated.saved} change{'' if updated.saved == 1 else 's'}"
     return f"Saved {changes} to the user's profile.", {

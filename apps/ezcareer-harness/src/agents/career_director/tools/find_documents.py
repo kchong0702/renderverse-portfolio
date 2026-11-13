@@ -19,7 +19,7 @@ def find_documents(
     match first, each with the id edit_document takes"""
     try:
         found = FoundDocuments.model_validate(
-            interrupt({"fetch": "documents", "name": name, "kind": kind})
+            interrupt({"execute_tool": "documents", "name": name, "kind": kind})
         )
     except ValidationError as error:
         raise ExecuteError(f"The documents didn't load: {error}") from error
