@@ -17,7 +17,7 @@ from src.adapters.job_sources.jsearch.schemas import (
     JSearchResults,
 )
 from src.core.config import JSearchSettings
-from src.core.exceptions import ServiceUnavailable
+from src.core.exceptions import InvalidInput, ServiceUnavailable
 from src.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -75,7 +75,8 @@ class JSearchClient:
 
     async def search(self, api_key: str, query: JSearchQuery) -> JSearchResults:
         """Up to query.max_jobs results on the user's key, following JSearch's cursor
-        until it has enough or runs out; ServiceUnavailable when JSearch fails"""
+        until it has enough or runs out; InvalidInput when JSearch refuses the key,
+        ServiceUnavailable when it fails"""
         params: dict[str, str | int | bool] = {
             "query": query.query,
             "date_posted": query.date_posted,
@@ -103,6 +104,8 @@ class JSearchClient:
                     break
         except httpx2.HTTPStatusError as error:
             logger.warning("jsearch_error", status_code=error.response.status_code)
+            if error.response.status_code in {401, 403}:
+                raise InvalidInput("JSearch refused the key") from error
             raise ServiceUnavailable(
                 f"JSearch answered {error.response.status_code}"
             ) from error

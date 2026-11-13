@@ -64,6 +64,12 @@ ACME = {
 }
 
 
+async def _connect(client: httpx2.AsyncClient, jsearch: FakeJSearch) -> None:
+    """Save the user's key, then forget the search that checked it"""
+    await client.put(JSEARCH, json={"api_key": API_KEY})
+    jsearch.received.clear()
+
+
 def _searching(request: dict = SEARCH) -> dict:
     """find-jobs pausing to ask ops-api for a job search"""
     return a2a_task("INPUT_REQUIRED", status_parts=[{"data": request}])
@@ -111,7 +117,7 @@ async def _ask_assistant(client, harness) -> list[dict]:
 async def test_find_searches_jsearch_on_the_users_key_and_answers_its_postings(
     app, client, harness, jsearch
 ):
-    await client.put(JSEARCH, json={"api_key": API_KEY})
+    await _connect(client, jsearch)
 
     run = await _find(app, client, harness)
 
@@ -130,7 +136,7 @@ async def test_find_searches_jsearch_on_the_users_key_and_answers_its_postings(
 async def test_each_search_option_becomes_its_jsearch_parameter(
     app, client, harness, jsearch
 ):
-    await client.put(JSEARCH, json={"api_key": API_KEY})
+    await _connect(client, jsearch)
 
     await _find(
         app,
@@ -165,7 +171,7 @@ async def test_each_search_option_becomes_its_jsearch_parameter(
 async def test_how_recent_the_jobs_must_be_becomes_jsearchs_date_posted(
     app, client, harness, jsearch, posted_within, date_posted
 ):
-    await client.put(JSEARCH, json={"api_key": API_KEY})
+    await _connect(client, jsearch)
 
     await _find(app, client, harness, SEARCH | {"posted_within": posted_within})
 
@@ -181,7 +187,7 @@ def test_reads_the_request_the_harness_sends_exactly_as_the_harness_serialises_i
 async def test_answers_jsearchs_jobs_newest_first_each_once_as_the_harness_reads_them(
     app, client, harness, jsearch
 ):
-    await client.put(JSEARCH, json={"api_key": API_KEY})
+    await _connect(client, jsearch)
     jsearch.jobs = json.loads((FIXTURES / "jsearch_search.json").read_text())["data"][
         "jobs"
     ]
@@ -207,7 +213,7 @@ async def test_answers_jsearchs_jobs_newest_first_each_once_as_the_harness_reads
 async def test_leaves_out_jobs_that_break_the_users_work_mode_or_country(
     app, client, harness, jsearch, preferences, kept
 ):
-    await client.put(JSEARCH, json={"api_key": API_KEY})
+    await _connect(client, jsearch)
     await client.patch(f"{PREFIX}/preferences", json=preferences)
     jsearch.jobs = json.loads((FIXTURES / "jsearch_search.json").read_text())["data"][
         "jobs"
@@ -221,7 +227,7 @@ async def test_leaves_out_jobs_that_break_the_users_work_mode_or_country(
 async def test_the_assistant_answers_a_search_find_jobs_makes_in_its_run(
     client, harness, jsearch
 ):
-    await client.put(JSEARCH, json={"api_key": API_KEY})
+    await _connect(client, jsearch)
 
     events = await _ask_assistant(client, harness)
 
@@ -233,7 +239,7 @@ async def test_the_assistant_answers_a_search_find_jobs_makes_in_its_run(
 async def test_the_key_never_reaches_the_harness_or_the_logs(
     app, client, harness, jsearch
 ):
-    await client.put(JSEARCH, json={"api_key": API_KEY})
+    await _connect(client, jsearch)
 
     with capture_logs() as logs:
         await _find(app, client, harness)
@@ -245,7 +251,7 @@ async def test_the_key_never_reaches_the_harness_or_the_logs(
     assert {request.headers["X-RapidAPI-Key"] for request in jsearch.received} == {
         API_KEY
     }
-    assert refused["error"] == "JSearch answered 401"
+    assert refused["error"] == "JSearch refused the key"
     assert len(harness.received) == 6
     assert [
         request.url.path
@@ -258,7 +264,7 @@ async def test_the_key_never_reaches_the_harness_or_the_logs(
 async def test_settings_shows_the_quota_jsearch_last_reported(
     app, client, harness, jsearch
 ):
-    await client.put(JSEARCH, json={"api_key": API_KEY})
+    await _connect(client, jsearch)
     await _find(app, client, harness)
     jsearch.headers = {
         "x-ratelimit-requests-remaining": "179",
@@ -305,7 +311,7 @@ async def test_without_a_key_the_assistant_hears_the_settings_message(
 async def test_an_unreadable_key_fails_find_with_a_way_to_fix_it(
     app, client, harness, jsearch
 ):
-    await client.put(JSEARCH, json={"api_key": API_KEY})
+    await _connect(client, jsearch)
     async with app.state.session_factory() as session, session.begin():
         stored = await session.scalar(select(Connection))
         stored.secret = Fernet(Fernet.generate_key()).encrypt(b"other")
@@ -323,7 +329,7 @@ async def test_an_unreadable_key_fails_find_with_a_way_to_fix_it(
 async def test_a_search_with_any_field_beyond_the_neutral_search_is_refused(
     app, client, harness, jsearch
 ):
-    await client.put(JSEARCH, json={"api_key": API_KEY})
+    await _connect(client, jsearch)
 
     run = await _find(
         app, client, harness, SEARCH | {"url": "https://attacker.example/"}
@@ -384,4 +390,4 @@ async def test_a_search_holds_no_transaction_while_the_source_answers(
         run = await _find(probed_app, client, harness)
 
     assert run["status"] == "done"
-    assert probed_jsearch.idle_in_transaction == [0]
+    assert probed_jsearch.idle_in_transaction == [0, 0]
