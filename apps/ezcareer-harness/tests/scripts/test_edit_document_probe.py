@@ -44,7 +44,7 @@ async def test_a_probe_runs_the_containers_edit_graph_and_records_each_check_rou
     assert [
         [error["rule"] for error in errors]
         for errors in result["trace"]["check_rounds"]
-    ] == [["unsupported"], []]
+    ] == [["unknown_source"], []]
 
 
 async def test_a_task_without_the_fetch_answer_fails_with_the_request():

@@ -17,7 +17,7 @@ metadata:
    - `delete` removes a block or an item. A block that the design's `layouts` places can be deleted only in a changeset whose `update_design` also takes it out of every placement.
    - `update_visibility` hides or shows a block without deleting it.
    - `update_design` sets the whole design. Call `list_design_options` first for the templates this document's kind can use, with each one's fonts and accent colour. Copy the current design and change only what the user asked.
-4. Cite sources in every value's `src`, as PDF line ids or `fact:<id>`. Rewording a line cites that line. The check rejects any number or capitalised word that no cited line or fact has, apart from the first word of a sentence in an `html` value. So cite a fact for each one the PDF lacks, or leave it out.
+4. Cite sources in every value's `src`, as PDF line ids or `fact:<id>`. Rewording a line cites that line. A claim the PDF doesn't make cites the fact that supports it. The check rejects a value that cites nothing or an id that doesn't exist. Keep every number and name exactly as the sources have them, and never add one they don't.
 5. New ids are short, lowercase and unique among their siblings, such as `k8s-bullet`.
 6. Set the changeset's `id` to a new short id and `agent` to `career-consultant`. Write `reason` as one sentence the user reads, saying what the changeset does and why.
 7. Propose the changeset with `propose_changeset`.

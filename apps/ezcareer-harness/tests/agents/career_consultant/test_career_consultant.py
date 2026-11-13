@@ -73,7 +73,7 @@ GOOD_EDIT = UpdateField(
     ),
 )
 BAD_EDIT = GOOD_EDIT.model_copy(
-    update={"value": GOOD_EDIT.value.model_copy(update={"src": ["p1.s8"]})}
+    update={"value": GOOD_EDIT.value.model_copy(update={"src": ["p1.s8", "fact:k9s"]})}
 )
 DONE = AIMessage("I proposed naming the Kubernetes migration in the queue bullet.")
 LETTER = {
