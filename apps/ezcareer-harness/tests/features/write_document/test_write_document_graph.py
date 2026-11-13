@@ -193,7 +193,7 @@ async def test_errors_go_back_to_the_agent_and_only_the_fixed_changeset_is_kept(
         for m in model.requests[-1]
         if isinstance(m, ToolMessage) and m.name == "propose_changeset"
     ]
-    assert [error["rule"] for error in json.loads(first)] == ["unsupported"]
+    assert [error["rule"] for error in json.loads(first)] == ["unknown_source"]
     assert second == "proposed"
     assert result["changeset"].edits == [GOOD_EDIT]
 
@@ -314,7 +314,10 @@ async def test_trace_records_each_check_round_and_the_agent_hash(
         for span in exporter.spans
         if "check.errors" in span.attributes
     ]
-    assert [[e["rule"] for e in errors] for errors in rounds] == [["unsupported"], []]
+    assert [[e["rule"] for e in errors] for errors in rounds] == [
+        ["unknown_source"],
+        [],
+    ]
     hashes = {
         json.loads(span.attributes["metadata"]).get("agent_hash")
         for span in exporter.spans

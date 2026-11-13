@@ -10,7 +10,7 @@ ezcareer-harness serves career agents and workflows over A2A. Ops (ops-api and o
 | `src/core`           | Settings (`config.toml`, environment), errors, and `UsageReporter`, the callback that reports each model call's usage                                                                                               |
 | `src/agents`         | One folder per agent: `profile.yaml`, `system.md`, `skills/`, `state.py`, and the agent's own `tools/` and `checks/`. Also `build_agent`, `AgentOverride`, the shared middlewares and career-director's agent graph |
 | `src/features`       | One folder per workflow: `graph.py`, `nodes/`, `checks/`, `schemas.py` and `harness/configurations.yaml`                                                                                                            |
-| `src/tools`          | Tools that more than one agent uses, such as `read_profile_facts`, `clarify`, `permission` and the handoff tools                                                                                                    |
+| `src/tools`          | Tools that more than one agent uses, such as `read_profile_facts`, `clarify` and the handoff tools                                                                                                                  |
 | `src/adapters`       | Adapters for outside data sources, such as the job sources behind `search_jobs`                                                                                                                                     |
 | `src/clients`        | Clients of other services, and the LLM providers                                                                                                                                                                    |
 | `src/shared`         | Types and helpers that several layers use, such as the profile, job postings and checks                                                                                                                             |
@@ -108,9 +108,9 @@ Make a tool a skill tool when only one skill uses it. Otherwise keep it always-o
 
 A tool that one agent uses lives in `src/agents/<agent>/tools/`. A tool that several agents use lives in `src/tools/`. The container builds the tool and passes it to `build_agent`. An agent's `profile.yaml` can replace a tool's description under `tool_description_overrides`. This works for both kinds of tools.
 
-`tests/app/test_agent_tools.py` checks every served agent:
+`tests/app/test_agent_tools.py` checks every agent:
 
-- Each tool that `system.md` or a skill names in backticks belongs to that agent.
+- Each tool of any agent that `system.md` or a skill names in backticks belongs to that agent.
 - Each name under `include_tools` is one of the agent's skill tools.
 - Each skill tool is listed by at least one skill, so the model can reach it.
 
@@ -185,7 +185,7 @@ The A2A task becomes `input-required`, and its message carries the request as a 
 
 - `{"fetch": "job_run", "run_after": ..., "search": ...}`, from career-director's `schedule_job_run` tool. `run_after` is an ISO 8601 time with its offset, or `null` to run as soon as a worker is free; `search` is a `JobSearch` (`query`, `location`, `posted_within`), or `null` to search from the user's preferences. ops-api queues a run of its job agent and answers `{"id": ..., "run_after": ...}`, or `{"error": ...}` when it can't, for example when an agent run is already queued. No approval is needed: the run only adds jobs for the user to look at.
 
-A question for the user, from `clarify` or `permission`, pauses the run in the same way, with a widget instead of `fetch`.
+A question for the user, from `clarify`, pauses the run in the same way, with a widget instead of `fetch`.
 
 ## Approvals
 

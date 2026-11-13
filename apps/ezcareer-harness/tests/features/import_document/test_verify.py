@@ -143,7 +143,6 @@ def test_reworded_or_uncited_text_fails_verbatim(
 
     assert [(e.rule, e.at) for e in errors] == [
         (CheckRule.VERBATIM, "blocks/experience/items/wholeness/bullets/team/text"),
-        (CheckRule.COVERAGE, "blocks"),
     ]
     assert "'Managed five nurses' is not the text of p1.s3" in errors[0].message
 
@@ -180,77 +179,7 @@ def test_a_line_neither_cited_nor_skipped_fails_coverage(
         (CheckRule.COVERAGE, "blocks"),
     ]
     assert errors[0].message == "p7.s7 are not lines"
-    assert "p1.s5 '1' (not cited)" in errors[1].message
-
-
-def test_a_value_that_drops_words_of_its_lines_fails_coverage(
-    configurations: ImportResumeConfigurations,
-):
-    [error] = check(
-        reply(bullet={"html": "Led a", "src": ["p1.s3", "p1.s4"]}),
-        configurations,
-    )
-
-    assert error.rule == CheckRule.COVERAGE
-    assert error.message.endswith("p1.s3 '• Led a team of five' (unused: team five)")
-
-
-def test_a_value_may_drop_short_joining_words_between_cited_ones(
-    configurations: ImportResumeConfigurations,
-):
-    lines = make_lines("Ada Lovelace", "Fellow of the Royal Society")
-    draft: dict[str, JsonValue] = {
-        "blocks": [
-            {
-                "kind": "profile",
-                "id": "profile",
-                "name": value("Ada Lovelace", "p1.s1"),
-            },
-            {
-                "kind": "experience",
-                "id": "experience",
-                "items": [
-                    {
-                        "id": "royal_society",
-                        "role": value("Fellow", "p1.s2"),
-                        "company": value("Royal Society", "p1.s2"),
-                    }
-                ],
-            },
-        ]
-    }
-
-    assert check(draft, configurations, lines) == []
-
-
-def test_skipping_a_line_with_content_fails_coverage(
-    configurations: ImportResumeConfigurations,
-):
-    errors = check(
-        reply(skipped=("p1.s5", "p1.s3")),
-        configurations.model_copy(update={"checks": ["coverage"]}),
-    )
-
-    assert [e.at for e in errors] == ["skipped"]
-    assert "p1.s3 '• Led a team of five'" in errors[0].message
-
-
-def test_coverage_allows_what_the_configurations_allow(
-    configurations: ImportResumeConfigurations,
-):
-    lenient = configurations.model_copy(
-        update={
-            "checks": ["coverage"],
-            "max_skipped_length": 20,
-            "max_joining_word_length": 6,
-        }
-    )
-
-    assert check(reply(skipped=("p1.s5", "p1.s3")), lenient) == []
-    assert (
-        check(reply(bullet={"html": "Led a team", "src": ["p1.s3", "p1.s4"]}), lenient)
-        == []
-    )
+    assert errors[1].message == "cite or skip each of these lines: p1.s5 '1'"
 
 
 def test_dashes_quotes_and_hyphenated_breaks_still_match(

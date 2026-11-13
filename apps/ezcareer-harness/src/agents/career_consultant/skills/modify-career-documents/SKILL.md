@@ -13,11 +13,11 @@ metadata:
    - `update_field` replaces one field. Its value has the field's type. `null` clears an optional field.
    - `insert_block` adds a block after the block named by `after`, or first when `after` is `null`.
    - `insert_item` adds an item to the list that `parent` names, after the item named by `after`, or first when `after` is `null`. The item has the fields of that list's other items, such as `{id, text}` for a bullet or `{id, label, items}` for a skill row.
-   - `move` moves a block or an item within its list.
-   - `delete` removes a block or an item. A block that the design's `layouts` places can only go after an `update_design` takes it out of every placement there.
+   - `move` moves a block or an item within its list, after the one named by `after`, or first when `after` is `null`.
+   - `delete` removes a block or an item. A block that the design's `layouts` places can be deleted only in a changeset whose `update_design` also takes it out of every placement.
    - `update_visibility` hides or shows a block without deleting it.
-   - `update_design` sets the whole design. Call `list_design_options` first for the templates, fonts and colours this document's kind can use. Copy the current design and change only what the user asked.
-4. Cite sources in every value's `src`. Rewording a line cites that line. A claim the PDF doesn't make cites the fact that supports it. Keep every number and name exactly as the cited line or fact has it.
+   - `update_design` sets the whole design. Call `list_design_options` first for the templates this document's kind can use, with each one's fonts and accent colour. Copy the current design and change only what the user asked.
+4. Cite sources in every value's `src`, as PDF line ids or `fact:<id>`. Rewording a line cites that line. A claim the PDF doesn't make cites the fact that supports it. The check rejects a value that cites nothing or an id that doesn't exist. Keep every number and name exactly as the sources have them, and never add one they don't.
 5. New ids are short, lowercase and unique among their siblings, such as `k8s-bullet`.
-6. Write `reason` as one sentence the user reads, saying what the changeset does and why.
+6. Set the changeset's `id` to a new short id and `agent` to `career-consultant`. Write `reason` as one sentence the user reads, saying what the changeset does and why.
 7. Propose the changeset with `propose_changeset`.

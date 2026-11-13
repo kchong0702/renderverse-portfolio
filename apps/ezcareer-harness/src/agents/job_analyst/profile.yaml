@@ -4,7 +4,7 @@ tool_description_overrides:
   read_profile_facts: >-
     Lists the user's profile facts, one per line as `fact:<id>`, followed by
     the dates for facts that span time and then the fact's text. Call it once,
-    and cite facts by their id.
+    and cite a fact as `fact:<id>`.
   search_jobs: >-
     Searches recent job postings. Results come newest first, a job listed on
     several sites appears once, and jobs that break the user's remote or
@@ -12,5 +12,5 @@ tool_description_overrides:
     company, location, country, remote flag, posting date, apply link and
     description as numbered lines. Put job titles and skills in `query`, and
     pass the country and remote preferences as arguments, not as query words.
-    JSearch allows 200 requests a month and every 10 jobs costs one. Each
-    result's `requests_left` says how many are left, so search sparingly.
+    Every 10 jobs fetched cost one JSearch request. Each result's
+    `requests_left` says how many are left, so search sparingly.

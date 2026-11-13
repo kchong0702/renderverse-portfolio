@@ -12,12 +12,8 @@ FIXTURES = Path(__file__).parent / "fixtures"
 DOCUMENT = TypeAdapter(AnyDocument).validate_python(
     json.loads((FIXTURES / "resume.json").read_text())
 )
-SOURCES = {
-    line["id"]: line["text"]
-    for line in json.loads((FIXTURES / "lines.json").read_text())
-} | {
-    f"fact:{fact['id']}": fact["text"]
-    for fact in json.loads((FIXTURES / "facts.json").read_text())
+SOURCES = {line["id"] for line in json.loads((FIXTURES / "lines.json").read_text())} | {
+    f"fact:{fact['id']}" for fact in json.loads((FIXTURES / "facts.json").read_text())
 }
 
 
@@ -42,32 +38,8 @@ def _bullet(html: str, *src: str) -> dict[str, Any]:
     }
 
 
-def test_a_reworded_bullet_that_keeps_its_facts_passes():
+def test_a_bullet_that_cites_its_line_passes():
     assert _check(_bullet("Moved 30 services onto a new message queue.", "p1.s8")) == []
-
-
-def test_a_new_skill_needs_a_fact_that_names_it():
-    reworded = "Led the migration of 30 services to Kubernetes."
-
-    assert _check(_bullet(reworded, "p1.s8")) == [("unsupported", "edits/0/value")]
-    assert _check(_bullet(reworded, "p1.s8", "fact:k8s")) == []
-
-
-def test_an_invented_number_is_unsupported():
-    assert _check(_bullet("Led the migration of 45 services.", "p1.s8")) == [
-        ("unsupported", "edits/0/value")
-    ]
-
-
-def test_a_new_skill_tag_must_be_named_by_its_source():
-    edit = {
-        "kind": "insert_item",
-        "parent": "blocks/skills/items/languages/items",
-        "after": "postgres",
-        "item": {"id": "rust", "text": {"text": "Rust", "src": ["p1.s14"]}},
-    }
-
-    assert _check(edit) == [("unsupported", "edits/0/item/text")]
 
 
 def test_a_certification_backed_by_a_fact_passes():

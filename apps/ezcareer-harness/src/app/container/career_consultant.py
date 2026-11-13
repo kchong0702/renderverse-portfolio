@@ -11,7 +11,7 @@ from src.agents.career_consultant.tools import (
 from src.app.a2a import Executable
 from src.clients.artifact_service import ArtifactServiceClient
 from src.features import write_document, write_networking
-from src.tools import clarify, permission, read_profile_facts
+from src.tools import clarify, read_profile_facts
 
 
 class CareerConsultantContainer(containers.DeclarativeContainer):
@@ -28,7 +28,7 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
         build_agent,
         agent=registry.provided["career-consultant"],
         response_formats=(write_networking.NetworkingCopy,),
-        tools=(read_profile_facts, clarify, permission),
+        tools=(read_profile_facts, clarify),
         skill_tools=providers.List(
             read_pdf_lines,
             propose_changeset,
@@ -43,7 +43,7 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
         Executable,
         kind="agent",
         name="career-consultant",
-        description="Talk to career-consultant about the user's résumé or cover letter",
+        description="Talk to career-consultant about the user's résumé, CV, cover letter or job portal content",
         graph=agent.provided.copy.call(
             update=providers.Dict(checkpointer=checkpointer)
         ),
