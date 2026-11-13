@@ -3,34 +3,19 @@ import { useSearchParams } from "react-router-dom";
 import Badge from "@/shared/components/Badge";
 import TrashIcon from "@/shared/components/TrashIcon";
 import type { Asset } from "../api/media";
-import type { Entry, EntryKind, EntryWrite } from "../api/profile";
+import type { Entry, EntryKind } from "../api/profile";
 import { useAssets } from "../hooks/useMedia";
 import { useDraft } from "../hooks/usePortfolio";
-import { useAddEntry, useDeleteEntry, useSaveEntry } from "../hooks/useProfile";
+import { useDeleteEntry, useSaveEntry } from "../hooks/useProfile";
 import EntryForm from "./EntryForm";
 import MediaPill from "./MediaPill";
 import MediaThumb from "./MediaThumb";
 import Switch from "./Switch";
 
-const BLANK: EntryWrite = {
-  title: "",
-  organisation: "",
-  location: "",
-  start: null,
-  end: null,
-  summary: "",
-  highlights: [],
-  link: null,
-  code_link: null,
-  tools: [],
-  archived: false,
-  on_site: false,
-};
-
 const columns = (site: boolean) =>
   site
-    ? "grid grid-cols-[minmax(0,1fr)_64px_64px_40px] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_96px_120px_40px] sm:gap-4"
-    : "grid grid-cols-[minmax(0,1fr)_64px_40px] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_120px_40px] sm:gap-4";
+    ? "grid grid-cols-[minmax(0,1fr)_64px_40px] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_96px_40px] sm:gap-4"
+    : "grid grid-cols-[minmax(0,1fr)_40px] items-center gap-3 sm:gap-4";
 
 interface EntryRowProps {
   entry: Entry;
@@ -52,7 +37,6 @@ function EntryRow({
   onDelete,
 }: EntryRowProps) {
   const { t } = useTranslation();
-  const toggle = useSaveEntry();
   const siteToggle = useSaveEntry();
   const from = entry.start?.slice(0, 4);
   const to =
@@ -99,13 +83,6 @@ function EntryRow({
               ? entry.summary
               : [entry.organisation, entry.summary].filter(Boolean).join(" · ")}
           </span>
-          {toggle.isError && (
-            <span role="alert" className="text-crit text-sm">
-              {t("portfolio.table.toggleFailed", {
-                reason: toggle.error.message,
-              })}
-            </span>
-          )}
           {siteToggle.isError && (
             <span role="alert" className="text-crit text-sm">
               {t("portfolio.table.siteToggleFailed", {
@@ -135,13 +112,6 @@ function EntryRow({
           />
         </span>
       )}
-      <span role="cell" className="flex justify-center">
-        <Switch
-          label={t("portfolio.table.useInAgent", { name: entry.title })}
-          checked={!entry.archived}
-          onChange={(on) => toggle.mutate({ ...entry, archived: !on })}
-        />
-      </span>
       <span role="cell" className="flex justify-end">
         <button
           type="button"
@@ -171,7 +141,6 @@ interface EntryTableProps {
 export default function EntryTable({ kind, entries }: EntryTableProps) {
   const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
-  const add = useAddEntry();
   const save = useSaveEntry();
   const remove = useDeleteEntry();
   const { data: draft } = useDraft();
@@ -181,7 +150,6 @@ export default function EntryTable({ kind, entries }: EntryTableProps) {
     ? new Map(assets.data?.map((asset) => [asset.id, asset]))
     : null;
   const editing = params.get("edit");
-  const adding = editing === `new-${kind}`;
 
   const setEditing = (id: string | null) =>
     setParams(
@@ -207,9 +175,6 @@ export default function EntryTable({ kind, entries }: EntryTableProps) {
               {t("portfolio.table.onSite")}
             </span>
           )}
-          <span role="columnheader" className="text-center">
-            {t("portfolio.table.agentContext")}
-          </span>
           <span role="columnheader" className="sr-only">
             {t("portfolio.table.deleteColumn")}
           </span>
@@ -258,36 +223,11 @@ export default function EntryTable({ kind, entries }: EntryTableProps) {
           ),
         )}
       </div>
-      {entries.length === 0 && !adding && (
+      {entries.length === 0 && (
         <p className="text-ink-3 border-hair-soft m-0 border-b px-5 py-4 text-sm">
           {t(`portfolio.kinds.${kind}.empty`)}
         </p>
       )}
-      <div className="px-5 py-3.5">
-        {adding ? (
-          <EntryForm
-            kind={kind}
-            entry={BLANK}
-            pending={add.isPending}
-            error={add.isError ? add.error.message : null}
-            onCancel={() => setEditing(null)}
-            onSubmit={(write) =>
-              add.mutate(
-                { ...write, kind },
-                { onSuccess: () => setEditing(null) },
-              )
-            }
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setEditing(`new-${kind}`)}
-            className="text-amber min-h-9 cursor-pointer font-semibold"
-          >
-            {t(`portfolio.kinds.${kind}.add`)}
-          </button>
-        )}
-      </div>
     </div>
   );
 }

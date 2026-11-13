@@ -60,7 +60,7 @@ export default function PortfolioPage() {
         title={t("portfolio.title")}
         subtitle={t("portfolio.subtitle")}
         actions={
-          !draft.data ? null : site ? (
+          draft.data && site ? (
             <>
               <a
                 href={site}
@@ -80,18 +80,7 @@ export default function PortfolioPage() {
                 {t("portfolio.publish", { number: draft.data.number })}
               </button>
             </>
-          ) : (
-            <button
-              type="button"
-              className={buttonClass("primary")}
-              onClick={() =>
-                setParams({ tab: "projects", edit: "new-project" })
-              }
-            >
-              <Sparkle size={14} className="text-amber-soft" />
-              {t("portfolio.addProject")}
-            </button>
-          )
+          ) : null
         }
       />
       <PageBody>
