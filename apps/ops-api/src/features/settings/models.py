@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import time
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, LargeBinary, String, Time, true
+from sqlalchemy import ForeignKey, String, Time, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.clients.ezcareer import ModelFamily
@@ -32,20 +32,14 @@ class UserSettings(AuditMixin, Base):
     work_day_end: Mapped[time] = mapped_column(Time(), default=time(18, 0))
     meeting_gap_minutes: Mapped[int] = mapped_column(default=30)
 
+    timezone: Mapped[str | None] = mapped_column(String(64))
+    """The user's IANA time zone, such as Asia/Kuala_Lumpur; None until they choose one"""
+
     ai_family: Mapped[ModelFamily | None] = mapped_column(String(20))
     """Provider of the chosen model; None until the user picks one"""
 
     ai_model: Mapped[str | None] = mapped_column(String(100))
     """The chosen model, one ezcareer-harness offers; set together with ai_family"""
-
-    jsearch_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
-    """The user's JSearch API key, encrypted with Fernet under jsearch.encryption_key"""
-
-    jsearch_quota_remaining: Mapped[int | None]
-    """Searches left on the key, as the last find run read them"""
-
-    jsearch_quota_limit: Mapped[int | None]
-    """Searches the key allows, as the last find run read them"""
 
 
 __all__ = ["UserSettings"]

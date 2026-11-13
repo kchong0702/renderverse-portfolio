@@ -754,6 +754,7 @@
       "title": "Scheduling",
       "workHours": "Work hours",
       "hoursRange": "{{start}} to {{end}}",
+      "timezone": "Time zone",
       "meetingGap": "Gap between meetings",
       "gap_one": "{{count}} minute",
       "gap_other": "{{count}} minutes"

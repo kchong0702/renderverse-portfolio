@@ -16,6 +16,7 @@ export interface Scheduling {
   work_day_start: string;
   work_day_end: string;
   meeting_gap_minutes: number;
+  timezone: string | null;
 }
 
 export interface SearchQuota {

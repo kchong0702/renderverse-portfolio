@@ -191,3 +191,31 @@ async def test_free_slots_are_the_work_hours_the_calendar_leaves_open(
         ],
         "timezone": "Asia/Kuala_Lumpur",
     }
+
+
+async def test_free_slots_are_in_the_users_time_zone_not_the_calendars(
+    client, google, monkeypatch
+):
+    monkeypatch.setattr(
+        calendar_service, "utcnow", lambda: datetime(2026, 11, 13, 4, tzinfo=UTC)
+    )
+    await connect_google(client)
+    await client.patch(
+        f"{PREFIX}/settings", json={"scheduling": {"timezone": "America/New_York"}}
+    )
+    google.events = [
+        {
+            "id": "busy",
+            "start": {"dateTime": "2026-11-13T22:00:00+08:00"},
+            "end": {"dateTime": "2026-11-13T23:00:00+08:00"},
+        }
+    ]
+
+    response = await client.get(f"{PREFIX}/calendar/free-slots")
+
+    assert response.status_code == 200
+    assert response.json()["timezone"] == "America/New_York"
+    assert response.json()["free_slots"][:2] == [
+        {"start": "2026-11-13T10:30:00-05:00", "end": "2026-11-13T18:00:00-05:00"},
+        {"start": "2026-11-16T09:00:00-05:00", "end": "2026-11-16T18:00:00-05:00"},
+    ]

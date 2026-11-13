@@ -2,7 +2,7 @@ from cryptography.fernet import Fernet
 from sqlalchemy import select
 
 from src.core.config import reload_settings
-from src.features.settings.models import UserSettings
+from src.features.connections import Connection, Provider
 from tests.conftest import JSEARCH_ENCRYPTION_KEY, PREFIX, a2a_sent, a2a_task
 
 SETTINGS = f"{PREFIX}/settings"
@@ -30,12 +30,10 @@ async def test_a_jsearch_key_is_stored_encrypted_and_never_returned(app, client)
     assert API_KEY not in saved.text + reread.text
     assert _jsearch(reread.json())["status"] == "connected"
     async with app.state.session_factory() as session:
-        stored = await session.scalar(select(UserSettings))
-    assert stored is not None and stored.jsearch_ciphertext is not None
-    assert API_KEY.encode() not in stored.jsearch_ciphertext
-    assert Fernet(JSEARCH_ENCRYPTION_KEY).decrypt(stored.jsearch_ciphertext) == (
-        API_KEY.encode()
-    )
+        stored = await session.scalar(select(Connection))
+    assert stored is not None and stored.provider is Provider.JSEARCH
+    assert API_KEY.encode() not in stored.secret
+    assert Fernet(JSEARCH_ENCRYPTION_KEY).decrypt(stored.secret) == API_KEY.encode()
 
 
 async def test_runs_send_the_jsearch_key_in_metadata(client, harness):
@@ -134,9 +132,9 @@ async def test_an_unreadable_jsearch_key_stops_runs_with_a_clear_error(
 ):
     await client.put(JSEARCH, json={"api_key": API_KEY})
     async with app.state.session_factory() as session:
-        stored = await session.scalar(select(UserSettings))
+        stored = await session.scalar(select(Connection))
         assert stored is not None
-        stored.jsearch_ciphertext = Fernet(Fernet.generate_key()).encrypt(b"other")
+        stored.secret = Fernet(Fernet.generate_key()).encrypt(b"other")
         await session.commit()
 
     response = await client.post(f"{PREFIX}/jobs/find")
@@ -153,6 +151,9 @@ async def test_a_jsearch_key_needs_the_servers_encryption_key(client, monkeypatc
     response = await client.put(JSEARCH, json={"api_key": API_KEY})
 
     assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "JSearch keys are not set up on the server: set OPS_API_JSEARCH__ENCRYPTION_KEY"
+    )
     assert _jsearch((await client.get(SETTINGS)).json())["status"] == "not_connected"
 
 

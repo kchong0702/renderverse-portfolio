@@ -81,12 +81,14 @@ class CalendarService:
     async def free_slots(
         self, user_id: UUID, scheduling: Scheduling, days: int
     ) -> FreeSlots:
-        """Free time in the work hours of the weekdays from tomorrow, kept the
-        meeting gap clear of events and at least an interview long"""
+        """Free time in the work hours of the weekdays from tomorrow, in the user's time
+        zone or else the calendar's, kept the meeting gap clear of events and at least an
+        interview long"""
         now = utcnow()
         token = await self._google.access_token(user_id)
         found = await self._client.events(token, now, now + timedelta(days=days + 1))
-        zone = ZoneInfo(found.time_zone)
+        timezone = scheduling.timezone or found.time_zone
+        zone = ZoneInfo(timezone)
         gap = timedelta(minutes=scheduling.meeting_gap_minutes)
         busy = sorted(
             (event.start.date_time - gap, event.end.date_time + gap)
@@ -111,7 +113,7 @@ class CalendarService:
                 free_from = max(free_from, busy_to.astimezone(zone))
                 if free_from >= close:
                     break
-        return FreeSlots(free_slots=slots, timezone=found.time_zone)
+        return FreeSlots(free_slots=slots, timezone=timezone)
 
 
 __all__ = ["CalendarService"]

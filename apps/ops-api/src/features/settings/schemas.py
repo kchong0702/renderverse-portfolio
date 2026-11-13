@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from datetime import time
 from typing import Literal
+from zoneinfo import available_timezones
 
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field, SecretStr, field_validator
 
 from src.clients.ezcareer import ModelChoice
 
@@ -42,6 +43,10 @@ class Scheduling(BaseModel):
 
     meeting_gap_minutes: int = Field(ge=0, le=240)
     """Free minutes kept between meetings"""
+
+    timezone: str | None
+    """IANA time zone the work hours are in, such as Asia/Kuala_Lumpur; None until the
+    user chooses one"""
 
 
 class SearchQuota(BaseModel):
@@ -111,6 +116,17 @@ class SchedulingUpdate(BaseModel):
 
     meeting_gap_minutes: int | None = Field(default=None, ge=0, le=240)
     """New gap between meetings; None leaves it unchanged"""
+
+    timezone: str | None = Field(default=None, max_length=64)
+    """New IANA time zone; left out leaves it unchanged, and null is refused"""
+
+    @field_validator("timezone")
+    @classmethod
+    def _must_be_iana(cls, value: str | None) -> str | None:
+        """The time zone sent, refused unless it is an IANA name"""
+        if value not in available_timezones():
+            raise ValueError(f"{value} is not an IANA time zone")
+        return value
 
 
 class SettingsUpdate(BaseModel):

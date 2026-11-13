@@ -61,7 +61,8 @@ class FreeSlots(BaseModel):
     """Free time in work hours, earliest first"""
 
     timezone: str
-    """The calendar's time zone, such as Asia/Kuala_Lumpur"""
+    """The time zone the slots are in: the user's, or the calendar's until they choose
+    one"""
 
 
 __all__ = ["CalendarEvent", "EventCreate", "FreeSlots", "Slot"]
