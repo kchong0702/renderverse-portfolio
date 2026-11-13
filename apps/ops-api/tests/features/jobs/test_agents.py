@@ -239,6 +239,21 @@ async def test_a_posting_too_long_to_store_is_cut_or_skipped_and_the_run_complet
     assert job["external_id"] == "jsearch-1"
 
 
+async def test_a_job_keeps_its_sources_id_at_jsearchs_length(app, client, harness):
+    source_id = "Vk" * 207
+    harness.outcomes = [
+        _found({**MATCHED, "posting": {**MATCHED["posting"], "id": source_id}})
+    ]
+
+    await _find(client)
+    await work(app)
+
+    done = await _latest(client)
+    assert (done["status"], done["found"]) == ("done", 1)
+    [job] = (await client.get(JOBS)).json()["jobs"]
+    assert job["external_id"] == source_id
+
+
 async def test_matched_counts_the_jobs_at_or_above_the_users_min_score(
     app, client, harness
 ):
