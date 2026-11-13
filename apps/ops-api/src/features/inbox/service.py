@@ -2,20 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import html
-import re
 from base64 import urlsafe_b64encode
 from collections.abc import Sequence
 from contextlib import suppress
 from datetime import UTC, date, datetime, timedelta
 from email.message import EmailMessage
 from email.utils import parseaddr
-from functools import partial
 from hashlib import sha256
-from html.parser import HTMLParser
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.ezcareer import (
     Completed,
@@ -31,24 +28,22 @@ from src.clients.google import (
     GmailThread,
     GoogleClient,
 )
-from src.core.config import GoogleSettings, get_settings
+from src.core.config import GoogleSettings
 from src.core.exceptions import (
     AlreadyExists,
     InvalidInput,
     NotFound,
-    ServiceException,
     ServiceUnavailable,
 )
 from src.core.logging import get_logger
-from src.core.runner import Tool, ToolError, Tools
 from src.db.base import as_utc, utcnow
-from src.db.session import session_scope
 from src.features.applications.enums import NextStepFormat, StepKind, StepStatus
 from src.features.applications.models import Application, ApplicationStep
 from src.features.applications.repository import ApplicationRepository
 from src.features.calendar import CalendarService
-from src.features.calendar.schemas import EventCreate, FreeSlots
+from src.features.calendar.schemas import EventCreate
 from src.features.google import GoogleService
+from src.features.inbox.content import message_text, thread_content
 from src.features.inbox.enums import ThreadState
 from src.features.inbox.models import EmailThread
 from src.features.inbox.repository import InboxRepository
@@ -58,18 +53,10 @@ from src.features.inbox.schemas import (
     DraftReplyOutput,
     EmailCreate,
     FollowUpDraft,
-    FreeSlotsRequest,
     InboxList,
     InboxMessage,
     InboxMessageDetail,
     ReplyCreate,
-    ThreadAnswer,
-    ThreadContent,
-    ThreadMessage,
-    ThreadRequest,
-    ThreadsAnswer,
-    ThreadsRequest,
-    ThreadSummary,
     TriageApplication,
     TriageEmailInput,
     TriageEmailOutput,
@@ -120,77 +107,6 @@ def _summary(
     )
 
 
-class _TextParser(HTMLParser):
-    def __init__(self):
-        """Collect an HTML body's text, leaving out styles and scripts"""
-        super().__init__()
-        self.parts: list[str] = []
-        self._hidden = False
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        """Hide a style or script's text; a br starts a new line"""
-        if tag in ("style", "script"):
-            self._hidden = True
-        elif tag == "br":
-            self.parts.append("\n")
-
-    def handle_endtag(self, tag: str) -> None:
-        """Show text again after a style or script; a block ends its line"""
-        if tag in ("style", "script"):
-            self._hidden = False
-        elif tag in ("p", "div", "tr", "li", "h1", "h2", "h3", "h4", "h5", "h6"):
-            self.parts.append("\n")
-
-    def handle_data(self, data: str) -> None:
-        """Keep text that is not inside a style or script"""
-        if not self._hidden:
-            self.parts.append(data)
-
-
-def _html_text(markup: str) -> str:
-    """The readable text of an HTML body: no styles, scripts or tags"""
-    parser = _TextParser()
-    parser.feed(markup)
-    parser.close()
-    return re.sub(r"\n\s*\n+", "\n\n", "".join(parser.parts)).strip()
-
-
-def _text(part: GmailPart) -> str:
-    """A message's body as plain text; HTML-only mail is reduced to its text"""
-    return part.find("text/plain").strip() or _html_text(part.find("text/html"))
-
-
-def _content(thread: GmailThread) -> ThreadContent:
-    """A Gmail thread as the harness workflows read it"""
-    return ThreadContent(
-        subject=thread.messages[0].payload.header("Subject"),
-        messages=[
-            ThreadMessage(
-                sender=m.payload.header("From"),
-                sent_at=m.internal_date,
-                text=_text(m.payload),
-            )
-            for m in thread.messages
-        ],
-    )
-
-
-def _search(request: ThreadsRequest) -> str:
-    """The Gmail search for a run's thread search, each value quoted so it adds no
-    operator; before: is exclusive, so it names the day after until"""
-    terms = []
-    if request.since:
-        terms.append(f"after:{request.since:%Y/%m/%d}")
-    if request.until:
-        terms.append(f"before:{request.until + timedelta(days=1):%Y/%m/%d}")
-    if request.sender:
-        terms.append(f'from:"{request.sender}"')
-    if request.has_attachment is not None:
-        terms.append("has:attachment" if request.has_attachment else "-has:attachment")
-    terms += [f'"{word}"' for word in (request.keyword or "").split()]
-    return " ".join(terms)
-
-
 def _mime(to: str, subject: str, body: str, answers: GmailPart | None = None) -> str:
     """An email as Gmail's send takes it, RFC 2822 and base64url encoded; a reply
     names the message it answers so mail clients thread it"""
@@ -203,112 +119,6 @@ def _mime(to: str, subject: str, body: str, answers: GmailPart | None = None) ->
         message["References"] = f"{answers.header('References')} {message_id}".strip()
     message.set_content(body)
     return urlsafe_b64encode(message.as_bytes()).decode()
-
-
-async def answer_thread(
-    factory: async_sessionmaker[AsyncSession],
-    client: GoogleClient,
-    config: GoogleSettings,
-    user_id: UUID,
-    request: ThreadRequest,
-) -> ThreadAnswer | ToolError:
-    """One of the user's email threads, on a session of its own"""
-    async for session in session_scope(factory):
-        google = GoogleService(session, client, config)
-        try:
-            answer = ThreadAnswer(
-                thread=_content(
-                    await client.thread(await google.access_token(user_id), request.id)
-                )
-            )
-        except ServiceException as error:
-            answer = ToolError(error=error.message)
-    return answer
-
-
-async def answer_threads(
-    factory: async_sessionmaker[AsyncSession],
-    client: GoogleClient,
-    config: GoogleSettings,
-    user_id: UUID,
-    request: ThreadsRequest,
-) -> ThreadsAnswer | ToolError:
-    """The user's email threads a search finds, on a session of its own"""
-    async for session in session_scope(factory):
-        google = GoogleService(session, client, config)
-        try:
-            threads, total = await client.threads(
-                await google.access_token(user_id),
-                _search(request),
-                min(request.limit, config.thread_search_limit),
-            )
-            answer = ThreadsAnswer(
-                threads=[
-                    ThreadSummary(
-                        id=thread.id,
-                        subject=thread.messages[0].payload.header("Subject"),
-                        sender=thread.messages[-1].payload.header("From"),
-                        last_sent_at=thread.messages[-1].internal_date,
-                        message_count=len(thread.messages),
-                        has_attachment=any(
-                            m.payload.has_attachment() for m in thread.messages
-                        ),
-                    )
-                    for thread in threads
-                ],
-                total=total,
-            )
-        except ServiceException as error:
-            answer = ToolError(error=error.message)
-    return answer
-
-
-async def answer_free_slots(
-    factory: async_sessionmaker[AsyncSession],
-    client: GoogleClient,
-    config: GoogleSettings,
-    ezcareer: EzcareerClient,
-    user_id: UUID,
-    request: FreeSlotsRequest,
-) -> FreeSlots | ToolError:
-    """The times the user is free in the days asked, none when they don't offer free
-    slots, on a session of its own"""
-    async for session in session_scope(factory):
-        google = GoogleService(session, client, config)
-        try:
-            settings = await SettingsService(
-                session, ezcareer, google, get_settings().jsearch
-            ).get(user_id)
-            free = await CalendarService(google, client, config).free_slots(
-                user_id, settings.scheduling, request.days
-            )
-            answer = (
-                free
-                if settings.automation.offer_free_slots
-                else free.model_copy(update={"free_slots": []})
-            )
-        except ServiceException as error:
-            answer = ToolError(error=error.message)
-    return answer
-
-
-def inbox_tools(
-    factory: async_sessionmaker[AsyncSession],
-    client: GoogleClient,
-    config: GoogleSettings,
-    ezcareer: EzcareerClient,
-) -> Tools:
-    """The inbox's tools"""
-    return {
-        "thread": Tool(ThreadRequest, partial(answer_thread, factory, client, config)),
-        "threads": Tool(
-            ThreadsRequest, partial(answer_threads, factory, client, config)
-        ),
-        "free_slots": Tool(
-            FreeSlotsRequest,
-            partial(answer_free_slots, factory, client, config, ezcareer),
-        ),
-    }
 
 
 class InboxService:
@@ -354,7 +164,7 @@ class InboxService:
                 user_id=user_id,
                 context_id=f"{user_id}:{uuid4()}",
                 data=TriageEmailInput(
-                    thread=_content(thread), applications=applications
+                    thread=thread_content(thread), applications=applications
                 ),
                 metadata=metadata,
             )
@@ -566,7 +376,7 @@ class InboxService:
         return InboxMessageDetail(
             **_summary(message, thread, steps).model_dump(),
             to=message.payload.header("To"),
-            body=_text(message.payload),
+            body=message_text(message.payload),
         )
 
     async def _draft(
@@ -593,7 +403,7 @@ class InboxService:
             user_id=user_id,
             context_id=f"{user_id}:{uuid4()}",
             data=DraftReplyInput(
-                thread=_content(thread) if thread else None,
+                thread=thread_content(thread) if thread else None,
                 application=DraftApplication(
                     company=application.job.company,
                     role=application.job.title,

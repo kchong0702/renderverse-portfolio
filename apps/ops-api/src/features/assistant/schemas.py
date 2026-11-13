@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal
-from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -98,22 +97,6 @@ class UpdateProfileArgs(BaseModel):
     """The title of the document the changes come from; empty when the user asked"""
 
 
-class ProfileSyncRequest(BaseModel):
-    execute_tool: Literal["profile_sync"]
-    """A paused run asks what syncing a document into the profile would change"""
-
-    document_id: UUID
-    """The résumé or CV"""
-
-
-class ProfileUpdateRequest(BaseModel):
-    execute_tool: Literal["profile_update"]
-    """A paused run asks to save changes the user approved"""
-
-    edits: list[ProfileEdit]
-    """The changes"""
-
-
 class ProfileSyncPreview(BaseModel):
     edits: list[ProfileEdit]
     """What syncing would change, saving nothing"""
@@ -178,8 +161,6 @@ __all__ = [
     "ProfileEdit",
     "ProfileSaved",
     "ProfileSyncPreview",
-    "ProfileSyncRequest",
-    "ProfileUpdateRequest",
     "ProfileUpdated",
     "UpdateProfileArgs",
 ]

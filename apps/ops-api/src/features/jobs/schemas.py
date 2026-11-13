@@ -125,11 +125,6 @@ class JobRunCreate(BaseModel):
     """The search the run hands find-jobs; None searches from the preferences"""
 
 
-class JobRunRequest(JobRunCreate):
-    execute_tool: Literal["job_run"]
-    """A paused run asks to queue a run of the job agent"""
-
-
 class JobRunQueued(BaseModel):
     id: UUID
     """The queued run's id"""
@@ -248,7 +243,6 @@ __all__ = [
     "JobRunCreate",
     "JobRunQueued",
     "JobRunRead",
-    "JobRunRequest",
     "JobSearch",
     "JobUpdate",
     "Requirement",

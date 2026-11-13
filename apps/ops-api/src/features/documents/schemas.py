@@ -132,25 +132,6 @@ class EditDocumentOutput(BaseModel):
     """The checked edits it proposes; None when it only answered"""
 
 
-class DocumentsRequest(BaseModel):
-    execute_tool: Literal["documents"]
-    """A paused run asks for the user's documents"""
-
-    name: str | None = None
-    """Words of the title the user used, such as nortwind; None lists them all"""
-
-    kind: DocumentKind | None = None
-    """Only documents of this kind; every kind when None"""
-
-
-class DocumentRequest(BaseModel):
-    execute_tool: Literal["document"]
-    """A paused run asks for one of the user's documents"""
-
-    id: UUID
-    """The document"""
-
-
 class DocumentsAnswer(BaseModel):
     documents: list[DocumentMatch]
     """The user's documents, the best match first"""
@@ -208,11 +189,9 @@ __all__ = [
     "DocumentMatch",
     "DocumentMessage",
     "DocumentRead",
-    "DocumentRequest",
     "DocumentSummary",
     "DocumentUpdate",
     "DocumentsAnswer",
-    "DocumentsRequest",
     "EditDocumentInput",
     "EditDocumentOutput",
     "LineRead",

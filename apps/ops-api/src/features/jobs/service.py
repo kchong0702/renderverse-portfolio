@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from functools import partial
 from uuid import UUID, uuid4
 
 from document_schema import DocumentKind
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.ezcareer import (
     Completed,
@@ -15,9 +14,7 @@ from src.clients.ezcareer import (
 )
 from src.core.exceptions import Conflict, InvalidInput, NotFound, ServiceUnavailable
 from src.core.logging import get_logger
-from src.core.runner import Tool, ToolError, Tools
 from src.db.base import utcnow
-from src.db.session import session_scope
 from src.features.documents import DocumentService
 from src.features.jobs.enums import JobStatus, Match, RunStatus, RunTrigger
 from src.features.jobs.models import Job, JobRun
@@ -31,9 +28,7 @@ from src.features.jobs.schemas import (
     JobList,
     JobRead,
     JobRunCreate,
-    JobRunQueued,
     JobRunRead,
-    JobRunRequest,
     JobSearch,
     JobUpdate,
     TailorRead,
@@ -66,27 +61,6 @@ def _tailor_request(job: JobRead, document: str) -> str:
                 for r in gaps
             ]
     return "\n".join(lines)
-
-
-async def answer_job_run(
-    factory: async_sessionmaker[AsyncSession], user_id: UUID, request: JobRunRequest
-) -> JobRunQueued | ToolError:
-    """Queue the agent run a paused run asks for, on a session of its own;
-    ToolError while an agent run is queued"""
-    async for session in session_scope(factory):
-        try:
-            queued = await JobRepository(session).queue_run(
-                user_id, RunTrigger.AGENT, request.search, request.run_after
-            )
-            answer = JobRunQueued(id=queued.id, run_after=queued.run_after)
-        except IntegrityError:
-            answer = ToolError(error="A job agent run is already queued")
-    return answer
-
-
-def job_tools(factory: async_sessionmaker[AsyncSession]) -> Tools:
-    """The jobs' tools"""
-    return {"job_run": Tool(JobRunRequest, partial(answer_job_run, factory))}
 
 
 class JobService:

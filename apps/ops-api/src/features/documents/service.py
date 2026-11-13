@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
 from contextlib import suppress
-from functools import partial
 from uuid import UUID
 
 from document_schema import (
@@ -15,7 +14,6 @@ from document_schema import (
     apply_edits,
 )
 from pydantic import BaseModel
-from rapidfuzz import fuzz, process, utils
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -30,13 +28,7 @@ from src.clients.ezcareer import (
 from src.core.config import DocumentsSettings
 from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.core.logging import get_logger
-from src.core.runner import (
-    Runner,
-    Tool,
-    ToolError,
-    ToolExecutor,
-    Tools,
-)
+from src.core.runner import Runner, ToolExecutor
 from src.db.base import utcnow
 from src.db.session import session_scope
 from src.features.documents.models import (
@@ -49,14 +41,9 @@ from src.features.documents.schemas import (
     ChangesetDecision,
     ChangesetProposed,
     ChangesetRead,
-    DocumentAnswer,
     DocumentCreate,
     DocumentEdits,
-    DocumentMatch,
     DocumentRead,
-    DocumentRequest,
-    DocumentsAnswer,
-    DocumentsRequest,
     DocumentSummary,
     DocumentUpdate,
     EditDocumentInput,
@@ -143,67 +130,6 @@ async def _propose(
             edits=changeset.edits,
         )
     )
-
-
-async def answer_document(
-    factory: async_sessionmaker[AsyncSession], user_id: UUID, request: DocumentRequest
-) -> DocumentAnswer | ToolError:
-    """One of the user's documents with its imported lines, on a session of its own"""
-    async for session in session_scope(factory):
-        repository = DocumentRepository(session)
-        document = await repository.owned(Document, user_id, request.id)
-        answer = (
-            DocumentAnswer(
-                document=document.body, lines=await repository.lines(document)
-            )
-            if document
-            else ToolError(error="No such document")
-        )
-    return answer
-
-
-async def answer_documents(
-    factory: async_sessionmaker[AsyncSession],
-    limits: DocumentsSettings,
-    user_id: UUID,
-    request: DocumentsRequest,
-) -> DocumentsAnswer:
-    """The user's documents of the kind asked, the best match for a name first, on a
-    session of its own"""
-    async for session in session_scope(factory):
-        documents = [
-            d
-            for d in await DocumentRepository(session).documents(user_id)
-            if request.kind is None or d.kind is request.kind
-        ]
-        if request.name:
-            documents = [
-                documents[index]
-                for _, _, index in process.extract(
-                    request.name,
-                    [f"{d.title} {d.kind.value.replace('_', ' ')}" for d in documents],
-                    scorer=fuzz.partial_token_sort_ratio,
-                    processor=utils.default_process,
-                    score_cutoff=limits.match_cutoff,
-                    limit=None,
-                )
-            ]
-        answer = DocumentsAnswer(
-            documents=[
-                DocumentMatch.model_validate(d, from_attributes=True) for d in documents
-            ]
-        )
-    return answer
-
-
-def document_tools(
-    factory: async_sessionmaker[AsyncSession], limits: DocumentsSettings
-) -> Tools:
-    """The documents' tools"""
-    return {
-        "document": Tool(DocumentRequest, partial(answer_document, factory)),
-        "documents": Tool(DocumentsRequest, partial(answer_documents, factory, limits)),
-    }
 
 
 class DocumentService:
