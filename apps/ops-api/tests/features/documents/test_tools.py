@@ -5,6 +5,7 @@ from src.features.documents.models import Document
 from tests.conftest import (
     PREFIX,
     a2a_sent,
+    interrupt_part,
     sse_events,
     stream_chunk,
     stream_status,
@@ -35,7 +36,7 @@ async def _create(client, title: str, kind: str = "resume") -> dict:
 async def _answer(client, harness, request: dict) -> dict:
     """What ops-api resumed career-director with after it paused on this tool"""
     harness.outcomes = [
-        [stream_task(), stream_status("INPUT_REQUIRED", [{"data": request}])],
+        [stream_task(), stream_status("INPUT_REQUIRED", [interrupt_part(request)])],
         [
             stream_chunk("a-1", "career-director", {"text": "Found it."}),
             stream_status("COMPLETED"),

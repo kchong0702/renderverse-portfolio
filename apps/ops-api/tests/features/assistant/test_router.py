@@ -16,6 +16,7 @@ from src.features.documents.models import Document, DocumentChangeset
 from tests.conftest import (
     PREFIX,
     a2a_sent,
+    interrupt_part,
     sse_events,
     sse_ids,
     stream_chunk,
@@ -407,7 +408,7 @@ async def test_a_stream_executes_the_tools_its_run_pauses_with(harness):
             stream_task(),
             stream_status(
                 "INPUT_REQUIRED",
-                [{"data": {"execute_tool": "documents", "name": "nw"}}],
+                [interrupt_part({"execute_tool": "documents", "name": "nw"})],
             ),
         ],
         [
@@ -440,14 +441,16 @@ async def test_a_stream_executes_the_tools_its_run_pauses_with(harness):
     resume = a2a_sent(harness)[1]["params"]["message"]
     assert resume["taskId"] == "task-1"
     assert resume["contextId"] == "u:c"
-    assert resume["parts"] == [{"data": {"documents": ["Résumé for Northwind"]}}]
+    assert resume["parts"] == [interrupt_part({"documents": ["Résumé for Northwind"]})]
 
 
 async def test_a_tool_ops_does_not_have_is_refused_with_why(client, harness):
     harness.outcomes = [
         [
             stream_task(),
-            stream_status("INPUT_REQUIRED", [{"data": {"execute_tool": "weather"}}]),
+            stream_status(
+                "INPUT_REQUIRED", [interrupt_part({"execute_tool": "weather"})]
+            ),
         ],
         _replied("I can't check the weather."),
     ]
@@ -459,10 +462,10 @@ async def test_a_tool_ops_does_not_have_is_refused_with_why(client, harness):
         "reply": "I can't check the weather.",
     }
     [part] = a2a_sent(harness)[1]["params"]["message"]["parts"]
-    assert part == {"data": {"error": "Ops has no weather tool"}}
+    assert part == interrupt_part({"error": "Ops has no weather tool"})
 
 
-async def test_a_blocking_run_executes_its_tools_too(harness):
+async def test_a_blocking_run_answers_every_tool_its_pause_asks_for(harness):
     async def answer(request: ToolRequest) -> _Documents:
         return _Documents(documents=[request.model_dump()["name"]])
 
@@ -476,7 +479,12 @@ async def test_a_blocking_run_executes_its_tools_too(harness):
                         "messageId": "m",
                         "role": "ROLE_AGENT",
                         "parts": [
-                            {"data": {"execute_tool": "documents", "name": "nw"}}
+                            interrupt_part(
+                                {"execute_tool": "documents", "name": "nw"}, "i-sg"
+                            ),
+                            interrupt_part(
+                                {"execute_tool": "documents", "name": "acme"}, "i-my"
+                            ),
                         ],
                     },
                 },
@@ -515,7 +523,8 @@ async def test_a_blocking_run_executes_its_tools_too(harness):
 
     assert run == Completed(reply="ok")
     assert a2a_sent(harness)[1]["params"]["message"]["parts"] == [
-        {"data": {"documents": ["nw"]}}
+        interrupt_part({"documents": ["nw"]}, "i-sg"),
+        interrupt_part({"documents": ["acme"]}, "i-my"),
     ]
 
 
@@ -596,7 +605,7 @@ async def test_a_blocking_run_keeps_each_usage_its_history_reports_once(harness)
     asked = {
         "messageId": "ask",
         "role": "ROLE_AGENT",
-        "parts": [{"data": {"execute_tool": "documents"}}],
+        "parts": [interrupt_part({"execute_tool": "documents"})],
     }
     paused = {
         "result": {
@@ -846,7 +855,7 @@ async def test_approving_resumes_the_turn_and_its_update_saves_every_change(
         _resumed(
             stream_status(
                 "INPUT_REQUIRED",
-                [{"data": {"execute_tool": "profile_update", "edits": edits}}],
+                [interrupt_part({"execute_tool": "profile_update", "edits": edits})],
             )
         ),
         _resumed(
@@ -871,7 +880,7 @@ async def test_approving_resumes_the_turn_and_its_update_saves_every_change(
     assert sent[1]["params"]["message"]["parts"] == [
         {"data": {"decisions": [{"type": "approve"}]}}
     ]
-    assert sent[2]["params"]["message"]["parts"] == [{"data": {"saved": 5}}]
+    assert sent[2]["params"]["message"]["parts"] == [interrupt_part({"saved": 5})]
     profile, entries, skills, _, _ = await _stored(client)
     assert profile["headline"] == "Staff Engineer"
     assert profile["links"] == [{"label": "GitHub", "url": "https://github.com/k"}]
@@ -1078,12 +1087,12 @@ async def test_a_sync_preview_lists_what_syncing_would_change_and_saves_nothing(
             stream_status(
                 "INPUT_REQUIRED",
                 [
-                    {
-                        "data": {
+                    interrupt_part(
+                        {
                             "execute_tool": "profile_sync",
                             "document_id": document["id"],
                         }
-                    }
+                    )
                 ],
             ),
         ],
@@ -1151,13 +1160,13 @@ async def test_a_job_run_the_director_asks_for_is_queued_and_answered(client, ha
             stream_status(
                 "INPUT_REQUIRED",
                 [
-                    {
-                        "data": {
+                    interrupt_part(
+                        {
                             "execute_tool": "job_run",
                             "run_after": "2026-11-13T08:00:00+08:00",
                             "search": search,
                         }
-                    }
+                    )
                 ],
             ),
         ],
@@ -1167,13 +1176,13 @@ async def test_a_job_run_the_director_asks_for_is_queued_and_answered(client, ha
             stream_status(
                 "INPUT_REQUIRED",
                 [
-                    {
-                        "data": {
+                    interrupt_part(
+                        {
                             "execute_tool": "job_run",
                             "run_after": None,
                             "search": None,
                         }
-                    }
+                    )
                 ],
             ),
         ],
@@ -1193,7 +1202,7 @@ async def test_a_job_run_the_director_asks_for_is_queued_and_answered(client, ha
         answer["data"]["run_after"]
     ) == datetime.fromisoformat("2026-11-13T08:00:00+08:00")
     assert sent[3]["params"]["message"]["parts"] == [
-        {"data": {"error": "A job agent run is already queued"}}
+        interrupt_part({"error": "A job agent run is already queued"})
     ]
     assert harness.received[1].url.path == "/ezcareer/a2a/career-director"
 
@@ -1212,12 +1221,12 @@ async def test_only_a_resume_or_cv_has_a_sync_preview(client, harness):
                 stream_status(
                     "INPUT_REQUIRED",
                     [
-                        {
-                            "data": {
+                        interrupt_part(
+                            {
                                 "execute_tool": "profile_sync",
                                 "document_id": document_id,
                             }
-                        }
+                        )
                     ],
                 ),
             ],
@@ -1229,7 +1238,7 @@ async def test_only_a_resume_or_cv_has_a_sync_preview(client, harness):
 
     sent = a2a_sent(harness)
     assert [s["params"]["message"]["parts"] for s in (sent[1], sent[3])] == [
-        [{"data": {"error": "No such résumé or CV"}}]
+        [interrupt_part({"error": "No such résumé or CV"})]
     ] * 2
 
 
@@ -1245,7 +1254,7 @@ async def test_an_update_saves_all_its_changes_or_none(client, harness):
             stream_task(),
             stream_status(
                 "INPUT_REQUIRED",
-                [{"data": {"execute_tool": "profile_update", "edits": edits}}],
+                [interrupt_part({"execute_tool": "profile_update", "edits": edits})],
             ),
         ],
         _replied("Nothing was saved."),
@@ -1255,7 +1264,7 @@ async def test_an_update_saves_all_its_changes_or_none(client, harness):
     await client.post(f"{CHAT}/messages", json={"text": "Update me"})
 
     [part] = a2a_sent(harness)[1]["params"]["message"]["parts"]
-    assert part == {"data": {"error": f"No such entry {edits[2]['fact']}"}}
+    assert part == interrupt_part({"error": f"No such entry {edits[2]['fact']}"})
     assert await _stored(client) == stored
 
 
@@ -1278,12 +1287,12 @@ async def test_an_update_giving_a_role_a_project_field_saves_nothing(client, har
                 stream_status(
                     "INPUT_REQUIRED",
                     [
-                        {
-                            "data": {
+                        interrupt_part(
+                            {
                                 "execute_tool": "profile_update",
                                 "edits": [headline, edit],
                             }
-                        }
+                        )
                     ],
                 ),
             ],
@@ -1293,10 +1302,10 @@ async def test_an_update_giving_a_role_a_project_field_saves_nothing(client, har
         await client.post(f"{CHAT}/messages", json={"text": "Update me"})
 
         [part] = a2a_sent(harness)[-1]["params"]["message"]["parts"]
-        assert part == {
-            "data": {
+        assert part == interrupt_part(
+            {
                 "error": "Only a project has a link, code link, tools or a place"
                 " on the site"
             }
-        }
+        )
     assert await _stored(client) == stored

@@ -27,6 +27,7 @@ from tests.conftest import (
     a2a_sent,
     a2a_task,
     idle_in_transaction,
+    interrupt_part,
     sse_events,
     stream_chunk,
     stream_status,
@@ -72,7 +73,7 @@ async def _connect(client: httpx2.AsyncClient, jsearch: FakeJSearch) -> None:
 
 def _searching(request: dict = SEARCH) -> dict:
     """find-jobs pausing to ask ops-api for a job search"""
-    return a2a_task("INPUT_REQUIRED", status_parts=[{"data": request}])
+    return a2a_task("INPUT_REQUIRED", status_parts=[interrupt_part(request)])
 
 
 def _ending(sent: dict) -> dict:
@@ -101,7 +102,7 @@ def _answer(harness) -> dict:
 async def _ask_assistant(client, harness) -> list[dict]:
     """Ask the assistant for jobs, find-jobs searching once inside its run"""
     harness.outcomes = [
-        [stream_task(), stream_status("INPUT_REQUIRED", [{"data": SEARCH}])],
+        [stream_task(), stream_status("INPUT_REQUIRED", [interrupt_part(SEARCH)])],
         [
             stream_chunk("a-1", "career-director", {"text": "None fit yet."}),
             stream_status("COMPLETED"),

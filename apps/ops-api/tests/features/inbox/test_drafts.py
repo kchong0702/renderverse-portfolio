@@ -24,6 +24,7 @@ from tests.conftest import (
     a2a_task,
     connect_google,
     idle_in_transaction,
+    interrupt_part,
     sse_events,
     stream_chunk,
     stream_status,
@@ -284,7 +285,7 @@ async def test_a_follow_up_for_an_unknown_application_is_not_found(
 async def _executed(client, harness, request: dict) -> dict:
     """What ops-api resumed career-director's draft_reply with after it paused on this tool"""
     harness.outcomes = [
-        [stream_task(), stream_status("INPUT_REQUIRED", [{"data": request}])],
+        [stream_task(), stream_status("INPUT_REQUIRED", [interrupt_part(request)])],
         [
             stream_chunk("a-1", "career-director", {"text": "Drafted."}),
             stream_status("COMPLETED"),

@@ -135,6 +135,12 @@ def a2a_task(state: str, *, status_parts=None, artifact_parts=None) -> dict:
     return {"result": {"task": task}}
 
 
+def interrupt_part(data: dict, interrupt_id: str = "interrupt-1") -> dict:
+    """A data part tagged with the interrupt id of the paused tool call it asks for
+    or answers"""
+    return {"data": data, "metadata": {"interrupt_id": interrupt_id}}
+
+
 def a2a_sent(harness: FakeHarness) -> list[dict]:
     """The A2A requests the harness received, as JSON"""
     return [json.loads(request.content) for request in harness.received]

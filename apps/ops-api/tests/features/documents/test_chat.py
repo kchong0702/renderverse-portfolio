@@ -5,6 +5,7 @@ from src.features.documents.models import Document
 from tests.conftest import (
     PREFIX,
     a2a_sent,
+    interrupt_part,
     sse_events,
     sse_ids,
     stream_chunk,
@@ -54,7 +55,7 @@ def _loads(document_id: str) -> list[dict]:
         stream_task(),
         stream_status(
             "INPUT_REQUIRED",
-            [{"data": {"execute_tool": "document", "id": document_id}}],
+            [interrupt_part({"execute_tool": "document", "id": document_id})],
         ),
     ]
 
@@ -107,7 +108,9 @@ async def test_a_chat_turn_stores_the_edits_it_proposes_before_its_reply(
         {"data": {"document_id": document["id"], "facts": facts}},
     ]
     assert resumed["taskId"] == "task-1"
-    assert resumed["parts"] == [{"data": {"document": document["body"], "lines": []}}]
+    assert resumed["parts"] == [
+        interrupt_part({"document": document["body"], "lines": []})
+    ]
 
 
 async def test_a_second_turns_edits_join_the_pending_changeset(client, harness):
