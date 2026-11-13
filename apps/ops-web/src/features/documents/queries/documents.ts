@@ -3,7 +3,7 @@ import {
   queryOptions,
   type QueryClient,
 } from "@tanstack/react-query";
-import { activeImportsQueryOptions, isActive } from "@/features/imports";
+import { activeImportsQueryOptions } from "@/features/imports";
 import {
   cancelImport,
   createDocument,
@@ -41,8 +41,6 @@ export const changesetsQueryOptions = (id: string) =>
 export const importsQueryOptions = queryOptions({
   queryKey: ["documents", "imports"],
   queryFn: ({ signal }) => fetchImports(signal),
-  refetchInterval: ({ state }) =>
-    state.data?.[0] && isActive(state.data[0]) ? 3000 : false,
 });
 
 function storeDocument(client: QueryClient, document: DocumentRecord) {

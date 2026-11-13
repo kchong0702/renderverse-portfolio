@@ -119,7 +119,7 @@ export default function Sidebar() {
         </div>
 
         <div className="mb-3 flex min-h-4 flex-1 flex-col justify-end px-3.5">
-          <ProcessingIndicator />
+          <ProcessingIndicator onClick={() => setOpen(false)} />
         </div>
 
         <AccountMenu>

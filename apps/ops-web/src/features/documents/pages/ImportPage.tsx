@@ -1,4 +1,4 @@
-import { FileUp } from "lucide-react";
+import { ChevronLeft, FileUp } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -32,17 +32,15 @@ export default function ImportPage() {
   return (
     <>
       <header className="bg-header border-hair flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b px-4 py-3.5 shell:px-10">
-        <div className="flex min-w-0 items-baseline gap-2.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1.5">
           <Link
             to="/documents"
-            className="text-ink-3 text-sm/[1.6] no-underline"
+            className="text-ink-3 inline-flex min-h-10 items-center gap-1 text-sm font-semibold no-underline"
           >
+            <ChevronLeft size={15} />
             {t("documents.pageTitle")}
           </Link>
-          <span aria-hidden="true" className="text-ink-3">
-            /
-          </span>
-          <h1 className="m-0 text-xl/[1.6] font-semibold">
+          <h1 className="m-0 text-xl font-semibold">
             {t("documents.importPage.title")}
           </h1>
         </div>

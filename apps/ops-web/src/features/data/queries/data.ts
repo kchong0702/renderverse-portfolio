@@ -1,5 +1,5 @@
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
-import { activeImportsQueryOptions, isActive } from "@/features/imports";
+import { activeImportsQueryOptions } from "@/features/imports";
 import {
   fetchChanges,
   fetchImports,
@@ -12,7 +12,6 @@ import {
 export const importsQueryOptions = queryOptions({
   queryKey: ["profile", "imports"],
   queryFn: ({ signal }) => fetchImports(signal),
-  refetchInterval: ({ state }) => (state.data?.some(isActive) ? 3000 : false),
 });
 
 export const changesQueryOptions = queryOptions({

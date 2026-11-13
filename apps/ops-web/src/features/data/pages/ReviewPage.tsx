@@ -366,33 +366,47 @@ export default function ReviewPage() {
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-ink-3 text-[13px] font-semibold">
-                  {t("data.review.imports")}
+                  {t("data.review.uploads")}
                 </span>
-                {imports.data.every((row) => row.status !== "done") && (
+                {imports.data.length === 0 && (
                   <span className="text-ink-3 py-2 text-[13px]">
-                    {t("data.review.noImports")}
+                    {t("data.review.noUploads")}
                   </span>
                 )}
-                {imports.data
-                  .filter((row) => row.status === "done")
-                  .map((row) => (
-                    <div
-                      key={row.id}
-                      className="border-hair-soft flex flex-col gap-0.5 border-b py-2"
+                {imports.data.map((row) => (
+                  <div
+                    key={row.id}
+                    className="border-hair-soft flex flex-col gap-0.5 border-b py-2"
+                  >
+                    <span className="text-sm font-semibold [overflow-wrap:anywhere]">
+                      {row.filename}
+                    </span>
+                    <span className="text-ink-3 text-[13px]">
+                      {[
+                        `${dayMonth(new Date(row.created_at), i18n.language)}, ${new Intl.DateTimeFormat(i18n.language, { timeStyle: "short" }).format(new Date(row.created_at))}`,
+                        t(`data.review.sources.${row.source}`),
+                      ].join(" · ")}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-[13px]",
+                        row.status === "failed" ? "text-crit" : "text-ink-2",
+                      )}
                     >
-                      <span className="text-sm font-semibold [overflow-wrap:anywhere]">
-                        {row.filename}
-                      </span>
-                      <span className="text-ink-3 text-[13px]">
-                        {[
-                          dayMonth(new Date(row.created_at), i18n.language),
-                          t(`data.review.sources.${row.source}`),
-                          t("data.review.added", { count: row.added }),
-                          t("data.review.conflicts", { count: row.conflicts }),
-                        ].join(" · ")}
-                      </span>
-                    </div>
-                  ))}
+                      {row.status === "done"
+                        ? [
+                            t("data.review.added", { count: row.added }),
+                            t("data.review.conflicts", {
+                              count: row.conflicts,
+                            }),
+                          ].join(" · ")
+                        : t(
+                            `data.review.status.${row.status === "queued" && row.error ? "retrying" : row.status}`,
+                            { reason: row.error },
+                          )}
+                    </span>
+                  </div>
+                ))}
               </div>
               <div className="flex flex-col gap-1.5">
                 <span className="text-ink-3 text-[13px] font-semibold">

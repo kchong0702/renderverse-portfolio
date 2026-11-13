@@ -1640,8 +1640,15 @@
         }
       },
       "waiting": "Waiting for you",
-      "imports": "From your imports",
-      "noImports": "No imports yet.",
+      "uploads": "Uploads",
+      "noUploads": "No uploads yet.",
+      "status": {
+        "queued": "Waiting",
+        "processing": "Reading…",
+        "retrying": "Waiting to retry: {{reason}}",
+        "failed": "Failed: {{reason}}",
+        "abandoned": "Replaced by a newer upload"
+      },
       "sources": {
         "data": "Data",
         "documents": "Documents"
