@@ -3,6 +3,7 @@ from dependency_injector import containers, providers
 from src.clients.artifact import ArtifactClient
 from src.clients.ezcareer import EzcareerClient
 from src.clients.google import GoogleClient
+from src.clients.jsearch import JSearchClient
 from src.clients.storage import create_storage
 from src.core.agent_runner import AgentRunner, ToolExecutor
 from src.core.auth.oauth_providers import build_providers
@@ -55,6 +56,8 @@ class Container(containers.DeclarativeContainer):
 
     google = providers.Singleton(GoogleClient, settings=settings.provided.google)
 
+    jsearch = providers.Singleton(JSearchClient, settings=settings.provided.jsearch)
+
     storage = providers.Singleton(
         create_storage,
         settings=settings.provided.storage,
@@ -73,7 +76,9 @@ class Container(containers.DeclarativeContainer):
             providers.Callable(
                 document_tools, session_factory, settings.provided.documents
             ),
-            providers.Callable(job_tools, session_factory),
+            providers.Callable(
+                job_tools, session_factory, jsearch, settings.provided.jsearch
+            ),
             providers.Callable(profile_tools, session_factory),
         ),
     )

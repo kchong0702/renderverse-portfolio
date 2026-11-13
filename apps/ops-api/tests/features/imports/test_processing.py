@@ -199,7 +199,7 @@ async def test_a_done_import_is_not_processed_twice(app, client, harness):
     assert (await _listed(client, done["id"]))["status"] == "done"
 
 
-async def test_an_unreadable_jsearch_key_fails_the_import_at_once(app, client, harness):
+async def test_an_unreadable_jsearch_key_does_not_stop_an_import(app, client, harness):
     await client.put(
         f"{PREFIX}/settings/connections/jsearch", json={"api_key": "rapidapi-key"}
     )
@@ -207,13 +207,10 @@ async def test_an_unreadable_jsearch_key_fails_the_import_at_once(app, client, h
         stored = await session.scalar(select(Connection))
         stored.secret = Fernet(Fernet.generate_key()).encrypt(b"other")
 
-    failed = await _import(app, client, harness, _imported())
+    done = await _import(app, client, harness, _imported())
 
-    assert failed["status"] == "failed"
-    assert "change it in Settings" in failed["error"]
-    assert failed["finished_at"] is not None
-    assert harness.received == []
-    assert (await client.get(f"{PREFIX}/imports/active")).json() == []
+    assert done["status"] == "done"
+    assert "metadata" not in a2a_sent(harness)[0]["params"]
 
 
 async def test_an_unreachable_harness_queues_the_import_again(app, client, harness):

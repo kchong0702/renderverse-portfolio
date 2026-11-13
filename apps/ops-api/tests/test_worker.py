@@ -4,6 +4,8 @@ from uuid import UUID
 from dependency_injector import providers
 
 from src import worker
+from src.app.container import Container
+from src.core.agent_runner import ToolExecutor
 from src.db.queue import claim
 from src.features.imports.models import Import
 from tests.conftest import PREFIX, a2a_task, work
@@ -112,3 +114,7 @@ async def test_stopping_the_worker_releases_the_import_it_was_reading(
     done = await _listed(client, uploaded["id"])
     assert done["status"] == "done"
     assert (await client.get(f"{PREFIX}/imports/active")).json() == []
+
+
+def test_the_workers_container_builds_the_tool_executor():
+    assert isinstance(Container().tools(), ToolExecutor)

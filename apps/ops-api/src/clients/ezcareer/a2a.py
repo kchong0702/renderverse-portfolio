@@ -44,7 +44,7 @@ class SendMessageParams(BaseModel):
     """The message to send"""
 
     metadata: RunMetadata | None = Field(default=None, exclude_if=lambda v: v is None)
-    """The user's model and JSearch key; on the request, which the task never keeps"""
+    """The user's model"""
 
 
 class SendMessageRequest(BaseModel):

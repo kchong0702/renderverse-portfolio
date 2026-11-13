@@ -2127,6 +2127,7 @@ dependencies = [
     { name = "rapidfuzz" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "structlog" },
+    { name = "tenacity" },
     { name = "tzdata" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -2158,6 +2159,7 @@ requires-dist = [
     { name = "rapidfuzz", specifier = "==3.14.6" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.1.6" },
     { name = "structlog", specifier = ">=26.1.0" },
+    { name = "tenacity", specifier = ">=9.1.4" },
     { name = "tzdata", specifier = ">=2026.6" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]
