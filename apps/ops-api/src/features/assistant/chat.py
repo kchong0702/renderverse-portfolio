@@ -16,7 +16,7 @@ from src.clients.ezcareer import (
     RunMetadata,
 )
 from src.core.agent_runner import AgentRunner
-from src.core.exceptions import InvalidInput, NotFound
+from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.core.logging import get_logger
 from src.features.assistant.profile_edits import ProfileEdits
 from src.features.assistant.schemas import (
@@ -79,7 +79,7 @@ class AssistantChat:
                 review.task_id,
                 UpdateProfileArgs.model_validate(review.actions[0].args),
             )
-        except (ValidationError, NotFound, InvalidInput) as error:
+        except (ValidationError, NotFound, InvalidInput, Conflict) as error:
             return str(error)
 
     async def _turn(

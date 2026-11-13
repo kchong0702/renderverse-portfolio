@@ -131,7 +131,7 @@ async def _apply(
     service: ProfileService, user_id: UUID, edits: list[ProfileEdit]
 ) -> list[ApprovalRow]:
     """Make the edits through the profile service, each beside the value it replaces;
-    NotFound, InvalidInput or ValidationError for an edit the profile can't take"""
+    NotFound, InvalidInput, Conflict or ValidationError for an edit it can't take"""
     profile = await service.get(user_id)
     entries = {_fact(entry): entry for entry in await service.entries(user_id)}
     rows: list[ApprovalRow] = []
@@ -232,7 +232,7 @@ class ProfileEdits:
         return ProfileSyncPreview(edits=_synced(before, after, pending))
 
     async def save(self, user_id: UUID, edits: list[ProfileEdit]) -> ProfileUpdated:
-        """Save the approved changes all or none; NotFound, InvalidInput or
+        """Save the approved changes all or none; NotFound, InvalidInput, Conflict or
         ValidationError for an edit the profile can't take"""
         async with self._factory() as session, session.begin():
             await _apply(ProfileService(session), user_id, edits)
@@ -242,7 +242,8 @@ class ProfileEdits:
         self, user_id: UUID, task_id: str, args: UpdateProfileArgs
     ) -> ProfileApproval:
         """The card asking the user to approve the changes beside each field's value in
-        the database; NotFound, InvalidInput or ValidationError if they can't be made"""
+        the database; NotFound, InvalidInput, Conflict or ValidationError if they
+        can't be made"""
         async with self._factory() as session:
             rows = await _apply(ProfileService(session), user_id, args.edits)
             await session.rollback()

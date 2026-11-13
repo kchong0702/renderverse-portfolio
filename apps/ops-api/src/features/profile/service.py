@@ -7,7 +7,7 @@ from pydantic import TypeAdapter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import get_settings
-from src.core.exceptions import InvalidInput, NotFound
+from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.db.base import utcnow
 from src.features.imports import Import
 from src.features.preferences import PreferencesService
@@ -204,8 +204,20 @@ class ProfileService:
             for skill in await self._repository.skills(user_id)
         ]
 
+    async def _check_unique(
+        self, user_id: UUID, name: str, skill_id: UUID | None = None
+    ) -> None:
+        """Conflict when another of the user's skills has the name, ignoring case and
+        surrounding spaces"""
+        key = name.strip().casefold()
+        for skill in await self._repository.skills(user_id):
+            if skill.id != skill_id and skill.name.strip().casefold() == key:
+                where = "an archived skill" if skill.archived else "a skill"
+                raise Conflict(f"{skill.name} is already {where}")
+
     async def add_skill(self, user_id: UUID, skill: SkillWrite) -> SkillRead:
-        """Store a new skill"""
+        """Store a new skill; Conflict when the user has it already"""
+        await self._check_unique(user_id, skill.name)
         row = await self._repository.add(
             ProfileSkill(user_id=user_id, **skill.model_dump())
         )
@@ -214,10 +226,11 @@ class ProfileService:
     async def replace_skill(
         self, user_id: UUID, skill_id: UUID, skill: SkillWrite
     ) -> SkillRead:
-        """Overwrite every field of a skill"""
+        """Overwrite every field of a skill; Conflict when another skill has its name"""
         row = await self._repository.owned(ProfileSkill, user_id, skill_id)
         if row is None:
             raise NotFound("No such skill")
+        await self._check_unique(user_id, skill.name, skill_id)
         for field, value in skill.model_dump().items():
             setattr(row, field, value)
         return SkillRead.model_validate(row, from_attributes=True)

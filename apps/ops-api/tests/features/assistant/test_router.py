@@ -970,6 +970,10 @@ async def test_a_change_that_cannot_be_made_is_rejected_back_to_the_model(
             ],
             "Only a project",
         ),
+        (
+            [{"edits": [{"kind": "new_skill", "name": " python "}]}],
+            "Python is already a skill",
+        ),
         ([{"edits": [edit]}, {"edits": [edit]}], "one update_profile call"),
     ]
     stored = await _stored(client)

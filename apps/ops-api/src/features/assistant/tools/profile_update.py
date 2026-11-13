@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, ValidationError
 
 from src.core.agent_runner import ToolError
-from src.core.exceptions import InvalidInput, NotFound
+from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.features.assistant.profile_edits import ProfileEdits
 from src.features.assistant.schemas import ProfileEdit, ProfileUpdated
 
@@ -25,7 +25,7 @@ async def profile_update(
     """Save the approved changes all or none; ToolError says why nothing came of it"""
     try:
         return await edits.save(user_id, request.edits)
-    except (ValidationError, NotFound, InvalidInput) as error:
+    except (ValidationError, NotFound, InvalidInput, Conflict) as error:
         return ToolError(error=str(error))
 
 
