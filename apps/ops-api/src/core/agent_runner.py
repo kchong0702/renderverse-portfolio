@@ -1,6 +1,6 @@
 import asyncio
 from collections import Counter
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import partial
 from typing import Any
@@ -55,7 +55,7 @@ type Handle[R] = Callable[[AsyncIterator[RunEvent[R]]], AsyncIterator[BaseModel]
 
 
 class ToolExecutor:
-    def __init__(self, *features: Tools):
+    def __init__(self, features: Sequence[Tools]):
         """Execute every feature's tools; ValueError when two features register the
         same name"""
         names = Counter(name for tools in features for name in tools)

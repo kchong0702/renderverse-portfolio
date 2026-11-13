@@ -63,17 +63,19 @@ class Container(containers.DeclarativeContainer):
 
     tools = providers.Singleton(
         ToolExecutor,
-        providers.Callable(
-            inbox_tools,
-            session_factory,
-            google,
-            settings.provided.google,
+        providers.List(
+            providers.Callable(
+                inbox_tools,
+                session_factory,
+                google,
+                settings.provided.google,
+            ),
+            providers.Callable(
+                document_tools, session_factory, settings.provided.documents
+            ),
+            providers.Callable(job_tools, session_factory),
+            providers.Callable(profile_tools, session_factory),
         ),
-        providers.Callable(
-            document_tools, session_factory, settings.provided.documents
-        ),
-        providers.Callable(job_tools, session_factory),
-        providers.Callable(profile_tools, session_factory),
     )
 
     runner = providers.Singleton(

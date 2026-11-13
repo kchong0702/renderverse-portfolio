@@ -135,7 +135,7 @@ async def test_a_run_keeps_its_agent_task_status_and_events_as_its_user(
     set_actor(user_actor(postgres_user))
     async with aclosing(postgres_store(engine, EzcareerSettings())) as runs:
         runner = AgentRunner(
-            cast(EzcareerClient, _Harness()), ToolExecutor(), runs, retry_ms=2000
+            cast(EzcareerClient, _Harness()), ToolExecutor([]), runs, retry_ms=2000
         )
         await _collect(
             await runner.start(

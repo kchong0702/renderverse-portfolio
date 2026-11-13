@@ -66,7 +66,7 @@ async def _run(run: Run[Any]) -> object:
     """What AgentRunner.run gives for a one-shot run of agent that ends as run"""
     runner = AgentRunner(
         cast(EzcareerClient, _Ends(run)),
-        ToolExecutor(),
+        ToolExecutor([]),
         InMemoryRunStore(SETTINGS),
         retry_ms=2000,
     )
@@ -89,7 +89,7 @@ def _runner(
 ) -> AgentRunner:
     """A runner over a harness that streams these runs, with no tools"""
     return AgentRunner(
-        cast(EzcareerClient, _Harness(*runs)), ToolExecutor(), store, retry_ms=2000
+        cast(EzcareerClient, _Harness(*runs)), ToolExecutor([]), store, retry_ms=2000
     )
 
 

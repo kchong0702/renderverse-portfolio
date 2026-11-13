@@ -45,8 +45,10 @@ class _Library:
 def _executor(library: _Library) -> ToolExecutor:
     """An executor over two features' tools, one each"""
     return ToolExecutor(
-        {"shelf": Tool(_ShelfRequest, library.shelf)},
-        {"book": Tool(_BookRequest, library.book)},
+        [
+            {"shelf": Tool(_ShelfRequest, library.shelf)},
+            {"book": Tool(_BookRequest, library.book)},
+        ]
     )
 
 
@@ -72,9 +74,11 @@ def test_two_features_with_the_same_tool_are_refused():
 
     with pytest.raises(ValueError, match=r"registered twice: \['book'\]"):
         ToolExecutor(
-            {"shelf": Tool(_ShelfRequest, library.shelf)},
-            {"book": Tool(_BookRequest, library.book)},
-            {"book": Tool(_BookRequest, library.book)},
+            [
+                {"shelf": Tool(_ShelfRequest, library.shelf)},
+                {"book": Tool(_BookRequest, library.book)},
+                {"book": Tool(_BookRequest, library.book)},
+            ]
         )
 
 
