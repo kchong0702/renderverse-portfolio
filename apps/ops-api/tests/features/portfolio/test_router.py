@@ -34,7 +34,7 @@ async def _seed(client):
             "location": "Kuala Lumpur",
             "email": "kelvin@example.com",
             "phone": "+60 12 345 6789",
-            "links": ["https://github.com/kchong0702"],
+            "links": [{"label": "GitHub", "url": "https://github.com/kchong0702"}],
             "summary": "Builds platforms.",
         },
     )
@@ -43,7 +43,9 @@ async def _seed(client):
             f"{PROFILE}/skills", json={"name": "Python", "group": "Languages"}
         )
     ).json()
-    await client.post(f"{PROFILE}/skills", json={"name": "Perl", "archived": True})
+    perl = (
+        await client.post(f"{PROFILE}/skills", json={"name": "Perl", "archived": True})
+    ).json()
     renderverse = await _project(
         client,
         "Renderverse",
@@ -51,15 +53,18 @@ async def _seed(client):
         start="2025-01",
         end="present",
         highlights=["Built the 3D scene."],
+        link="https://kelvinchong.dev",
+        code_link="https://github.com/kchong0702/renderverse-portfolio",
+        tools=["React", "Three.js"],
         on_site=True,
     )
     await _project(client, "Kubernetes migration")
-    await _project(client, "Capstone", on_site=True, archived=True)
+    capstone = await _project(client, "Capstone", on_site=True, archived=True)
     await client.post(
         f"{PROFILE}/entries",
         json={"kind": "role", "title": "Senior Engineer", "on_site": True},
     )
-    return python, renderverse
+    return python, perl, renderverse, capstone
 
 
 def _current_file(tmp_path) -> Path:
@@ -72,16 +77,18 @@ def _current(tmp_path) -> dict:
 
 
 async def test_publish_writes_the_draft_as_the_live_release(client, tmp_path):
-    python, renderverse = await _seed(client)
+    python, perl, renderverse, capstone = await _seed(client)
 
     draft = (await client.get(f"{PORTFOLIO}/draft")).json()
     assert draft["number"] == 1
     assert draft["site_url"] is None
     assert [(c["kind"], c["id"], c["change"]) for c in draft["changes"]] == [
         ("about", None, "changed"),
+        ("skill", perl["id"], "added"),
         ("skill", python["id"], "added"),
         ("project", renderverse["id"], "added"),
-    ]
+        ("project", capstone["id"], "added"),
+    ], "the site ignores whether the agents use a skill or project"
 
     published = await client.post(f"{PORTFOLIO}/releases")
 
@@ -95,10 +102,11 @@ async def test_publish_writes_the_draft_as_the_live_release(client, tmp_path):
         "headline": "Senior Software Engineer",
         "summary": "Builds platforms.",
         "location": "Kuala Lumpur",
-        "links": ["https://github.com/kchong0702"],
+        "links": [{"label": "GitHub", "url": "https://github.com/kchong0702"}],
     }, "contact details stay off the site"
     assert current["skills"] == [
-        {"id": python["id"], "name": "Python", "group": "Languages"}
+        {"id": perl["id"], "name": "Perl", "group": ""},
+        {"id": python["id"], "name": "Python", "group": "Languages"},
     ]
     assert current["projects"] == [
         {
@@ -109,15 +117,32 @@ async def test_publish_writes_the_draft_as_the_live_release(client, tmp_path):
             "end": "present",
             "summary": "3D portfolio you can walk through",
             "highlights": ["Built the 3D scene."],
+            "link": "https://kelvinchong.dev",
+            "code_link": "https://github.com/kchong0702/renderverse-portfolio",
+            "tools": ["React", "Three.js"],
             "image": None,
             "video": None,
-        }
+        },
+        {
+            "id": capstone["id"],
+            "title": "Capstone",
+            "organisation": "",
+            "start": None,
+            "end": None,
+            "summary": "",
+            "highlights": [],
+            "link": None,
+            "code_link": None,
+            "tools": [],
+            "image": None,
+            "video": None,
+        },
     ]
     assert (await client.get(f"{PORTFOLIO}/draft")).json()["changes"] == []
 
 
 async def test_publish_needs_a_change_since_the_live_release(client):
-    _, renderverse = await _seed(client)
+    _, _, renderverse, _ = await _seed(client)
     await client.post(f"{PORTFOLIO}/releases")
 
     assert (await client.post(f"{PORTFOLIO}/releases")).status_code == 409

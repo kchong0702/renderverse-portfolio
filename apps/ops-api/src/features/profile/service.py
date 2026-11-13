@@ -56,7 +56,7 @@ def _to_read(profile: Profile) -> ProfileRead:
 
 
 def _entry_fact(entry: ProfileEntry) -> ProfileFact:
-    """An entry as one fact, its heading then summary and highlights a line each;
+    """An entry as one fact, a line each for heading, summary, highlights, tools, links;
     only a role carries its span, as the agents count spans as years of experience"""
     where = ", ".join(part for part in (entry.organisation, entry.location) if part)
     match entry.kind:
@@ -71,7 +71,14 @@ def _entry_fact(entry: ProfileEntry) -> ProfileFact:
     years = f"{start} to {end}" if start and end and start != end else start or end
     if years and entry.kind is not EntryKind.ROLE:
         heading = f"{heading} ({years})"
-    lines = (heading, entry.summary, *entry.highlights)
+    lines = (
+        heading,
+        entry.summary,
+        *entry.highlights,
+        f"Tools: {', '.join(entry.tools)}" if entry.tools else "",
+        f"Live at {entry.link}" if entry.link else "",
+        f"Code at {entry.code_link}" if entry.code_link else "",
+    )
     is_role = entry.kind is EntryKind.ROLE
     return ProfileFact(
         id=f"{entry.kind.value}-{entry.id}",
@@ -94,9 +101,11 @@ class ProfileService:
         """Change the fields sent and leave the rest"""
         profile = await self._load(user_id)
         for field, value in patch.model_dump(
-            exclude_none=True, exclude={"preferences"}
+            exclude_none=True, exclude={"preferences", "links"}
         ).items():
             setattr(profile, field, value)
+        if patch.links is not None:
+            profile.links = patch.links
         if patch.preferences is not None:
             salary = patch.preferences.min_salary
             profile.work_modes = [mode.value for mode in patch.preferences.work_modes]

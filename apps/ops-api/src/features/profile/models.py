@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String, Text, false
+from pydantic import TypeAdapter
+from sqlalchemy import ForeignKey, String, Text, false, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.db.base import Base, EnumString, JsonType
+from src.db.base import Base, EnumString, JsonType, PydanticJson
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 from src.features.profile.enums import EntryKind, SalaryPeriod
+from src.features.profile.schemas import ProfileLink
 
 
 class Profile(AuditMixin, Base):
@@ -33,8 +35,10 @@ class Profile(AuditMixin, Base):
     phone: Mapped[str] = mapped_column(String(50), default="")
     """Contact phone for documents"""
 
-    links: Mapped[list[str]] = mapped_column(JsonType, default=list)
-    """Profile and portfolio URLs"""
+    links: Mapped[list[ProfileLink]] = mapped_column(
+        PydanticJson(TypeAdapter(list[ProfileLink])), default=list
+    )
+    """Up to three labelled links, such as LinkedIn"""
 
     summary: Mapped[str] = mapped_column(Text(), default="")
     """A short paragraph about the user"""
@@ -86,6 +90,17 @@ class ProfileEntry(IdMixin, UserScopedMixin, AuditMixin, Base):
 
     highlights: Mapped[list[str]] = mapped_column(JsonType, default=list)
     """What the user achieved, one sentence each"""
+
+    link: Mapped[str | None] = mapped_column(String(500), default=None)
+    """Where a project can be seen live; only projects use it"""
+
+    code_link: Mapped[str | None] = mapped_column(String(500), default=None)
+    """Where a project's code is; only projects use it"""
+
+    tools: Mapped[list[str]] = mapped_column(
+        JsonType, default=list, server_default=text("'[]'")
+    )
+    """Languages, frameworks and tools a project used; only projects use it"""
 
     archived: Mapped[bool] = mapped_column(default=False)
     """Kept but left out of what the agents see"""

@@ -13,8 +13,19 @@ from src.features.profile.types import (
     FactId,
     Highlight,
     Link,
+    Tool,
     YearMonth,
 )
+
+
+class ProfileLink(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(min_length=1, max_length=40)
+    """What the link is for, such as LinkedIn or GitHub"""
+
+    url: Link
+    """Where it points"""
 
 
 class Salary(BaseModel):
@@ -62,8 +73,8 @@ class ProfileRead(BaseModel):
     phone: str
     """Contact phone for documents"""
 
-    links: list[str]
-    """Profile and portfolio URLs"""
+    links: list[ProfileLink]
+    """Up to three labelled links, such as LinkedIn"""
 
     summary: str
     """A short paragraph about the user"""
@@ -88,8 +99,8 @@ class ProfileUpdate(BaseModel):
     phone: str | None = Field(default=None, max_length=50)
     """New contact phone; None leaves it unchanged"""
 
-    links: list[Link] | None = None
-    """Replaces every link; None leaves them unchanged"""
+    links: list[ProfileLink] | None = Field(default=None, max_length=3)
+    """Replaces every link, at most three; None leaves them unchanged"""
 
     summary: str | None = None
     """New summary; None leaves it unchanged"""
@@ -119,6 +130,15 @@ class EntryWrite(BaseModel):
 
     highlights: list[Highlight] = Field(default_factory=list)
     """What the user achieved, one sentence each"""
+
+    link: Link | None = None
+    """Where a project can be seen live; only projects use it"""
+
+    code_link: Link | None = None
+    """Where a project's code is; only projects use it"""
+
+    tools: list[Tool] = Field(default_factory=list, max_length=20)
+    """Languages, frameworks and tools a project used; only projects use it"""
 
     archived: bool = False
     """Kept but left out of what the agents see"""
@@ -199,6 +219,7 @@ __all__ = [
     "EntryWrite",
     "Preferences",
     "ProfileFact",
+    "ProfileLink",
     "ProfileRead",
     "ProfileUpdate",
     "Salary",

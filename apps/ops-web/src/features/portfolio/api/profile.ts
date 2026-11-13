@@ -19,13 +19,18 @@ export interface Preferences {
   min_salary: Salary | null;
 }
 
+export interface ProfileLink {
+  label: string;
+  url: string;
+}
+
 export interface Profile {
   name: string;
   headline: string;
   location: string;
   email: string;
   phone: string;
-  links: string[];
+  links: ProfileLink[];
   summary: string;
   preferences: Preferences;
 }
@@ -40,6 +45,9 @@ export interface EntryWrite {
   end: YearMonth | "present" | null;
   summary: string;
   highlights: string[];
+  link: string | null;
+  code_link: string | null;
+  tools: string[];
   archived: boolean;
   on_site: boolean;
 }

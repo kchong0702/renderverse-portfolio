@@ -20,6 +20,9 @@ const BLANK: EntryWrite = {
   end: null,
   summary: "",
   highlights: [],
+  link: null,
+  code_link: null,
+  tools: [],
   archived: false,
   on_site: false,
 };

@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 
 from src.features.portfolio.enums import MediaType
+from src.features.profile.schemas import ProfileLink
 from src.features.profile.types import EntryEnd, YearMonth
 
 ChangeKind = Literal["about", "skill", "project"]
@@ -29,8 +30,8 @@ class About(BaseModel):
     location: str
     """Where the user lives"""
 
-    links: list[str]
-    """Profile and portfolio URLs"""
+    links: list[ProfileLink]
+    """Up to three labelled links, such as LinkedIn"""
 
 
 class SiteSkill(BaseModel):
@@ -66,6 +67,15 @@ class SiteProject(BaseModel):
     highlights: list[str]
     """What the user achieved, one sentence each"""
 
+    link: str | None = None
+    """Where the project can be seen live"""
+
+    code_link: str | None = None
+    """Where the project's code is"""
+
+    tools: list[str] = []
+    """Languages, frameworks and tools the project used"""
+
     image: str | None = None
     """The cover's URL on the site's host, as /sites/<user_id>/media/<sha256>.png"""
 
@@ -78,10 +88,10 @@ class Snapshot(BaseModel):
     """Who the user is, without contact details"""
 
     skills: list[SiteSkill]
-    """Unarchived skills by group, then name"""
+    """Every skill by group, then name"""
 
     projects: list[SiteProject]
-    """Unarchived projects turned on for the site, latest first"""
+    """Projects turned on for the site, latest first"""
 
 
 class Site(Snapshot):
