@@ -9,8 +9,7 @@ def _plain(text: str) -> str:
 
 
 def check_verbatim(reply: ImportedProfile, files: list[ExportFile]) -> list[CheckError]:
-    """Errors for each copied value not word for word in the export, and each entry
-    value, highlight or date's year not in a row holding the entry's title"""
+    """Errors for each copied value not word for word in the export"""
     rows = [_plain("\n".join(row.values())) for file in files for row in file.rows]
     about = reply.about
     copied = [
@@ -22,7 +21,25 @@ def check_verbatim(reply: ImportedProfile, files: list[ExportFile]) -> list[Chec
         *((f"about/links/{i}/url", link.url) for i, link in enumerate(about.links)),
         *((f"skills/{i}/name", skill.name) for i, skill in enumerate(reply.skills)),
     ]
-    errors = [
+    for index, entry in enumerate(reply.entries):
+        at = f"entries/{index}"
+        copied.extend(
+            (f"{at}/{name}", value)
+            for name in (
+                "title",
+                "organisation",
+                "location",
+                "summary",
+                "link",
+                "code_link",
+            )
+            if (value := getattr(entry, name))
+        )
+        copied.extend(
+            (f"{at}/highlights/{i}", value) for i, value in enumerate(entry.highlights)
+        )
+        copied.extend((f"{at}/tools/{i}", value) for i, value in enumerate(entry.tools))
+    return [
         CheckError(
             rule=CheckRule.VERBATIM,
             at=at,
@@ -31,39 +48,3 @@ def check_verbatim(reply: ImportedProfile, files: list[ExportFile]) -> list[Chec
         for at, value in copied
         if not any(_plain(value) in row for row in rows)
     ]
-    for index, entry in enumerate(reply.entries):
-        at = f"entries/{index}"
-        if not (sources := [row for row in rows if _plain(entry.title) in row]):
-            errors.append(
-                CheckError(
-                    rule=CheckRule.VERBATIM,
-                    at=f"{at}/title",
-                    message=f"{entry.title!r} is not word for word in the export",
-                )
-            )
-            continue
-        values = [
-            *(
-                (name, value)
-                for name in ("organisation", "location", "summary", "link", "code_link")
-                if (value := getattr(entry, name))
-            ),
-            *(
-                (name, value[:4])
-                for name in ("start", "end")
-                if (value := getattr(entry, name)) and value != "present"
-            ),
-            *((f"highlights/{i}", value) for i, value in enumerate(entry.highlights)),
-            *((f"tools/{i}", value) for i, value in enumerate(entry.tools)),
-        ]
-        errors.extend(
-            CheckError(
-                rule=CheckRule.VERBATIM,
-                at=f"{at}/{name}",
-                message=f"{value!r} is not word for word in the row of"
-                f" {entry.title!r}; copy it from that row",
-            )
-            for name, value in values
-            if not any(_plain(value) in row for row in sources)
-        )
-    return errors

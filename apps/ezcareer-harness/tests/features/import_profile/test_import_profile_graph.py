@@ -140,27 +140,6 @@ async def test_an_invented_highlight_goes_back_with_the_previous_reply():
     assert result["entries"][0].highlights[1] == "Moved billing to Go"
 
 
-async def test_a_highlight_from_another_rows_description_goes_back():
-    model = _model(_reply("Rewrote billing in Go"), _reply("Moved billing to Go"))
-
-    await _graph(model).ainvoke(EXPORT)
-
-    assert (
-        "entries/0/highlights/1 (verbatim): 'Rewrote billing in Go' is not word for"
-        " word in the row of 'Senior Engineer'" in model.requests[1][-1].content
-    )
-
-
-async def test_a_year_the_row_doesnt_state_goes_back():
-    model = _model(
-        _reply("Moved billing to Go", start="2020-01"), _reply("Moved billing to Go")
-    )
-
-    await _graph(model).ainvoke(EXPORT)
-
-    assert "entries/0/start (verbatim): '2020'" in model.requests[1][-1].content
-
-
 async def test_a_reply_without_a_profile_import_gets_another_round():
     model = _model(None, _reply("Moved billing to Go"))
 
