@@ -7,6 +7,7 @@ from langgraph.types import Command
 from src.app.container import Container
 from src.core.errors import ExecuteError
 from src.features.find_jobs import build_graph
+from src.shared.jobs import job_key
 from tests.agents.job_analyst.test_search_jobs import FOUND
 from tests.conftest import ScriptedChatModel
 
@@ -34,7 +35,9 @@ def _requirement(text: str, line: int, match: str) -> dict:
 
 
 def _ranked(*jobs: tuple[str, list[dict]]) -> AIMessage:
-    return _call("RankedJobs", jobs=[{"job_id": i, "requirements": r} for i, r in jobs])
+    return _call(
+        "RankedJobs", jobs=[{"job_id": job_key(i), "requirements": r} for i, r in jobs]
+    )
 
 
 PLATFORM = ("pQ7mN2_newest==", [_requirement("Terraform", 2, "not_met")])

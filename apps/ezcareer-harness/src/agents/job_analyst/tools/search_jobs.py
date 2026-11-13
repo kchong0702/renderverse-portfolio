@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from src.agents.job_analyst.state import JobAnalystState
 from src.core.errors import ExecuteError
-from src.shared.jobs import FoundJobs, PostedWithin
+from src.shared.jobs import FoundJobs, PostedWithin, job_key
 from src.shared.profile import CountryCode
 from src.shared.run_context import RunContext
 from src.shared.tool_error import ToolError
@@ -17,14 +17,16 @@ class _JobQuery(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
     query: str
-    """Job titles and key skills, such as "backend engineer python\""""
+    """A job title with at most one skill, such as "backend engineer python"; each
+    extra word narrows the search"""
 
     location: str | None = None
     """City or region to search in, such as London; leave it out to search the
     whole country"""
 
     country: CountryCode | None = None
-    """ISO country code to search in, such as GB"""
+    """ISO country code to search in, such as GB; a search without it is not
+    worldwide"""
 
     remote_only: bool = False
     """Return only remote jobs"""
@@ -50,9 +52,6 @@ class _JobQuery(BaseModel):
     radius_km: int | None = Field(default=None, gt=0)
     """How far from the location a job may be"""
 
-    max_jobs: int = Field(default=30, ge=10, le=50, multiple_of=10)
-    """How many jobs to fetch"""
-
 
 class _SearchJobsArgs(_JobQuery):
     model_config = ConfigDict(
@@ -66,8 +65,8 @@ class _SearchJobsArgs(_JobQuery):
 async def _search_jobs(
     runtime: ToolRuntime[RunContext | None, JobAnalystState], **given: object
 ) -> tuple[str, FoundJobs]:
-    """Asks Ops to search for jobs, with the user's own search fields over the
-    agent's"""
+    """Asks Ops for 10 jobs, the user's own search fields over the agent's; the model
+    sees each job under its job_key, and the artifact keeps the source's ids"""
     query = _JobQuery.model_validate(given)
     if search := runtime.state.get("search"):
         query = query.model_copy(
@@ -79,13 +78,24 @@ async def _search_jobs(
         )
     try:
         found = TypeAdapter(FoundJobs | ToolError).validate_python(
-            interrupt({"execute_tool": "job_search", **query.model_dump(mode="json")})
+            interrupt(
+                {
+                    "execute_tool": "job_search",
+                    **query.model_dump(mode="json"),
+                    "max_jobs": 10,
+                }
+            )
         )
     except ValidationError as error:
         raise ExecuteError(f"The job search didn't load: {error}") from error
     if isinstance(found, ToolError):
         raise ToolException(found.error)
-    return found.model_dump_json(), found
+    shown = found.model_copy(
+        update={
+            "jobs": [j.model_copy(update={"id": job_key(j.id)}) for j in found.jobs]
+        }
+    )
+    return shown.model_dump_json(), found
 
 
 search_jobs = StructuredTool.from_function(

@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from src.features.find_jobs.checks import check_ranked_jobs
 from src.features.find_jobs.ranking import matched_jobs
 from src.features.find_jobs.schemas import JobPosting, RankedJobs
-from src.shared.jobs import PostingLine
+from src.shared.jobs import PostingLine, job_key
 from src.shared.profile import Preferences, Profile, ProfileFact
 
 
@@ -43,7 +43,7 @@ def _requirement(text: str, line: int, match: str = "met") -> dict:
 
 def _ranked(*jobs: tuple[str, list[dict]]) -> RankedJobs:
     return RankedJobs.model_validate(
-        {"jobs": [{"job_id": i, "requirements": r} for i, r in jobs]}
+        {"jobs": [{"job_id": job_key(i), "requirements": r} for i, r in jobs]}
     )
 
 

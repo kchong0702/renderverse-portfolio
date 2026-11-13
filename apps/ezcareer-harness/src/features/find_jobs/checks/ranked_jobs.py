@@ -1,7 +1,7 @@
 from src.features.analyse_job import JobRequirements, check_citations
 from src.features.find_jobs.schemas import JobPosting, RankedJobs
 from src.shared.checks import CheckError, CheckRule
-from src.shared.jobs import broken_filters
+from src.shared.jobs import broken_filters, job_key
 from src.shared.profile import Profile
 
 
@@ -10,7 +10,7 @@ def check_ranked_jobs(
 ) -> list[CheckError]:
     """Errors for jobs search_jobs didn't return, jobs ranked twice or breaking
     the user's preferences, and citations that don't hold for the job"""
-    found = {posting.id: posting for posting in postings}
+    found = {job_key(posting.id): posting for posting in postings}
     seen: set[str] = set()
     errors: list[CheckError] = []
     for index, job in enumerate(output.jobs):

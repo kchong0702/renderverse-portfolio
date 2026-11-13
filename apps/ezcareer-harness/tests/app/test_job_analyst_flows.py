@@ -78,7 +78,7 @@ def test_find_jobs_asks_ops_api_to_search_and_finishes_on_its_answer():
         "employment_types": [],
         "job_requirements": [],
         "radius_km": None,
-        "max_jobs": 30,
+        "max_jobs": 10,
     }
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
 
