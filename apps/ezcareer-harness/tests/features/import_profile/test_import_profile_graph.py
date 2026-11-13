@@ -112,6 +112,22 @@ async def test_a_passing_import_comes_back_as_about_entries_and_skills():
     ]
 
 
+async def test_a_year_without_its_month_stays_a_year():
+    model = _model(_reply("Moved billing to Go.", start="2021"))
+
+    result = await _graph(model).ainvoke(EXPORT)
+
+    assert result["entries"][0].start == "2021"
+
+
+async def test_an_empty_highlight_gets_another_round():
+    model = _model(_reply(""), _reply("Moved billing to Go."))
+
+    result = await _graph(model).ainvoke(EXPORT)
+
+    assert result["entries"][0].highlights[1] == "Moved billing to Go."
+
+
 async def test_an_invented_highlight_goes_back_with_the_previous_reply():
     model = _model(_reply("Moved all billing to Go"), _reply("Moved billing to Go"))
 

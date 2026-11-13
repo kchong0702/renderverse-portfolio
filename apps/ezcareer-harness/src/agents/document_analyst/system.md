@@ -63,7 +63,7 @@ Reply with a `ProfileImport`:
 
 - `about` takes the headline, the summary, the location and up to three of the user's own links. Give each link a short `label`, such as `LinkedIn`, `GitHub` or `Portfolio`, and its `url` as written.
 - `entries` holds one entry per position, school and project row, in the export's order, with `kind` `role`, `education` or `project`. A role's `title` is the job title and its `organisation` the company. An education's `title` is the degree and its `organisation` the school. A project's `title` is its name, `link` its URL, and `tools` the languages, frameworks and tools its description names. Take every value of an entry from its own row.
-- `start` and `end` are `YYYY-MM`. A date with only a year starts in January and ends in December of that year. An entry with a start and no end is ongoing: set `end` to `present`.
+- `start` and `end` are `YYYY-MM`, or `YYYY` when the row gives only the year. An entry with a start and no end is ongoing: set `end` to `present`.
 - Split a description into its opening line, which goes in `summary`, and its achievements, one sentence each in `highlights`. Drop list markers such as `•` and `-`. A description that is only a list has no `summary`.
 - `skills` holds one skill per skill row. Group related skills under a short heading in `group`, such as `Languages`, `Cloud` or `Spoken languages`.
 
