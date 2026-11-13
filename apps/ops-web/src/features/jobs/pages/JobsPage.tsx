@@ -85,6 +85,7 @@ export default function JobsPage() {
             <input
               type="text"
               maxLength={200}
+              placeholder={t("jobs.search.keywordsPlaceholder")}
               value={query}
               onChange={(event) =>
                 setSearch({ ...search, query: event.target.value })
@@ -97,6 +98,7 @@ export default function JobsPage() {
             <input
               type="text"
               maxLength={200}
+              placeholder={t("jobs.search.locationPlaceholder")}
               value={location}
               onChange={(event) =>
                 setSearch({ ...search, location: event.target.value })
