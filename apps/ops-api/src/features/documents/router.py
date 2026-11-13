@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
 from document_schema import Changeset, DocumentKind, TemplateSpec
@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, Header, Request, UploadFile, status
 from fastapi.sse import EventSourceResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.app.container import Container
 from src.clients.artifact import Render
 from src.clients.ezcareer import Answer
 from src.core.auth import CurrentUserDep
@@ -29,10 +28,14 @@ from src.features.imports import ImportRead, ImportServiceDep, ImportSource
 from src.features.profile import ProfileService
 from src.features.settings import settings_service
 
+if TYPE_CHECKING:
+    from src.app.container import Container
+
+
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-def document_service(session: AsyncSession, container: Container) -> DocumentService:
+def document_service(session: AsyncSession, container: "Container") -> DocumentService:
     """The documents service on the session, its clients from the container"""
     return DocumentService(
         session,

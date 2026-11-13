@@ -1,9 +1,8 @@
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.app.container import Container
 from src.clients.ezcareer import ModelCatalog
 from src.core.auth import CurrentUserDep
 from src.core.config import get_settings
@@ -12,10 +11,14 @@ from src.features.google import GoogleService
 from src.features.settings.schemas import JSearchKey, SettingsRead, SettingsUpdate
 from src.features.settings.service import SettingsService
 
+if TYPE_CHECKING:
+    from src.app.container import Container
+
+
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 
-def settings_service(session: AsyncSession, container: Container) -> SettingsService:
+def settings_service(session: AsyncSession, container: "Container") -> SettingsService:
     """The settings service on the session, its clients from the container"""
     settings = get_settings()
     return SettingsService(
