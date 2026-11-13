@@ -35,7 +35,7 @@ The harness serves three kinds of graph over A2A:
 | ---------------------- | ------------------------------------------------------------------- | ---------------------------------------- |
 | job-analyst            | `analyse-job`, `find-jobs`                                          | an agent                                 |
 | career-consultant      | `edit-document` (`src/features/write_document`), `write-networking` | an agent                                 |
-| career-director        | none; it runs the others as its tools                               | the main agent of its agent graph        |
+| career-director        | none; runs the others as tools; `update-profile` skill              | the main agent of its agent graph        |
 | productivity-assistant | `triage-email`, `draft-reply`                                       | a child agent in career-director's graph |
 | document-analyst       | `import-resume` (`src/features/import_document`), `import-profile`  | not served; only its workflows are       |
 
@@ -178,7 +178,35 @@ The A2A task becomes `input-required`, and its message carries the request as a 
 
   `sender` and `last_sent_at` are the latest message's. It answers `{"error": ...}` when it can't search, for example when the user's inbox isn't connected.
 
+- `{"fetch": "profile_sync", "document_id": ...}`, from career-director's `preview_profile_sync` tool. ops-api dry-runs its profile import of that résumé or CV and answers `{"edits": [...]}`, the edits that would bring the profile in line with it. It saves nothing, and answers `{"error": ...}` when the document can't be synced.
+- `{"fetch": "profile_update", "edits": [...]}`, from career-director's `update_profile` tool, only after the user approves the call (see [Approvals](#approvals)). ops-api saves all the edits or none and answers `{"saved": ...}`, or `{"error": ...}`.
+
+  Each edit has a `kind`: `about` sets one about field, `entry` sets one field of a role, education or project by its fact id, and `new_entry`, `new_skill` and `new_link` add one. `src/agents/career_director/types.py` defines them as `ProfileEdit`.
+
 A question for the user, from `clarify` or `permission`, pauses the run in the same way, with a widget instead of `fetch`.
+
+## Approvals
+
+A tool that writes the user's data runs only after the user approves the call. `build_agent(interrupt_on=...)` passes the tools that need approval to deepagents, which adds LangChain's `HumanInTheLoopMiddleware`. career-director needs approval for `update_profile`, with the decisions approve and reject.
+
+When the model calls such a tool, the run pauses before the tool runs. The A2A task becomes `input-required`, and its message carries the middleware's request as a data part:
+
+```json
+{
+  "action_requests": [
+    {
+      "name": "update_profile",
+      "args": { "edits": [...], "source": "Backend résumé" },
+      "description": "..."
+    }
+  ],
+  "review_configs": [
+    { "action_name": "update_profile", "allowed_decisions": ["approve", "reject"] }
+  ]
+}
+```
+
+ops-api resumes the task with one decision per action request, in order: `{"decisions": [{"type": "approve"}]}`, or `{"decisions": [{"type": "reject", "message": ...}]}`. On approve the tool runs, so `update_profile` then asks for `profile_update`. On reject it never runs, and the model gets the rejection, with the user's message when there is one.
 
 ## Run metadata
 

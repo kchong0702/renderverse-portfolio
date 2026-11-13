@@ -1,5 +1,6 @@
 import i18n from "@/i18n";
 import { ApiError, http, stream } from "@/shared/api/http";
+import type { FieldValue, ImportedEntry } from "@/features/data/api/data";
 import { config } from "@/shared/config";
 
 export type DocumentKind = "resume" | "cv" | "cover_letter";
@@ -35,9 +36,37 @@ export interface Step {
   detail: string | null;
 }
 
+export type ProfileEdit =
+  | {
+      kind: "about";
+      field: "name" | "headline" | "location" | "email" | "phone" | "summary";
+      value: string;
+    }
+  | {
+      kind: "entry";
+      fact: string;
+      field: Exclude<keyof ImportedEntry, "kind">;
+      value: FieldValue;
+    }
+  | { kind: "new_entry"; entry: ImportedEntry }
+  | { kind: "new_skill"; name: string; group: string }
+  | { kind: "new_link"; label: string; url: string };
+
+export interface ApprovalRow {
+  edit: ProfileEdit;
+  entry: string | null;
+  current: FieldValue;
+}
+
 export type Outcome =
   | { status: "completed"; reply: string }
   | { status: "input_required"; task_id: string; widget: Widget }
+  | {
+      status: "profile_approval";
+      task_id: string;
+      source: string;
+      rows: ApprovalRow[];
+    }
   | { status: "failed"; reason: string }
   | { status: "cancelled" };
 
@@ -54,6 +83,7 @@ export type RunEvent =
   | { status: "text"; turn: string; text: string }
   | { status: "step"; step: Step }
   | ({ status: "changeset" } & Changeset)
+  | { status: "profile_saved"; saved: number }
   | Outcome;
 
 export interface Chat {
@@ -71,6 +101,12 @@ export interface TaskAnswer {
   taskId: string;
   answer: Answer;
   shown: string;
+}
+
+export interface TaskDecision {
+  chat: Chat;
+  taskId: string;
+  decision: { approve: boolean; message?: string };
 }
 
 export interface TurnCursor {
@@ -98,6 +134,7 @@ const MAX_RETRY_MS = 15_000;
 const TERMINAL: ReadonlySet<RunEvent["status"]> = new Set([
   "completed",
   "input_required",
+  "profile_approval",
   "failed",
   "cancelled",
 ]);
@@ -216,6 +253,21 @@ export const answerTask = (
   streamTurn(
     task.chat,
     { url: `${taskUrl(task)}/answer`, body: answer },
+    null,
+    signal,
+    onEvent,
+    onReconnect,
+  );
+
+export const decideTask = (
+  { decision, ...task }: TaskDecision,
+  signal: AbortSignal,
+  onEvent: OnEvent,
+  onReconnect: OnReconnect,
+) =>
+  streamTurn(
+    task.chat,
+    { url: `${taskUrl(task)}/decision`, body: decision },
     null,
     signal,
     onEvent,

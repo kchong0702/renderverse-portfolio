@@ -8,9 +8,11 @@ from src.agents.career_director.tools import (
     edit_document_tool,
     find_documents,
     find_jobs_tool,
+    preview_profile_sync,
+    update_profile,
 )
 from src.app.a2a import Executable
-from src.tools import handoff_to_child_tool
+from src.tools import handoff_to_child_tool, read_profile_facts
 
 
 class CareerDirectorContainer(containers.DeclarativeContainer):
@@ -47,9 +49,12 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
             find_documents,
             choose_document,
         ),
+        skill_tools=(read_profile_facts, preview_profile_sync, update_profile),
         state_schema=CareerDirectorState,
+        interrupt_on={"update_profile": {"allowed_decisions": ["approve", "reject"]}},
     )
-    """The career-director agent, built once, running the workflows as its tools"""
+    """The career-director agent, built once, running the workflows as its tools and
+    saving profile changes only once the user approves them"""
 
     agent_executable = providers.Singleton(
         Executable,
