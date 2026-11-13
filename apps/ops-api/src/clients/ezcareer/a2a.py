@@ -17,6 +17,11 @@ class DataPart(BaseModel):
     data: SerializeAsAny[BaseModel]
     """The executable's input, or the answer to a paused task"""
 
+    metadata: dict[str, str] | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    """The interrupt_id of the paused tool call a tool result answers"""
+
 
 class Message(BaseModel):
     model_config = ConfigDict(
@@ -68,6 +73,9 @@ class Part(BaseModel):
 
     data: JsonValue = None
     """Set on a data part"""
+
+    metadata: dict[str, JsonValue] | None = None
+    """On a paused tool call's data part, the interrupt_id its result goes back under"""
 
 
 class StatusMessage(BaseModel):

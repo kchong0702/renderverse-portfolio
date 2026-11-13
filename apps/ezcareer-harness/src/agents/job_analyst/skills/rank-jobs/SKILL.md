@@ -5,8 +5,8 @@ description: Map each job's requirements to the user's profile facts and rank th
 
 # Rank jobs
 
-1. Drop jobs that break the user's preferences, such as an onsite job when the user wants remote only, or a country the user doesn't want.
-2. For each remaining job, map its description the same way a single posting is analysed. Each requirement has:
+1. Rank up to 10 of the jobs `search_jobs` returned: those whose titles best match the roles the user has held or wants. Don't leave a job out over work mode or country: `search_jobs` already left out jobs outside the user's countries and work modes, and a job that isn't remote may be hybrid.
+2. For each job, map its description the same way a single posting is analysed. Each requirement has:
    - `text` copied word for word from the description, one requirement per span.
    - `line_ids` with the numbers of the description lines it comes from.
    - `importance`. `nice_to_have` when the description says preferred, a plus, bonus or nice to have, and `required` otherwise.

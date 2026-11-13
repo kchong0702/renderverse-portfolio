@@ -1,5 +1,6 @@
 from src.shared.jobs.enums import PostedWithin
 from src.shared.jobs.filters import broken_filters
+from src.shared.jobs.keys import job_key
 from src.shared.jobs.types import FoundJobs, JobPosting, JobSearch, PostingLine
 
 __all__ = [
@@ -9,4 +10,5 @@ __all__ = [
     "PostedWithin",
     "PostingLine",
     "broken_filters",
+    "job_key",
 ]

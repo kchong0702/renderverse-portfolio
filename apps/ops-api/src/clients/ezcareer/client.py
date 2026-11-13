@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import suppress
 from typing import Literal
@@ -67,8 +68,7 @@ def _new_message(context_id: str, text: str, data: BaseModel) -> Message:
 
 
 def _answer_message(context_id: str, task_id: str, answer: BaseModel) -> Message:
-    """A message answering a paused task's widget, or resuming it with the tool
-    result it asked for"""
+    """A message answering a paused task's widget or review"""
     return Message(
         message_id=uuid4().hex,
         context_id=context_id,
@@ -77,13 +77,38 @@ def _answer_message(context_id: str, task_id: str, answer: BaseModel) -> Message
     )
 
 
-def _tool_request(status: TaskStatus) -> ToolRequest | None:
-    """The tool a paused task asks ops-api to execute, or None for a user widget"""
-    data = status.message.parts[0].data if status.message else None
-    return (
-        ToolRequest.model_validate(data)
-        if isinstance(data, dict) and "execute_tool" in data
-        else None
+def _tool_requests(status: TaskStatus) -> list[tuple[str, ToolRequest]]:
+    """Each tool a paused task asks ops-api to execute, under its interrupt id; empty
+    when the task waits for anything else"""
+    parts = status.message.parts if status.message else []
+    requests = [
+        (str(part.metadata["interrupt_id"]), ToolRequest.model_validate(part.data))
+        for part in parts
+        if isinstance(part.data, dict)
+        and "execute_tool" in part.data
+        and part.metadata
+        and "interrupt_id" in part.metadata
+    ]
+    return requests if len(requests) == len(parts) else []
+
+
+async def _tool_results(
+    context_id: str,
+    task_id: str,
+    requests: list[tuple[str, ToolRequest]],
+    execute_tool: ExecuteTool,
+) -> Message:
+    """A message resuming a paused task with each tool's result, executed together,
+    under the interrupt id that asked for it"""
+    results = await asyncio.gather(*(execute_tool(request) for _, request in requests))
+    return Message(
+        message_id=uuid4().hex,
+        context_id=context_id,
+        task_id=task_id,
+        parts=[
+            DataPart(data=result, metadata={"interrupt_id": interrupt_id})
+            for (interrupt_id, _), result in zip(requests, results, strict=True)
+        ],
     )
 
 
@@ -206,12 +231,10 @@ class EzcareerClient:
                             )
                         )
                     case "TASK_STATE_INPUT_REQUIRED" if execute_tool and (
-                        request := _tool_request(status)
+                        requests := _tool_requests(status)
                     ):
-                        message = _answer_message(
-                            message.context_id,
-                            task.id,
-                            await execute_tool(request),
+                        message = await _tool_results(
+                            message.context_id, task.id, requests, execute_tool
                         )
                     case "TASK_STATE_INPUT_REQUIRED" if status.message:
                         return InputRequired(
@@ -440,12 +463,13 @@ class EzcareerClient:
                                     )
                                     return
                                 case "TASK_STATE_INPUT_REQUIRED" if execute_tool and (
-                                    asked := _tool_request(status)
+                                    asked := _tool_requests(status)
                                 ):
-                                    next_message = _answer_message(
+                                    next_message = await _tool_results(
                                         message.context_id,
                                         update.task_id,
-                                        await execute_tool(asked),
+                                        asked,
+                                        execute_tool,
                                     )
                                 case "TASK_STATE_INPUT_REQUIRED" if review := _review(
                                     update.task_id, status

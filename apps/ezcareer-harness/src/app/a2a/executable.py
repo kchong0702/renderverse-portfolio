@@ -9,11 +9,11 @@ from a2a.helpers import (
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.server.tasks import TaskUpdater
-from a2a.types import Message, TaskState
+from a2a.types import Message, Part, TaskState
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.errors import GraphRecursionError
 from langgraph.graph.state import CompiledStateGraph
-from langgraph.types import Command, TaskPayload, TaskResultPayload
+from langgraph.types import Command, Interrupt, TaskPayload, TaskResultPayload
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -171,6 +171,14 @@ def _steps(
     return []
 
 
+def _interrupt_part(interrupt: Interrupt) -> Part:
+    """The interrupt's value as a data part, tagged with the id its answer comes back
+    under"""
+    part = new_data_part(to_jsonable_python(interrupt.value))
+    part.metadata.update({"interrupt_id": interrupt.id})
+    return part
+
+
 class Executable(BaseModel):
     model_config = ConfigDict(
         frozen=True, arbitrary_types_allowed=True, use_attribute_docstrings=True
@@ -208,7 +216,13 @@ class LanggraphExecutor(AgentExecutor):
         """Run or resume the graph, on the model the request metadata names, and
         report it as completed, failed or input required"""
         updater = TaskUpdater(event_queue, context.task_id, context.context_id)
-        data = get_data_parts(context.message.parts) if context.message else []
+        parts = context.message.parts if context.message else []
+        data = get_data_parts(parts)
+        ids = [
+            part.metadata["interrupt_id"]
+            for part in parts
+            if "interrupt_id" in part.metadata
+        ]
         if context.current_task is None and context.message:
             await event_queue.enqueue_event(new_task_from_user_message(context.message))
         await updater.start_work()
@@ -218,7 +232,9 @@ class LanggraphExecutor(AgentExecutor):
                 if context.metadata
                 else None
             )
-            if context.current_task:
+            if context.current_task and ids:
+                graph_input = Command(resume=dict(zip(ids, data, strict=True)))
+            elif context.current_task:
                 graph_input = Command(
                     resume=data[0] if data else context.get_user_input()
                 )
@@ -249,6 +265,7 @@ class LanggraphExecutor(AgentExecutor):
             )
             return
         result = {}
+        interrupts: list[Interrupt] = []
         opened: set[str] = set()
         calls: dict[str, list[tuple[str, str]]] = {}
         try:
@@ -284,6 +301,7 @@ class LanggraphExecutor(AgentExecutor):
                 subgraphs=True,
             ):
                 if mode == "values" and not namespace:
+                    interrupts += data.get("__interrupt__", [])
                     result = data
                     continue
                 if namespace and (
@@ -350,11 +368,9 @@ class LanggraphExecutor(AgentExecutor):
         except ExecuteError as error:
             await updater.failed(_reason(updater, str(error), error.next_step))
             return
-        if interrupts := result.pop("__interrupt__", None):
+        if interrupts:
             await updater.requires_input(
-                updater.new_agent_message(
-                    [new_data_part(to_jsonable_python(i.value)) for i in interrupts]
-                )
+                updater.new_agent_message([_interrupt_part(i) for i in interrupts])
             )
             return
         if self.executable.kind == "workflow":

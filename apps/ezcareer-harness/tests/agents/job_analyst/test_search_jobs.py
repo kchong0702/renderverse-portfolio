@@ -9,7 +9,7 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 
 from src.agents.job_analyst.tools import search_jobs
 from src.core.errors import ExecuteError
-from src.shared.jobs import FoundJobs, JobSearch, PostedWithin
+from src.shared.jobs import FoundJobs, JobSearch, PostedWithin, job_key
 from src.shared.profile import Preferences
 
 TOOL_MODULE = import_module("src.agents.job_analyst.tools.search_jobs")
@@ -56,10 +56,14 @@ def test_reads_the_answer_ops_api_sends_exactly_as_ops_api_serialises_it():
     assert FoundJobs.model_validate(FOUND).model_dump(mode="json") == FOUND
 
 
-async def test_shows_the_agent_ops_apis_postings_and_requests_left(ops_api):
+async def test_shows_the_agent_each_posting_under_a_short_id_and_keeps_its_own(
+    ops_api,
+):
     message = await _search(query="backend engineer python")
 
-    assert json.loads(message.content) == FOUND
+    assert json.loads(message.content) == FOUND | {
+        "jobs": [job | {"id": job_key(job["id"])} for job in FOUND["jobs"]]
+    }
     assert message.artifact == FoundJobs.model_validate(FOUND)
 
 
@@ -73,7 +77,6 @@ async def test_asks_ops_api_to_search_exactly_as_ops_api_reads_a_request(ops_api
         employment_types=["full_time", "contract"],
         job_requirements=["no_degree"],
         radius_km=25,
-        max_jobs=20,
     )
 
     assert ops_api == [REQUEST]

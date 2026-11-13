@@ -235,24 +235,19 @@ def test_a_found_document_is_edited_and_its_changeset_is_published_as_an_artifac
     done = _send(client, [{"data": _loaded()}], task=loading)
 
     assert [
-        (task["status"]["state"], task["status"]["message"]["parts"])
+        (
+            task["status"]["state"],
+            [p["data"] for p in task["status"]["message"]["parts"]],
+        )
         for task in (finding, loading)
     ] == [
         (
             "TASK_STATE_INPUT_REQUIRED",
-            [
-                {
-                    "data": {
-                        "execute_tool": "documents",
-                        "name": "backend résumé",
-                        "kind": "resume",
-                    }
-                }
-            ],
+            [{"execute_tool": "documents", "name": "backend résumé", "kind": "resume"}],
         ),
         (
             "TASK_STATE_INPUT_REQUIRED",
-            [{"data": {"execute_tool": "document", "id": "doc-1"}}],
+            [{"execute_tool": "document", "id": "doc-1"}],
         ),
     ]
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
@@ -289,14 +284,12 @@ def test_an_unclear_document_shows_the_user_a_document_picker():
     asked = _send(client, _director_request())
 
     assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
-    assert asked["status"]["message"]["parts"] == [
+    assert [p["data"] for p in asked["status"]["message"]["parts"]] == [
         {
-            "data": {
-                "label": "Which résumé?",
-                "choose": "document",
-                "kind": "resume",
-                "submit_btn": "Send",
-            }
+            "label": "Which résumé?",
+            "choose": "document",
+            "kind": "resume",
+            "submit_btn": "Send",
         }
     ]
 
@@ -528,9 +521,9 @@ def test_a_profile_update_waits_for_the_users_decision_and_saves_once_approved()
     assert review["data"]["review_configs"] == [
         {"action_name": "update_profile", "allowed_decisions": ["approve", "reject"]}
     ]
-    assert saving[-1]["statusUpdate"]["status"]["message"]["parts"] == [
-        {"data": {"execute_tool": "profile_update", "edits": [HEADLINE]}}
-    ]
+    assert [
+        p["data"] for p in saving[-1]["statusUpdate"]["status"]["message"]["parts"]
+    ] == [{"execute_tool": "profile_update", "edits": [HEADLINE]}]
     assert [
         (
             e["artifactUpdate"]["artifact"]["name"],

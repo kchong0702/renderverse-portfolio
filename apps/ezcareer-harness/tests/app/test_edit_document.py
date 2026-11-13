@@ -103,8 +103,8 @@ def test_a_message_loads_the_document_then_returns_the_reply_and_changeset():
     done = _send(client, [{"data": _loaded()}], task=asked)
 
     assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
-    assert asked["status"]["message"]["parts"] == [
-        {"data": {"execute_tool": "document", "id": "doc-1"}}
+    assert [p["data"] for p in asked["status"]["message"]["parts"]] == [
+        {"execute_tool": "document", "id": "doc-1"}
     ]
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
     [artifact] = [a for a in done["artifacts"] if a["name"] == "edit-document"]

@@ -174,6 +174,67 @@ def test_interrupt_asks_for_input_and_the_answer_resumes_the_run(
     )
 
 
+class Names(BaseModel):
+    first: str = ""
+    last: str = ""
+
+
+def test_two_interrupts_at_once_resume_each_with_the_answer_under_its_id():
+    graph = StateGraph(Names)
+    graph.add_node("first", lambda _: {"first": interrupt({"ask": "first"})})
+    graph.add_node("last", lambda _: {"last": interrupt({"ask": "last"})})
+    graph.add_edge(START, "first")
+    graph.add_edge(START, "last")
+    app = FastAPI()
+    add_executable_routes(
+        app,
+        [
+            Executable(
+                name="greet",
+                description="Asks two names at once",
+                graph=graph.compile(checkpointer=InMemorySaver()),
+            )
+        ],
+        InMemoryTaskStore(),
+        AppSettings(public_url="https://box.example.ts.net"),
+    )
+    client = TestClient(app)
+    asked = _send(client, {})
+    ids = {
+        part["data"]["ask"]: part["metadata"]["interrupt_id"]
+        for part in asked["status"]["message"]["parts"]
+    }
+
+    resumed = client.post(
+        PATH,
+        headers={"A2A-Version": "1.0"},
+        json={
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "SendMessage",
+            "params": {
+                "message": {
+                    "messageId": "m-names",
+                    "role": "ROLE_USER",
+                    "taskId": asked["id"],
+                    "contextId": asked["contextId"],
+                    "parts": [
+                        {"data": "Lovelace", "metadata": {"interrupt_id": ids["last"]}},
+                        {"data": "Ada", "metadata": {"interrupt_id": ids["first"]}},
+                    ],
+                }
+            },
+        },
+    ).json()["result"]["task"]
+
+    assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
+    assert len(set(ids.values())) == 2
+    assert resumed["artifacts"][0]["parts"][0]["data"] == {
+        "first": "Ada",
+        "last": "Lovelace",
+    }
+
+
 def test_the_app_serves_the_containers_executables():
     container = Container()
     container.executables.override(providers.List(providers.Object(_executable())))

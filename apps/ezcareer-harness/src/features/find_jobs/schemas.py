@@ -10,7 +10,7 @@ class RankedJob(BaseModel):
     )
 
     job_id: str
-    """Id of a job search_jobs returned"""
+    """A job's id as search_jobs showed it, such as job-3f9a1c2e"""
 
     requirements: list[Requirement] = Field(min_length=1)
     """Every requirement in the description, mapped to the profile"""
@@ -22,7 +22,7 @@ class RankedJobs(BaseModel):
     )
 
     jobs: list[RankedJob]
-    """Jobs that fit the profile and preferences, best first"""
+    """Up to 10 jobs search_jobs returned, best fit first"""
 
 
 class MatchedJob(BaseModel):

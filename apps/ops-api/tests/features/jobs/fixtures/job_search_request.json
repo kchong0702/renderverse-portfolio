@@ -8,5 +8,5 @@
   "employment_types": ["full_time", "contract"],
   "job_requirements": ["no_degree"],
   "radius_km": 25,
-  "max_jobs": 20
+  "max_jobs": 10
 }

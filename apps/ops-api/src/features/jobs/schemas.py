@@ -45,7 +45,7 @@ class FitAnalysis(BaseModel):
 
 
 class JobCreate(BaseModel):
-    external_id: str | None = Field(default=None, min_length=1, max_length=200)
+    external_id: str | None = Field(default=None, min_length=1, max_length=1000)
     """The posting's id at its source; adding it again refreshes the stored job"""
 
     source: str = Field(default="", max_length=50)
