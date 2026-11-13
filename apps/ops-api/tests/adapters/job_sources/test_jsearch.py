@@ -3,7 +3,7 @@ import pytest
 
 from src.adapters.job_sources.jsearch import JSearchClient, JSearchQuery
 from src.core.config import JSearchSettings
-from src.core.exceptions import ServiceUnavailable
+from src.core.exceptions import InvalidInput, ServiceUnavailable
 
 
 def _client(*pages: httpx2.Response) -> tuple[JSearchClient, list[httpx2.Request]]:
@@ -128,10 +128,11 @@ async def test_jsearch_still_failing_after_its_tries_names_its_status():
     assert len(sent) == 3
 
 
-async def test_a_refused_key_is_not_tried_again():
-    client, sent = _client(httpx2.Response(403))
+@pytest.mark.parametrize("status", [401, 403])
+async def test_a_refused_key_is_not_tried_again(status):
+    client, sent = _client(httpx2.Response(status))
 
-    with pytest.raises(ServiceUnavailable, match="^JSearch answered 403$"):
+    with pytest.raises(InvalidInput, match="^JSearch refused the key$"):
         await client.search("key", JSearchQuery(query="backend engineer"))
 
     assert len(sent) == 1

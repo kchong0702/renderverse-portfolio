@@ -82,7 +82,8 @@ class JSearchSource:
 
     async def search(self, query: JobQuery, api_key: str) -> JobSearchResults:
         """JSearch's results for the query on the user's key as postings, with the
-        key's quota from its headers; ServiceUnavailable when JSearch fails"""
+        key's quota from its headers; InvalidInput when JSearch refuses the key,
+        ServiceUnavailable when it fails"""
         found = await self._client.search(api_key, _jsearch_query(query))
         return JobSearchResults(
             jobs=[_posting(job) for job in found.jobs],
