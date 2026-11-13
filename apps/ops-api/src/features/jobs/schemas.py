@@ -6,10 +6,10 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, Field, computed_field
 
+from src.adapters.job_sources import JobPosting, PostingLine
 from src.features.documents import TailoredDocument
 from src.features.jobs.enums import Importance, JobStatus, Match, RunStatus, RunTrigger
 from src.features.profile import AgentProfile
-from src.features.settings import SearchQuota
 
 
 class Requirement(BaseModel):
@@ -180,27 +180,13 @@ class AnalyseJobOutput(BaseModel):
     """How the posting fits; the harness also sends lines and filters, unread"""
 
 
-class JobPosting(BaseModel):
-    id: str
-    """JSearch job id"""
+class JobSearchAnswer(BaseModel):
+    jobs: list[JobPosting]
+    """The jobs found, newest first, each once and none that breaks the user's
+    work mode or country preferences"""
 
-    title: str
-    """Job title"""
-
-    company: str
-    """Employer name"""
-
-    location: str
-    """City and country, as JSearch gives them"""
-
-    remote: bool
-    """Whether the job is remote"""
-
-    posted_at: datetime | None
-    """When the job was posted, if known"""
-
-    apply_url: str
-    """Where to apply"""
+    requests_left: int | None
+    """Requests the user's key has left this period, if the source said"""
 
 
 class MatchedJob(BaseModel):
@@ -217,9 +203,6 @@ class MatchedJob(BaseModel):
 class FindJobsOutput(BaseModel):
     jobs: list[MatchedJob]
     """Jobs that fit the profile and preferences, best first"""
-
-    quota: SearchQuota | None = None
-    """JSearch's searches left, from its rate-limit headers; None when not sent"""
 
 
 class TailorRead(BaseModel):
@@ -239,12 +222,15 @@ __all__ = [
     "FitAnalysis",
     "JobCreate",
     "JobList",
+    "JobPosting",
     "JobRead",
     "JobRunCreate",
     "JobRunQueued",
     "JobRunRead",
     "JobSearch",
+    "JobSearchAnswer",
     "JobUpdate",
+    "PostingLine",
     "Requirement",
     "TailorRead",
 ]

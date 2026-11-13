@@ -194,7 +194,7 @@ class JobService:
 
     async def keep_found(self, run: JobRun, reply: FindJobsOutput) -> None:
         """Store each job find-jobs found as a pick, cut to fit or skipped when its URL
-        is too long, count them on the run against min_score, and keep the quota read"""
+        is too long, and count them on the run against min_score"""
         kept = []
         for job in reply.jobs:
             if len(job.posting.apply_url) > 2000:
@@ -227,7 +227,6 @@ class JobService:
         run.found = len(added)
         run.new = sum(created for _, created in added)
         run.matched = sum(job.fit >= min_score for job in kept)
-        await self._settings.record_quota(run.user_id, reply.quota)
 
     async def analyse_posting(self, user_id: UUID, job_id: UUID) -> JobRead:
         """Run analyse-job on the job's posting and the profile, and store the

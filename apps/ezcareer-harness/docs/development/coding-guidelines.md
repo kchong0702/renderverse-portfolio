@@ -16,7 +16,6 @@ Examples in this codebase:
 | Hand the conversation to another agent     | LangChain handoffs: agents as graph nodes, a tool returning `Command(goto=..., graph=Command.PARENT)` and `active_agent` in state |
 | Offer a tool only in some runs             | A LangChain middleware that registers it in `AgentMiddleware.tools` and filters it in `wrap_model_call`                           |
 | Stream a run                               | LangGraph `astream` with `stream_mode` and `subgraphs=True`                                                                       |
-| Retry and stop calling a failing service   | `tenacity` and `circuitbreaker`                                                                                                   |
 | Wire singletons and dependencies           | `dependency-injector` containers                                                                                                  |
 
 If the library's convention doesn't fit, say why in the PR description before you write your own.

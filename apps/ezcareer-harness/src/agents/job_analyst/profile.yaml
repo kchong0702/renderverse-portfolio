@@ -11,6 +11,7 @@ tool_description_overrides:
     country preferences are already left out. Each job has its id, title,
     company, location, country, remote flag, posting date, apply link and
     description as numbered lines. Put job titles and skills in `query`, and
-    pass the country and remote preferences as arguments, not as query words.
-    Every 10 jobs fetched cost one JSearch request. Each result's
-    `requests_left` says how many are left, so search sparingly.
+    pass the city, country and remote preferences as arguments, not as query
+    words. Every 10 jobs fetched cost one request on the user's job search
+    key. Each result's `requests_left` says how many the key has left, so
+    search sparingly.

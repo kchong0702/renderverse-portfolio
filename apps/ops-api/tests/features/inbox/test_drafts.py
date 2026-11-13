@@ -17,6 +17,7 @@ from tests.conftest import (
     FakeArtifact,
     FakeGoogle,
     FakeHarness,
+    FakeJSearch,
     _app,
     _client,
     a2a_sent,
@@ -516,12 +517,15 @@ async def probed_client(
     harness: FakeHarness,
     artifact: FakeArtifact,
     probed_google: _ProbedGoogle,
+    jsearch: FakeJSearch,
     storage: LocalStorage,
 ) -> AsyncIterator[httpx2.AsyncClient]:
     """The app on the test Postgres database with probed_google, its dev user
     deleted after the test"""
     engine = create_async_engine(DATABASE_URL)
-    async for app in _app(harness, artifact, probed_google, storage, engine=engine):
+    async for app in _app(
+        harness, artifact, probed_google, jsearch, storage, engine=engine
+    ):
         async with _client(app) as http:
             yield http
         async with create_session_factory(engine)() as session, session.begin():

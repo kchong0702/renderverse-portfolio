@@ -16,6 +16,7 @@ from src.features.jobs.enums import RunStatus
 from src.features.jobs.models import JobRun
 from src.features.jobs.router import job_service
 from src.features.jobs.schemas import FindJobsInput, FindJobsOutput
+from src.features.jobs.tools.job_search import source_key
 from src.features.profile import ProfileService
 from src.features.settings import settings_service
 
@@ -96,6 +97,7 @@ async def process_job_run(
             ):
                 return
             set_actor(user_actor(row.user_id))
+            await source_key(session, container.job_source(), row.user_id)
             profile = await ProfileService(session).agent_profile(row.user_id)
             metadata = await settings_service(session, container).run_metadata(
                 row.user_id

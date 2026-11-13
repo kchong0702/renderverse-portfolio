@@ -1,7 +1,7 @@
 from src.features.connections.enums import Provider
 from src.features.connections.models import Connection
 from src.features.connections.schemas import GoogleDetails, JSearchDetails
-from src.features.connections.service import ConnectionService
+from src.features.connections.service import ConnectionService, api_key_connections
 
 __all__ = [
     "Connection",
@@ -9,4 +9,5 @@ __all__ = [
     "GoogleDetails",
     "JSearchDetails",
     "Provider",
+    "api_key_connections",
 ]

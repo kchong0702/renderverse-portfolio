@@ -7,14 +7,13 @@ from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.ezcareer import (
-    JSearchMetadata,
     ModelCatalog,
     ModelChoice,
     RunMetadata,
 )
 from src.core.config import JSearchSettings, get_settings
 from src.core.exceptions import InvalidInput
-from src.features.connections import ConnectionService, JSearchDetails, Provider
+from src.features.connections import JSearchDetails, Provider, api_key_connections
 from src.features.google import GoogleService
 from src.features.settings.models import UserSettings
 from src.features.settings.repository import SettingsRepository
@@ -62,12 +61,8 @@ class SettingsService:
         connection service"""
         self._repository = SettingsRepository(session)
         self._google = google
-        self._jsearch = ConnectionService(
-            session,
-            Provider.JSEARCH,
-            jsearch.encryption_key,
-            "JSearch",
-            "Ops can no longer read your JSearch key; change it in Settings",
+        self._jsearch = api_key_connections(
+            session, Provider.JSEARCH, jsearch.encryption_key, "JSearch"
         )
 
     async def _connections(self, settings: UserSettings) -> list[Connection]:
@@ -159,28 +154,14 @@ class SettingsService:
         await self._jsearch.disconnect(user_id)
         return await self.get(user_id)
 
-    async def record_quota(self, user_id: UUID, quota: SearchQuota | None) -> None:
-        """Keep the quota a find run read on the user's JSearch key; a run on the
-        server's key leaves it"""
-        await self._jsearch.record_quota(
-            user_id, quota.remaining if quota else None, quota.limit if quota else None
-        )
-
     async def timezone(self, user_id: UUID) -> str | None:
         """The user's IANA time zone; None until they choose one"""
         settings = await self._repository.get(user_id)
         return settings.timezone if settings else None
 
     async def run_metadata(self, user_id: UUID) -> RunMetadata | None:
-        """The user's chosen model and JSearch key for a harness run; None when they
-        set neither; Conflict when the stored key can no longer be read"""
+        """The user's chosen model for a harness run; None when they chose none"""
         settings = await self._repository.get(user_id)
-        connection = await self._jsearch.get(user_id)
-        jsearch = (
-            JSearchMetadata(api_key=self._jsearch.secret(connection))
-            if connection is not None
-            else None
-        )
         model = (
             ModelChoice(family=settings.ai_family, model=settings.ai_model)
             if settings is not None
@@ -188,9 +169,9 @@ class SettingsService:
             and settings.ai_model is not None
             else None
         )
-        if model is None and jsearch is None:
+        if model is None:
             return None
-        return RunMetadata(model=model, jsearch=jsearch)
+        return RunMetadata(model=model)
 
     async def _load(self, user_id: UUID) -> UserSettings:
         return await self._repository.get(user_id) or await self._repository.create(

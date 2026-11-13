@@ -1,0 +1,12 @@
+{
+  "execute_tool": "job_search",
+  "query": "platform engineer",
+  "location": "London",
+  "country": "GB",
+  "remote_only": true,
+  "posted_within": "month",
+  "employment_types": ["full_time", "contract"],
+  "job_requirements": ["no_degree"],
+  "radius_km": 25,
+  "max_jobs": 20
+}

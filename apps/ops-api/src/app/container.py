@@ -1,5 +1,6 @@
 from dependency_injector import containers, providers
 
+from src.adapters.job_sources import build_job_source
 from src.clients.artifact import ArtifactClient
 from src.clients.ezcareer import EzcareerClient
 from src.clients.google import GoogleClient
@@ -55,6 +56,12 @@ class Container(containers.DeclarativeContainer):
 
     google = providers.Singleton(GoogleClient, settings=settings.provided.google)
 
+    job_source = providers.Singleton(
+        build_job_source,
+        source=settings.provided.jobs.source,
+        jsearch=settings.provided.jsearch,
+    )
+
     storage = providers.Singleton(
         create_storage,
         settings=settings.provided.storage,
@@ -73,7 +80,7 @@ class Container(containers.DeclarativeContainer):
             providers.Callable(
                 document_tools, session_factory, settings.provided.documents
             ),
-            providers.Callable(job_tools, session_factory),
+            providers.Callable(job_tools, session_factory, job_source),
             providers.Callable(profile_tools, session_factory),
         ),
     )

@@ -4,6 +4,8 @@ from uuid import UUID
 from dependency_injector import providers
 
 from src import worker
+from src.app.container import Container
+from src.core.agent_runner import ToolExecutor
 from src.db.queue import claim
 from src.features.imports.models import Import
 from tests.conftest import PREFIX, a2a_task, work
@@ -62,6 +64,9 @@ async def test_the_worker_takes_turns_between_imports_and_job_runs(
     _quick(app)
     await _upload(client, f"{PREFIX}/profile/imports")
     await _upload(client, f"{PREFIX}/profile/imports", b"%PDF-1.7 other \xfb\xff")
+    await client.put(
+        f"{PREFIX}/settings/connections/jsearch", json={"api_key": "rapidapi-key"}
+    )
     await client.post(f"{PREFIX}/jobs/find")
     await client.post(f"{PREFIX}/jobs/runs", json={})
     found = a2a_task("COMPLETED", artifact_parts=[{"data": {"jobs": []}}])
@@ -112,3 +117,7 @@ async def test_stopping_the_worker_releases_the_import_it_was_reading(
     done = await _listed(client, uploaded["id"])
     assert done["status"] == "done"
     assert (await client.get(f"{PREFIX}/imports/active")).json() == []
+
+
+def test_the_workers_container_builds_the_tool_executor():
+    assert isinstance(Container().tools(), ToolExecutor)

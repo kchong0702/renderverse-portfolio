@@ -150,6 +150,7 @@ async def main() -> None:
         await container.ezcareer().aclose()
         await container.store().aclose()
         await container.google().aclose()
+        await container.job_source().aclose()
         await container.engine().dispose()
     logger.info("worker_stopped")
 

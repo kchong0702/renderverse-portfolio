@@ -89,6 +89,12 @@ output_per_mtok = "4.4"
 cache_read_per_mtok = "0.26"
 cache_write_per_mtok = "0"
 
+[jsearch]
+url = "https://jsearch.p.rapidapi.com/search-v2"
+timeout_seconds = 30
+retry_attempts = 3
+retry_max_wait_seconds = 4
+
 [google]
 scopes = [
   "https://www.googleapis.com/auth/gmail.readonly",

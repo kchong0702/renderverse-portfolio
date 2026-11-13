@@ -42,6 +42,7 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ["OPS_API_EZCAREER__STORES"] = "memory"
     os.environ["OPS_API_ARTIFACT__URL"] = "http://artifact.test/artifact-service"
     os.environ["OPS_API_JSEARCH__ENCRYPTION_KEY"] = JSEARCH_ENCRYPTION_KEY
+    os.environ["OPS_API_JSEARCH__RETRY_MAX_WAIT_SECONDS"] = "0"
     os.environ["OPS_API_GOOGLE__CLIENT_ID"] = "client.test"
     os.environ["OPS_API_GOOGLE__CLIENT_SECRET"] = "client-secret"
     os.environ["OPS_API_GOOGLE__ENCRYPTION_KEY"] = ENCRYPTION_KEY
@@ -237,6 +238,37 @@ class FakeArtifact:
                     200, json={"artifact": b64encode(pdf).decode(), "report": report}
                 )
         return httpx2.Response(404)
+
+
+class FakeJSearch:
+    def __init__(self):
+        """One job, a quota of 180 of 200 and status 200 until a test changes them"""
+        self.jobs: list[dict] = [
+            {
+                "job_id": "js-1",
+                "job_title": "Backend Engineer",
+                "employer_name": "Acme",
+                "job_apply_link": "https://jobs.example.com/1",
+            }
+        ]
+        self.headers = {
+            "x-ratelimit-requests-remaining": "180",
+            "x-ratelimit-requests-limit": "200",
+        }
+        self.status = 200
+        self.received: list[httpx2.Request] = []
+
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        """Answer each search with status, or with jobs as its one page and the
+        rate-limit headers"""
+        self.received.append(request)
+        if self.status != 200:
+            return httpx2.Response(self.status)
+        return httpx2.Response(
+            200,
+            headers=self.headers,
+            json={"data": {"jobs": self.jobs, "cursor": None}},
+        )
 
 
 class FakeGoogle:
@@ -471,10 +503,12 @@ async def _app(
     harness: FakeHarness,
     artifact: FakeArtifact,
     google: FakeGoogle,
+    jsearch: FakeJSearch,
     storage: "LocalStorage",
     oauth_providers: dict | None = None,
     engine: AsyncEngine | None = None,
 ) -> AsyncIterator[FastAPI]:
+    from src.adapters.job_sources.jsearch import JSearchSource
     from src.app.app import create_app
     from src.app.container import Container
     from src.clients.artifact import ArtifactClient
@@ -516,6 +550,9 @@ async def _app(
     container.google.override(
         providers.Object(GoogleClient(settings.google, httpx2.MockTransport(google)))
     )
+    container.job_source.override(
+        providers.Object(JSearchSource(settings.jsearch, httpx2.MockTransport(jsearch)))
+    )
 
     yield create_app(container)
     await engine.dispose()
@@ -545,6 +582,12 @@ def google() -> FakeGoogle:
 
 
 @pytest.fixture
+def jsearch() -> FakeJSearch:
+    """JSearch as the test app reaches it"""
+    return FakeJSearch()
+
+
+@pytest.fixture
 def storage(tmp_path: Path) -> "LocalStorage":
     """Local storage with public files under tmp_path/public, uploads under private"""
     from src.clients.storage import LocalStorage
@@ -559,10 +602,11 @@ async def app(
     harness: FakeHarness,
     artifact: FakeArtifact,
     google: FakeGoogle,
+    jsearch: FakeJSearch,
     storage: "LocalStorage",
 ) -> AsyncIterator[FastAPI]:
     """Auth disabled: every request is auth.dev_email"""
-    async for app in _app(harness, artifact, google, storage):
+    async for app in _app(harness, artifact, google, jsearch, storage):
         yield app
 
 
@@ -577,6 +621,7 @@ async def postgres_app(
     harness: FakeHarness,
     artifact: FakeArtifact,
     google: FakeGoogle,
+    jsearch: FakeJSearch,
     storage: "LocalStorage",
 ) -> AsyncIterator[FastAPI]:
     """The app on the test Postgres database, its dev user deleted after the test"""
@@ -585,7 +630,12 @@ async def postgres_app(
     from tests.core.conftest import DATABASE_URL
 
     async for app in _app(
-        harness, artifact, google, storage, engine=create_async_engine(DATABASE_URL)
+        harness,
+        artifact,
+        google,
+        jsearch,
+        storage,
+        engine=create_async_engine(DATABASE_URL),
     ):
         yield app
         async with app.state.session_factory() as session, session.begin():
@@ -609,6 +659,7 @@ async def auth_app(
     harness: FakeHarness,
     artifact: FakeArtifact,
     google: FakeGoogle,
+    jsearch: FakeJSearch,
     storage: "LocalStorage",
 ) -> AsyncIterator[FastAPI]:
     """Auth enabled, OWNER seeded as a user, fake Google and GitHub"""
@@ -616,7 +667,7 @@ async def auth_app(
 
     monkeypatch.setenv("OPS_API_AUTH__ENABLED", "true")
     monkeypatch.setenv("OPS_API_AUTH__SECRET_KEY", "k" * 32)
-    async for app in _app(harness, artifact, google, storage, oauth_providers):
+    async for app in _app(harness, artifact, google, jsearch, storage, oauth_providers):
         async with app.state.session_factory() as session, session.begin():
             session.add(User(email=OWNER))
         yield app

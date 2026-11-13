@@ -11,14 +11,13 @@ ezcareer-harness serves career agents and workflows over A2A. Ops (ops-api and o
 | `src/agents`         | One folder per agent: `profile.yaml`, `system.md`, `skills/`, `state.py`, and the agent's own `tools/` and `checks/`. Also `build_agent`, `AgentOverride`, the shared middlewares and career-director's agent graph |
 | `src/features`       | One folder per workflow: `graph.py`, `nodes/`, `checks/`, `schemas.py` and `harness/configurations.yaml`                                                                                                            |
 | `src/tools`          | Tools that more than one agent uses, such as `read_profile_facts`, `clarify` and the handoff tools                                                                                                                  |
-| `src/adapters`       | Adapters for outside data sources, such as the job sources behind `search_jobs`                                                                                                                                     |
 | `src/clients`        | Clients of other services, and the LLM providers                                                                                                                                                                    |
 | `src/shared`         | Types and helpers that several layers use, such as the profile, job postings and checks                                                                                                                             |
 | `src/infrastructure` | Observability and persistence                                                                                                                                                                                       |
 
 Import rules:
 
-- `adapters`, `agents`, `clients`, `shared` and `tools` never import `features`.
+- `agents`, `clients`, `shared` and `tools` never import `features`.
 - A feature never imports another feature. The one exception is `find_jobs`, which runs `analyse_job` through its package barrel.
 
 `tests/test_architecture.py` enforces both rules.
@@ -183,6 +182,7 @@ The A2A task becomes `input-required`, and its message carries the request as a 
 
   Each edit has a `kind`: `about` sets one about field, `entry` sets one field of a role, education or project by its fact id, and `new_entry`, `new_skill` and `new_link` add one. `src/agents/career_director/types.py` defines them as `ProfileEdit`.
 
+- `{"execute_tool": "job_search", "query": ..., "location": ..., "country": ..., "remote_only": ..., "posted_within": ..., "employment_types": [...], "job_requirements": [...], "radius_km": ..., "max_jobs": ...}`, from job-analyst's `search_jobs` tool. The fields are the tool's arguments, with each field of the user's own search (`query`, `location`, `posted_within`) that is set and not empty over the agent's. The request names no job source: ops-api chooses one (today JSearch, on the user's own key) and returns `{"jobs": [...], "requests_left": ...}`. `jobs` are `JobPosting`s, newest first, each job once, and without jobs that break the user's work mode or country preferences. `requests_left` is how many requests the user's key has left, or `null` when the source didn't say. ops-api returns `{"error": ...}` when it can't search, for example when the user hasn't connected a job search key in Settings or the source is down. `search_jobs` gives the agent that error as a tool error, and the agent goes on with the jobs earlier searches found. find-jobs fails with the errors when no search succeeded, so career-director's `find_jobs` tells career-director why.
 - `{"execute_tool": "job_run", "run_after": ..., "search": ...}`, from career-director's `schedule_job_run` tool. `run_after` is an ISO 8601 time with its offset, or `null` to run as soon as a worker is free; `search` is a `JobSearch` (`query`, `location`, `posted_within`), or `null` to search from the user's preferences. ops-api queues a run of its job agent and returns `{"id": ..., "run_after": ...}`, or `{"error": ...}` when it can't, for example when an agent run is already queued. No approval is needed: the run only adds jobs for the user to look at.
 
 A question for the user, from `clarify`, pauses the run in the same way, with a widget instead of `execute_tool`.
@@ -215,9 +215,8 @@ ops-api resumes the task with one decision per action request, in order: `{"deci
 A request's `params.metadata` sets up one run. `LanggraphExecutor` validates it as `RunMetadata` and hands it to the graph as the `RunContext` runtime context:
 
 - `model` picks the model every LLM call of the run uses. `dynamic_model_call` applies it. Without it, each agent keeps its own.
-- `jsearch.api_key` is the user's own RapidAPI key. `search_jobs` hands the run context to each job source, and JSearch searches on this key instead of `EZCAREER_HARNESS_JSEARCH__API_KEY`.
 
-A key in metadata stays out of the message, the task store and the logs. It is a `SecretStr`, `RunMetadata` hides its input in validation errors, and the logging setup drops the A2A server's debug line that dumps the request body.
+Metadata carries no credentials, and `RunMetadata` refuses any other field. The harness holds no third-party key apart from its own model keys: a tool that needs the user's account, such as Gmail or a job search, asks ops-api to execute a [tool](#tools-ops-api-executes), and ops-api makes the call.
 
 ## Streaming
 
@@ -230,6 +229,6 @@ Clients call `SendStreamingMessage`. `LanggraphExecutor` streams the graph with 
 - **Thinking and text.** The model's reasoning and text stream as `thinking` and `text` artifacts, one per model turn. For a workflow, they come from the node that `Executable.reply_node` names.
 - **Tool artifacts.** A tool that returns an artifact `{"name": ..., "data": ...}` publishes it as an artifact of that name. `propose_changeset` publishes `changeset` this way.
 - **Reply.** The final answer is an artifact named after the executable. Then the task completes, fails, or asks for input.
-- **Failure.** A failed task's status message carries the reason as text. When the user must add something before the run can work, it also carries a data part `{"next": {"label": ..., "screen": ...}}`, where `screen` is `portfolio`, `documents`, `jobs` or `settings`. Raise `ExecuteError(reason, NextStep(...))` to set it. `require_facts` fails analyse-job and find-jobs this way when the profile has no facts, and JSearch fails a search this way when neither the run nor the server has a key.
+- **Failure.** A failed task's status message carries the reason as text. When the user must add something before the run can work, it also carries a data part `{"next": {"label": ..., "screen": ...}}`, where `screen` is `portfolio`, `documents`, `jobs` or `settings`. Raise `ExecuteError(reason, NextStep(...))` to set it. `require_facts` fails analyse-job and find-jobs this way when the profile has no facts.
 
 `CancelTask` stops a run.

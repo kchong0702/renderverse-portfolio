@@ -296,8 +296,27 @@ class EzcareerSettings(BaseModel):
     """Each model's list prices over time, which cost each model call"""
 
 
+class JobsSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    source: Literal["jsearch"] = "jsearch"
+    """The job source ops-api searches for the user"""
+
+
 class JSearchSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
+
+    url: str = "https://jsearch.p.rapidapi.com/search-v2"
+    """JSearch search endpoint on RapidAPI"""
+
+    timeout_seconds: float = Field(default=30, gt=0)
+    """Longest one request to JSearch may take"""
+
+    retry_attempts: int = Field(default=3, gt=0)
+    """Tries per page when JSearch rate-limits, fails or never answers"""
+
+    retry_max_wait_seconds: float = Field(default=4, ge=0)
+    """Longest wait between two tries"""
 
     encryption_key: SecretStr = SecretStr("")
     """Fernet key that encrypts stored JSearch API keys; saving a key needs it"""
@@ -486,8 +505,11 @@ class Settings(BaseSettings):
     ezcareer: EzcareerSettings = Field(default_factory=EzcareerSettings)
     """Where ops-api reaches ezcareer-harness"""
 
+    jobs: JobsSettings = Field(default_factory=JobsSettings)
+    """Which job source searches for the user"""
+
     jsearch: JSearchSettings = Field(default_factory=JSearchSettings)
-    """Keeping each user's JSearch API key"""
+    """Searching JSearch on each user's API key, which ops-api keeps"""
 
     google: GoogleSettings = Field(default_factory=GoogleSettings)
     """Reading the user's Gmail and Google Calendar"""
@@ -560,6 +582,7 @@ __all__ = [
     "EzcareerSettings",
     "GoogleSettings",
     "JSearchSettings",
+    "JobsSettings",
     "ObservabilitySettings",
     "PortfolioSettings",
     "ProfileSettings",

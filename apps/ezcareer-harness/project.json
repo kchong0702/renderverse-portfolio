@@ -53,7 +53,11 @@
     },
     "test": {
       "executor": "nx:run-commands",
-      "inputs": ["default", "uv"],
+      "inputs": [
+        "default",
+        "uv",
+        "{workspaceRoot}/apps/ops-api/tests/features/jobs/fixtures/job_search_answer.json"
+      ],
       "options": {
         "command": "uv run pytest",
         "cwd": "apps/ezcareer-harness"

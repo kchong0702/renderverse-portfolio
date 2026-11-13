@@ -44,7 +44,7 @@ def _truncate_longtext(_: Any, __: str, event_dict: EventDict) -> EventDict:
 
 
 def _without_request_body(record: logging.LogRecord) -> bool:
-    """Drops the A2A server's request body line, which carries keys from metadata"""
+    """Drops the A2A server's request body line"""
     return record.msg != "Request body: %s"
 
 
