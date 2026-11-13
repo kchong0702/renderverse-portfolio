@@ -49,6 +49,14 @@ Then fill in the keys the apps need:
 | `apps/artifact-service/.env` | On macOS, `ARTIFACT_SERVICE_LIBREOFFICE__COMMAND=/Applications/LibreOffice.app/Contents/MacOS/soffice`                                    |
 | `apps/renderverse/.env`      | `VITE_PORTFOLIO_USER_ID`, to show your published portfolio (see [Portfolio](#portfolio))                                                  |
 
+Then apply ops-api's database migrations, which starts the Postgres container first. Run it again after each pull that brings new migrations:
+
+```bash
+pnpm run migrate
+```
+
+Run the apps from source with `pnpm run dev`, or build the production images with `pnpm run build` and run them with `pnpm run start`.
+
 ## Common Tasks
 
 ```bash
@@ -56,8 +64,8 @@ pnpm run dev                  # run every app's dev target
 pnpm run dev:renderverse      # web app only
 pnpm run dev:ezbot-harness    # chatbot API on the host (http://localhost:8000/docs), starts the Laya container first
 pnpm run dev:ops-web          # Ops UI only (http://localhost:5174)
-pnpm run dev:ops-api          # Ops API on the host (http://localhost:8100/ops-api/docs), starts Postgres first
-pnpm nx run ops-api:worker    # ops-worker, which processes uploaded files and runs the job agent
+pnpm run dev:ops-api          # Ops API on the host (http://localhost:8100/ops-api/docs), starts Postgres and ops-worker first
+pnpm nx run ops-api:worker    # ops-worker alone, which processes uploaded files and runs the job agent
 pnpm run dev:ops              # the Ops UI, API and worker, in one terminal
 pnpm run migrate              # apply ops-api's database migrations
 pnpm nx run ezcareer-harness:dev  # career agents (http://localhost:8200/ezcareer/docs)
@@ -66,7 +74,7 @@ pnpm nx run artifact-service:dev  # PDFs and Word conversion (http://localhost:8
 pnpm run build                # production artifacts: renderverse and ops-web dist, the app images
 pnpm run preview:renderverse  # serve the built dist locally
 pnpm run preview:ops-web      # serve the built Ops UI (http://localhost:4174), proxying to ops-api like dev
-pnpm run start                # run the built images locally to test them before production (collector, Postgres, Laya, Ezbot, ezcareer-harness, artifact-service, ops-api, ops-web)
+pnpm run start                # run the built images locally to test them before production (collector, Postgres, Laya, Ezbot, ezcareer-harness, artifact-service, ops-api, ops-worker, ops-web, renderverse)
 pnpm run lint                 # ESLint + Ruff
 pnpm run test
 pnpm run format               # Prettier + Ruff
@@ -112,7 +120,7 @@ In production the frontend and API must share a site (e.g. `example.com` and `ap
 
 ## Deployment
 
-The frontend is built to `apps/renderverse/dist` for Cloudflare Pages. [apps/renderverse/Dockerfile](apps/renderverse/Dockerfile) can also build it as an nginx image, taking its `VITE_*` settings from `apps/renderverse/.env` as build arguments. Its compose service is in the `renderverse` profile, so `pnpm run start` leaves it out; run it with `docker compose --profile renderverse up -d renderverse`. The backend runs on a server from Docker images: [apps/ezbot-harness/Dockerfile](apps/ezbot-harness/Dockerfile) builds both `ezbot` and `ezbot-laya` (one target each), and [apps/ezbot-harness/docker-compose.yaml](apps/ezbot-harness/docker-compose.yaml) runs them. The root [docker-compose.yaml](docker-compose.yaml) includes it, adds the collector and Postgres, and puts every service on the `renderverse` network, where Ezbot reaches Laya and the collector by service name. The compose files run the images locally, so `pnpm run start` tests what production runs; production runs the images themselves, with no source code on the server.
+The frontend is built to `apps/renderverse/dist` for Cloudflare Pages. [apps/renderverse/Dockerfile](apps/renderverse/Dockerfile) can also build it as an nginx image, taking its `VITE_*` settings from `apps/renderverse/.env` as build arguments. `pnpm run start` runs it with the other images, serving the built site on http://localhost:5173. The backend runs on a server from Docker images: [apps/ezbot-harness/Dockerfile](apps/ezbot-harness/Dockerfile) builds both `ezbot` and `ezbot-laya` (one target each), and [apps/ezbot-harness/docker-compose.yaml](apps/ezbot-harness/docker-compose.yaml) runs them. The root [docker-compose.yaml](docker-compose.yaml) includes it, adds the collector and Postgres, and puts every service on the `renderverse` network, where Ezbot reaches Laya and the collector by service name. The compose files run the images locally, so `pnpm run start` tests what production runs; production runs the images themselves, with no source code on the server.
 
 Ops runs from images too. [apps/ops-api/Dockerfile](apps/ops-api/Dockerfile) builds ops-api, which the `ops-worker` service runs as `python -m src.worker` with no port, and [apps/ops-web/Dockerfile](apps/ops-web/Dockerfile) builds the UI and serves it with nginx on port 5174, forwarding `/ops-api` to ops-api, so `tailscale serve` on the VM only needs to point at it. ops-web's `build` target stays the Vite `dist`; build its image with `docker compose build ops-web`. ops-api reads its keys from `apps/ops-api/.env` and keeps local files in the `ops-api-data` volume while R2 is not set up. Under compose its database is the `postgres` service; in production its database URL points at Supabase. Once `pnpm run start` is up, apply its migrations with:
 
@@ -133,7 +141,7 @@ pnpm run dev:ops
 
 The UI on http://localhost:5174 proxies `/ops-api` to ops-api, the same path `tailscale serve` routes on the VM. Locally auth is off and every request acts as `auth.dev_email` from [config.toml](apps/ops-api/config.toml), as an admin. ops-api refuses to start with auth off unless `app.env` is `dev` and `auth.web_url` is on localhost, 127.0.0.1 or ::1.
 
-Files uploaded to Documents and Data are stored and queued as imports, which ops-worker claims and processes; several workers can run at once. Run one with `pnpm nx run ops-api:worker` (`pnpm run dev:ops` starts it with the API). Without it, uploads stay queued. ops-worker also runs the job agent: once a minute it queues a run for every user whose local time has passed the `run_at` in their job preferences, and the Find button and the chat assistant queue runs too, one at a time per user.
+Files uploaded to Documents and Data are stored and queued as imports, which ops-worker claims and processes; several workers can run at once. Run one with `pnpm nx run ops-api:worker`; `pnpm run dev`, `dev:ops` and `dev:ops-api` start it with the API. Without it, uploads stay queued. ops-worker also runs the job agent: once a minute it queues a run for every user whose local time has passed the `run_at` in their job preferences, and the Find button and the chat assistant queue runs too, one at a time per user.
 
 The agents and documents need two more services. ops-api calls the ezcareer harness (http://localhost:8200) for the assistant, job search, tailoring, résumé import and email, and artifact-service (http://localhost:8210) to export PDFs and list the templates. The harness also uses artifact-service, to read and print imported résumés. `pnpm run dev` starts everything; on its own, start them with `pnpm nx run ezcareer-harness:dev` and `pnpm nx run artifact-service:dev`.
 

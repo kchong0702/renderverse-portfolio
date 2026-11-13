@@ -1,7 +1,7 @@
 services:
   renderverse:
     image: renderverse:${TAG:-dev}
-    profiles: ["renderverse"]
+    profiles: ["apps"]
     build:
       context: ../..
       dockerfile: apps/renderverse/Dockerfile
