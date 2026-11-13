@@ -16,20 +16,6 @@ ConnectionStatus = Literal[
 """Whether it works; needs_reconnect lacks a scope, not_configured lacks server keys"""
 
 
-class JobAgent(BaseModel):
-    query: str = Field(max_length=200)
-    """What the daily run searches for, e.g. "Backend engineer, Python\""""
-
-    location: str = Field(max_length=200)
-    """Where the postings should be, e.g. "Kuala Lumpur or remote\""""
-
-    run_at: time
-    """When the daily run starts"""
-
-    min_score: int = Field(ge=0, le=100)
-    """Postings scoring below this are dropped"""
-
-
 class Automation(BaseModel):
     tailor_strong_matches: bool
     """Draft a tailored résumé for new picks scoring 85 or more"""
@@ -86,9 +72,6 @@ class JSearchKey(BaseModel):
 
 
 class SettingsRead(BaseModel):
-    job_agent: JobAgent
-    """The daily job search"""
-
     automation: Automation
     """What agents do without being asked"""
 
@@ -100,20 +83,6 @@ class SettingsRead(BaseModel):
 
     connections: list[Connection]
     """Every outside service and whether it is connected"""
-
-
-class JobAgentUpdate(BaseModel):
-    query: str | None = Field(default=None, max_length=200)
-    """New search; None leaves it unchanged"""
-
-    location: str | None = Field(default=None, max_length=200)
-    """New location; None leaves it unchanged"""
-
-    run_at: time | None = None
-    """New daily run time; None leaves it unchanged"""
-
-    min_score: int | None = Field(default=None, ge=0, le=100)
-    """New minimum score; None leaves it unchanged"""
 
 
 class AutomationUpdate(BaseModel):
@@ -147,9 +116,6 @@ class SchedulingUpdate(BaseModel):
 class SettingsUpdate(BaseModel):
     """Only the fields sent are changed"""
 
-    job_agent: JobAgentUpdate | None = None
-    """Changes to the daily job search"""
-
     automation: AutomationUpdate | None = None
     """Changes to the automation rules"""
 
@@ -164,7 +130,6 @@ __all__ = [
     "Automation",
     "Connection",
     "JSearchKey",
-    "JobAgent",
     "Scheduling",
     "SearchQuota",
     "SettingsRead",

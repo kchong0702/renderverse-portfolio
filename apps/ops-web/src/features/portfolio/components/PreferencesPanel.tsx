@@ -8,11 +8,11 @@ import {
 import Panel from "@/shared/components/Panel";
 import type {
   Preferences,
-  ProfilePatch,
+  PreferencesPatch,
   Salary,
   SalaryPeriod,
   WorkMode,
-} from "../api/profile";
+} from "@/features/preferences";
 import CountryPicker from "./CountryPicker";
 
 const WORK_MODES: WorkMode[] = ["onsite", "hybrid", "remote"];
@@ -93,7 +93,7 @@ function SalaryFieldset({ salary, onSave }: SalaryFieldsetProps) {
 
 interface PreferencesPanelProps {
   preferences: Preferences;
-  onChange: (patch: ProfilePatch) => void;
+  onChange: (patch: PreferencesPatch) => void;
 }
 
 export default function PreferencesPanel({
@@ -101,8 +101,6 @@ export default function PreferencesPanel({
   onChange,
 }: PreferencesPanelProps) {
   const { t } = useTranslation();
-  const save = (change: Partial<Preferences>) =>
-    onChange({ preferences: { ...preferences, ...change } });
   const salary = preferences.min_salary;
 
   return (
@@ -121,7 +119,7 @@ export default function PreferencesPanel({
               label={t(`portfolio.preferences.modes.${mode}`)}
               checked={preferences.work_modes.includes(mode)}
               onChange={(event) =>
-                save({
+                onChange({
                   work_modes: WORK_MODES.filter((m) =>
                     m === mode
                       ? event.target.checked
@@ -140,13 +138,13 @@ export default function PreferencesPanel({
         label={t("portfolio.preferences.countries")}
         emptyLabel={t("portfolio.preferences.anyCountry")}
         value={preferences.countries}
-        onChange={(countries) => save({ countries })}
+        onChange={(countries) => onChange({ countries })}
       />
       <CountryPicker
         label={t("portfolio.preferences.authorisedCountries")}
         emptyLabel={t("portfolio.preferences.noCountry")}
-        value={preferences.authorised_countries}
-        onChange={(authorised_countries) => save({ authorised_countries })}
+        value={preferences.visa_free_countries}
+        onChange={(visa_free_countries) => onChange({ visa_free_countries })}
       />
       <SalaryFieldset
         key={
@@ -155,7 +153,7 @@ export default function PreferencesPanel({
             : "none"
         }
         salary={salary}
-        onSave={(min_salary) => save({ min_salary })}
+        onSave={(min_salary) => onChange({ min_salary })}
       />
     </Panel>
   );

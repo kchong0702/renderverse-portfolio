@@ -15,18 +15,17 @@ from pydantic import (
     model_validator,
 )
 
+from src.features.preferences.enums import WorkMode
+from src.features.preferences.schemas import Salary
+from src.features.preferences.types import CountryCode
 from src.features.profile.enums import (
     ChangeChoice,
     ChangeKind,
     EntryKind,
     ImportSource,
-    SalaryPeriod,
-    WorkMode,
 )
 from src.features.profile.types import (
     ChangeField,
-    CountryCode,
-    CurrencyCode,
     EntryEnd,
     FactId,
     FieldValue,
@@ -47,19 +46,6 @@ class ProfileLink(BaseModel):
 
     url: Link
     """Where it points"""
-
-
-class Salary(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    amount: int = Field(gt=0)
-    """Amount before tax"""
-
-    currency: CurrencyCode
-    """ISO 4217 currency code"""
-
-    period: SalaryPeriod
-    """What the amount is paid for"""
 
 
 class Preferences(BaseModel):
@@ -100,9 +86,6 @@ class ProfileRead(BaseModel):
     summary: str
     """A short paragraph about the user"""
 
-    preferences: Preferences
-    """What the user wants from a job"""
-
 
 class ProfileUpdate(BaseModel):
     name: str | None = Field(default=None, max_length=200)
@@ -125,9 +108,6 @@ class ProfileUpdate(BaseModel):
 
     summary: str | None = None
     """New summary; None leaves it unchanged"""
-
-    preferences: Preferences | None = None
-    """Replaces every preference; None leaves them unchanged"""
 
 
 class EntryWrite(BaseModel):
@@ -518,7 +498,6 @@ __all__ = [
     "ProfileRead",
     "ProfileUpdate",
     "ResumeFile",
-    "Salary",
     "SkillRead",
     "SkillWrite",
     "WriteNetworkingInput",

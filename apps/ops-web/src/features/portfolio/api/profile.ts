@@ -1,23 +1,8 @@
 import { http } from "@/shared/api/http";
 import { config } from "@/shared/config";
 
-export type WorkMode = "onsite" | "hybrid" | "remote";
-export type SalaryPeriod = "hour" | "month" | "year";
 export type EntryKind = "role" | "education" | "project";
 export type YearMonth = `${number}-${number}`;
-
-export interface Salary {
-  amount: number;
-  currency: string;
-  period: SalaryPeriod;
-}
-
-export interface Preferences {
-  work_modes: WorkMode[];
-  countries: string[];
-  authorised_countries: string[];
-  min_salary: Salary | null;
-}
 
 export interface ProfileLink {
   label: string;
@@ -32,7 +17,6 @@ export interface Profile {
   phone: string;
   links: ProfileLink[];
   summary: string;
-  preferences: Preferences;
 }
 
 export type ProfilePatch = Partial<Profile>;

@@ -38,7 +38,8 @@ async def _store(client, content: bytes, media_type: str, filename: str = "file"
 async def _project(client, title="Renderverse", kind="project"):
     return (
         await client.post(
-            f"{PROFILE}/entries", json={"kind": kind, "title": title, "on_site": True}
+            f"{PROFILE}/entries",
+            json={"kind": kind, "title": title, "on_site": kind == "project"},
         )
     ).json()
 

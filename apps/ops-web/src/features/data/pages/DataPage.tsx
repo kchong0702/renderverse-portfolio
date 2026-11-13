@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { useEntries, useProfile, useSkills } from "@/features/portfolio";
+import { usePreferences } from "@/features/preferences";
 import { buttonClass } from "@/shared/components/button";
 import PageBody from "@/shared/components/PageBody";
 import PageHeader from "@/shared/components/PageHeader";
@@ -27,12 +28,15 @@ export default function DataPage() {
     () => localStorage.getItem(INTRO_KEY) !== "hidden",
   );
   const profile = useProfile();
+  const preferences = usePreferences();
   const entries = useEntries();
   const skills = useSkills();
   const changes = useChanges();
   const tab = params.get("tab") === "networking" ? "networking" : "about";
   const waiting = changes.data ? reviewCards(changes.data).length : 0;
-  const failed = [profile, entries, skills].find((query) => query.isError);
+  const failed = [profile, preferences, entries, skills].find(
+    (query) => query.isError,
+  );
 
   return (
     <>
@@ -117,7 +121,10 @@ export default function DataPage() {
             <StateMessage tone="error">
               {t("data.loadFailed", { reason: failed.error.message })}
             </StateMessage>
-          ) : !profile.data || !entries.data || !skills.data ? (
+          ) : !profile.data ||
+            !preferences.data ||
+            !entries.data ||
+            !skills.data ? (
             <StateMessage>{t("common.loading")}</StateMessage>
           ) : (
             <Tabs
@@ -133,7 +140,7 @@ export default function DataPage() {
               </TabList>
               <TabPanel value="about" className="flex flex-col gap-5">
                 <ContactCard profile={profile.data} />
-                <PreferencesCard preferences={profile.data.preferences} />
+                <PreferencesCard preferences={preferences.data} />
                 {(["role", "education", "project"] as const).map((kind) => (
                   <EntryCard
                     key={kind}

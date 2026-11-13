@@ -6,10 +6,11 @@ _NOT_OWNED = {"users", "auth_sign_in_attempts"}
 
 
 def test_every_table_belongs_to_a_user():
+    subtypes = {m.local_table.name for m in Base.registry.mappers if m.inherits}
     missing = [
         name
         for name, table in Base.metadata.tables.items()
-        if name not in _NOT_OWNED and "user_id" not in table.columns
+        if name not in _NOT_OWNED | subtypes and "user_id" not in table.columns
     ]
 
     assert missing == [], f"tables without user_id: {missing}"

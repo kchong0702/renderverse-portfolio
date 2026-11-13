@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from hashlib import sha256
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import TypeAdapter
@@ -9,12 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import get_settings
 from src.core.exceptions import InvalidInput, NotFound
+from src.db.base import utcnow
+from src.features.preferences import PreferencesService
 from src.features.profile.enums import ChangeChoice, ChangeKind, EntryKind, ImportSource
 from src.features.profile.models import (
+    Networking,
     Profile,
     ProfileChange,
     ProfileEntry,
     ProfileImport,
+    ProfileProject,
     ProfileSkill,
 )
 from src.features.profile.repository import ProfileRepository
@@ -34,7 +38,6 @@ from src.features.profile.schemas import (
     ProfileImportRead,
     ProfileRead,
     ProfileUpdate,
-    Salary,
     SkillRead,
     SkillWrite,
 )
@@ -50,23 +53,32 @@ from src.features.profile.types import ChangeField, FieldValue
 
 _CHANGE: TypeAdapter[ChangeRead] = TypeAdapter(ChangeRead)
 
+_PROJECT_FIELDS = {"link", "code_link", "tools", "on_site"}
 
-def _preferences(profile: Profile) -> Preferences:
-    """The preference columns as one Preferences"""
-    return Preferences(
-        work_modes=profile.work_modes,
-        countries=profile.countries,
-        authorised_countries=profile.authorised_countries,
-        min_salary=Salary(
-            amount=profile.min_salary_amount,
-            currency=profile.min_salary_currency,
-            period=profile.min_salary_period,
-        )
-        if profile.min_salary_amount is not None
-        and profile.min_salary_currency is not None
-        and profile.min_salary_period is not None
-        else None,
+
+def _entry_row(user_id: UUID, kind: EntryKind, fields: dict[str, Any]) -> ProfileEntry:
+    """A new entry of the kind; only a project keeps the project fields"""
+    if kind is EntryKind.PROJECT:
+        return ProfileProject(user_id=user_id, kind=kind, **fields)
+    return ProfileEntry(
+        user_id=user_id,
+        kind=kind,
+        **{
+            field: value
+            for field, value in fields.items()
+            if field not in _PROJECT_FIELDS
+        },
     )
+
+
+def _refuse_project_fields(kind: EntryKind, entry: EntryWrite) -> None:
+    """InvalidInput when an entry other than a project sets a project-only field"""
+    if kind is not EntryKind.PROJECT and any(
+        getattr(entry, field) for field in _PROJECT_FIELDS
+    ):
+        raise InvalidInput(
+            "Only a project has a link, code link, tools or a place on the site"
+        )
 
 
 def _to_read(profile: Profile) -> ProfileRead:
@@ -79,7 +91,6 @@ def _to_read(profile: Profile) -> ProfileRead:
         phone=profile.phone,
         links=profile.links,
         summary=profile.summary,
-        preferences=_preferences(profile),
     )
 
 
@@ -103,9 +114,15 @@ def _entry_fact(entry: ProfileEntry) -> ProfileFact:
         heading,
         entry.summary,
         *entry.highlights,
-        f"Tools: {', '.join(entry.tools)}" if entry.tools else "",
-        f"Live at {entry.link}" if entry.link else "",
-        f"Code at {entry.code_link}" if entry.code_link else "",
+        *(
+            (
+                f"Tools: {', '.join(entry.tools)}" if entry.tools else "",
+                f"Live at {entry.link}" if entry.link else "",
+                f"Code at {entry.code_link}" if entry.code_link else "",
+            )
+            if isinstance(entry, ProfileProject)
+            else ()
+        ),
     )
     is_role = entry.kind is EntryKind.ROLE
     return ProfileFact(
@@ -126,8 +143,10 @@ def _skill_fact(skill: ProfileSkill) -> ProfileFact:
 
 class ProfileService:
     def __init__(self, session: AsyncSession):
-        """Read and write the profile through a repository on the session"""
+        """Read and write the profile through a repository on the session, and read
+        the job preferences on the same session"""
         self._repository = ProfileRepository(session)
+        self._preferences = PreferencesService(session)
 
     async def get(self, user_id: UUID) -> ProfileRead:
         """The user's profile, created empty on first read"""
@@ -137,19 +156,11 @@ class ProfileService:
         """Change the fields sent and leave the rest"""
         profile = await self._load(user_id)
         for field, value in patch.model_dump(
-            exclude_none=True, exclude={"preferences", "links"}
+            exclude_none=True, exclude={"links"}
         ).items():
             setattr(profile, field, value)
         if patch.links is not None:
             profile.links = patch.links
-        if patch.preferences is not None:
-            salary = patch.preferences.min_salary
-            profile.work_modes = [mode.value for mode in patch.preferences.work_modes]
-            profile.countries = patch.preferences.countries
-            profile.authorised_countries = patch.preferences.authorised_countries
-            profile.min_salary_amount = salary.amount if salary else None
-            profile.min_salary_currency = salary.currency if salary else None
-            profile.min_salary_period = salary.period if salary else None
         return _to_read(profile)
 
     async def entries(self, user_id: UUID) -> list[EntryRead]:
@@ -161,8 +172,9 @@ class ProfileService:
 
     async def add_entry(self, user_id: UUID, entry: EntryCreate) -> EntryRead:
         """Store a new entry"""
+        _refuse_project_fields(entry.kind, entry)
         row = await self._repository.add(
-            ProfileEntry(user_id=user_id, **entry.model_dump())
+            _entry_row(user_id, entry.kind, entry.model_dump(exclude={"kind"}))
         )
         return EntryRead.model_validate(row, from_attributes=True)
 
@@ -173,7 +185,10 @@ class ProfileService:
         row = await self._repository.owned(ProfileEntry, user_id, entry_id)
         if row is None:
             raise NotFound("No such entry")
-        for field, value in entry.model_dump().items():
+        _refuse_project_fields(row.kind, entry)
+        for field, value in entry.model_dump(
+            exclude=None if isinstance(row, ProfileProject) else _PROJECT_FIELDS
+        ).items():
             setattr(row, field, value)
         return EntryRead.model_validate(row, from_attributes=True)
 
@@ -221,10 +236,16 @@ class ProfileService:
         and skills as facts, and the preferences"""
         entries = await self._repository.entries(user_id)
         skills = await self._repository.skills(user_id)
+        preferences = await self._preferences.get(user_id)
         return AgentProfile(
             facts=[_entry_fact(e) for e in entries if not e.archived]
             + [_skill_fact(s) for s in skills if not s.archived],
-            preferences=_preferences(await self._load(user_id)),
+            preferences=Preferences(
+                work_modes=preferences.work_modes,
+                countries=preferences.countries,
+                authorised_countries=preferences.visa_free_countries,
+                min_salary=preferences.min_salary,
+            ),
         )
 
     async def networking_facts(self, user_id: UUID) -> list[ProfileFact]:
@@ -242,12 +263,21 @@ class ProfileService:
             *map(_skill_fact, await self._repository.skills(user_id)),
         ]
 
+    async def _networking(self, user_id: UUID) -> Networking:
+        """The user's Networking copy row, created empty when missing"""
+        networking = await self._repository.networking(user_id)
+        return networking or await self._repository.create(Networking, user_id)
+
     async def networking(self, user_id: UUID) -> NetworkingRead:
-        """The latest Networking copy and the profession it was written for"""
-        profile = await self._load(user_id)
+        """The latest Networking copy and the profession it was written for, or the
+        target roles before any profession is kept"""
+        networking = await self._networking(user_id)
         return NetworkingRead(
-            profession=profile.profession,
-            **(profile.networking or NetworkingCopy()).model_dump(),
+            profession=networking.profession
+            or (await self._preferences.get(user_id)).target_roles,
+            headline=networking.headline,
+            summary=networking.summary,
+            descriptions=networking.descriptions,
         )
 
     async def keep_networking(
@@ -255,8 +285,8 @@ class ProfileService:
     ) -> NetworkingRead:
         """Keep newly written copy: all of it, or only the headline, summary or
         one fact's description"""
-        profile = await self._load(user_id)
-        copy = profile.networking or NetworkingCopy()
+        networking = await self._networking(user_id)
+        copy = NetworkingCopy.model_validate(networking, from_attributes=True)
         match only:
             case None:
                 copy = written
@@ -271,8 +301,11 @@ class ProfileService:
                         ]
                     }
                 )
-        profile.networking = copy
-        profile.profession = profession
+        networking.profession = profession
+        networking.headline = copy.headline
+        networking.summary = copy.summary
+        networking.descriptions = copy.descriptions
+        networking.written_at = utcnow()
         return await self.networking(user_id)
 
     async def imports(self, user_id: UUID) -> list[ProfileImportRead]:
@@ -367,19 +400,22 @@ class ProfileService:
                 changes, import_id, entry, field, getattr(incoming, field)
             )
             for field in ENTRY_FIELDS
+            if isinstance(entry, ProfileProject) or field not in _PROJECT_FIELDS
         ]
 
     async def _add_entry(self, user_id: UUID, incoming: ImportedEntry) -> ProfileEntry:
         """Store an imported entry as a new one the assistant uses, off the site"""
         return await self._repository.add(
-            ProfileEntry(
-                user_id=user_id,
-                kind=incoming.kind,
-                archived=False,
-                on_site=False,
-                **{
-                    field: stored(field, getattr(incoming, field))
-                    for field in ENTRY_FIELDS
+            _entry_row(
+                user_id,
+                incoming.kind,
+                {
+                    "archived": False,
+                    "on_site": False,
+                    **{
+                        field: stored(field, getattr(incoming, field))
+                        for field in ENTRY_FIELDS
+                    },
                 },
             )
         )
@@ -522,7 +558,7 @@ class ProfileService:
     async def _load(self, user_id: UUID) -> Profile:
         """The user's profile row, created empty when missing"""
         return await self._repository.profile(user_id) or await self._repository.create(
-            user_id
+            Profile, user_id
         )
 
 

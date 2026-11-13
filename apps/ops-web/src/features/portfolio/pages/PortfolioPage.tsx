@@ -1,6 +1,7 @@
 import { Sparkle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
+import { usePreferences, useUpdatePreferences } from "@/features/preferences";
 import { buttonClass } from "@/shared/components/button";
 import PageBody from "@/shared/components/PageBody";
 import PageHeader from "@/shared/components/PageHeader";
@@ -33,6 +34,8 @@ export default function PortfolioPage() {
   const entries = useEntries();
   const skills = useSkills();
   const update = useUpdateProfile();
+  const preferences = usePreferences();
+  const updatePreferences = useUpdatePreferences();
   const draft = useDraft();
   const releases = useReleases();
   const publish = usePublish();
@@ -43,14 +46,16 @@ export default function PortfolioPage() {
   const tab: PortfolioTab =
     tabs.find((name) => name === params.get("tab")) ?? "projects";
 
-  const saveStatus = update.isPending
+  const saves = [update, updatePreferences];
+  const saveFailed = saves.find((save) => save.isError)?.error;
+  const saveStatus = saves.some((save) => save.isPending)
     ? t("portfolio.save.saving")
-    : update.isError
-      ? t("portfolio.save.failed", { reason: update.error.message })
-      : update.isSuccess
+    : saveFailed
+      ? t("portfolio.save.failed", { reason: saveFailed.message })
+      : saves.some((save) => save.isSuccess)
         ? t("portfolio.save.saved")
         : null;
-  const failed = [profile, entries, skills, draft, releases].find(
+  const failed = [profile, preferences, entries, skills, draft, releases].find(
     (query) => query.isError,
   );
 
@@ -89,6 +94,7 @@ export default function PortfolioPage() {
             {t("portfolio.loadFailed", { reason: failed.error.message })}
           </StateMessage>
         ) : !profile.data ||
+          !preferences.data ||
           !entries.data ||
           !skills.data ||
           !draft.data ||
@@ -112,7 +118,7 @@ export default function PortfolioPage() {
                 <span
                   role="status"
                   className={
-                    update.isError ? "text-crit text-sm" : "text-ink-3 text-sm"
+                    saveFailed ? "text-crit text-sm" : "text-ink-3 text-sm"
                   }
                 >
                   {saveStatus}
@@ -121,8 +127,8 @@ export default function PortfolioPage() {
               <div className="grid grid-cols-[repeat(auto-fit,minmax(min(420px,100%),1fr))] items-start gap-6">
                 <AboutPanel profile={profile.data} onChange={update.mutate} />
                 <PreferencesPanel
-                  preferences={profile.data.preferences}
-                  onChange={update.mutate}
+                  preferences={preferences.data}
+                  onChange={updatePreferences.mutate}
                 />
               </div>
               <EntrySection

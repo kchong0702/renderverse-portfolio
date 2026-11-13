@@ -9,7 +9,7 @@ import PageHeader from "@/shared/components/PageHeader";
 import Segmented from "@/shared/components/Segmented";
 import { cn } from "@/shared/lib/cn";
 import StateMessage from "@/shared/components/StateMessage";
-import { useSettings } from "@/features/settings";
+import { usePreferences } from "@/features/preferences";
 import type { PostedWithin } from "../api/jobs";
 import JobDetail from "../components/JobDetail";
 import JobList from "../components/JobList";
@@ -27,14 +27,14 @@ export default function JobsPage() {
   const [params, setParams] = useSearchParams();
   const jobs = useJobs();
   const find = useFindJobs();
-  const agent = useSettings().data?.job_agent;
+  const preferences = usePreferences().data;
   const [search, setSearch] = useState<{
     query?: string;
     location?: string;
     posted_within: PostedWithin;
   }>({ posted_within: "week" });
-  const query = search.query ?? agent?.query ?? "";
-  const location = search.location ?? agent?.location ?? "";
+  const query = search.query ?? preferences?.target_roles ?? "";
+  const location = search.location ?? preferences?.location ?? "";
   const run = () =>
     find.mutate({
       query: query.trim() || null,

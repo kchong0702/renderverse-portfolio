@@ -1,13 +1,16 @@
 import asyncio
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 
 from src.core.auth.models import User
 from src.core.config import get_settings
+from src.db.base import as_utc
 from src.features.profile.enums import EntryKind
-from src.features.profile.models import Profile, ProfileEntry
+from src.features.profile.models import Profile, ProfileEntry, ProfileProject
+from src.features.profile.schemas import ProfileLink
 from tests.conftest import PREFIX, _client
 from tests.core.conftest import DATABASE_URL
 
@@ -36,46 +39,20 @@ async def test_profile_starts_empty(client):
         "phone": "",
         "links": [],
         "summary": "",
-        "preferences": {
-            "work_modes": [],
-            "countries": [],
-            "authorised_countries": [],
-            "min_salary": None,
-        },
     }
 
 
 async def test_patch_changes_only_the_fields_sent(client):
     await client.patch(PROFILE, json={"name": "Kelvin Chong", "location": "KL"})
-    preferences = {
-        "work_modes": ["hybrid", "remote"],
-        "countries": ["MY", "SG"],
-        "authorised_countries": ["MY"],
-        "min_salary": {"amount": 14000, "currency": "MYR", "period": "month"},
-    }
 
-    response = await client.patch(
-        PROFILE, json={"headline": "Backend engineer", "preferences": preferences}
-    )
+    response = await client.patch(PROFILE, json={"headline": "Backend engineer"})
 
     assert response.status_code == 200
     body = response.json()
     assert body["name"] == "Kelvin Chong"
     assert body["location"] == "KL"
     assert body["headline"] == "Backend engineer"
-    assert body["preferences"] == preferences
     assert (await client.get(PROFILE)).json() == body
-
-
-async def test_rejects_preferences_the_agents_cannot_read(client):
-    for preferences in (
-        {"work_modes": ["office"]},
-        {"countries": ["Malaysia"]},
-        {"min_salary": {"amount": 0, "currency": "MYR", "period": "month"}},
-        {"min_salary": {"amount": 100, "currency": "rm", "period": "month"}},
-    ):
-        response = await client.patch(PROFILE, json={"preferences": preferences})
-        assert response.status_code == 422, preferences
 
 
 async def test_entries_add_list_replace_and_delete(client):
@@ -151,8 +128,12 @@ async def test_skills_add_replace_and_delete(client):
 
 async def test_agent_profile_has_the_harness_shape(client):
     await client.patch(
-        PROFILE,
-        json={"preferences": {"work_modes": ["remote"], "countries": ["MY"]}},
+        f"{PREFIX}/preferences",
+        json={
+            "work_modes": ["remote"],
+            "countries": ["MY"],
+            "visa_free_countries": ["SG"],
+        },
     )
     role = (await client.post(f"{PROFILE}/entries", json=ACME)).json()
     degree = (
@@ -206,7 +187,7 @@ async def test_agent_profile_has_the_harness_shape(client):
         "preferences": {
             "work_modes": ["remote"],
             "countries": ["MY"],
-            "authorised_countries": [],
+            "authorised_countries": ["SG"],
             "min_salary": None,
         },
     }
@@ -284,6 +265,105 @@ async def test_a_first_read_that_overlaps_another_gets_the_profile(postgres_app)
 
     assert response.status_code == 200
     assert response.json()["name"] == "Kelvin Chong"
+
+
+@pytest.mark.postgres
+@pytest.mark.skipif(not DATABASE_URL, reason="OPS_API_TEST_DATABASE_URL is not set")
+async def test_the_database_refuses_a_fourth_link(postgres_app):
+    async with postgres_app.state.session_factory() as session:
+        user = User(email=get_settings().auth.dev_email)
+        session.add(user)
+        await session.commit()
+        session.add(
+            Profile(
+                user_id=user.id,
+                links=[
+                    ProfileLink(label=f"Link {n}", url=f"https://example.com/{n}")
+                    for n in range(4)
+                ],
+            )
+        )
+
+        with pytest.raises(IntegrityError, match="ck_profiles_links"):
+            await session.commit()
+
+
+async def test_a_project_row_lives_and_dies_with_its_entry(app, client):
+    async def projects() -> list[tuple]:
+        async with app.state.session_factory() as session:
+            return list(
+                (
+                    await session.execute(
+                        select(ProfileProject.entry_id, ProfileProject.link)
+                    )
+                ).all()
+            )
+
+    project = {"kind": "project", "title": "Renderverse", "tools": ["React"]}
+    created = (
+        await client.post(
+            f"{PROFILE}/entries", json={**project, "link": "https://a.example"}
+        )
+    ).json()
+    assert await projects() == [(UUID(created["id"]), "https://a.example")]
+
+    replaced = await client.put(
+        f"{PROFILE}/entries/{created['id']}",
+        json={**project, "link": "https://b.example", "on_site": True},
+    )
+    assert replaced.json()["link"] == "https://b.example"
+    assert replaced.json()["on_site"] is True
+    assert await projects() == [(UUID(created["id"]), "https://b.example")]
+
+    await client.delete(f"{PROFILE}/entries/{created['id']}")
+    assert await projects() == []
+
+
+async def test_changing_only_a_projects_fields_updates_its_entry(app, client):
+    async with app.state.session_factory() as session:
+        user = User(email=get_settings().auth.dev_email)
+        session.add(user)
+        await session.flush()
+        project = ProfileProject(user_id=user.id, kind=EntryKind.PROJECT, title="R")
+        session.add(project)
+        await session.commit()
+        stamped = project.updated_at
+
+    await client.put(
+        f"{PROFILE}/entries/{project.id}", json={"title": "R", "on_site": True}
+    )
+
+    async with app.state.session_factory() as session:
+        row = await session.get_one(ProfileProject, project.id)
+    assert row.on_site is True
+    assert row.created_by == "system"
+    assert row.updated_by == f"user:{user.id}"
+    assert as_utc(row.updated_at) > stamped
+
+
+async def test_only_a_project_takes_project_fields(client):
+    refusal = "Only a project has a link, code link, tools or a place on the site"
+    project_fields = [
+        {"link": "https://acme.example"},
+        {"code_link": "https://github.com/acme/api"},
+        {"tools": ["Go"]},
+        {"on_site": True},
+    ]
+    role = await client.post(
+        f"{PROFILE}/entries",
+        json={**ACME, "link": None, "code_link": None, "tools": [], "on_site": False},
+    )
+    assert role.status_code == 201
+
+    for fields in project_fields:
+        added = await client.post(f"{PROFILE}/entries", json={**ACME, **fields})
+        replaced = await client.put(
+            f"{PROFILE}/entries/{role.json()['id']}", json={**ACME, **fields}
+        )
+
+        assert (added.status_code, added.json()["detail"]) == (422, refusal)
+        assert (replaced.status_code, replaced.json()["detail"]) == (422, refusal)
+    assert (await client.get(f"{PROFILE}/entries")).json() == [role.json()]
 
 
 async def test_entries_stay_off_the_site_until_turned_on(client):

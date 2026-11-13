@@ -5,11 +5,13 @@ from enum import StrEnum
 from typing import Any, ClassVar, override
 
 from pydantic import JsonValue, TypeAdapter
-from sqlalchemy import JSON, Dialect, MetaData, String, TypeDecorator
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON, Dialect, MetaData, String, Text, TypeDecorator
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase
 
 JsonType = JSON().with_variant(JSONB(), "postgresql")
+
+TextArray = ARRAY(Text()).with_variant(JSON(), "sqlite")
 
 _NAMING_CONVENTION = {
     "ix": "ix_%(column_0_label)s",
@@ -81,4 +83,12 @@ class Base(DeclarativeBase):
     type_annotation_map: ClassVar = {dict[str, Any]: JsonType, list[Any]: JsonType}
 
 
-__all__ = ["Base", "EnumString", "JsonType", "PydanticJson", "as_utc", "utcnow"]
+__all__ = [
+    "Base",
+    "EnumString",
+    "JsonType",
+    "PydanticJson",
+    "TextArray",
+    "as_utc",
+    "utcnow",
+]

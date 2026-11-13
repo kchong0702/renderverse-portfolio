@@ -1,20 +1,43 @@
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Any, ClassVar
 from uuid import UUID
 
 from pydantic import TypeAdapter
-from sqlalchemy import ForeignKey, String, Text, false, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import (
+    CheckConstraint,
+    Connection,
+    DateTime,
+    ForeignKey,
+    String,
+    Text,
+    case,
+    event,
+    false,
+)
+from sqlalchemy.orm import Mapped, Mapper, mapped_column, object_session
 
-from src.db.base import Base, EnumString, JsonType, PydanticJson
+from src.app.actor import current_actor
+from src.db.base import Base, EnumString, JsonType, PydanticJson, TextArray, utcnow
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
-from src.features.profile.enums import ChangeKind, EntryKind, ImportSource, SalaryPeriod
-from src.features.profile.schemas import ImportedEntry, NetworkingCopy, ProfileLink
+from src.features.profile.enums import ChangeKind, EntryKind, ImportSource
+from src.features.profile.schemas import (
+    ImportedEntry,
+    NetworkingDescription,
+    NetworkingText,
+    ProfileLink,
+)
 from src.features.profile.types import ChangeField, FieldValue
 
 
 class Profile(AuditMixin, Base):
     __tablename__ = "profiles"
+    __table_args__ = (
+        CheckConstraint("jsonb_array_length(links) <= 3", name="links").ddl_if(
+            dialect="postgresql"
+        ),
+    )
 
     user_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
@@ -44,33 +67,37 @@ class Profile(AuditMixin, Base):
     summary: Mapped[str] = mapped_column(Text(), default="")
     """A short paragraph about the user"""
 
-    work_modes: Mapped[list[str]] = mapped_column(JsonType, default=list)
-    """WorkMode values the user accepts; empty accepts any"""
 
-    countries: Mapped[list[str]] = mapped_column(JsonType, default=list)
-    """ISO country codes the user wants to work in; empty accepts any"""
+class Networking(AuditMixin, Base):
+    __tablename__ = "networking_copies"
 
-    authorised_countries: Mapped[list[str]] = mapped_column(JsonType, default=list)
-    """ISO country codes the user may work in without visa sponsorship"""
-
-    min_salary_amount: Mapped[int | None] = mapped_column(default=None)
-    """Lowest pay accepted, before tax; None when not set"""
-
-    min_salary_currency: Mapped[str | None] = mapped_column(String(3), default=None)
-    """ISO 4217 code of min_salary_amount"""
-
-    min_salary_period: Mapped[SalaryPeriod | None] = mapped_column(
-        EnumString(SalaryPeriod), default=None
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
-    """What min_salary_amount is paid for"""
+    """Whose copy; one row per user, created empty on first read"""
 
-    profession: Mapped[str] = mapped_column(String(200), default="", server_default="")
-    """The profession the Networking copy is written for"""
+    profession: Mapped[str] = mapped_column(String(200), default="")
+    """The profession the copy is written for; empty until copy is first kept"""
 
-    networking: Mapped[NetworkingCopy | None] = mapped_column(
-        PydanticJson(TypeAdapter(NetworkingCopy)), default=None
+    headline: Mapped[NetworkingText | None] = mapped_column(
+        PydanticJson(TypeAdapter(NetworkingText)), default=None
     )
-    """The latest copy to paste into job portals; None until written"""
+    """One line under the name; None until written"""
+
+    summary: Mapped[NetworkingText | None] = mapped_column(
+        PydanticJson(TypeAdapter(NetworkingText)), default=None
+    )
+    """The About paragraph; None until written"""
+
+    descriptions: Mapped[list[NetworkingDescription]] = mapped_column(
+        PydanticJson(TypeAdapter(list[NetworkingDescription])), default=list
+    )
+    """A description for each role and project"""
+
+    written_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+    """When copy was last kept; None until then"""
 
 
 class ProfileEntry(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -97,31 +124,62 @@ class ProfileEntry(IdMixin, UserScopedMixin, AuditMixin, Base):
     summary: Mapped[str] = mapped_column(Text(), default="")
     """One line about it; a project's tagline"""
 
-    highlights: Mapped[list[str]] = mapped_column(JsonType, default=list)
+    highlights: Mapped[list[str]] = mapped_column(TextArray, default=list)
     """What the user achieved, one sentence each"""
-
-    link: Mapped[str | None] = mapped_column(String(500), default=None)
-    """Where a project can be seen live; only projects use it"""
-
-    code_link: Mapped[str | None] = mapped_column(String(500), default=None)
-    """Where a project's code is; only projects use it"""
-
-    tools: Mapped[list[str]] = mapped_column(
-        JsonType, default=list, server_default=text("'[]'")
-    )
-    """Languages, frameworks and tools a project used; only projects use it"""
 
     archived: Mapped[bool] = mapped_column(default=False)
     """Kept but left out of what the agents see"""
 
-    on_site: Mapped[bool] = mapped_column(default=False, server_default=false())
-    """Shown on the portfolio site from the next release; only projects use it"""
+    __mapper_args__: ClassVar[dict[str, Any]] = {
+        "polymorphic_on": case((kind == EntryKind.PROJECT, "project"), else_="entry"),
+        "polymorphic_identity": "entry",
+    }
 
-    image_id: Mapped[UUID | None] = mapped_column(ForeignKey("assets.id"), default=None)
+
+class ProfileProject(ProfileEntry):
+    __tablename__ = "profile_projects"
+    __mapper_args__: ClassVar[dict[str, Any]] = {
+        "polymorphic_identity": "project",
+        "polymorphic_load": "inline",
+    }
+
+    entry_id: Mapped[UUID] = mapped_column(
+        ForeignKey("profile_entries.id", ondelete="CASCADE"), primary_key=True
+    )
+    """The entry this project is"""
+
+    link: Mapped[str | None] = mapped_column(String(500), default=None)
+    """Where the project can be seen live"""
+
+    code_link: Mapped[str | None] = mapped_column(String(500), default=None)
+    """Where the project's code is"""
+
+    tools: Mapped[list[str]] = mapped_column(TextArray, default=list)
+    """Languages, frameworks and tools the project used"""
+
+    on_site: Mapped[bool] = mapped_column(default=False, server_default=false())
+    """Shown on the portfolio site from the next release"""
+
+    image_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("assets.id", deferrable=True, initially="DEFERRED"), default=None
+    )
     """The project's cover image on the portfolio site"""
 
-    video_id: Mapped[UUID | None] = mapped_column(ForeignKey("assets.id"), default=None)
+    video_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("assets.id", deferrable=True, initially="DEFERRED"), default=None
+    )
     """The video the portfolio site plays for the project"""
+
+
+@event.listens_for(ProfileProject, "before_update")
+def _stamp_entry(
+    _mapper: Mapper[ProfileProject], _connection: Connection, project: ProfileProject
+) -> None:
+    """Set the entry's updated_at and updated_by when the project has changes to write"""
+    session = object_session(project)
+    if session is not None and session.is_modified(project, include_collections=False):
+        project.updated_at = utcnow()
+        project.updated_by = current_actor()
 
 
 class ProfileSkill(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -197,9 +255,11 @@ class ProfileChange(IdMixin, UserScopedMixin, AuditMixin, Base):
 
 
 __all__ = [
+    "Networking",
     "Profile",
     "ProfileChange",
     "ProfileEntry",
     "ProfileImport",
+    "ProfileProject",
     "ProfileSkill",
 ]

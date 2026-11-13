@@ -21,29 +21,15 @@ from src.features.settings.repository import SettingsRepository
 from src.features.settings.schemas import (
     Automation,
     Connection,
-    JobAgent,
     Scheduling,
     SearchQuota,
     SettingsRead,
     SettingsUpdate,
 )
 
-_JOB_AGENT_COLUMNS = {
-    "query": "job_query",
-    "location": "job_location",
-    "run_at": "job_agent_run_at",
-    "min_score": "job_min_score",
-}
-
 
 def _to_read(settings: UserSettings, connections: list[Connection]) -> SettingsRead:
     return SettingsRead(
-        job_agent=JobAgent(
-            query=settings.job_query,
-            location=settings.job_location,
-            run_at=settings.job_agent_run_at,
-            min_score=settings.job_min_score,
-        ),
         automation=Automation(
             tailor_strong_matches=settings.tailor_strong_matches,
             follow_up_reminders=settings.follow_up_reminders,
@@ -138,9 +124,6 @@ class SettingsService:
         """Apply the fields sent; a new model must be one ezcareer-harness offers"""
         settings = await self._load(user_id)
 
-        if patch.job_agent is not None:
-            for field, value in patch.job_agent.model_dump(exclude_unset=True).items():
-                setattr(settings, _JOB_AGENT_COLUMNS[field], value)
         for section in (patch.automation, patch.scheduling):
             if section is not None:
                 for field, value in section.model_dump(exclude_unset=True).items():

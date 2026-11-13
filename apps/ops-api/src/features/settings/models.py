@@ -20,11 +20,6 @@ class UserSettings(AuditMixin, Base):
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
 
-    job_query: Mapped[str] = mapped_column(String(200), default="")
-    job_location: Mapped[str] = mapped_column(String(200), default="")
-    job_agent_run_at: Mapped[time] = mapped_column(Time(), default=time(8, 0))
-    job_min_score: Mapped[int] = mapped_column(default=70)
-
     tailor_strong_matches: Mapped[bool] = mapped_column(default=True)
     follow_up_reminders: Mapped[bool] = mapped_column(default=True)
     suggest_replies: Mapped[bool] = mapped_column(default=True)
