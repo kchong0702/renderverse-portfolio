@@ -9,7 +9,7 @@ from authlib.integrations.starlette_client import OAuthError, StarletteOAuth2App
 from starlette.requests import Request
 from starlette.responses import Response
 
-from src.core.auth.exceptions import OAuthFailed
+from src.adapters.oauth_providers.exceptions import OAuthFailed
 
 Provider = Literal["google", "github"]
 

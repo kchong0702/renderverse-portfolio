@@ -53,7 +53,7 @@ class FakeProvider:
     """Stands in for Google or GitHub: redirects nowhere, returns a set identity"""
 
     def __init__(self, subject: str, emails: list[str]):
-        from src.core.auth.oauth_providers import OAuthIdentity
+        from src.adapters.oauth_providers import OAuthIdentity
 
         self.identity = OAuthIdentity(subject=subject, emails=emails)
         self.fails = False
@@ -64,7 +64,7 @@ class FakeProvider:
         return RedirectResponse("https://provider.test/authorize")
 
     async def fetch_identity(self, request: Request):
-        from src.core.auth.exceptions import OAuthFailed
+        from src.adapters.oauth_providers import OAuthFailed
 
         if self.fails:
             raise OAuthFailed("access_denied")

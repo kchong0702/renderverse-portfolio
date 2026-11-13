@@ -1,12 +1,12 @@
 from dependency_injector import containers, providers
 
 from src.adapters.job_sources import build_job_source
+from src.adapters.oauth_providers import build_providers
 from src.clients.artifact import ArtifactClient
 from src.clients.ezcareer import EzcareerClient
 from src.clients.google import GoogleClient
 from src.clients.storage import create_storage
 from src.core.agent_runner import AgentRunner, ToolExecutor
-from src.core.auth.oauth_providers import build_providers
 from src.core.config import get_settings
 from src.core.stores import InMemoryRunStore, PostgresRunStore, UsageLedger
 from src.db.session import create_engine, create_session_factory

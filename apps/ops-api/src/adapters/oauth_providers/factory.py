@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from src.core.auth.oauth_providers.base import AuthlibAdapter, Provider
-from src.core.auth.oauth_providers.github import GitHubAdapter
-from src.core.auth.oauth_providers.google import GoogleAdapter
+from src.adapters.oauth_providers.base import AuthlibAdapter, Provider
+from src.adapters.oauth_providers.github import GitHubAdapter
+from src.adapters.oauth_providers.google import GoogleAdapter
 from src.core.config import AuthSettings
 
 
