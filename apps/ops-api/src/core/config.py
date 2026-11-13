@@ -111,17 +111,20 @@ class DocumentsSettings(BaseModel):
     """The media types an uploaded résumé may have: PDF or Word"""
 
 
-class ImportsSettings(BaseModel):
+class WorkerSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
     lease_seconds: float = Field(default=60, gt=0)
-    """How long a worker's claim on an import lasts unless it extends it"""
+    """How long a worker's claim on a row lasts unless it extends it"""
 
     heartbeat_seconds: float = Field(default=15, gt=0)
-    """How often a worker extends the lease of the import it is processing"""
+    """How often a worker extends the lease of the row it is processing"""
 
     poll_seconds: float = Field(default=2, gt=0)
     """How long a worker waits before looking for work again when none was due"""
+
+    tick_seconds: float = Field(default=60, gt=0)
+    """How often a worker queues the scheduled job runs that are due"""
 
 
 class ProfileSettings(BaseModel):
@@ -489,8 +492,8 @@ class Settings(BaseSettings):
     google: GoogleSettings = Field(default_factory=GoogleSettings)
     """Reading the user's Gmail and Google Calendar"""
 
-    imports: ImportsSettings = Field(default_factory=ImportsSettings)
-    """Leases, heartbeats and polling for processing imports"""
+    worker: WorkerSettings = Field(default_factory=WorkerSettings)
+    """Leases, heartbeats and polling for ops-worker"""
 
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     """Logging settings"""
@@ -556,7 +559,6 @@ __all__ = [
     "DocumentsSettings",
     "EzcareerSettings",
     "GoogleSettings",
-    "ImportsSettings",
     "JSearchSettings",
     "ObservabilitySettings",
     "PortfolioSettings",
@@ -564,6 +566,7 @@ __all__ = [
     "R2Settings",
     "Settings",
     "StorageSettings",
+    "WorkerSettings",
     "get_settings",
     "reload_settings",
 ]

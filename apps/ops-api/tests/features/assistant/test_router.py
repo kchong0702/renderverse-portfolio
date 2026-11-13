@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from uuid import UUID, uuid4
 
 import httpx2
@@ -1124,6 +1125,53 @@ LETTER = {
         ]
     },
 }
+
+
+async def test_a_job_run_the_director_asks_for_is_queued_and_answered(client, harness):
+    search = {"query": "Staff engineer", "location": None, "posted_within": None}
+    harness.outcomes = [
+        [
+            stream_task(),
+            stream_status(
+                "INPUT_REQUIRED",
+                [
+                    {
+                        "data": {
+                            "fetch": "job_run",
+                            "run_after": "2026-11-13T08:00:00+08:00",
+                            "search": search,
+                        }
+                    }
+                ],
+            ),
+        ],
+        _replied("Queued for tomorrow at 8."),
+        [
+            stream_task(),
+            stream_status(
+                "INPUT_REQUIRED",
+                [{"data": {"fetch": "job_run", "run_after": None, "search": None}}],
+            ),
+        ],
+        _replied("One is already queued."),
+    ]
+
+    await client.post(f"{CHAT}/messages", json={"text": "Search tomorrow at 8"})
+    await client.post(f"{CHAT}/messages", json={"text": "Search now"})
+
+    run = (await client.get(f"{PREFIX}/jobs/runs/latest")).json()
+    assert (run["trigger"], run["status"]) == ("agent", "queued")
+    assert run["run_after"].startswith("2026-11-13T")
+    sent = a2a_sent(harness)
+    [answer] = sent[1]["params"]["message"]["parts"]
+    assert answer["data"]["id"] == run["id"]
+    assert datetime.fromisoformat(
+        answer["data"]["run_after"]
+    ) == datetime.fromisoformat("2026-11-13T08:00:00+08:00")
+    assert sent[3]["params"]["message"]["parts"] == [
+        {"data": {"error": "A job agent run is already queued"}}
+    ]
+    assert harness.received[1].url.path == "/ezcareer/a2a/career-director"
 
 
 async def test_only_a_resume_or_cv_has_a_sync_preview(client, harness):

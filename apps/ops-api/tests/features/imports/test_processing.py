@@ -2,15 +2,14 @@ from base64 import b64decode
 from datetime import timedelta
 from uuid import UUID, uuid4
 
+from cryptography.fernet import Fernet
+from sqlalchemy import select
+
 from src.db.base import utcnow
+from src.db.queue import claim, complete, fail, heartbeat
+from src.features.connections import Connection
 from src.features.imports.models import Import
-from src.features.imports.processing import (
-    claim_import,
-    complete_import,
-    fail_import,
-    heartbeat,
-    process_import,
-)
+from src.features.imports.processing import IMPORTS, process_import
 from tests.conftest import PREFIX, a2a_sent, a2a_task, work
 
 DOCUMENTS = f"{PREFIX}/documents"
@@ -200,6 +199,23 @@ async def test_a_done_import_is_not_processed_twice(app, client, harness):
     assert (await _listed(client, done["id"]))["status"] == "done"
 
 
+async def test_an_unreadable_jsearch_key_fails_the_import_at_once(app, client, harness):
+    await client.put(
+        f"{PREFIX}/settings/connections/jsearch", json={"api_key": "rapidapi-key"}
+    )
+    async with app.state.session_factory() as session, session.begin():
+        stored = await session.scalar(select(Connection))
+        stored.secret = Fernet(Fernet.generate_key()).encrypt(b"other")
+
+    failed = await _import(app, client, harness, _imported())
+
+    assert failed["status"] == "failed"
+    assert "change it in Settings" in failed["error"]
+    assert failed["finished_at"] is not None
+    assert harness.received == []
+    assert (await client.get(f"{PREFIX}/imports/active")).json() == []
+
+
 async def test_an_unreachable_harness_queues_the_import_again(app, client, harness):
     harness.down = True
 
@@ -225,19 +241,21 @@ async def test_a_heartbeat_after_the_import_ended_under_its_claim_still_holds(
 ):
     first = await _upload(client)
     async with app.state.session_factory() as session, session.begin():
-        claimed = await claim_import(session, timedelta(seconds=60))
-        await complete_import(session, claimed.id, claimed.claim_token)
+        claimed = await claim(session, IMPORTS, timedelta(seconds=60))
+        await complete(session, IMPORTS, claimed.id, claimed.claim_token)
     second = await _upload(client, f"{PREFIX}/profile/imports")
     async with app.state.session_factory() as session, session.begin():
-        retried = await claim_import(session, timedelta(seconds=60))
-        await fail_import(session, retried.id, retried.claim_token, "away", retry=True)
+        retried = await claim(session, IMPORTS, timedelta(seconds=60))
+        await fail(
+            session, IMPORTS, retried.id, retried.claim_token, "away", retry=True
+        )
 
     async with app.state.session_factory() as session, session.begin():
         after_done = await heartbeat(
-            session, claimed.id, claimed.claim_token, timedelta(seconds=60)
+            session, IMPORTS, claimed.id, claimed.claim_token, timedelta(seconds=60)
         )
         after_retry = await heartbeat(
-            session, retried.id, retried.claim_token, timedelta(seconds=60)
+            session, IMPORTS, retried.id, retried.claim_token, timedelta(seconds=60)
         )
 
     assert (claimed.id, retried.id) == (UUID(first["id"]), UUID(second["id"]))
@@ -291,16 +309,16 @@ async def test_a_new_upload_abandons_the_import_still_queued(client):
 async def test_a_lost_claim_cannot_extend_or_complete_its_import(app, client, harness):
     first = await _upload(client)
     async with app.state.session_factory() as session, session.begin():
-        claimed = await claim_import(session, timedelta(seconds=60))
+        claimed = await claim(session, IMPORTS, timedelta(seconds=60))
     assert claimed.id == UUID(first["id"])
     await _upload(client)
     harness.outcomes = [_imported()]
 
     async with app.state.session_factory() as session, session.begin():
         extended = await heartbeat(
-            session, claimed.id, claimed.claim_token, timedelta(seconds=60)
+            session, IMPORTS, claimed.id, claimed.claim_token, timedelta(seconds=60)
         )
-        completed = await complete_import(session, claimed.id, claimed.claim_token)
+        completed = await complete(session, IMPORTS, claimed.id, claimed.claim_token)
     await process_import(claimed.id, claimed.claim_token, app.state.container)
 
     assert (extended, completed) == (False, None)

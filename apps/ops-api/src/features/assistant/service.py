@@ -31,6 +31,7 @@ from src.features.assistant.schemas import (
 from src.features.documents import ChangesetArtifact, DocumentService
 from src.features.documents.schemas import FetchError
 from src.features.inbox import InboxService
+from src.features.jobs import JobService
 from src.features.profile import ProfileService
 from src.features.settings import SettingsService
 
@@ -46,16 +47,18 @@ class AssistantService:
         settings: SettingsService,
         documents: DocumentService,
         inbox: InboxService,
+        jobs: JobService,
         edits: ProfileEdits,
         ezcareer: EzcareerClient,
         runner: Runner,
     ):
-        """Hold the profile, settings, documents, inbox, profile edits and harness a
-        turn uses, and the runner it runs on"""
+        """Hold the profile, settings, documents, inbox, jobs, profile edits and
+        harness a turn uses, and the runner it runs on"""
         self._profile = profile
         self._settings = settings
         self._documents = documents
         self._inbox = inbox
+        self._jobs = jobs
         self._edits = edits
         self._ezcareer = ezcareer
         self._runner = runner
@@ -128,13 +131,15 @@ class AssistantService:
                     yield proposed
 
     async def _answer(self, user_id: UUID, request: DataRequest) -> BaseModel:
-        """Answer a paused turn's data request from the inbox or the documents, or say
-        Ops can't answer a kind it doesn't know"""
+        """Answer a paused turn's data request from the inbox, the documents, the
+        profile edits or the jobs, or say Ops can't answer a kind it doesn't know"""
         match request.fetch:
             case "thread" | "threads" | "free_slots":
                 return await self._inbox.answer_data_request(user_id, request)
             case "documents" | "document":
                 return await self._documents.answer_data_request(user_id, request)
+            case "job_run":
+                return await self._jobs.answer_data_request(user_id, request)
             case "profile_sync" | "profile_update":
                 return await self._edits.answer_data_request(user_id, request)
             case kind:

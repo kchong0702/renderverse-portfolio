@@ -1,4 +1,3 @@
-import { useIsMutating } from "@tanstack/react-query";
 import { Sparkle } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,11 +9,10 @@ import Segmented from "@/shared/components/Segmented";
 import { cn } from "@/shared/lib/cn";
 import StateMessage from "@/shared/components/StateMessage";
 import { usePreferences } from "@/features/preferences";
-import type { PostedWithin } from "../api/jobs";
+import { isActive, type PostedWithin } from "../api/jobs";
 import JobDetail from "../components/JobDetail";
 import JobList from "../components/JobList";
-import { useFindJobs, useJobs } from "../hooks/useJobs";
-import { findJobsMutationOptions } from "../queries/jobs";
+import { useFindJobs, useJobs, useLatestJobRun } from "../hooks/useJobs";
 
 const TABS = ["picked", "saved"] as const;
 type JobsTab = (typeof TABS)[number];
@@ -27,6 +25,7 @@ export default function JobsPage() {
   const [params, setParams] = useSearchParams();
   const jobs = useJobs();
   const find = useFindJobs();
+  const run = useLatestJobRun().data;
   const preferences = usePreferences().data;
   const [search, setSearch] = useState<{
     query?: string;
@@ -35,14 +34,14 @@ export default function JobsPage() {
   }>({ posted_within: "week" });
   const query = search.query ?? preferences?.target_roles ?? "";
   const location = search.location ?? preferences?.location ?? "";
-  const run = () =>
+  const start = () =>
     find.mutate({
       query: query.trim() || null,
       location: location.trim() || null,
       posted_within: search.posted_within,
     });
-  const finding =
-    useIsMutating({ mutationKey: findJobsMutationOptions.mutationKey }) > 0;
+  const finding = find.isPending || isActive(run);
+  const started = find.data && run?.id === find.data.id ? run : undefined;
   const tab: JobsTab =
     TABS.find((name) => name === params.get("tab")) ?? "picked";
   const shown = jobs.data?.jobs.filter((job) => job.status === tab) ?? [];
@@ -62,7 +61,7 @@ export default function JobsPage() {
             <button
               type="button"
               disabled={finding}
-              onClick={run}
+              onClick={start}
               className={buttonClass("primary")}
             >
               <Sparkle size={14} className="text-amber-soft" />
@@ -76,7 +75,7 @@ export default function JobsPage() {
           aria-label={t("jobs.search.label")}
           onSubmit={(event) => {
             event.preventDefault();
-            run();
+            start();
           }}
           className="bg-panel border-hair shadow-card flex flex-wrap items-center gap-2.5 rounded-xl border p-3"
         >
@@ -150,14 +149,14 @@ export default function JobsPage() {
           <p role="alert" className="text-crit m-0 text-sm">
             {t("jobs.runFailed", { reason: find.error.message })}
           </p>
-        ) : find.data?.status === "failed" ? (
+        ) : started?.status === "failed" ? (
           <p role="alert" className="text-crit m-0 text-sm">
-            {t("jobs.runFailed", { reason: find.data.reason })}
+            {t("jobs.runFailed", { reason: started.error })}
           </p>
         ) : (
-          find.data && (
+          started && (
             <p role="status" className="text-ink-3 m-0 text-sm">
-              {t("jobs.found", { count: find.data.reply.length })}
+              {t("jobs.found", { count: started.found })}
             </p>
           )
         )}

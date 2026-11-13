@@ -9,6 +9,7 @@ from src.agents.career_director.tools import (
     find_documents,
     find_jobs_tool,
     preview_profile_sync,
+    schedule_job_run,
     update_profile,
 )
 from src.app.a2a import Executable
@@ -48,8 +49,10 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
             providers.Callable(handoff_to_child_tool, ["productivity-assistant"]),
             find_documents,
             choose_document,
+            schedule_job_run,
+            read_profile_facts,
         ),
-        skill_tools=(read_profile_facts, preview_profile_sync, update_profile),
+        skill_tools=(preview_profile_sync, update_profile),
         state_schema=CareerDirectorState,
         interrupt_on={"update_profile": {"allowed_decisions": ["approve", "reject"]}},
     )
@@ -60,7 +63,7 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
         Executable,
         kind="agent",
         name="career-director",
-        description="Talk to career-director from any page; it runs the other agents and workflows, and hands email to productivity-assistant",
+        description="Talk to career-director from any page; it edits documents and analyses and finds jobs through workflows, queues background job runs, updates the profile once the user approves, and hands email to productivity-assistant",
         graph=providers.Singleton(
             build_graph,
             director=agent,

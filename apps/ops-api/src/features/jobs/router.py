@@ -2,38 +2,47 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.app.container import Container
 from src.clients.ezcareer import Completed, Failed
 from src.core.auth import CurrentUserDep
 from src.db.session import SessionDep
-from src.features.documents import DocumentServiceDep
+from src.features.documents import document_service
+from src.features.jobs.enums import RunTrigger
 from src.features.jobs.schemas import (
     FitAnalysis,
     JobCreate,
     JobList,
     JobRead,
+    JobRunCreate,
     JobRunRead,
     JobSearch,
     JobUpdate,
     TailorRead,
 )
 from src.features.jobs.service import JobService
-from src.features.profile import ProfileServiceDep
-from src.features.settings import SettingsServiceDep
+from src.features.profile import ProfileService
+from src.features.settings import settings_service
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
-def get_job_service(
-    session: SessionDep,
-    profile: ProfileServiceDep,
-    settings: SettingsServiceDep,
-    documents: DocumentServiceDep,
-    request: Request,
-) -> JobService:
-    """The job service on the request's database session, and the profile,
-    settings and documents services"""
-    return JobService(session, profile, settings, documents, request.app.state.ezcareer)
+def job_service(session: AsyncSession, container: Container) -> JobService:
+    """The job service on the session, its clients from the container"""
+    return JobService(
+        session,
+        container.session_factory(),
+        ProfileService(session),
+        settings_service(session, container),
+        document_service(session, container),
+        container.ezcareer(),
+    )
+
+
+def get_job_service(session: SessionDep, request: Request) -> JobService:
+    """The job service on the request's database session"""
+    return job_service(session, request.app.state.container)
 
 
 JobServiceDep = Annotated[JobService, Depends(get_job_service)]
@@ -58,19 +67,37 @@ async def add_job(
     return added
 
 
-@router.post("/find")
+@router.post("/find", status_code=status.HTTP_202_ACCEPTED)
 async def find_jobs(
     user: CurrentUserDep, service: JobServiceDep, search: JobSearch | None = None
-) -> Completed[list[JobRead]] | Failed:
-    """Run the job agent now, on the search when sent: it finds fresh jobs for the
-    profile and stores them as picks, or fails with its reason"""
+) -> JobRunRead:
+    """Queue a run of the job agent on the search when sent, which a worker runs to
+    store fresh jobs as picks; 409 while a run is running or a manual one is queued"""
     return await service.find(user.id, search)
+
+
+@router.post("/runs", status_code=status.HTTP_202_ACCEPTED)
+async def queue_run(
+    run: JobRunCreate, user: CurrentUserDep, service: JobServiceDep
+) -> JobRunRead:
+    """Queue a run of the job agent for the assistant, now or after run_after; 409
+    while an agent run is queued"""
+    return await service.queue_run(user.id, RunTrigger.AGENT, run)
 
 
 @router.get("/runs/latest")
 async def latest_run(user: CurrentUserDep, service: JobServiceDep) -> JobRunRead:
-    """What the job agent's most recent run found, or 404 before its first"""
+    """The job agent's most recent run with its status and what it found, or 404
+    before its first"""
     return await service.latest_run(user.id)
+
+
+@router.delete("/runs/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def cancel_run(
+    run_id: UUID, user: CurrentUserDep, service: JobServiceDep
+) -> None:
+    """Cancel a queued run; 409 once a worker has taken it or it ended"""
+    await service.cancel_run(user.id, run_id)
 
 
 @router.patch("/{job_id}")

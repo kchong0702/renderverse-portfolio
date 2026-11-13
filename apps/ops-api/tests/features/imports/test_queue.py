@@ -7,19 +7,19 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.core.auth.models import User
 from src.db.base import utcnow
-from src.features.imports.enums import ImportSource, ImportStatus
-from src.features.imports.models import File, Import
-from src.features.imports.processing import (
-    LAPSED,
+from src.db.queue import (
     MAX_ATTEMPTS,
     RETRY_SECONDS,
-    claim_import,
-    complete_import,
-    fail_import,
+    claim,
+    complete,
+    fail,
     fail_lapsed,
     heartbeat,
-    release_import,
+    release,
 )
+from src.features.imports.enums import ImportSource, ImportStatus
+from src.features.imports.models import File, Import
+from src.features.imports.processing import IMPORTS
 from src.features.profile.enums import EntryKind
 from src.features.profile.models import ProfileEntry, ProfileSkill
 from src.features.profile.schemas import ImportedEntry, ImportedProfile, ImportedSkill
@@ -65,7 +65,7 @@ async def _claim(
 ) -> Import | None:
     """Claim the next import due on a session of its own"""
     async with factory() as session, session.begin():
-        return await claim_import(session, lease)
+        return await claim(session, IMPORTS, lease)
 
 
 async def _row(factory: async_sessionmaker[AsyncSession], import_id: UUID) -> Import:
@@ -124,12 +124,12 @@ async def test_a_users_data_imports_run_oldest_first_one_at_a_time(postgres_app)
 
     assert (claimed.id, waiting) == (first, None)
     async with factory() as session, session.begin():
-        await complete_import(session, first, claimed.claim_token)
+        await complete(session, IMPORTS, first, claimed.claim_token)
     claimed = await _claim(factory)
     assert claimed.id == second
     async with factory() as session, session.begin():
-        await fail_import(
-            session, second, claimed.claim_token, "harness away", retry=True
+        await fail(
+            session, IMPORTS, second, claimed.claim_token, "harness away", retry=True
         )
     assert await _claim(factory) is None
     await _due(factory, second)
@@ -147,7 +147,7 @@ async def test_a_data_turn_lost_to_another_worker_claims_nothing(postgres_app):
     assert lapsed.id == first
 
     async with factory() as one, one.begin():
-        reclaimed = await claim_import(one, LEASE)
+        reclaimed = await claim(one, IMPORTS, LEASE)
         other = asyncio.create_task(_claim(factory))
         await asyncio.sleep(0.3)
         assert not other.done()
@@ -175,8 +175,12 @@ async def test_a_newer_documents_upload_abandons_and_fences_out_the_one_processi
             files={"file": ("two.pdf", PDF + b"2", "application/pdf")},
         )
         async with factory() as session, session.begin():
-            extended = await heartbeat(session, claimed.id, claimed.claim_token, LEASE)
-            completed = await complete_import(session, claimed.id, claimed.claim_token)
+            extended = await heartbeat(
+                session, IMPORTS, claimed.id, claimed.claim_token, LEASE
+            )
+            completed = await complete(
+                session, IMPORTS, claimed.id, claimed.claim_token
+            )
 
         assert (extended, completed) == (False, None)
         listed = {
@@ -202,10 +206,16 @@ async def test_a_lapsed_lease_lets_another_worker_reclaim_and_fences_the_first_o
     assert second.claim_token != first.claim_token
     assert second.attempts == 2
     async with factory() as session, session.begin():
-        assert await heartbeat(session, import_id, first.claim_token, LEASE) is False
-        assert await complete_import(session, import_id, first.claim_token) is None
-        assert await heartbeat(session, import_id, second.claim_token, LEASE) is True
-        done = await complete_import(session, import_id, second.claim_token)
+        assert (
+            await heartbeat(session, IMPORTS, import_id, first.claim_token, LEASE)
+            is False
+        )
+        assert await complete(session, IMPORTS, import_id, first.claim_token) is None
+        assert (
+            await heartbeat(session, IMPORTS, import_id, second.claim_token, LEASE)
+            is True
+        )
+        done = await complete(session, IMPORTS, import_id, second.claim_token)
         assert done.status is ImportStatus.DONE
     row = await _row(factory, import_id)
     assert row.status is ImportStatus.DONE
@@ -223,8 +233,9 @@ async def test_a_failed_attempt_waits_longer_each_time_until_the_last(postgres_a
         claimed = await _claim(factory)
         assert (claimed.id, claimed.attempts) == (import_id, attempt)
         async with factory() as session, session.begin():
-            failed = await fail_import(
+            failed = await fail(
                 session,
+                IMPORTS,
                 import_id,
                 claimed.claim_token,
                 f"attempt {attempt}",
@@ -262,12 +273,16 @@ async def test_a_worker_that_keeps_dying_fails_the_import_after_its_last_attempt
         claimed = await _claim(factory, timedelta(0))
         attempts.append(None if claimed is None else claimed.attempts)
     async with factory() as session, session.begin():
-        failed = await fail_lapsed(session)
+        failed = await fail_lapsed(session, IMPORTS)
 
     assert attempts == [1, 2, 3, None, None]
     assert failed == 1
     row = await _row(factory, import_id)
-    assert (row.status, row.attempts, row.error) == (ImportStatus.FAILED, 3, LAPSED)
+    assert (row.status, row.attempts, row.error) == (
+        ImportStatus.FAILED,
+        3,
+        IMPORTS.lapsed,
+    )
     assert (row.claim_token, row.lease_until) == (None, None)
     assert row.finished_at is not None
     assert await _claim(factory) is None
@@ -283,12 +298,15 @@ async def test_a_last_attempt_still_under_lease_is_left_to_its_worker(postgres_a
     last = await _claim(factory)
 
     async with factory() as session, session.begin():
-        failed = await fail_lapsed(session)
+        failed = await fail_lapsed(session, IMPORTS)
 
     assert (last.attempts, failed) == (MAX_ATTEMPTS, 0)
     assert (await _row(factory, import_id)).status is ImportStatus.PROCESSING
     async with factory() as session, session.begin():
-        assert await heartbeat(session, import_id, last.claim_token, LEASE) is True
+        assert (
+            await heartbeat(session, IMPORTS, import_id, last.claim_token, LEASE)
+            is True
+        )
 
 
 async def test_a_released_import_is_queued_again_with_its_attempt_uncounted(
@@ -301,15 +319,18 @@ async def test_a_released_import_is_queued_again_with_its_attempt_uncounted(
     claimed = await _claim(factory)
 
     async with factory() as session, session.begin():
-        released = await release_import(session, import_id, claimed.claim_token)
-        again = await release_import(session, import_id, claimed.claim_token)
+        released = await release(session, IMPORTS, import_id, claimed.claim_token)
+        again = await release(session, IMPORTS, import_id, claimed.claim_token)
 
     assert (released, again) == (True, False)
     row = await _row(factory, import_id)
     assert (row.status, row.attempts) == (ImportStatus.QUEUED, 0)
     assert (row.claim_token, row.lease_until) == (None, None)
     async with factory() as session, session.begin():
-        assert await heartbeat(session, import_id, claimed.claim_token, LEASE) is False
+        assert (
+            await heartbeat(session, IMPORTS, import_id, claimed.claim_token, LEASE)
+            is False
+        )
     assert (await _claim(factory)).attempts == 1
 
 
@@ -335,7 +356,7 @@ async def test_two_workers_syncing_one_users_profile_add_its_facts_once(postgres
 
     async def finish(claimed: Import) -> None:
         async with factory() as session, session.begin():
-            done = await complete_import(session, claimed.id, claimed.claim_token)
+            done = await complete(session, IMPORTS, claimed.id, claimed.claim_token)
             await ProfileService(session).sync(done, imported)
             await gate.wait()
 

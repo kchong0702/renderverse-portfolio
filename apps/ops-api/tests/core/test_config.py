@@ -1,7 +1,16 @@
+import tomllib
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
 from src.core.config import AuthSettings, JSearchSettings, Settings
+
+
+def test_config_toml_has_only_tables_settings_read():
+    toml = Path(str(Settings.model_config["toml_file"])).read_text()
+
+    assert set(tomllib.loads(toml)) <= set(Settings.model_fields)
 
 
 def test_list_settings_take_comma_separated_env_vars(monkeypatch):

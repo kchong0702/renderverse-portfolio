@@ -407,15 +407,17 @@ class FakeGoogle:
 
 
 async def work(app: FastAPI) -> None:
-    """Claim and process imports until none is due"""
-    from src.features.imports.processing import claim_import, process_import
+    """Claim and process imports and job runs until none is due"""
+    from src.db.queue import claim
+    from src.worker import QUEUES
 
-    while True:
-        async with app.state.session_factory() as session, session.begin():
-            claimed = await claim_import(session, timedelta(seconds=60))
-        if claimed is None:
-            return
-        await process_import(claimed.id, claimed.claim_token, app.state.container)
+    for queue, process in QUEUES:
+        while True:
+            async with app.state.session_factory() as session, session.begin():
+                claimed = await claim(session, queue, timedelta(seconds=60))
+            if claimed is None:
+                break
+            await process(claimed.id, claimed.claim_token, app.state.container)
 
 
 async def connect_google(client: httpx2.AsyncClient, next_path: str = "/settings"):

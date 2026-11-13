@@ -2,7 +2,7 @@
 name: update-profile
 description: Change the user's Data, their profile's about fields, links, roles, education, projects and skills, from one of their documents or from what they ask, saved only once they approve.
 metadata:
-  include_tools: read_profile_facts preview_profile_sync update_profile
+  include_tools: preview_profile_sync update_profile
 ---
 
 # Update the profile

@@ -1,5 +1,15 @@
 from functools import partial, update_wrapper
 
+from document_schema import (
+    AnyEdit,
+    Delete,
+    InsertBlock,
+    InsertItem,
+    Move,
+    UpdateDesign,
+    UpdateField,
+    UpdateVisibility,
+)
 from langchain.tools import ToolRuntime
 from langchain_core.messages import AnyMessage, HumanMessage, ToolMessage
 from langchain_core.tools import BaseTool, StructuredTool, ToolException
@@ -23,6 +33,21 @@ def _title(messages: list[AnyMessage], document_id: str) -> StepDetail:
         for document in TypeAdapter(list[DocumentSummary]).validate_json(message.text)
     }
     return {"step_detail": titles[document_id]} if document_id in titles else {}
+
+
+def _part(edit: AnyEdit) -> str:
+    """The document path edit changes"""
+    match edit:
+        case UpdateField() | Move() | Delete():
+            return edit.path
+        case InsertItem():
+            return edit.parent
+        case InsertBlock():
+            return f"blocks/{edit.block.id}"
+        case UpdateVisibility():
+            return f"blocks/{edit.block}"
+        case UpdateDesign():
+            return "design"
 
 
 async def _edit_document(
@@ -50,8 +75,11 @@ async def _edit_document(
         return output["reply"], detail
     return (
         (
-            f"{output['reply']}\n\nEdits proposed: {len(output['changeset'].edits)}."
-            " The user accepts or rejects each in the document."
+            f"{output['reply']}\n\nEdits proposed: {len(output['changeset'].edits)}.\n"
+            + "".join(
+                f"- {edit.kind} {_part(edit)}\n" for edit in output["changeset"].edits
+            )
+            + "The user accepts or rejects each in the document."
         ),
         {
             "name": "changeset",
