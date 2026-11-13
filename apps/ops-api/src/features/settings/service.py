@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from uuid import UUID
 
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.ezcareer import (
-    EzcareerClient,
     JSearchMetadata,
     ModelCatalog,
     ModelChoice,
@@ -54,15 +54,13 @@ class SettingsService:
     def __init__(
         self,
         session: AsyncSession,
-        ezcareer: EzcareerClient,
         google: GoogleService,
         jsearch: JSearchSettings,
     ):
-        """Read and write the settings through a repository on the session, list the
-        models ezcareer-harness serves, read the user's Google connection, and keep
-        the user's JSearch key through the connection service"""
+        """Read and write the settings through a repository on the session, read the
+        user's Google connection, and keep the user's JSearch key through the
+        connection service"""
         self._repository = SettingsRepository(session)
-        self._ezcareer = ezcareer
         self._google = google
         self._jsearch = ConnectionService(
             session,
@@ -119,8 +117,13 @@ class SettingsService:
         settings = await self._load(user_id)
         return _to_read(settings, await self._connections(settings))
 
-    async def update(self, user_id: UUID, patch: SettingsUpdate) -> SettingsRead:
-        """Apply the fields sent; a new model must be one ezcareer-harness offers"""
+    async def update(
+        self,
+        user_id: UUID,
+        patch: SettingsUpdate,
+        models: Callable[[], Awaitable[ModelCatalog]],
+    ) -> SettingsRead:
+        """Apply the fields sent; a new model must be one models lists"""
         settings = await self._load(user_id)
 
         for section in (patch.automation, patch.scheduling):
@@ -130,7 +133,7 @@ class SettingsService:
         if "ai_model" in patch.model_fields_set:
             choice = patch.ai_model
             if choice is not None:
-                catalog = await self._ezcareer.models()
+                catalog = await models()
                 if not any(
                     entry.family == choice.family and choice.model in entry.models
                     for entry in catalog.families
@@ -144,10 +147,6 @@ class SettingsService:
         if settings.work_day_start >= settings.work_day_end:
             raise InvalidInput("The work day must end after it starts")
         return _to_read(settings, await self._connections(settings))
-
-    async def models(self) -> ModelCatalog:
-        """The models a user can pick from, as ezcareer-harness lists them"""
-        return await self._ezcareer.models()
 
     async def connect_jsearch(self, user_id: UUID, api_key: SecretStr) -> SettingsRead:
         """Store the user's JSearch key, encrypted, in place of any earlier one, whose

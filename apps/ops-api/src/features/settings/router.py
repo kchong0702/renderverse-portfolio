@@ -23,7 +23,6 @@ def settings_service(session: AsyncSession, container: "Container") -> SettingsS
     settings = get_settings()
     return SettingsService(
         session,
-        container.ezcareer(),
         GoogleService(session, container.google(), settings.google),
         settings.jsearch,
     )
@@ -51,18 +50,16 @@ async def update_settings(
     patch: SettingsUpdate,
     user: CurrentUserDep,
     service: SettingsServiceDep,
+    request: Request,
 ) -> SettingsRead:
     """Change some of the signed-in user's settings"""
-    return await service.update(user.id, patch)
+    return await service.update(user.id, patch, request.app.state.runner.models)
 
 
 @router.get("/models")
-async def read_models(
-    _: CurrentUserDep,
-    service: SettingsServiceDep,
-) -> ModelCatalog:
+async def read_models(_: CurrentUserDep, request: Request) -> ModelCatalog:
     """The models the user can pick, from ezcareer-harness"""
-    return await service.models()
+    return await request.app.state.runner.models()
 
 
 @router.put("/connections/jsearch")

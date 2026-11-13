@@ -46,8 +46,9 @@ def get_profile_run_service(
     settings: SettingsServiceDep,
     request: Request,
 ) -> ProfileRunService:
-    """The service that runs the harness on the profile, on the request's session"""
-    return ProfileRunService(session, profile, settings, request.app.state.ezcareer)
+    """The service that runs agents on the profile through the agent runner, on the
+    request's session"""
+    return ProfileRunService(session, profile, settings, request.app.state.runner)
 
 
 ProfileRunServiceDep = Annotated[ProfileRunService, Depends(get_profile_run_service)]

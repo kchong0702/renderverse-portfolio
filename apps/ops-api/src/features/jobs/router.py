@@ -8,7 +8,7 @@ from src.clients.ezcareer import Completed, Failed
 from src.core.auth import CurrentUserDep
 from src.core.exceptions import InvalidInput
 from src.db.session import SessionDep
-from src.features.documents import document_service
+from src.features.documents import document_chat, document_service
 from src.features.jobs.enums import RunTrigger
 from src.features.jobs.schemas import (
     FitAnalysis,
@@ -39,7 +39,8 @@ def job_service(session: AsyncSession, container: "Container") -> JobService:
         ProfileService(session),
         settings_service(session, container),
         document_service(session, container),
-        container.ezcareer(),
+        document_chat(session, container),
+        container.runner(),
     )
 
 

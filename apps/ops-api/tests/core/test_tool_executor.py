@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from structlog.testing import capture_logs
 
 from src.clients.ezcareer import ToolRequest
-from src.core.runner import Tool, ToolError, ToolExecutor
+from src.core.agent_runner import Tool, ToolError, ToolExecutor
 
 
 class _ShelfRequest(BaseModel):
@@ -53,10 +53,12 @@ def _executor(library: _Library) -> ToolExecutor:
 async def test_each_tool_is_executed_by_its_feature_for_the_user():
     library = _Library()
     user_id = uuid4()
-    execute = _executor(library).for_user(user_id)
+    executor = _executor(library)
 
-    shelf = await execute(ToolRequest(execute_tool="shelf", size=1))
-    book = await execute(ToolRequest(execute_tool="book", title="Emma"))
+    shelf = await executor.execute(user_id, ToolRequest(execute_tool="shelf", size=1))
+    book = await executor.execute(
+        user_id, ToolRequest(execute_tool="book", title="Emma")
+    )
 
     assert (shelf, book) == (_Shelf(books=["Dune"]), _Book(title="Emma"))
     assert library.asked == [
@@ -79,8 +81,8 @@ def test_two_features_with_the_same_tool_are_refused():
 async def test_a_tool_no_feature_has_is_refused_with_why():
     library = _Library()
 
-    result = await _executor(library).for_user(uuid4())(
-        ToolRequest(execute_tool="weather")
+    result = await _executor(library).execute(
+        uuid4(), ToolRequest(execute_tool="weather")
     )
 
     assert result == ToolError(error="Ops has no weather tool")
@@ -90,8 +92,8 @@ async def test_a_tool_no_feature_has_is_refused_with_why():
 async def test_a_malformed_request_is_refused_with_why_without_running_its_feature():
     library = _Library()
 
-    result = await _executor(library).for_user(uuid4())(
-        ToolRequest(execute_tool="shelf", size=0)
+    result = await _executor(library).execute(
+        uuid4(), ToolRequest(execute_tool="shelf", size=0)
     )
 
     assert isinstance(result, ToolError)
@@ -102,12 +104,16 @@ async def test_a_malformed_request_is_refused_with_why_without_running_its_featu
 
 async def test_each_execution_logs_its_tool_user_and_outcome_but_no_arguments():
     user_id = uuid4()
-    execute = _executor(_Library()).for_user(user_id)
+    executor = _executor(_Library())
 
     with capture_logs() as logs:
-        await execute(ToolRequest(execute_tool="book", title="Secret diary"))
-        await execute(ToolRequest(execute_tool="shelf", size=0))
-        await execute(ToolRequest(execute_tool="weather", city="Ipoh"))
+        await executor.execute(
+            user_id, ToolRequest(execute_tool="book", title="Secret diary")
+        )
+        await executor.execute(user_id, ToolRequest(execute_tool="shelf", size=0))
+        await executor.execute(
+            user_id, ToolRequest(execute_tool="weather", city="Ipoh")
+        )
 
     assert [
         (log["event"], log["tool"], log["user_id"], log["outcome"]) for log in logs

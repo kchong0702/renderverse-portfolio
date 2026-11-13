@@ -78,10 +78,10 @@ async def _read(
     """What the harness reads from the file: a résumé's draft, lines and look, or a
     profile export's profile"""
     settings = container.settings()
-    ezcareer = container.ezcareer()
+    runner = container.runner()
     if file.media_type not in settings.profile.export_types:
         return await run_workflow(
-            ezcareer,
+            runner,
             "import-resume",
             ImportResumeOutput,
             user_id,
@@ -90,7 +90,7 @@ async def _read(
         )
     read = read_export(content, settings.profile.max_unzipped_bytes)
     reply = await run_workflow(
-        ezcareer,
+        runner,
         "import-profile",
         dict,
         user_id,

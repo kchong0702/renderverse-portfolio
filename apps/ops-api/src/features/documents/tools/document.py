@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.core.runner import ToolError
+from src.core.agent_runner import ToolError
 from src.db.session import session_scope
 from src.features.documents.models import Document
 from src.features.documents.repository import DocumentRepository

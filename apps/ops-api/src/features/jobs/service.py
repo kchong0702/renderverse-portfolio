@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from document_schema import DocumentKind
 from sqlalchemy.exc import IntegrityError
@@ -8,14 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.ezcareer import (
     Completed,
-    EzcareerClient,
     Failed,
     InputRequired,
 )
+from src.core.agent_runner import AgentRunner
 from src.core.exceptions import Conflict, InvalidInput, NotFound, ServiceUnavailable
 from src.core.logging import get_logger
 from src.db.base import utcnow
-from src.features.documents import DocumentService
+from src.features.documents import DocumentChat, DocumentService
 from src.features.jobs.enums import JobStatus, Match, RunStatus, RunTrigger
 from src.features.jobs.models import Job, JobRun
 from src.features.jobs.repository import JobRepository
@@ -70,17 +70,19 @@ class JobService:
         profile: ProfileService,
         settings: SettingsService,
         documents: DocumentService,
-        ezcareer: EzcareerClient,
+        chat: DocumentChat,
+        runner: AgentRunner,
     ):
         """Hold the session, a repository and the preferences on it, the profile,
-        settings and documents services, and the harness"""
+        settings and documents services, the document chat and the runner"""
         self._session = session
         self._repository = JobRepository(session)
         self._preferences = PreferencesService(session)
         self._profile = profile
         self._settings = settings
         self._documents = documents
-        self._ezcareer = ezcareer
+        self._chat = chat
+        self._runner = runner
 
     async def jobs(self, user_id: UUID) -> JobList:
         """Every job, best fit first, unanalysed ones last and newest first, with how
@@ -243,11 +245,10 @@ class JobService:
         profile = await self._profile.agent_profile(user_id)
         metadata = await self._settings.run_metadata(user_id)
         await self._session.commit()
-        run = await self._ezcareer.send(
+        run = await self._runner.run(
+            user_id,
             "analyse-job",
             AnalyseJobOutput,
-            user_id=user_id,
-            context_id=f"{user_id}:{uuid4()}",
             data=AnalyseJobInput(
                 url=job.url, facts=profile.facts, preferences=profile.preferences
             ),
@@ -279,10 +280,10 @@ class JobService:
             user_id, job_id, DocumentKind.COVER_LETTER, f"Cover letter for {name}"[:200]
         )
         return TailorRead(
-            resume=await self._documents.tailor(
+            resume=await self._chat.tailor(
                 user_id, resume, _tailor_request(job, "résumé")
             ),
-            cover_letter=await self._documents.tailor(
+            cover_letter=await self._chat.tailor(
                 user_id, letter, _tailor_request(job, "cover letter")
             )
             if letter

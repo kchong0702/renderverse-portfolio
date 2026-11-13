@@ -5,8 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ValidationError
 
+from src.core.agent_runner import ToolError
 from src.core.exceptions import InvalidInput, NotFound
-from src.core.runner import ToolError
 from src.features.assistant.profile_edits import ProfileEdits
 from src.features.assistant.schemas import ProfileEdit, ProfileUpdated
 

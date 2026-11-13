@@ -102,7 +102,7 @@ async def process_job_run(
                 row.user_id
             )
         reply = await run_workflow(
-            container.ezcareer(),
+            container.runner(),
             "find-jobs",
             FindJobsOutput,
             row.user_id,

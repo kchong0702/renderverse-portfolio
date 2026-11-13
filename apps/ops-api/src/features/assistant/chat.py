@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from functools import partial
 from uuid import UUID
 
 from pydantic import BaseModel, ValidationError
@@ -9,15 +10,14 @@ from src.clients.ezcareer import (
     Answer,
     Decision,
     Decisions,
-    EzcareerClient,
     Published,
     ReviewRequired,
     RunEvent,
     RunMetadata,
 )
+from src.core.agent_runner import AgentRunner
 from src.core.exceptions import InvalidInput, NotFound
 from src.core.logging import get_logger
-from src.core.runner import Runner, ToolExecutor
 from src.features.assistant.profile_edits import ProfileEdits
 from src.features.assistant.schemas import (
     ChatMessage,
@@ -35,26 +35,36 @@ _AGENT = "career-director"
 logger = get_logger(__name__)
 
 
-class AssistantService:
+def _thread(user_id: UUID, chat_id: UUID) -> str:
+    """The thread the chat runs on"""
+    return f"{user_id}:{chat_id}"
+
+
+class AssistantChat:
     def __init__(
         self,
         profile: ProfileService,
         settings: SettingsService,
         documents: DocumentService,
         edits: ProfileEdits,
-        ezcareer: EzcareerClient,
-        runner: Runner,
-        tools: ToolExecutor,
+        runner: AgentRunner,
     ):
-        """Hold the profile, settings, documents, profile edits and harness a turn
-        uses, the runner it runs on and what executes its tools"""
+        """Run career-director's turns through the runner, with the profile,
+        settings, documents and profile edits a turn's events need"""
         self._profile = profile
+        """The facts a turn starts with"""
+
         self._settings = settings
+        """The run metadata each turn carries"""
+
         self._documents = documents
+        """Where the changesets a turn proposes are stored"""
+
         self._edits = edits
-        self._ezcareer = ezcareer
+        """The approval card for the profile changes a turn proposes"""
+
         self._runner = runner
-        self._tools = tools
+        """What runs and streams each turn"""
 
     async def _review(
         self, user_id: UUID, review: ReviewRequired
@@ -93,18 +103,17 @@ class AssistantService:
                     user_id,
                     thread_id,
                     metadata,
-                    self._ezcareer.stream_resume(
+                    self._runner.answered(
+                        user_id,
+                        thread_id,
                         _AGENT,
                         str,
-                        user_id=user_id,
-                        context_id=thread_id,
                         task_id=event.task_id,
                         answer=Decisions(
                             decisions=[Decision(type="reject", message=review)]
                             * len(event.actions)
                         ),
                         metadata=metadata,
-                        execute_tool=self._tools.for_user(user_id),
                     ),
                 ):
                     yield resumed
@@ -128,28 +137,18 @@ class AssistantService:
     ) -> AsyncIterator[str]:
         """Start a turn of the user's chat and return its events as they come; Conflict
         while a turn runs"""
-        thread_id = f"{user_id}:{chat_id}"
+        thread_id = _thread(user_id, chat_id)
         data = await self._profile.agent_profile(user_id)
         metadata = await self._settings.run_metadata(user_id)
-        return await self._runner.start_task(
+        return await self._runner.start(
             user_id,
             thread_id,
             _AGENT,
-            self._turn(
-                user_id,
-                thread_id,
-                metadata,
-                self._ezcareer.stream(
-                    _AGENT,
-                    str,
-                    user_id=user_id,
-                    context_id=thread_id,
-                    text=message.text,
-                    data=data,
-                    metadata=metadata,
-                    execute_tool=self._tools.for_user(user_id),
-                ),
-            ),
+            str,
+            text=message.text,
+            data=data,
+            metadata=metadata,
+            handle=partial(self._turn, user_id, thread_id, metadata),
         )
 
     async def answer(
@@ -157,27 +156,17 @@ class AssistantService:
     ) -> AsyncIterator[str]:
         """Answer the widget or tool call review a paused turn of the chat asked and
         return the rest of the turn's events as they come; Conflict while a turn runs"""
-        thread_id = f"{user_id}:{chat_id}"
+        thread_id = _thread(user_id, chat_id)
         metadata = await self._settings.run_metadata(user_id)
-        return await self._runner.start_task(
+        return await self._runner.answer(
             user_id,
             thread_id,
             _AGENT,
-            self._turn(
-                user_id,
-                thread_id,
-                metadata,
-                self._ezcareer.stream_resume(
-                    _AGENT,
-                    str,
-                    user_id=user_id,
-                    context_id=thread_id,
-                    task_id=task_id,
-                    answer=answer,
-                    metadata=metadata,
-                    execute_tool=self._tools.for_user(user_id),
-                ),
-            ),
+            str,
+            task_id=task_id,
+            answer=answer,
+            metadata=metadata,
+            handle=partial(self._turn, user_id, thread_id, metadata),
         )
 
     async def decide(
@@ -203,11 +192,11 @@ class AssistantService:
     ) -> AsyncIterator[str]:
         """The chat's current turn after the Last-Event-ID the client last saw;
         NotFound when there is none to resume"""
-        return await self._runner.resume(f"{user_id}:{chat_id}", last_event_id)
+        return await self._runner.resume(_thread(user_id, chat_id), last_event_id)
 
     async def cancel(self, user_id: UUID, chat_id: UUID, task_id: str) -> None:
         """Stop a running turn of one of the user's chats"""
-        await self._ezcareer.cancel(_AGENT, task_id, f"{user_id}:{chat_id}")
+        await self._runner.cancel(_AGENT, task_id, _thread(user_id, chat_id))
 
 
-__all__ = ["AssistantService"]
+__all__ = ["AssistantChat"]

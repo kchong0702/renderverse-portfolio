@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.clients.google import GoogleClient
+from src.core.agent_runner import ToolError
 from src.core.config import GoogleSettings
 from src.core.exceptions import ServiceException
-from src.core.runner import ToolError
 from src.db.session import session_scope
 from src.features.google import GoogleService
 from src.features.inbox.content import thread_content

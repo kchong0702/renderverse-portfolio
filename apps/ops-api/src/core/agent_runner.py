@@ -4,19 +4,24 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from functools import partial
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi.sse import format_sse_event
 from pydantic import BaseModel, ValidationError
 from pydantic_core import to_json
 
 from src.clients.ezcareer import (
+    Answer,
     Cancelled,
     Completed,
-    ExecuteTool,
+    Decisions,
+    EzcareerClient,
     Failed,
     InputRequired,
+    ModelCatalog,
+    Run,
     RunEvent,
+    RunMetadata,
     Started,
     ToolRequest,
 )
@@ -45,6 +50,10 @@ type Tools = Mapping[str, Tool[Any]]
 """A feature's tools, by the name a run asks for"""
 
 
+type Handle[R] = Callable[[AsyncIterator[RunEvent[R]]], AsyncIterator[BaseModel]]
+"""Rewrites a run's events into what the browser gets"""
+
+
 class ToolExecutor:
     def __init__(self, *features: Tools):
         """Execute every feature's tools; ValueError when two features register the
@@ -55,7 +64,7 @@ class ToolExecutor:
         self._tools = {name: tool for tools in features for name, tool in tools.items()}
         """Each tool by the name a paused run asks for it by"""
 
-    async def _execute(self, user_id: UUID, request: ToolRequest) -> BaseModel:
+    async def execute(self, user_id: UUID, request: ToolRequest) -> BaseModel:
         """The tool result a paused run resumes with, for the user; ToolError for a
         tool ops-api lacks or a malformed request"""
         match self._tools.get(request.execute_tool):
@@ -79,17 +88,26 @@ class ToolExecutor:
         )
         return result
 
-    def for_user(self, user_id: UUID) -> ExecuteTool:
-        """Executes the tools a run of this user pauses on"""
-        return partial(self._execute, user_id)
 
+class AgentRunner:
+    def __init__(
+        self,
+        ezcareer: EzcareerClient,
+        tools: ToolExecutor,
+        store: RunStore,
+        retry_ms: int,
+    ):
+        """Run the harness's agents and workflows for a user, executing the tools a
+        run pauses on, and keep each streamed run's events so any process can
+        stream them"""
+        self._ezcareer = ezcareer
+        """The harness"""
 
-class Runner:
-    def __init__(self, store: RunStore, retry_ms: int):
-        """Run agent turns in the background, writing their events to store, so any
-        ops-api process can stream them"""
+        self._tools = tools
+        """What executes the tools a run pauses on"""
+
         self._store = store
-        """Where each run's events are kept"""
+        """Where each streamed run's events are kept"""
 
         self._retry_ms = retry_ms
         """The retry hint each stream starts with"""
@@ -97,7 +115,32 @@ class Runner:
         self._tasks: set[asyncio.Task[None]] = set()
         """Every run still writing, kept so none is garbage collected mid-run"""
 
-    async def _write(self, run_id: str, events: AsyncIterator[RunEvent[Any]]) -> None:
+    async def models(self) -> ModelCatalog:
+        """The models the harness offers, by provider"""
+        return await self._ezcareer.models()
+
+    async def run[R](
+        self,
+        user_id: UUID,
+        executable: str,
+        reply: type[R],
+        *,
+        data: BaseModel,
+        metadata: RunMetadata | None,
+    ) -> Run[R]:
+        """Run an agent or workflow on the data to its end on a thread of its own,
+        executing the tools it pauses on; how it ended"""
+        return await self._ezcareer.send(
+            executable,
+            reply,
+            user_id=user_id,
+            context_id=f"{user_id}:{uuid4()}",
+            data=data,
+            metadata=metadata,
+            execute_tool=partial(self._tools.execute, user_id),
+        )
+
+    async def _write(self, run_id: str, events: AsyncIterator[BaseModel]) -> None:
         """Write each of the run's events to the store, then mark it finished with how
         its last event ended it, failed without one, or cancelled when stopped"""
         seq = 0
@@ -130,21 +173,100 @@ class Runner:
                 retry=self._retry_ms if seq == 1 else None,
             ).decode()
 
-    async def start_task(
+    async def _start(
         self,
         user_id: UUID,
         thread_id: str,
-        agent: str,
-        events: AsyncIterator[RunEvent[Any]],
+        executable: str,
+        events: AsyncIterator[BaseModel],
     ) -> AsyncIterator[str]:
-        """Run the agent's events in the background as a new run on thread_id, the A2A
+        """Write the events in the background as a new run on thread_id, the A2A
         context_id, and stream it from the start; Conflict while thread_id's last run
         is still going"""
-        run_id = await self._store.create(user_id, thread_id, agent)
+        run_id = await self._store.create(user_id, thread_id, executable)
         task = asyncio.create_task(self._write(run_id, events))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
         return self._read(run_id, 0)
+
+    async def start[R](
+        self,
+        user_id: UUID,
+        thread_id: str,
+        executable: str,
+        reply: type[R],
+        *,
+        data: BaseModel,
+        metadata: RunMetadata | None,
+        text: str = "",
+        handle: Handle[R] | None = None,
+    ) -> AsyncIterator[str]:
+        """Start a run of the agent or workflow on the thread, executing the tools
+        it pauses on, and stream its events, rewritten by handle when given"""
+        events = self._ezcareer.stream(
+            executable,
+            reply,
+            user_id=user_id,
+            context_id=thread_id,
+            text=text,
+            data=data,
+            metadata=metadata,
+            execute_tool=partial(self._tools.execute, user_id),
+        )
+        return await self._start(
+            user_id, thread_id, executable, handle(events) if handle else events
+        )
+
+    def answered[R](
+        self,
+        user_id: UUID,
+        thread_id: str,
+        executable: str,
+        reply: type[R],
+        *,
+        task_id: str,
+        answer: Answer | Decisions,
+        metadata: RunMetadata | None,
+    ) -> AsyncIterator[RunEvent[R]]:
+        """The rest of a paused task's events once it has the user's answer or
+        decisions, its tools executed, without keeping them"""
+        return self._ezcareer.stream_resume(
+            executable,
+            reply,
+            user_id=user_id,
+            context_id=thread_id,
+            task_id=task_id,
+            answer=answer,
+            metadata=metadata,
+            execute_tool=partial(self._tools.execute, user_id),
+        )
+
+    async def answer[R](
+        self,
+        user_id: UUID,
+        thread_id: str,
+        executable: str,
+        reply: type[R],
+        *,
+        task_id: str,
+        answer: Answer | Decisions,
+        metadata: RunMetadata | None,
+        handle: Handle[R] | None = None,
+    ) -> AsyncIterator[str]:
+        """Answer the widget or review a paused task of the thread asked and stream
+        the rest of its run as start does"""
+        events = self.answered(
+            user_id,
+            thread_id,
+            executable,
+            reply,
+            task_id=task_id,
+            answer=answer,
+            metadata=metadata,
+        )
+        return await self._start(
+            user_id, thread_id, executable, handle(events) if handle else events
+        )
 
     async def resume(
         self, thread_id: str, last_event_id: str | None
@@ -159,6 +281,10 @@ class Runner:
             raise NotFound("There is no reply to resume")
         return self._read(run_id, min(int(seq), count))
 
+    async def cancel(self, executable: str, task_id: str, thread_id: str) -> None:
+        """Stop the thread's running task"""
+        await self._ezcareer.cancel(executable, task_id, thread_id)
+
     async def aclose(self) -> None:
         """Cancel every run still writing and wait until each is marked finished"""
         for task in self._tasks:
@@ -166,4 +292,4 @@ class Runner:
         await asyncio.gather(*self._tasks, return_exceptions=True)
 
 
-__all__ = ["Runner", "Tool", "ToolError", "ToolExecutor", "Tools"]
+__all__ = ["AgentRunner", "Handle", "Tool", "ToolError", "ToolExecutor", "Tools"]

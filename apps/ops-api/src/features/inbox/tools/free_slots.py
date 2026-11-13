@@ -6,11 +6,10 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.clients.ezcareer import EzcareerClient
 from src.clients.google import GoogleClient
+from src.core.agent_runner import ToolError
 from src.core.config import GoogleSettings, get_settings
 from src.core.exceptions import ServiceException
-from src.core.runner import ToolError
 from src.db.session import session_scope
 from src.features.calendar import CalendarService
 from src.features.calendar.schemas import FreeSlots
@@ -30,7 +29,6 @@ async def free_slots(
     factory: async_sessionmaker[AsyncSession],
     client: GoogleClient,
     config: GoogleSettings,
-    ezcareer: EzcareerClient,
     user_id: UUID,
     request: FreeSlotsRequest,
 ) -> FreeSlots | ToolError:
@@ -40,7 +38,7 @@ async def free_slots(
         google = GoogleService(session, client, config)
         try:
             settings = await SettingsService(
-                session, ezcareer, google, get_settings().jsearch
+                session, google, get_settings().jsearch
             ).get(user_id)
             free = await CalendarService(google, client, config).free_slots(
                 user_id, settings.scheduling, request.days

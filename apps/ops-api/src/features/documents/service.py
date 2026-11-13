@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Sequence
-from contextlib import suppress
+from collections.abc import Sequence
 from uuid import UUID
 
 from document_schema import (
@@ -13,22 +12,13 @@ from document_schema import (
     TemplateSpec,
     apply_edits,
 )
-from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.clients.artifact import ArtifactClient, Render
-from src.clients.ezcareer import (
-    Answer,
-    Completed,
-    EzcareerClient,
-    Published,
-    RunEvent,
-)
 from src.core.config import DocumentsSettings
 from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.core.logging import get_logger
-from src.core.runner import Runner, ToolExecutor
 from src.db.base import utcnow
 from src.db.session import session_scope
 from src.features.documents.models import (
@@ -46,15 +36,10 @@ from src.features.documents.schemas import (
     DocumentRead,
     DocumentSummary,
     DocumentUpdate,
-    EditDocumentInput,
-    EditDocumentOutput,
     LineRead,
-    TailoredDocument,
     VersionCreate,
     VersionRead,
 )
-from src.features.profile import ProfileService
-from src.features.settings import SettingsService
 
 logger = get_logger(__name__)
 
@@ -139,24 +124,14 @@ class DocumentService:
         factory: async_sessionmaker[AsyncSession],
         artifact: ArtifactClient,
         limits: DocumentsSettings,
-        profile: ProfileService,
-        settings: SettingsService,
-        ezcareer: EzcareerClient,
-        runner: Runner,
-        tools: ToolExecutor,
     ):
         """Hold the session, its repository and a factory for sessions runs outlive,
-        artifact-service, the documents limit, and what the agents use and run on"""
+        artifact-service and the documents limit"""
         self._session = session
         self._repository = DocumentRepository(session)
         self._factory = factory
         self._artifact = artifact
         self._limits = limits
-        self._profile = profile
-        self._settings = settings
-        self._ezcareer = ezcareer
-        self._runner = runner
-        self._tools = tools
 
     async def _make_room(self, user_id: UUID, kind: DocumentKind) -> None:
         """Conflict when the user already keeps the most documents of this kind"""
@@ -179,6 +154,10 @@ class DocumentService:
     async def get(self, user_id: UUID, document_id: UUID) -> DocumentRead:
         """One document with its current draft"""
         return await self._read(await _load(self._repository, user_id, document_id))
+
+    async def require(self, user_id: UUID, document_id: UUID) -> None:
+        """NotFound unless the user has the document"""
+        await _load(self._repository, user_id, document_id)
 
     async def create(self, user_id: UUID, create: DocumentCreate) -> DocumentRead:
         """Store a new document and keep its first draft as version 1; Conflict when
@@ -408,117 +387,6 @@ class DocumentService:
             raise Conflict("This job's documents are already being tailored") from error
         await self._keep(document, f"Copied from {master.title}")
         return document
-
-    async def tailor(
-        self, user_id: UUID, document: Document, text: str
-    ) -> TailoredDocument:
-        """Start the copy's chat turn on text unless a changeset still waits for the
-        user; a turn already running carries on"""
-        waiting = any(
-            row.status is ChangesetStatus.PENDING
-            for row in await self._repository.changesets([document.id])
-        )
-        if not waiting:
-            with suppress(Conflict):
-                await self.chat(user_id, document.id, text)
-        return TailoredDocument(document_id=document.id, tailoring=not waiting)
-
-    async def _chat_events(
-        self,
-        user_id: UUID,
-        document_id: UUID,
-        events: AsyncIterator[RunEvent[EditDocumentOutput]],
-    ) -> AsyncIterator[BaseModel]:
-        """A chat turn's events as the browser gets them: a changeset the run
-        proposes is stored and announced before its reply, which ends the turn"""
-        async for event in events:
-            if isinstance(event, Completed):
-                if event.reply.changeset and (
-                    proposed := await self.propose_from_run(
-                        user_id, document_id, event.reply.changeset
-                    )
-                ):
-                    yield proposed
-                yield Completed(reply=event.reply.reply)
-            elif not isinstance(event, Published):
-                yield event
-
-    async def chat(
-        self, user_id: UUID, document_id: UUID, text: str
-    ) -> AsyncIterator[str]:
-        """Start a turn of the document's chat and return its events as they come;
-        Conflict while a turn runs"""
-        context_id = f"{user_id}:document:{document_id}"
-        await _load(self._repository, user_id, document_id)
-        data = EditDocumentInput(
-            document_id=document_id,
-            facts=(await self._profile.agent_profile(user_id)).facts,
-        )
-        metadata = await self._settings.run_metadata(user_id)
-        await self._session.commit()
-        return await self._runner.start_task(
-            user_id,
-            context_id,
-            "edit-document",
-            self._chat_events(
-                user_id,
-                document_id,
-                self._ezcareer.stream(
-                    "edit-document",
-                    EditDocumentOutput,
-                    user_id=user_id,
-                    context_id=context_id,
-                    text=text,
-                    data=data,
-                    metadata=metadata,
-                    execute_tool=self._tools.for_user(user_id),
-                ),
-            ),
-        )
-
-    async def answer_chat(
-        self, user_id: UUID, document_id: UUID, task_id: str, answer: Answer
-    ) -> AsyncIterator[str]:
-        """Answer the widget a paused turn of the document's chat asked and return the
-        rest of the turn's events as they come; Conflict while a turn runs"""
-        context_id = f"{user_id}:document:{document_id}"
-        await _load(self._repository, user_id, document_id)
-        metadata = await self._settings.run_metadata(user_id)
-        await self._session.commit()
-        return await self._runner.start_task(
-            user_id,
-            context_id,
-            "edit-document",
-            self._chat_events(
-                user_id,
-                document_id,
-                self._ezcareer.stream_resume(
-                    "edit-document",
-                    EditDocumentOutput,
-                    user_id=user_id,
-                    context_id=context_id,
-                    task_id=task_id,
-                    answer=answer,
-                    metadata=metadata,
-                    execute_tool=self._tools.for_user(user_id),
-                ),
-            ),
-        )
-
-    async def resume_chat(
-        self, user_id: UUID, document_id: UUID, last_event_id: str | None
-    ) -> AsyncIterator[str]:
-        """The document chat's current turn after the Last-Event-ID the client last
-        saw; NotFound when there is none to resume"""
-        return await self._runner.resume(
-            f"{user_id}:document:{document_id}", last_event_id
-        )
-
-    async def cancel_chat(self, user_id: UUID, document_id: UUID, task_id: str) -> None:
-        """Stop the running turn of the document's chat"""
-        await self._ezcareer.cancel(
-            "edit-document", task_id, f"{user_id}:document:{document_id}"
-        )
 
     async def _read(self, document: Document) -> DocumentRead:
         """The document as the API returns it, flushed so updated_at is current"""

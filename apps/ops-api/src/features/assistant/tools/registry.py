@@ -2,7 +2,7 @@ from functools import partial
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.core.runner import Tool, Tools
+from src.core.agent_runner import Tool, Tools
 from src.features.assistant.profile_edits import ProfileEdits
 from src.features.assistant.tools.profile_sync import ProfileSyncRequest, profile_sync
 from src.features.assistant.tools.profile_update import (

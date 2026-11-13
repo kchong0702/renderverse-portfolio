@@ -9,14 +9,13 @@ from datetime import UTC, date, datetime, timedelta
 from email.message import EmailMessage
 from email.utils import parseaddr
 from hashlib import sha256
-from uuid import UUID, uuid4
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.ezcareer import (
     Completed,
-    EzcareerClient,
     Failed,
     InputRequired,
     RunMetadata,
@@ -28,6 +27,7 @@ from src.clients.google import (
     GmailThread,
     GoogleClient,
 )
+from src.core.agent_runner import AgentRunner
 from src.core.config import GoogleSettings
 from src.core.exceptions import (
     AlreadyExists,
@@ -130,11 +130,11 @@ class InboxService:
         calendar: CalendarService,
         profile: ProfileService,
         client: GoogleClient,
-        ezcareer: EzcareerClient,
+        runner: AgentRunner,
         config: GoogleSettings,
     ):
-        """Read and send Gmail with the user's token, triage threads and draft emails
-        with the harness, and keep the triage through a repository on the session"""
+        """Read and send Gmail with the user's token, triage and draft through the agent
+        runner, and keep the triage through a repository on the session"""
         self._session = session
         self._repository = InboxRepository(session)
         self._applications = ApplicationRepository(session)
@@ -143,7 +143,7 @@ class InboxService:
         self._calendar = calendar
         self._profile = profile
         self._client = client
-        self._ezcareer = ezcareer
+        self._runner = runner
         self._config = config
 
     async def _triage(
@@ -158,11 +158,10 @@ class InboxService:
         next sync tries again"""
         try:
             thread = await self._client.thread(token, thread_id)
-            run = await self._ezcareer.send(
+            run = await self._runner.run(
+                user_id,
                 "triage-email",
                 TriageEmailOutput,
-                user_id=user_id,
-                context_id=f"{user_id}:{uuid4()}",
                 data=TriageEmailInput(
                     thread=thread_content(thread), applications=applications
                 ),
@@ -397,11 +396,10 @@ class InboxService:
         facts = (await self._profile.agent_profile(user_id)).facts
         metadata = await self._settings.run_metadata(user_id)
         await self._session.commit()
-        run = await self._ezcareer.send(
+        run = await self._runner.run(
+            user_id,
             "draft-reply",
             DraftReplyOutput,
-            user_id=user_id,
-            context_id=f"{user_id}:{uuid4()}",
             data=DraftReplyInput(
                 thread=thread_content(thread) if thread else None,
                 application=DraftApplication(

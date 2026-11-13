@@ -1,23 +1,28 @@
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import aclosing
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 import pytest
+from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from src.app.actor import set_actor, user_actor
-from src.clients.ezcareer import Completed, RunEvent, Started
+from src.clients.ezcareer import Completed, EzcareerClient, RunEvent, Started
+from src.core.agent_runner import AgentRunner, ToolExecutor
 from src.core.config import EzcareerSettings
 from src.core.exceptions import NotFound
-from src.core.runner import Runner
 from src.core.stores import AgentEvent, AgentRun, AgentRunStatus
 from src.db.session import create_session_factory
 from tests.core.conftest import needs_postgres, postgres_store
 
 pytestmark = needs_postgres
+
+
+class _Input(BaseModel):
+    pass
 
 
 async def _collect[T](events: AsyncIterator[T]) -> list[T]:
@@ -116,16 +121,30 @@ async def test_two_processes_starting_the_same_chat_at_once_run_one_turn(
 async def test_a_run_keeps_its_agent_task_status_and_events_as_its_user(
     engine: AsyncEngine, postgres_user: UUID
 ):
+    class _Harness:
+        def stream(
+            self, *args: object, **kwargs: object
+        ) -> AsyncIterator[RunEvent[Any]]:
+            """A run that starts and completes"""
+            return events()
+
     async def events() -> AsyncIterator[RunEvent[Any]]:
         yield Started(task_id="task-1")
         yield Completed(reply="Done.")
 
     set_actor(user_actor(postgres_user))
     async with aclosing(postgres_store(engine, EzcareerSettings())) as runs:
-        runner = Runner(runs, retry_ms=2000)
+        runner = AgentRunner(
+            cast(EzcareerClient, _Harness()), ToolExecutor(), runs, retry_ms=2000
+        )
         await _collect(
-            await runner.start_task(
-                postgres_user, "chat-1", "career-director", events()
+            await runner.start(
+                postgres_user,
+                "chat-1",
+                "career-director",
+                str,
+                data=_Input(),
+                metadata=None,
             )
         )
 

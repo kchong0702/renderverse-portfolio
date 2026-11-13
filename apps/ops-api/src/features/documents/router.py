@@ -11,6 +11,7 @@ from src.clients.ezcareer import Answer
 from src.core.auth import CurrentUserDep
 from src.core.config import get_settings
 from src.db.session import SessionDep
+from src.features.documents.chat import DocumentChat
 from src.features.documents.schemas import (
     ChangesetDecision,
     ChangesetRead,
@@ -42,11 +43,17 @@ def document_service(session: AsyncSession, container: "Container") -> DocumentS
         container.session_factory(),
         container.artifact(),
         get_settings().documents,
+    )
+
+
+def document_chat(session: AsyncSession, container: "Container") -> DocumentChat:
+    """The document chat on the session, running on the container's runner"""
+    return DocumentChat(
+        session,
+        document_service(session, container),
         ProfileService(session),
         settings_service(session, container),
-        container.ezcareer(),
         container.runner(),
-        container.tools(),
     )
 
 
@@ -55,7 +62,14 @@ def get_document_service(session: SessionDep, request: Request) -> DocumentServi
     return document_service(session, request.app.state.container)
 
 
+def get_document_chat(session: SessionDep, request: Request) -> DocumentChat:
+    """The document chat on the request's database session"""
+    return document_chat(session, request.app.state.container)
+
+
 DocumentServiceDep = Annotated[DocumentService, Depends(get_document_service)]
+
+DocumentChatDep = Annotated[DocumentChat, Depends(get_document_chat)]
 
 
 @router.get("")
@@ -247,11 +261,11 @@ async def chat(
     document_id: UUID,
     message: DocumentMessage,
     user: CurrentUserDep,
-    service: DocumentServiceDep,
+    chat: DocumentChatDep,
 ) -> EventSourceResponse:
     """Ask edit-document about the document and stream the turn, with any changeset it
     stored for review, until it replies, asks back, fails or is stopped"""
-    return EventSourceResponse(await service.chat(user.id, document_id, message.text))
+    return EventSourceResponse(await chat.send(user.id, document_id, message.text))
 
 
 @router.post("/{document_id}/chat/tasks/{task_id}/answer")
@@ -260,25 +274,21 @@ async def answer_chat(
     task_id: str,
     answer: Answer,
     user: CurrentUserDep,
-    service: DocumentServiceDep,
+    chat: DocumentChatDep,
 ) -> EventSourceResponse:
     """Answer the widget a paused chat turn asked, and stream the rest of it"""
-    return EventSourceResponse(
-        await service.answer_chat(user.id, document_id, task_id, answer)
-    )
+    return EventSourceResponse(await chat.answer(user.id, document_id, task_id, answer))
 
 
 @router.get("/{document_id}/chat/stream")
 async def resume_chat(
     document_id: UUID,
     user: CurrentUserDep,
-    service: DocumentServiceDep,
+    chat: DocumentChatDep,
     last_event_id: Annotated[str | None, Header()] = None,
 ) -> EventSourceResponse:
     """Resume the chat's turn after the Last-Event-ID the client last saw"""
-    return EventSourceResponse(
-        await service.resume_chat(user.id, document_id, last_event_id)
-    )
+    return EventSourceResponse(await chat.resume(user.id, document_id, last_event_id))
 
 
 @router.post(
@@ -286,7 +296,7 @@ async def resume_chat(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def cancel_chat(
-    document_id: UUID, task_id: str, user: CurrentUserDep, service: DocumentServiceDep
+    document_id: UUID, task_id: str, user: CurrentUserDep, chat: DocumentChatDep
 ) -> None:
     """Stop the chat's running turn; the user's Stop button"""
-    await service.cancel_chat(user.id, document_id, task_id)
+    await chat.cancel(user.id, document_id, task_id)

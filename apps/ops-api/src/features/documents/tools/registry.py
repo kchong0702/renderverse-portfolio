@@ -2,8 +2,8 @@ from functools import partial
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from src.core.agent_runner import Tool, Tools
 from src.core.config import DocumentsSettings
-from src.core.runner import Tool, Tools
 from src.features.documents.tools.document import DocumentRequest, document
 from src.features.documents.tools.documents import DocumentsRequest, documents
 

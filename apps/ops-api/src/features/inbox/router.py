@@ -31,7 +31,7 @@ def get_inbox_service(
     request: Request,
 ) -> InboxService:
     """The inbox service on the request's database session, with Gmail, Calendar,
-    the user's settings and profile, and the harness"""
+    the user's settings and profile, and the agent runner"""
     return InboxService(
         session,
         google,
@@ -39,7 +39,7 @@ def get_inbox_service(
         calendar,
         profile,
         request.app.state.google,
-        request.app.state.ezcareer,
+        request.app.state.runner,
         get_settings().google,
     )
 

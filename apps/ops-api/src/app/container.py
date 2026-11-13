@@ -4,9 +4,9 @@ from src.clients.artifact import ArtifactClient
 from src.clients.ezcareer import EzcareerClient
 from src.clients.google import GoogleClient
 from src.clients.storage import create_storage
+from src.core.agent_runner import AgentRunner, ToolExecutor
 from src.core.auth.oauth_providers import build_providers
 from src.core.config import get_settings
-from src.core.runner import Runner, ToolExecutor
 from src.core.stores import InMemoryRunStore, PostgresRunStore, UsageLedger
 from src.db.session import create_engine, create_session_factory
 from src.features.assistant import profile_tools
@@ -53,10 +53,6 @@ class Container(containers.DeclarativeContainer):
         ),
     )
 
-    runner = providers.Singleton(
-        Runner, store=store, retry_ms=settings.provided.ezcareer.stream_retry_ms
-    )
-
     google = providers.Singleton(GoogleClient, settings=settings.provided.google)
 
     storage = providers.Singleton(
@@ -72,11 +68,18 @@ class Container(containers.DeclarativeContainer):
             session_factory,
             google,
             settings.provided.google,
-            ezcareer,
         ),
         providers.Callable(
             document_tools, session_factory, settings.provided.documents
         ),
         providers.Callable(job_tools, session_factory),
         providers.Callable(profile_tools, session_factory),
+    )
+
+    runner = providers.Singleton(
+        AgentRunner,
+        ezcareer=ezcareer,
+        tools=tools,
+        store=store,
+        retry_ms=settings.provided.ezcareer.stream_retry_ms,
     )

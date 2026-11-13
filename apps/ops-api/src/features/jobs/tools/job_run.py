@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.core.runner import ToolError
+from src.core.agent_runner import ToolError
 from src.db.session import session_scope
 from src.features.jobs.enums import RunTrigger
 from src.features.jobs.repository import JobRepository
