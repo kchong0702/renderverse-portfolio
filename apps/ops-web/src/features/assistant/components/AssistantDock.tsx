@@ -7,6 +7,7 @@ import {
   FileText,
   LoaderCircle,
   Sparkle,
+  X,
   createLucideIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -306,109 +307,101 @@ function ApprovalCard({
         state === "pending" && live ? "border-amber" : "border-hair",
       )}
     >
-      <div className="border-hair-soft flex items-center justify-between gap-2 border-b px-3.5 py-3">
-        <span className="font-semibold">{t("assistant.approval.title")}</span>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-2 px-3.5 py-3">
+        <span className="text-sm font-semibold">
+          {t("assistant.approval.title")}
+        </span>
         {source && (
           <span className="text-ink-3 text-xs">
             {t("assistant.approval.from", { source })}
           </span>
         )}
       </div>
-      {rows.map(({ edit, entry, current }, index) => {
-        const key =
-          edit.kind === "about" || edit.kind === "entry" ? edit.field : null;
-        const field = key ? t(`data.review.fields.${key}`) : "";
-        const what =
-          edit.kind === "about"
-            ? field
-            : edit.kind === "entry"
-              ? entry
-                ? t("assistant.approval.entryField", {
-                    entry,
-                    field: field.toLocaleLowerCase(i18n.language),
-                  })
-                : field
-              : edit.kind === "new_entry"
-                ? t(`assistant.approval.newEntry.${edit.entry.kind}`)
-                : edit.kind === "new_skill"
-                  ? t("assistant.approval.skill")
-                  : t("assistant.approval.link");
-        const value =
-          edit.kind === "new_entry"
-            ? [
-                edit.entry.organisation
-                  ? t("data.roleAt", {
-                      title: edit.entry.title,
-                      organisation: edit.entry.organisation,
-                    })
-                  : edit.entry.title,
-                edit.entry.start &&
-                  (edit.entry.end
-                    ? t("data.period.range", {
-                        from: month(edit.entry.start),
-                        to: month(edit.entry.end),
+      <div
+        className={cn(
+          "grid grid-cols-[max-content_minmax(0,1fr)]",
+          state === "rejected" && "opacity-[0.55]",
+        )}
+      >
+        {rows.map(({ edit, entry, current }, index) => {
+          const key =
+            edit.kind === "about" || edit.kind === "entry" ? edit.field : null;
+          const field = key
+            ? t(`data.review.fields.${key}`)
+            : edit.kind === "new_entry"
+              ? t(`assistant.approval.newEntry.${edit.entry.kind}`)
+              : edit.kind === "new_skill"
+                ? t("assistant.approval.skill")
+                : t("assistant.approval.link");
+          const value =
+            edit.kind === "new_entry"
+              ? [
+                  edit.entry.organisation
+                    ? t("data.roleAt", {
+                        title: edit.entry.title,
+                        organisation: edit.entry.organisation,
                       })
-                    : month(edit.entry.start)),
-              ]
-                .filter(Boolean)
-                .join(" · ")
-            : edit.kind === "new_skill"
-              ? edit.name
-              : edit.kind === "new_link"
-                ? t("assistant.approval.linkValue", {
-                    label: edit.label,
-                    url: edit.url,
-                  })
-                : show(edit.field, edit.value);
-        const change =
-          (edit.kind === "about" || edit.kind === "entry") &&
-          (Array.isArray(current) ? current.length > 0 : Boolean(current));
-        return (
-          <div
-            key={index}
-            className={cn(
-              "border-hair-soft flex flex-col gap-1 border-b px-3.5 py-3",
-              state === "rejected" && "opacity-[0.55]",
-            )}
-          >
-            <span className="flex items-center gap-2">
-              <span
-                className={cn(
-                  "text-[11px] font-bold tracking-[0.04em] uppercase",
-                  change ? "text-amber" : "text-ok",
+                    : edit.entry.title,
+                  edit.entry.start &&
+                    (edit.entry.end
+                      ? t("data.period.range", {
+                          from: month(edit.entry.start),
+                          to: month(edit.entry.end),
+                        })
+                      : month(edit.entry.start)),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : edit.kind === "new_skill"
+                ? edit.name
+                : edit.kind === "new_link"
+                  ? t("assistant.approval.linkValue", {
+                      label: edit.label,
+                      url: edit.url,
+                    })
+                  : show(edit.field, edit.value);
+          const change =
+            (edit.kind === "about" || edit.kind === "entry") &&
+            (Array.isArray(current) ? current.length > 0 : Boolean(current));
+          return (
+            <div
+              key={index}
+              role="group"
+              aria-label={field}
+              className="border-hair col-span-2 grid grid-cols-subgrid items-baseline gap-x-4 gap-y-1 border-t px-3.5 py-3 text-sm"
+            >
+              <p className="col-span-2 m-0 mb-0.5 flex flex-wrap items-baseline gap-x-2">
+                <span className="text-ink font-semibold">{field}</span>
+                {entry && (
+                  <span className="text-ink-3 text-[13px]">{entry}</span>
                 )}
-              >
+              </p>
+              {change && (
+                <>
+                  <span className="text-ink-3 text-[13px]">
+                    {t("assistant.approval.current")}
+                  </span>
+                  <span className="text-ink-3 [overflow-wrap:anywhere] whitespace-pre-wrap">
+                    {show(key ?? "", current)}
+                  </span>
+                </>
+              )}
+              <span className="text-ink-3 text-[13px]">
                 {t(
-                  change
-                    ? "assistant.approval.change"
-                    : "assistant.approval.add",
+                  change ? "assistant.approval.new" : "assistant.approval.add",
                 )}
               </span>
-              <span className="text-ink-3 text-[13px]">{what}</span>
-            </span>
-            {change ? (
-              <span className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-sm whitespace-pre-wrap">
-                <span className="text-ink-3">
-                  {t("assistant.approval.current")}
-                </span>
-                <span className="text-ink-2">{show(key ?? "", current)}</span>
-                <span className="text-ink-3">
-                  {t("assistant.approval.new")}
-                </span>
-                <span className="text-ink font-medium">{value}</span>
-              </span>
-            ) : (
-              <span className="text-ink text-sm whitespace-pre-wrap">
+              <span className="text-ink font-medium [overflow-wrap:anywhere] whitespace-pre-wrap">
                 {value}
               </span>
-            )}
-          </div>
-        );
-      })}
+            </div>
+          );
+        })}
+      </div>
       {state === "pending" ? (
         live && (
-          <div className="bg-well flex items-center justify-between gap-2.5 px-3.5 py-3">
-            <span className="text-ink-3 text-xs">
+          <div className="bg-well border-hair flex flex-wrap items-center justify-end gap-x-3 gap-y-2.5 border-t px-3.5 py-3">
+            <span className="text-ink-3 mr-auto text-[13px]">
               {t("assistant.approval.note")}
             </span>
             <span className="flex gap-2">
@@ -434,34 +427,39 @@ function ApprovalCard({
       ) : (
         <div
           role="status"
-          className="bg-well flex items-center justify-between gap-2.5 px-3.5 py-3 text-sm"
+          className="bg-well border-hair text-ink-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t px-3.5 py-3 text-[13px]"
         >
-          {state === "saving" ? (
-            <span className="text-ink-3 flex items-center gap-2">
-              <LoaderCircle size={14} className="animate-spin" />
-              {t("assistant.approval.saving")}
-            </span>
-          ) : state === "saved" ? (
-            <>
-              <span className="text-ok flex items-center gap-2 font-semibold">
+          <span className="flex items-center gap-2">
+            {state === "saving" ? (
+              <>
+                <LoaderCircle size={14} className="animate-spin" />
+                {t("assistant.approval.saving")}
+              </>
+            ) : state === "saved" ? (
+              <>
                 <Check size={14} strokeWidth={2.4} />
                 {t("assistant.approval.saved")}
-              </span>
-              <Link
-                to="/data"
-                className="text-amber text-[13px] font-semibold no-underline"
-              >
-                {t("assistant.approval.openData")}
-              </Link>
-            </>
-          ) : (
-            <span className="text-ink-3">
-              {t(
-                state === "rejected"
-                  ? "assistant.approval.cancelled"
-                  : "assistant.approval.notSaved",
-              )}
-            </span>
+              </>
+            ) : state === "rejected" ? (
+              <>
+                <X size={14} strokeWidth={2.4} />
+                {t("assistant.approval.cancelled")}
+              </>
+            ) : (
+              <>
+                <CircleAlert size={14} strokeWidth={2.4} />
+                {t("assistant.approval.notSaved")}
+              </>
+            )}
+          </span>
+          {state === "saved" && (
+            <Link
+              to="/data"
+              className="text-ink-3 inline-flex items-center gap-0.5 font-semibold underline-offset-2 hover:underline"
+            >
+              {t("assistant.approval.openData")}
+              <ChevronRight size={14} />
+            </Link>
           )}
         </div>
       )}
