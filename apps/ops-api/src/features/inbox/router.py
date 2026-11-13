@@ -34,7 +34,6 @@ def get_inbox_service(
     the user's settings and profile, and the harness"""
     return InboxService(
         session,
-        request.app.state.session_factory,
         google,
         settings,
         calendar,

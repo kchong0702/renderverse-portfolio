@@ -1,25 +1,24 @@
 from __future__ import annotations
 
+from functools import partial
 from uuid import UUID, uuid4
 
 from document_schema import DocumentKind
-from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.clients.ezcareer import (
     Completed,
-    DataRequest,
     EzcareerClient,
     Failed,
     InputRequired,
 )
+from src.core.data_requests import DataRequestKind, DataRequestKinds, FetchError
 from src.core.exceptions import Conflict, InvalidInput, NotFound, ServiceUnavailable
 from src.core.logging import get_logger
 from src.db.base import utcnow
 from src.db.session import session_scope
 from src.features.documents import DocumentService
-from src.features.documents.schemas import FetchError
 from src.features.jobs.enums import JobStatus, Match, RunStatus, RunTrigger
 from src.features.jobs.models import Job, JobRun
 from src.features.jobs.repository import JobRepository
@@ -69,20 +68,39 @@ def _tailor_request(job: JobRead, document: str) -> str:
     return "\n".join(lines)
 
 
+async def answer_job_run(
+    factory: async_sessionmaker[AsyncSession], user_id: UUID, request: JobRunRequest
+) -> JobRunQueued | FetchError:
+    """Queue the agent run a paused run asks for, on a session of its own;
+    FetchError while an agent run is queued"""
+    async for session in session_scope(factory):
+        try:
+            queued = await JobRepository(session).queue_run(
+                user_id, RunTrigger.AGENT, request.search, request.run_after
+            )
+            answer = JobRunQueued(id=queued.id, run_after=queued.run_after)
+        except IntegrityError:
+            answer = FetchError(error="A job agent run is already queued")
+    return answer
+
+
+def job_data_requests(factory: async_sessionmaker[AsyncSession]) -> DataRequestKinds:
+    """The jobs' data request kinds"""
+    return {"job_run": DataRequestKind(JobRunRequest, partial(answer_job_run, factory))}
+
+
 class JobService:
     def __init__(
         self,
         session: AsyncSession,
-        factory: async_sessionmaker[AsyncSession],
         profile: ProfileService,
         settings: SettingsService,
         documents: DocumentService,
         ezcareer: EzcareerClient,
     ):
-        """Hold the session, a repository and the preferences on it, a factory for
-        sessions of their own, the profile, settings and documents services, and the harness"""
+        """Hold the session, a repository and the preferences on it, the profile,
+        settings and documents services, and the harness"""
         self._session = session
-        self._factory = factory
         self._repository = JobRepository(session)
         self._preferences = PreferencesService(session)
         self._profile = profile
@@ -202,25 +220,6 @@ class JobService:
         if row.status is not RunStatus.QUEUED:
             raise Conflict("The run has already started")
         await self._repository.delete(row)
-
-    async def answer_data_request(
-        self, user_id: UUID, request: DataRequest
-    ) -> JobRunQueued | FetchError:
-        """Queue the agent run a paused run asks for, on a session of its own;
-        FetchError while an agent run is queued"""
-        try:
-            parsed = JobRunRequest.model_validate(request.model_dump())
-        except ValidationError as error:
-            return FetchError(error=str(error))
-        async for session in session_scope(self._factory):
-            try:
-                queued = await JobRepository(session).queue_run(
-                    user_id, RunTrigger.AGENT, parsed.search, parsed.run_after
-                )
-                answer = JobRunQueued(id=queued.id, run_after=queued.run_after)
-            except IntegrityError:
-                answer = FetchError(error="A job agent run is already queued")
-        return answer
 
     async def keep_found(self, run: JobRun, reply: FindJobsOutput) -> None:
         """Store each job find-jobs found as a pick, cut to fit or skipped when its URL

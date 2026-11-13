@@ -6,9 +6,14 @@ from src.clients.google import GoogleClient
 from src.clients.storage import create_storage
 from src.core.auth.oauth_providers import build_providers
 from src.core.config import get_settings
+from src.core.data_requests import DataRequestDispatcher
 from src.core.runner import Runner
 from src.core.stores import InMemoryRunStore, PostgresRunStore, UsageLedger
 from src.db.session import create_engine, create_session_factory
+from src.features.assistant import profile_data_requests
+from src.features.documents import document_data_requests
+from src.features.inbox import inbox_data_requests
+from src.features.jobs import job_data_requests
 
 
 class Container(containers.DeclarativeContainer):
@@ -59,4 +64,20 @@ class Container(containers.DeclarativeContainer):
         create_storage,
         settings=settings.provided.storage,
         route_prefix=settings.provided.app.route_prefix,
+    )
+
+    data_requests = providers.Singleton(
+        DataRequestDispatcher,
+        providers.Callable(
+            inbox_data_requests,
+            session_factory,
+            google,
+            settings.provided.google,
+            ezcareer,
+        ),
+        providers.Callable(
+            document_data_requests, session_factory, settings.provided.documents
+        ),
+        providers.Callable(job_data_requests, session_factory),
+        providers.Callable(profile_data_requests, session_factory),
     )

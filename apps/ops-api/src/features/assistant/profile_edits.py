@@ -5,10 +5,10 @@ from typing import NamedTuple
 from uuid import UUID
 
 from document_schema import ResumeDocument
-from pydantic import TypeAdapter, ValidationError
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.clients.ezcareer import DataRequest
+from src.core.data_requests import DataRequestKind, DataRequestKinds, FetchError
 from src.core.exceptions import InvalidInput, NotFound
 from src.features.assistant.schemas import (
     AboutEdit,
@@ -25,8 +25,8 @@ from src.features.assistant.schemas import (
     ProfileUpdateRequest,
     UpdateProfileArgs,
 )
-from src.features.documents import DocumentService
-from src.features.documents.schemas import DocumentAnswer, FetchError
+from src.features.documents.schemas import DocumentAnswer, DocumentRequest
+from src.features.documents.service import answer_document
 from src.features.imports import File, Import, ImportSource, ImportStatus
 from src.features.profile import ProfileService, resume_profile
 from src.features.profile.schemas import (
@@ -192,19 +192,18 @@ async def _apply(
 
 
 class ProfileEdits:
-    def __init__(
-        self, factory: async_sessionmaker[AsyncSession], documents: DocumentService
-    ):
+    def __init__(self, factory: async_sessionmaker[AsyncSession]):
         """Preview and make career-director's changes to the profile on sessions of
-        their own, reading résumés through the documents service"""
+        their own"""
         self._factory = factory
-        self._documents = documents
 
     async def _preview(self, user_id: UUID, document_id: UUID) -> ProfileSyncPreview:
         """What syncing one of the user's résumés or CVs into the profile would
         change, from a real sync that is rolled back; NotFound for any other document"""
-        answer = await self._documents.answer_data_request(
-            user_id, DataRequest(fetch="document", id=str(document_id))
+        answer = await answer_document(
+            self._factory,
+            user_id,
+            DocumentRequest(fetch="document", id=document_id),
         )
         if not isinstance(answer, DocumentAnswer) or not isinstance(
             answer.document, ResumeDocument
@@ -239,21 +238,25 @@ class ProfileEdits:
             await session.rollback()
         return ProfileSyncPreview(edits=_synced(before, after, pending))
 
-    async def answer_data_request(
-        self, user_id: UUID, request: DataRequest
-    ) -> ProfileSyncPreview | ProfileUpdated | FetchError:
-        """Answer a paused run's request to preview a sync, or to save approved
-        changes all or none; FetchError says why nothing came of it"""
+    async def sync(
+        self, user_id: UUID, request: ProfileSyncRequest
+    ) -> ProfileSyncPreview | FetchError:
+        """What syncing a résumé or CV into the profile would change; FetchError says
+        why nothing came of it"""
         try:
-            match TypeAdapter(
-                ProfileSyncRequest | ProfileUpdateRequest
-            ).validate_python(request.model_dump()):
-                case ProfileSyncRequest(document_id=document_id):
-                    return await self._preview(user_id, document_id)
-                case ProfileUpdateRequest(edits=edits):
-                    async with self._factory() as session, session.begin():
-                        await _apply(ProfileService(session), user_id, edits)
-                    return ProfileUpdated(saved=len(edits))
+            return await self._preview(user_id, request.document_id)
+        except (ValidationError, NotFound, InvalidInput) as error:
+            return FetchError(error=str(error))
+
+    async def update(
+        self, user_id: UUID, request: ProfileUpdateRequest
+    ) -> ProfileUpdated | FetchError:
+        """Save the approved changes all or none; FetchError says why nothing came of
+        it"""
+        try:
+            async with self._factory() as session, session.begin():
+                await _apply(ProfileService(session), user_id, request.edits)
+            return ProfileUpdated(saved=len(request.edits))
         except (ValidationError, NotFound, InvalidInput) as error:
             return FetchError(error=str(error))
 
@@ -268,4 +271,15 @@ class ProfileEdits:
         return ProfileApproval(task_id=task_id, source=args.source, rows=rows)
 
 
-__all__ = ["ProfileEdits"]
+def profile_data_requests(
+    factory: async_sessionmaker[AsyncSession],
+) -> DataRequestKinds:
+    """The profile edits' data request kinds"""
+    edits = ProfileEdits(factory)
+    return {
+        "profile_sync": DataRequestKind(ProfileSyncRequest, edits.sync),
+        "profile_update": DataRequestKind(ProfileUpdateRequest, edits.update),
+    }
+
+
+__all__ = ["ProfileEdits", "profile_data_requests"]

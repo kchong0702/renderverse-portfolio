@@ -36,7 +36,6 @@ def job_service(session: AsyncSession, container: "Container") -> JobService:
     """The job service on the session, its clients from the container"""
     return JobService(
         session,
-        container.session_factory(),
         ProfileService(session),
         settings_service(session, container),
         document_service(session, container),

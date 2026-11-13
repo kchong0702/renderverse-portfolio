@@ -9,17 +9,16 @@ from contextlib import suppress
 from datetime import UTC, date, datetime, timedelta
 from email.message import EmailMessage
 from email.utils import parseaddr
+from functools import partial
 from hashlib import sha256
 from html.parser import HTMLParser
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
-from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.clients.ezcareer import (
     Completed,
-    DataRequest,
     EzcareerClient,
     Failed,
     InputRequired,
@@ -33,6 +32,7 @@ from src.clients.google import (
     GoogleClient,
 )
 from src.core.config import GoogleSettings, get_settings
+from src.core.data_requests import DataRequestKind, DataRequestKinds, FetchError
 from src.core.exceptions import (
     AlreadyExists,
     InvalidInput,
@@ -48,7 +48,6 @@ from src.features.applications.models import Application, ApplicationStep
 from src.features.applications.repository import ApplicationRepository
 from src.features.calendar import CalendarService
 from src.features.calendar.schemas import EventCreate, FreeSlots
-from src.features.documents.schemas import FetchError
 from src.features.google import GoogleService
 from src.features.inbox.enums import ThreadState
 from src.features.inbox.models import EmailThread
@@ -206,11 +205,118 @@ def _mime(to: str, subject: str, body: str, answers: GmailPart | None = None) ->
     return urlsafe_b64encode(message.as_bytes()).decode()
 
 
+async def answer_thread(
+    factory: async_sessionmaker[AsyncSession],
+    client: GoogleClient,
+    config: GoogleSettings,
+    user_id: UUID,
+    request: ThreadRequest,
+) -> ThreadAnswer | FetchError:
+    """One of the user's email threads, on a session of its own"""
+    async for session in session_scope(factory):
+        google = GoogleService(session, client, config)
+        try:
+            answer = ThreadAnswer(
+                thread=_content(
+                    await client.thread(await google.access_token(user_id), request.id)
+                )
+            )
+        except ServiceException as error:
+            answer = FetchError(error=error.message)
+    return answer
+
+
+async def answer_threads(
+    factory: async_sessionmaker[AsyncSession],
+    client: GoogleClient,
+    config: GoogleSettings,
+    user_id: UUID,
+    request: ThreadsRequest,
+) -> ThreadsAnswer | FetchError:
+    """The user's email threads a search finds, on a session of its own"""
+    async for session in session_scope(factory):
+        google = GoogleService(session, client, config)
+        try:
+            threads, total = await client.threads(
+                await google.access_token(user_id),
+                _search(request),
+                min(request.limit, config.thread_search_limit),
+            )
+            answer = ThreadsAnswer(
+                threads=[
+                    ThreadSummary(
+                        id=thread.id,
+                        subject=thread.messages[0].payload.header("Subject"),
+                        sender=thread.messages[-1].payload.header("From"),
+                        last_sent_at=thread.messages[-1].internal_date,
+                        message_count=len(thread.messages),
+                        has_attachment=any(
+                            m.payload.has_attachment() for m in thread.messages
+                        ),
+                    )
+                    for thread in threads
+                ],
+                total=total,
+            )
+        except ServiceException as error:
+            answer = FetchError(error=error.message)
+    return answer
+
+
+async def answer_free_slots(
+    factory: async_sessionmaker[AsyncSession],
+    client: GoogleClient,
+    config: GoogleSettings,
+    ezcareer: EzcareerClient,
+    user_id: UUID,
+    request: FreeSlotsRequest,
+) -> FreeSlots | FetchError:
+    """The times the user is free in the days asked, none when they don't offer free
+    slots, on a session of its own"""
+    async for session in session_scope(factory):
+        google = GoogleService(session, client, config)
+        try:
+            settings = await SettingsService(
+                session, ezcareer, google, get_settings().jsearch
+            ).get(user_id)
+            free = await CalendarService(google, client, config).free_slots(
+                user_id, settings.scheduling, request.days
+            )
+            answer = (
+                free
+                if settings.automation.offer_free_slots
+                else free.model_copy(update={"free_slots": []})
+            )
+        except ServiceException as error:
+            answer = FetchError(error=error.message)
+    return answer
+
+
+def inbox_data_requests(
+    factory: async_sessionmaker[AsyncSession],
+    client: GoogleClient,
+    config: GoogleSettings,
+    ezcareer: EzcareerClient,
+) -> DataRequestKinds:
+    """The inbox's data request kinds"""
+    return {
+        "thread": DataRequestKind(
+            ThreadRequest, partial(answer_thread, factory, client, config)
+        ),
+        "threads": DataRequestKind(
+            ThreadsRequest, partial(answer_threads, factory, client, config)
+        ),
+        "free_slots": DataRequestKind(
+            FreeSlotsRequest,
+            partial(answer_free_slots, factory, client, config, ezcareer),
+        ),
+    }
+
+
 class InboxService:
     def __init__(
         self,
         session: AsyncSession,
-        factory: async_sessionmaker[AsyncSession],
         google: GoogleService,
         settings: SettingsService,
         calendar: CalendarService,
@@ -222,7 +328,6 @@ class InboxService:
         """Read and send Gmail with the user's token, triage threads and draft emails
         with the harness, and keep the triage through a repository on the session"""
         self._session = session
-        self._factory = factory
         self._repository = InboxRepository(session)
         self._applications = ApplicationRepository(session)
         self._google = google
@@ -542,69 +647,6 @@ class InboxService:
         return (
             FollowUpDraft(body=run.body) if isinstance(run, DraftReplyOutput) else run
         )
-
-    async def answer_data_request(
-        self, user_id: UUID, request: DataRequest
-    ) -> ThreadAnswer | ThreadsAnswer | FreeSlots | FetchError:
-        """A paused run's thread, thread search or free slots, on a session of its own"""
-        try:
-            parsed = TypeAdapter(
-                ThreadRequest | ThreadsRequest | FreeSlotsRequest
-            ).validate_python(request.model_dump())
-        except ValidationError as error:
-            return FetchError(error=str(error))
-        async for session in session_scope(self._factory):
-            google = GoogleService(session, self._client, self._config)
-            try:
-                match parsed:
-                    case ThreadRequest(id=thread_id):
-                        answer = ThreadAnswer(
-                            thread=_content(
-                                await self._client.thread(
-                                    await google.access_token(user_id), thread_id
-                                )
-                            )
-                        )
-                    case ThreadsRequest(limit=limit):
-                        threads, total = await self._client.threads(
-                            await google.access_token(user_id),
-                            _search(parsed),
-                            min(limit, self._config.thread_search_limit),
-                        )
-                        answer = ThreadsAnswer(
-                            threads=[
-                                ThreadSummary(
-                                    id=thread.id,
-                                    subject=thread.messages[0].payload.header(
-                                        "Subject"
-                                    ),
-                                    sender=thread.messages[-1].payload.header("From"),
-                                    last_sent_at=thread.messages[-1].internal_date,
-                                    message_count=len(thread.messages),
-                                    has_attachment=any(
-                                        m.payload.has_attachment()
-                                        for m in thread.messages
-                                    ),
-                                )
-                                for thread in threads
-                            ],
-                            total=total,
-                        )
-                    case FreeSlotsRequest(days=days):
-                        settings = await SettingsService(
-                            session, self._ezcareer, google, get_settings().jsearch
-                        ).get(user_id)
-                        free = await CalendarService(
-                            google, self._client, self._config
-                        ).free_slots(user_id, settings.scheduling, days)
-                        answer = (
-                            free
-                            if settings.automation.offer_free_slots
-                            else free.model_copy(update={"free_slots": []})
-                        )
-            except ServiceException as error:
-                answer = FetchError(error=error.message)
-        return answer
 
     async def reply(self, user_id: UUID, thread_id: str, reply: ReplyCreate) -> None:
         """Answer the newest email in the thread that someone else sent, in the thread"""

@@ -10,8 +10,6 @@ from src.features.assistant.profile_edits import ProfileEdits
 from src.features.assistant.schemas import ChatMessage, ProfileDecision
 from src.features.assistant.service import AssistantService
 from src.features.documents import DocumentServiceDep
-from src.features.inbox import InboxServiceDep
-from src.features.jobs import JobServiceDep
 from src.features.profile import ProfileServiceDep
 from src.features.settings import SettingsServiceDep
 
@@ -22,21 +20,18 @@ def get_assistant_service(
     profile: ProfileServiceDep,
     settings: SettingsServiceDep,
     documents: DocumentServiceDep,
-    inbox: InboxServiceDep,
-    jobs: JobServiceDep,
     request: Request,
 ) -> AssistantService:
-    """The assistant service on its profile, settings, documents, inbox and jobs
-    services, the profile edits, the harness and the app's runner"""
+    """The assistant service on its profile, settings and documents services, the
+    profile edits, the harness, the app's runner and its data request dispatcher"""
     return AssistantService(
         profile,
         settings,
         documents,
-        inbox,
-        jobs,
-        ProfileEdits(request.app.state.session_factory, documents),
+        ProfileEdits(request.app.state.session_factory),
         request.app.state.ezcareer,
         request.app.state.runner,
+        request.app.state.container.data_requests(),
     )
 
 

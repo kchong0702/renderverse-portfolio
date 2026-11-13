@@ -14,7 +14,7 @@ from document_schema import (
     TemplateSpec,
     apply_edits,
 )
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import BaseModel
 from rapidfuzz import fuzz, process, utils
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -23,12 +23,17 @@ from src.clients.artifact import ArtifactClient, Render
 from src.clients.ezcareer import (
     Answer,
     Completed,
-    DataRequest,
     EzcareerClient,
     Published,
     RunEvent,
 )
 from src.core.config import DocumentsSettings
+from src.core.data_requests import (
+    DataRequestDispatcher,
+    DataRequestKind,
+    DataRequestKinds,
+    FetchError,
+)
 from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.core.logging import get_logger
 from src.core.runner import Runner
@@ -56,7 +61,6 @@ from src.features.documents.schemas import (
     DocumentUpdate,
     EditDocumentInput,
     EditDocumentOutput,
-    FetchError,
     LineRead,
     TailoredDocument,
     VersionCreate,
@@ -141,6 +145,69 @@ async def _propose(
     )
 
 
+async def answer_document(
+    factory: async_sessionmaker[AsyncSession], user_id: UUID, request: DocumentRequest
+) -> DocumentAnswer | FetchError:
+    """One of the user's documents with its imported lines, on a session of its own"""
+    async for session in session_scope(factory):
+        repository = DocumentRepository(session)
+        document = await repository.owned(Document, user_id, request.id)
+        answer = (
+            DocumentAnswer(
+                document=document.body, lines=await repository.lines(document)
+            )
+            if document
+            else FetchError(error="No such document")
+        )
+    return answer
+
+
+async def answer_documents(
+    factory: async_sessionmaker[AsyncSession],
+    limits: DocumentsSettings,
+    user_id: UUID,
+    request: DocumentsRequest,
+) -> DocumentsAnswer:
+    """The user's documents of the kind asked, the best match for a name first, on a
+    session of its own"""
+    async for session in session_scope(factory):
+        documents = [
+            d
+            for d in await DocumentRepository(session).documents(user_id)
+            if request.kind is None or d.kind is request.kind
+        ]
+        if request.name:
+            documents = [
+                documents[index]
+                for _, _, index in process.extract(
+                    request.name,
+                    [f"{d.title} {d.kind.value.replace('_', ' ')}" for d in documents],
+                    scorer=fuzz.partial_token_sort_ratio,
+                    processor=utils.default_process,
+                    score_cutoff=limits.match_cutoff,
+                    limit=None,
+                )
+            ]
+        answer = DocumentsAnswer(
+            documents=[
+                DocumentMatch.model_validate(d, from_attributes=True) for d in documents
+            ]
+        )
+    return answer
+
+
+def document_data_requests(
+    factory: async_sessionmaker[AsyncSession], limits: DocumentsSettings
+) -> DataRequestKinds:
+    """The documents' data request kinds"""
+    return {
+        "document": DataRequestKind(DocumentRequest, partial(answer_document, factory)),
+        "documents": DataRequestKind(
+            DocumentsRequest, partial(answer_documents, factory, limits)
+        ),
+    }
+
+
 class DocumentService:
     def __init__(
         self,
@@ -152,6 +219,7 @@ class DocumentService:
         settings: SettingsService,
         ezcareer: EzcareerClient,
         runner: Runner,
+        data_requests: DataRequestDispatcher,
     ):
         """Hold the session, its repository and a factory for sessions runs outlive,
         artifact-service, the documents limit, and what the agents use and run on"""
@@ -164,6 +232,7 @@ class DocumentService:
         self._settings = settings
         self._ezcareer = ezcareer
         self._runner = runner
+        self._data_requests = data_requests
 
     async def _make_room(self, user_id: UUID, kind: DocumentKind) -> None:
         """Conflict when the user already keeps the most documents of this kind"""
@@ -356,59 +425,6 @@ class DocumentService:
             return None
         return proposed
 
-    async def answer_data_request(
-        self, user_id: UUID, request: DataRequest
-    ) -> DocumentsAnswer | DocumentAnswer | FetchError:
-        """Answer a paused run's request for the user's documents, the best match for
-        a name first, or for one document, on a session of its own"""
-        try:
-            parsed = TypeAdapter(DocumentsRequest | DocumentRequest).validate_python(
-                request.model_dump()
-            )
-        except ValidationError as error:
-            return FetchError(error=str(error))
-        async for session in session_scope(self._factory):
-            repository = DocumentRepository(session)
-            match parsed:
-                case DocumentRequest(id=document_id):
-                    document = await repository.owned(Document, user_id, document_id)
-                    answer = (
-                        DocumentAnswer(
-                            document=document.body,
-                            lines=await repository.lines(document),
-                        )
-                        if document
-                        else FetchError(error="No such document")
-                    )
-                case DocumentsRequest(name=name, kind=kind):
-                    documents = [
-                        d
-                        for d in await repository.documents(user_id)
-                        if kind is None or d.kind is kind
-                    ]
-                    if name:
-                        documents = [
-                            documents[index]
-                            for _, _, index in process.extract(
-                                name,
-                                [
-                                    f"{d.title} {d.kind.value.replace('_', ' ')}"
-                                    for d in documents
-                                ],
-                                scorer=fuzz.partial_token_sort_ratio,
-                                processor=utils.default_process,
-                                score_cutoff=self._limits.match_cutoff,
-                                limit=None,
-                            )
-                        ]
-                    answer = DocumentsAnswer(
-                        documents=[
-                            DocumentMatch.model_validate(d, from_attributes=True)
-                            for d in documents
-                        ]
-                    )
-        return answer
-
     async def decide(
         self,
         user_id: UUID,
@@ -531,7 +547,7 @@ class DocumentService:
                     text=text,
                     data=data,
                     metadata=metadata,
-                    answer_data_request=partial(self.answer_data_request, user_id),
+                    answer_data_request=self._data_requests.for_user(user_id),
                 ),
             ),
         )
@@ -560,7 +576,7 @@ class DocumentService:
                     task_id=task_id,
                     answer=answer,
                     metadata=metadata,
-                    answer_data_request=partial(self.answer_data_request, user_id),
+                    answer_data_request=self._data_requests.for_user(user_id),
                 ),
             ),
         )

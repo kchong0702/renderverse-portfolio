@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from functools import partial
 from uuid import UUID
 
 from pydantic import BaseModel, ValidationError
 
 from src.clients.ezcareer import (
     Answer,
-    DataRequest,
     Decision,
     Decisions,
     EzcareerClient,
@@ -17,6 +15,7 @@ from src.clients.ezcareer import (
     RunEvent,
     RunMetadata,
 )
+from src.core.data_requests import DataRequestDispatcher
 from src.core.exceptions import InvalidInput, NotFound
 from src.core.logging import get_logger
 from src.core.runner import Runner
@@ -29,9 +28,6 @@ from src.features.assistant.schemas import (
     UpdateProfileArgs,
 )
 from src.features.documents import ChangesetArtifact, DocumentService
-from src.features.documents.schemas import FetchError
-from src.features.inbox import InboxService
-from src.features.jobs import JobService
 from src.features.profile import ProfileService
 from src.features.settings import SettingsService
 
@@ -46,22 +42,20 @@ class AssistantService:
         profile: ProfileService,
         settings: SettingsService,
         documents: DocumentService,
-        inbox: InboxService,
-        jobs: JobService,
         edits: ProfileEdits,
         ezcareer: EzcareerClient,
         runner: Runner,
+        data_requests: DataRequestDispatcher,
     ):
-        """Hold the profile, settings, documents, inbox, jobs, profile edits and
-        harness a turn uses, and the runner it runs on"""
+        """Hold the profile, settings, documents, profile edits and harness a turn
+        uses, the runner it runs on and what answers its data requests"""
         self._profile = profile
         self._settings = settings
         self._documents = documents
-        self._inbox = inbox
-        self._jobs = jobs
         self._edits = edits
         self._ezcareer = ezcareer
         self._runner = runner
+        self._data_requests = data_requests
 
     async def _review(
         self, user_id: UUID, review: ReviewRequired
@@ -111,7 +105,7 @@ class AssistantService:
                             * len(event.actions)
                         ),
                         metadata=metadata,
-                        answer_data_request=partial(self._answer, user_id),
+                        answer_data_request=self._data_requests.for_user(user_id),
                     ),
                 ):
                     yield resumed
@@ -129,21 +123,6 @@ class AssistantService:
                     user_id, artifact.document_id, artifact.changeset
                 ):
                     yield proposed
-
-    async def _answer(self, user_id: UUID, request: DataRequest) -> BaseModel:
-        """Answer a paused turn's data request from the inbox, the documents, the
-        profile edits or the jobs, or say Ops can't answer a kind it doesn't know"""
-        match request.fetch:
-            case "thread" | "threads" | "free_slots":
-                return await self._inbox.answer_data_request(user_id, request)
-            case "documents" | "document":
-                return await self._documents.answer_data_request(user_id, request)
-            case "job_run":
-                return await self._jobs.answer_data_request(user_id, request)
-            case "profile_sync" | "profile_update":
-                return await self._edits.answer_data_request(user_id, request)
-            case kind:
-                return FetchError(error=f"Ops can't answer {kind}")
 
     async def send(
         self, user_id: UUID, chat_id: UUID, message: ChatMessage
@@ -169,7 +148,7 @@ class AssistantService:
                     text=message.text,
                     data=data,
                     metadata=metadata,
-                    answer_data_request=partial(self._answer, user_id),
+                    answer_data_request=self._data_requests.for_user(user_id),
                 ),
             ),
         )
@@ -197,7 +176,7 @@ class AssistantService:
                     task_id=task_id,
                     answer=answer,
                     metadata=metadata,
-                    answer_data_request=partial(self._answer, user_id),
+                    answer_data_request=self._data_requests.for_user(user_id),
                 ),
             ),
         )

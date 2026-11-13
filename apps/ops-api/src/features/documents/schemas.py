@@ -164,11 +164,6 @@ class DocumentAnswer(BaseModel):
     """The imported file's lines; empty for a document not imported"""
 
 
-class FetchError(BaseModel):
-    error: str
-    """Why ops-api cannot answer, such as No such document"""
-
-
 class ChangesetArtifact(BaseModel):
     document_id: UUID
     """The document the edits are for"""
@@ -220,7 +215,6 @@ __all__ = [
     "DocumentsRequest",
     "EditDocumentInput",
     "EditDocumentOutput",
-    "FetchError",
     "LineRead",
     "TailoredDocument",
     "VersionCreate",

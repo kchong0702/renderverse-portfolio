@@ -46,6 +46,7 @@ def document_service(session: AsyncSession, container: "Container") -> DocumentS
         settings_service(session, container),
         container.ezcareer(),
         container.runner(),
+        container.data_requests(),
     )
 
 

@@ -1,6 +1,7 @@
 from src.clients.ezcareer.client import EzcareerClient
 from src.clients.ezcareer.schemas import (
     Answer,
+    AnswerDataRequest,
     Cancelled,
     Completed,
     DataRequest,
@@ -26,6 +27,7 @@ from src.clients.ezcareer.types import ModelFamily
 
 __all__ = [
     "Answer",
+    "AnswerDataRequest",
     "Cancelled",
     "Completed",
     "DataRequest",
