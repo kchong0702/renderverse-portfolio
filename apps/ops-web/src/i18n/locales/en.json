@@ -697,6 +697,29 @@
         "failed": "Google could not be connected. Try again."
       }
     },
+    "signInMethods": {
+      "title": "Sign-in methods",
+      "names": {
+        "password": "Password",
+        "google": "Google",
+        "github": "GitHub"
+      },
+      "status": {
+        "not_linked": "Not connected yet",
+        "password_not_linked": "No password is set. Ask the server owner to run the set-password command.",
+        "not_configured": "Not set up on the server yet"
+      },
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "lastMethod": "This is your only sign-in method, so it can't be removed.",
+      "disconnectFailed": "Not disconnected: {{reason}}",
+      "loadFailed": "Sign-in methods could not be loaded: {{reason}}",
+      "linkErrors": {
+        "failed": "The account could not be connected. Try again.",
+        "taken": "That account is already used to sign in to another user.",
+        "unverified": "That account has no verified email, so it could not be connected."
+      }
+    },
     "jobAgent": {
       "title": "Job agent",
       "query": "Search for",

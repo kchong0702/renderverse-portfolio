@@ -562,11 +562,14 @@ async def auth_app(
     google: FakeGoogle,
     storage: "LocalStorage",
 ) -> AsyncIterator[FastAPI]:
-    """Auth enabled, OWNER allowlisted, fake Google and GitHub"""
+    """Auth enabled, OWNER seeded as a user, fake Google and GitHub"""
+    from src.core.auth.models import User
+
     monkeypatch.setenv("OPS_API_AUTH__ENABLED", "true")
-    monkeypatch.setenv("OPS_API_AUTH__ALLOWED_EMAILS", OWNER)
     monkeypatch.setenv("OPS_API_AUTH__SECRET_KEY", "k" * 32)
     async for app in _app(harness, artifact, google, storage, oauth_providers):
+        async with app.state.session_factory() as session, session.begin():
+            session.add(User(email=OWNER))
         yield app
 
 

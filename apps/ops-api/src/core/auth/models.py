@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, DateTime, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.auth.enums import Role
+from src.core.auth.enums import AttemptScope, IdentityProvider, Role
 from src.db.base import Base, EnumString, utcnow
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 
@@ -14,31 +14,50 @@ class User(IdMixin, AuditMixin, Base):
     """Whoever a request acts for; every feature table points here through user_id"""
 
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint("email = lower(trim(email))", name="email_normalised"),
+        CheckConstraint("role in ('admin', 'user')", name="role"),
+    )
 
     email: Mapped[str] = mapped_column(String(320), unique=True)
-    """Lowercased; must be in auth.allowed_emails to sign in"""
-
-    password_hash: Mapped[str | None] = mapped_column(String(255))
-    """Argon2 hash; None until a password is set with the CLI"""
+    """Lowercased and trimmed; only seeded users can sign in"""
 
     role: Mapped[Role] = mapped_column(
         EnumString(Role), default=Role.USER, server_default=Role.USER.value
     )
     """Only an admin can use the portfolio; set in the database"""
 
+    disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When access was revoked; None while the user can sign in"""
+
 
 class AuthIdentity(IdMixin, UserScopedMixin, Base):
-    """A Google or GitHub account linked to a user through a verified email"""
+    """One way a user signs in: a password, a Google account or a GitHub account"""
 
     __tablename__ = "auth_identities"
-    __table_args__ = (UniqueConstraint("provider", "subject"),)
+    __table_args__ = (
+        UniqueConstraint("provider", "subject"),
+        UniqueConstraint("user_id", "provider"),
+        CheckConstraint(
+            "provider in ('password', 'google', 'github')", name="provider"
+        ),
+        CheckConstraint("(provider = 'password') = (subject is null)", name="subject"),
+        CheckConstraint(
+            "(provider = 'password') = (secret_hash is not null)", name="secret_hash"
+        ),
+    )
 
-    provider: Mapped[str] = mapped_column(String(20))
-    subject: Mapped[str] = mapped_column(String(255))
-    """The provider's stable account id"""
+    provider: Mapped[IdentityProvider] = mapped_column(EnumString(IdentityProvider))
+    """How the user signs in"""
+
+    subject: Mapped[str | None] = mapped_column(String(255))
+    """The provider's stable account id; None for a password"""
 
     email: Mapped[str] = mapped_column(String(320))
-    """The verified email it signed in with"""
+    """The verified email when it was linked"""
+
+    secret_hash: Mapped[str | None] = mapped_column(String(255))
+    """The password's Argon2id hash; None for Google and GitHub"""
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
@@ -62,14 +81,19 @@ class AuthSession(IdMixin, UserScopedMixin, Base):
 
 
 class SignInAttempts(Base):
-    """Password sign-ins for one email in its current window.
-
-    Keyed by the email typed, not a user, so unknown emails are limited the same way
-    and a 429 never tells which emails have accounts."""
+    """Password sign-ins for one typed email or one client address in its current
+    window; unknown emails are limited the same way, so a 429 reveals no accounts"""
 
     __tablename__ = "auth_sign_in_attempts"
 
-    email: Mapped[str] = mapped_column(String(320), primary_key=True)
+    scope: Mapped[AttemptScope] = mapped_column(
+        EnumString(AttemptScope), primary_key=True
+    )
+    """Whether value is an email or a client address"""
+
+    value: Mapped[str] = mapped_column(String(320), primary_key=True)
+    """The typed email, normalised, or the client address"""
+
     attempts: Mapped[int] = mapped_column(Integer)
     window_ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

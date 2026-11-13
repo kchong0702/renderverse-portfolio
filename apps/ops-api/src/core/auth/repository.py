@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import case, delete, select
+from sqlalchemy import case, delete, exists, select
 from sqlalchemy.dialects import postgresql, sqlite
 
+from src.core.auth.enums import AttemptScope, IdentityProvider
 from src.core.auth.models import AuthIdentity, AuthSession, SignInAttempts, User
 from src.db.repository import Repository
 
@@ -22,6 +23,43 @@ class AuthRepository(Repository):
             select(AuthIdentity).where(
                 AuthIdentity.provider == provider, AuthIdentity.subject == subject
             )
+        )
+
+    async def identities(
+        self, user_id: UUID, *, lock: bool = False
+    ) -> list[AuthIdentity]:
+        """Every way the user signs in, locked until the transaction ends when asked"""
+        statement = select(AuthIdentity).where(AuthIdentity.user_id == user_id)
+        return list(
+            await self._session.scalars(
+                statement.with_for_update() if lock else statement
+            )
+        )
+
+    async def user_identity(
+        self, user_id: UUID, provider: IdentityProvider
+    ) -> AuthIdentity | None:
+        """The user's identity with this provider, if they have one"""
+        return await self._session.scalar(
+            select(AuthIdentity).where(
+                AuthIdentity.user_id == user_id, AuthIdentity.provider == provider
+            )
+        )
+
+    async def first_unclaimed_user(self, emails: list[str]) -> User | None:
+        """The user of the earliest of the emails who has no identity yet"""
+        if not emails:
+            return None
+        return await self._session.scalar(
+            select(User)
+            .where(
+                User.email.in_(emails),
+                ~exists().where(AuthIdentity.user_id == User.id),
+            )
+            .order_by(
+                case({email: i for i, email in enumerate(emails)}, value=User.email)
+            )
+            .limit(1)
         )
 
     async def live_session(self, token_hash: str, now: datetime) -> AuthSession | None:
@@ -44,20 +82,18 @@ class AuthRepository(Repository):
         )
 
     async def count_sign_in_attempt(
-        self, email: str, now: datetime, window_ends_at: datetime
+        self, scope: AttemptScope, value: str, now: datetime, window_ends_at: datetime
     ) -> int:
-        """Count one more attempt for the email and return its total in the window.
-
-        One upsert, so parallel requests each get their own count and a burst cannot
-        slip past the limit; a window that has ended starts again at 1."""
+        """Count one more attempt for the email or address in one upsert, so a burst
+        cannot slip past the limit, and return its total in the window"""
         dialect = self._session.get_bind().dialect.name
         insert = postgresql.insert if dialect == "postgresql" else sqlite.insert
         ended = SignInAttempts.window_ends_at <= now
         statement = insert(SignInAttempts).values(
-            email=email, attempts=1, window_ends_at=window_ends_at
+            scope=scope, value=value, attempts=1, window_ends_at=window_ends_at
         )
         statement = statement.on_conflict_do_update(
-            index_elements=[SignInAttempts.email],
+            index_elements=[SignInAttempts.scope, SignInAttempts.value],
             set_={
                 "attempts": case((ended, 1), else_=SignInAttempts.attempts + 1),
                 "window_ends_at": case(
@@ -71,9 +107,12 @@ class AuthRepository(Repository):
             or 0
         )
 
-    async def clear_sign_in_attempts(self, email: str) -> None:
+    async def clear_sign_in_attempts(self, scope: AttemptScope, value: str) -> None:
+        """Forget the attempts counted for the email or address"""
         await self._session.execute(
-            delete(SignInAttempts).where(SignInAttempts.email == email)
+            delete(SignInAttempts).where(
+                SignInAttempts.scope == scope, SignInAttempts.value == value
+            )
         )
 
     async def delete_ended_sign_in_windows(self, now: datetime) -> None:

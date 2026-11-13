@@ -16,6 +16,7 @@ services:
     environment:
       OPS_API_EZCAREER__URL: http://ezcareer-harness:8000/ezcareer
       OPS_API_ARTIFACT__URL: http://artifact-service:8000/artifact-service
+      OPS_API_APP__FORWARDED_ALLOW_IPS: 172.16.0.0/12,192.168.0.0/16
     volumes:
       - ops-api-data:/app/apps/ops-api/.data
     ports:

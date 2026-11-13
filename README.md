@@ -130,7 +130,7 @@ pnpm run migrate
 pnpm run dev:ops
 ```
 
-The UI on http://localhost:5174 proxies `/ops-api` to ops-api, the same path `tailscale serve` routes on the VM. Locally auth is off and every request acts as `auth.dev_email` from [config.toml](apps/ops-api/config.toml), as an admin.
+The UI on http://localhost:5174 proxies `/ops-api` to ops-api, the same path `tailscale serve` routes on the VM. Locally auth is off and every request acts as `auth.dev_email` from [config.toml](apps/ops-api/config.toml), as an admin. ops-api refuses to start with auth off unless `app.env` is `dev` and `auth.web_url` is on localhost, 127.0.0.1 or ::1.
 
 The agents and documents need two more services. ops-api calls the ezcareer harness (http://localhost:8200) for the assistant, job search, tailoring, résumé import and email, and artifact-service (http://localhost:8210) to export PDFs and list the templates. The harness also uses artifact-service, to read and print imported résumés. `pnpm run dev` starts everything; on its own, start them with `pnpm nx run ezcareer-harness:dev` and `pnpm nx run artifact-service:dev`.
 
@@ -144,18 +144,30 @@ renderverse reads the current release straight from the bucket, never from ops-a
 
 ### Sign-in
 
-With `OPS_API_AUTH__ENABLED=true`, Ops needs a signed-in session: Google, GitHub, or an email and password. Only emails in `OPS_API_AUTH__ALLOWED_EMAILS` get in, and `OPS_API_AUTH__SECRET_KEY` must be set (e.g. `openssl rand -hex 32`); [apps/ops-api/.env.example](apps/ops-api/.env.example) lists every variable. Google and GitHub appear once their client id and secret are set, with this callback URL registered at the provider (`auth.web_url` is where ops-web is served):
+With `OPS_API_AUTH__ENABLED=true`, Ops needs a signed-in session: Google, GitHub, or an email and password. `OPS_API_AUTH__SECRET_KEY` must be set (e.g. `openssl rand -hex 32`); [apps/ops-api/.env.example](apps/ops-api/.env.example) lists every variable. Google and GitHub appear once their client id and secret are set, with this callback URL registered at the provider (`auth.web_url` is where ops-web is served):
 
 ```
 <auth.web_url>/ops-api/v1/auth/google/callback
 <auth.web_url>/ops-api/v1/auth/github/callback
 ```
 
-There is no sign-up or password reset by email. Set a password on the machine running ops-api:
+The `users` table is the allowlist. Only a seeded user can sign in, by any method, and sign-in never creates a user. Seed one in the database, with the email lowercased and trimmed and a role of `admin` or `user`:
+
+```sql
+INSERT INTO users (id, email, role, created_at) VALUES (gen_random_uuid(), 'you@example.com', 'admin', now());
+```
+
+There is no sign-up or password reset page. Set or replace a seeded user's password on the machine running ops-api:
 
 ```bash
 cd apps/ops-api && uv run python -m src.core.auth.cli set-password you@example.com
 ```
+
+The first Google or GitHub sign-in with a verified email that matches a seeded user links that account, but only while the user has no sign-in method yet. After that, link or unlink another account in Settings while signed in; the last method can't be removed.
+
+To revoke access, set `users.disabled_at` (e.g. `UPDATE users SET disabled_at = now() WHERE email = 'you@example.com'`). Sign-in and any open session stop working at once, and the user's data stays. Clear it to restore access.
+
+Password sign-in is limited per email and per client address. ops-api takes the client address from `X-Forwarded-For` only when the request comes from an address in `app.forwarded_allow_ips` (`127.0.0.1` by default). In docker compose, ops-web's nginx overwrites that header with the client's address, and `OPS_API_APP__FORWARDED_ALLOW_IPS` trusts Docker's private networks, so each client is counted on its own. A proxy in front of nginx, such as `tailscale serve`, is seen as one client unless nginx is set to trust it too.
 
 ## Observability
 

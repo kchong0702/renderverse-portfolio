@@ -38,7 +38,7 @@ async def current_user(
     service: AuthServiceDep,
     token: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None,
 ) -> User:
-    """The signed-in, allowlisted caller, who the request's writes are stamped with"""
+    """The signed-in, enabled caller, who the request's writes are stamped with"""
     if not service.settings.enabled:
         user = await service.dev_user()
     else:

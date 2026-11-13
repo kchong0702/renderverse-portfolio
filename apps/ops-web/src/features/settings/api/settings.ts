@@ -83,3 +83,22 @@ export const googleConnectUrl = (next: string) =>
   `${GOOGLE_URL}/connect?${new URLSearchParams({ next })}`;
 
 export const disconnectGoogle = () => http.delete(GOOGLE_URL);
+
+export type IdentityProvider = "password" | "google" | "github";
+
+export interface Identity {
+  provider: IdentityProvider;
+  email: string | null;
+  configured: boolean;
+}
+
+const AUTH_URL = `${config.opsApiUrl}/auth`;
+
+export const fetchIdentities = (signal?: AbortSignal) =>
+  http.get<Identity[]>(`${AUTH_URL}/identities`, signal);
+
+export const identityLinkUrl = (provider: IdentityProvider, next: string) =>
+  `${AUTH_URL}/${provider}/link?${new URLSearchParams({ next })}`;
+
+export const unlinkIdentity = (provider: IdentityProvider) =>
+  http.delete(`${AUTH_URL}/identities/${provider}`);

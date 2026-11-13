@@ -3,8 +3,10 @@ import {
   connectJsearch,
   disconnectGoogle,
   disconnectJsearch,
+  fetchIdentities,
   fetchModels,
   fetchSettings,
+  unlinkIdentity,
   updateSettings,
   type Settings,
   type SettingsPatch,
@@ -68,4 +70,15 @@ export const disconnectGoogleMutationOptions = mutationOptions({
   mutationFn: disconnectGoogle,
   onSettled: (_data, _error, _variables, _result, { client }) =>
     client.invalidateQueries({ queryKey: settingsQueryOptions.queryKey }),
+});
+
+export const identitiesQueryOptions = queryOptions({
+  queryKey: ["settings", "identities"],
+  queryFn: ({ signal }) => fetchIdentities(signal),
+});
+
+export const unlinkIdentityMutationOptions = mutationOptions({
+  mutationFn: unlinkIdentity,
+  onSettled: (_data, _error, _variables, _result, { client }) =>
+    client.invalidateQueries({ queryKey: identitiesQueryOptions.queryKey }),
 });
