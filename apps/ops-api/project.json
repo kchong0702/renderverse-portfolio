@@ -27,6 +27,15 @@
       },
       "dependsOn": ["postgres"]
     },
+    "worker": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "options": {
+        "command": "uv run python -m src.worker",
+        "cwd": "apps/ops-api"
+      },
+      "dependsOn": ["postgres"]
+    },
     "migrate": {
       "executor": "nx:run-commands",
       "options": {

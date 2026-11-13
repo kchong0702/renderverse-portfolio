@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: fdae3a36dec0
+Revision ID: 9eb5982b9fd8
 Revises:
-Create Date: 2026-11-13 13:22:13.785441
+Create Date: 2026-11-13 13:22:45.776745
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "fdae3a36dec0"
+revision: str = "9eb5982b9fd8"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -301,6 +301,42 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("user_id", "provider", name=op.f("pk_connections")),
     )
+    op.create_table(
+        "files",
+        sa.Column("sha256", sa.String(length=64), nullable=False),
+        sa.Column("media_type", sa.String(length=100), nullable=False),
+        sa.Column("size", sa.Integer(), nullable=False),
+        sa.Column("filename", sa.String(length=255), nullable=False),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "created_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "updated_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_files_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_files")),
+        sa.UniqueConstraint("user_id", "sha256", name=op.f("uq_files_user_id")),
+    )
+    op.create_index(op.f("ix_files_user_id"), "files", ["user_id"], unique=False)
     op.create_table(
         "job_preferences",
         sa.Column("user_id", sa.Uuid(), nullable=False),
@@ -603,47 +639,6 @@ def upgrade() -> None:
         op.f("ix_profile_entries_user_id"), "profile_entries", ["user_id"], unique=False
     )
     op.create_table(
-        "profile_imports",
-        sa.Column("filename", sa.String(length=255), nullable=False),
-        sa.Column("media_type", sa.String(length=100), nullable=False),
-        sa.Column("size", sa.Integer(), nullable=False),
-        sa.Column("digest", sa.String(length=64), nullable=False),
-        sa.Column("source", sa.String(), nullable=False),
-        sa.Column("added", sa.Integer(), nullable=False),
-        sa.Column("conflicts", sa.Integer(), nullable=False),
-        sa.Column("matched", sa.Integer(), nullable=False),
-        sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("user_id", sa.Uuid(), nullable=False),
-        sa.Column(
-            "created_by", sa.String(length=100), server_default="system", nullable=False
-        ),
-        sa.Column(
-            "updated_by", sa.String(length=100), server_default="system", nullable=False
-        ),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.ForeignKeyConstraint(
-            ["user_id"],
-            ["users.id"],
-            name=op.f("fk_profile_imports_user_id_users"),
-            ondelete="CASCADE",
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_profile_imports")),
-    )
-    op.create_index(
-        op.f("ix_profile_imports_user_id"), "profile_imports", ["user_id"], unique=False
-    )
-    op.create_table(
         "profile_skills",
         sa.Column("name", sa.String(length=100), nullable=False),
         sa.Column("group", sa.String(length=100), nullable=False),
@@ -882,13 +877,6 @@ def upgrade() -> None:
             ),
             nullable=False,
         ),
-        sa.Column(
-            "lines",
-            sa.JSON().with_variant(
-                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-            nullable=False,
-        ),
         sa.Column("job_id", sa.Uuid(), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("user_id", sa.Uuid(), nullable=False),
@@ -937,76 +925,6 @@ def upgrade() -> None:
         sqlite_where=sa.text("master"),
     )
     op.create_table(
-        "profile_changes",
-        sa.Column("import_id", sa.Uuid(), nullable=False),
-        sa.Column("kind", sa.String(), nullable=False),
-        sa.Column("entry_id", sa.Uuid(), nullable=True),
-        sa.Column("field", sa.String(length=20), nullable=True),
-        sa.Column(
-            "current",
-            sa.JSON().with_variant(
-                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-            nullable=True,
-        ),
-        sa.Column(
-            "conflict",
-            sa.JSON().with_variant(
-                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-            nullable=True,
-        ),
-        sa.Column(
-            "entry",
-            sa.JSON().with_variant(
-                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-            nullable=True,
-        ),
-        sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("user_id", sa.Uuid(), nullable=False),
-        sa.Column(
-            "created_by", sa.String(length=100), server_default="system", nullable=False
-        ),
-        sa.Column(
-            "updated_by", sa.String(length=100), server_default="system", nullable=False
-        ),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.ForeignKeyConstraint(
-            ["entry_id"],
-            ["profile_entries.id"],
-            name=op.f("fk_profile_changes_entry_id_profile_entries"),
-            ondelete="CASCADE",
-        ),
-        sa.ForeignKeyConstraint(
-            ["import_id"],
-            ["profile_imports.id"],
-            name=op.f("fk_profile_changes_import_id_profile_imports"),
-            ondelete="CASCADE",
-        ),
-        sa.ForeignKeyConstraint(
-            ["user_id"],
-            ["users.id"],
-            name=op.f("fk_profile_changes_user_id_users"),
-            ondelete="CASCADE",
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_profile_changes")),
-    )
-    op.create_index(
-        op.f("ix_profile_changes_user_id"), "profile_changes", ["user_id"], unique=False
-    )
-    op.create_table(
         "profile_projects",
         sa.Column("entry_id", sa.Uuid(), nullable=False),
         sa.Column("link", sa.String(length=500), nullable=True),
@@ -1046,13 +964,18 @@ def upgrade() -> None:
     op.create_table(
         "document_changesets",
         sa.Column("document_id", sa.Uuid(), nullable=False),
+        sa.Column("key", sa.String(length=64), nullable=False),
+        sa.Column("agent", sa.String(length=100), nullable=False),
+        sa.Column("reason", sa.Text(), nullable=False),
         sa.Column(
-            "changeset",
+            "edits",
             sa.JSON().with_variant(
                 postgresql.JSONB(astext_type=sa.Text()), "postgresql"
             ),
             nullable=False,
         ),
+        sa.Column("status", sa.String(), nullable=False),
+        sa.Column("decided_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column(
@@ -1099,61 +1022,13 @@ def upgrade() -> None:
         ["user_id"],
         unique=False,
     )
-    op.create_table(
-        "document_imports",
-        sa.Column("filename", sa.String(length=255), nullable=False),
-        sa.Column("media_type", sa.String(length=100), nullable=False),
-        sa.Column("size", sa.Integer(), nullable=False),
-        sa.Column("content", sa.LargeBinary(), nullable=False),
-        sa.Column("status", sa.String(), nullable=False),
-        sa.Column("document_id", sa.Uuid(), nullable=True),
-        sa.Column("error", sa.Text(), nullable=False),
-        sa.Column(
-            "suggestion",
-            sa.JSON().with_variant(
-                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-            nullable=True,
-        ),
-        sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("user_id", sa.Uuid(), nullable=False),
-        sa.Column(
-            "created_by", sa.String(length=100), server_default="system", nullable=False
-        ),
-        sa.Column(
-            "updated_by", sa.String(length=100), server_default="system", nullable=False
-        ),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.ForeignKeyConstraint(
-            ["document_id"],
-            ["documents.id"],
-            name=op.f("fk_document_imports_document_id_documents"),
-            ondelete="SET NULL",
-        ),
-        sa.ForeignKeyConstraint(
-            ["user_id"],
-            ["users.id"],
-            name=op.f("fk_document_imports_user_id_users"),
-            ondelete="CASCADE",
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_document_imports")),
-    )
     op.create_index(
-        op.f("ix_document_imports_user_id"),
-        "document_imports",
-        ["user_id"],
-        unique=False,
+        "uq_document_changesets_pending",
+        "document_changesets",
+        ["document_id"],
+        unique=True,
+        postgresql_where=sa.text("status = 'pending'"),
+        sqlite_where=sa.text("status = 'pending'"),
     )
     op.create_table(
         "document_versions",
@@ -1267,6 +1142,168 @@ def upgrade() -> None:
     op.create_index(
         op.f("ix_email_threads_user_id"), "email_threads", ["user_id"], unique=False
     )
+    op.create_table(
+        "imports",
+        sa.Column("file_id", sa.Uuid(), nullable=False),
+        sa.Column("source", sa.String(), nullable=False),
+        sa.Column("status", sa.String(), nullable=False),
+        sa.Column("document_id", sa.Uuid(), nullable=True),
+        sa.Column(
+            "lines",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=True,
+        ),
+        sa.Column(
+            "suggestion",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=True,
+        ),
+        sa.Column("added", sa.Integer(), nullable=False),
+        sa.Column("conflicts", sa.Integer(), nullable=False),
+        sa.Column("matched", sa.Integer(), nullable=False),
+        sa.Column("claim_token", sa.Uuid(), nullable=True),
+        sa.Column("lease_until", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("attempts", sa.Integer(), nullable=False),
+        sa.Column(
+            "run_after",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column("error", sa.Text(), nullable=False),
+        sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "created_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "updated_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["document_id"],
+            ["documents.id"],
+            name=op.f("fk_imports_document_id_documents"),
+            ondelete="SET NULL",
+        ),
+        sa.ForeignKeyConstraint(
+            ["file_id"], ["files.id"], name=op.f("fk_imports_file_id_files")
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_imports_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_imports")),
+    )
+    op.create_index(op.f("ix_imports_user_id"), "imports", ["user_id"], unique=False)
+    op.create_index(
+        "uq_imports_data_processing",
+        "imports",
+        ["user_id"],
+        unique=True,
+        postgresql_where=sa.text("source = 'data' AND status = 'processing'"),
+        sqlite_where=sa.text("source = 'data' AND status = 'processing'"),
+    )
+    op.create_index(
+        "uq_imports_documents_active",
+        "imports",
+        ["user_id"],
+        unique=True,
+        postgresql_where=sa.text(
+            "source = 'documents' AND status IN ('queued', 'processing')"
+        ),
+        sqlite_where=sa.text(
+            "source = 'documents' AND status IN ('queued', 'processing')"
+        ),
+    )
+    op.create_table(
+        "profile_changes",
+        sa.Column("import_id", sa.Uuid(), nullable=False),
+        sa.Column("kind", sa.String(), nullable=False),
+        sa.Column("entry_id", sa.Uuid(), nullable=True),
+        sa.Column("field", sa.String(length=20), nullable=True),
+        sa.Column(
+            "current",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=True,
+        ),
+        sa.Column(
+            "conflict",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=True,
+        ),
+        sa.Column(
+            "entry",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=True,
+        ),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "created_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "updated_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["entry_id"],
+            ["profile_entries.id"],
+            name=op.f("fk_profile_changes_entry_id_profile_entries"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["import_id"],
+            ["imports.id"],
+            name=op.f("fk_profile_changes_import_id_imports"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_profile_changes_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_profile_changes")),
+    )
+    op.create_index(
+        op.f("ix_profile_changes_user_id"), "profile_changes", ["user_id"], unique=False
+    )
     op.enable_rls("auth_sign_in_attempts")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("users")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("agent_model_calls")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1275,25 +1312,25 @@ def upgrade() -> None:
     op.enable_rls("auth_identities")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("auth_sessions")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("connections")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("files")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("job_preferences")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("job_runs")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("jobs")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("networking_copies")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("portfolio_releases")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("profile_entries")  # pyright: ignore[reportAttributeAccessIssue]
-    op.enable_rls("profile_imports")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("profile_skills")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("profiles")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("user_settings")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("agent_events")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("applications")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("documents")  # pyright: ignore[reportAttributeAccessIssue]
-    op.enable_rls("profile_changes")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("profile_projects")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("document_changesets")  # pyright: ignore[reportAttributeAccessIssue]
-    op.enable_rls("document_imports")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("document_versions")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("email_threads")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("imports")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("profile_changes")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("alembic_version")  # pyright: ignore[reportAttributeAccessIssue]
     # ### end Alembic commands ###
 
@@ -1302,25 +1339,25 @@ def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
     op.disable_rls("alembic_version")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("profile_changes")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("imports")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("email_threads")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("document_versions")  # pyright: ignore[reportAttributeAccessIssue]
-    op.disable_rls("document_imports")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("document_changesets")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("profile_projects")  # pyright: ignore[reportAttributeAccessIssue]
-    op.disable_rls("profile_changes")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("documents")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("applications")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("agent_events")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("user_settings")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("profiles")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("profile_skills")  # pyright: ignore[reportAttributeAccessIssue]
-    op.disable_rls("profile_imports")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("profile_entries")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("portfolio_releases")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("networking_copies")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("jobs")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("job_runs")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("job_preferences")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("files")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("connections")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("auth_sessions")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("auth_identities")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1329,6 +1366,26 @@ def downgrade() -> None:
     op.disable_rls("agent_model_calls")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("users")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("auth_sign_in_attempts")  # pyright: ignore[reportAttributeAccessIssue]
+    op.drop_index(op.f("ix_profile_changes_user_id"), table_name="profile_changes")
+    op.drop_table("profile_changes")
+    op.drop_index(
+        "uq_imports_documents_active",
+        table_name="imports",
+        postgresql_where=sa.text(
+            "source = 'documents' AND status IN ('queued', 'processing')"
+        ),
+        sqlite_where=sa.text(
+            "source = 'documents' AND status IN ('queued', 'processing')"
+        ),
+    )
+    op.drop_index(
+        "uq_imports_data_processing",
+        table_name="imports",
+        postgresql_where=sa.text("source = 'data' AND status = 'processing'"),
+        sqlite_where=sa.text("source = 'data' AND status = 'processing'"),
+    )
+    op.drop_index(op.f("ix_imports_user_id"), table_name="imports")
+    op.drop_table("imports")
     op.drop_index(op.f("ix_email_threads_user_id"), table_name="email_threads")
     op.drop_table("email_threads")
     op.drop_index(op.f("ix_document_versions_user_id"), table_name="document_versions")
@@ -1336,8 +1393,12 @@ def downgrade() -> None:
         op.f("ix_document_versions_document_id"), table_name="document_versions"
     )
     op.drop_table("document_versions")
-    op.drop_index(op.f("ix_document_imports_user_id"), table_name="document_imports")
-    op.drop_table("document_imports")
+    op.drop_index(
+        "uq_document_changesets_pending",
+        table_name="document_changesets",
+        postgresql_where=sa.text("status = 'pending'"),
+        sqlite_where=sa.text("status = 'pending'"),
+    )
     op.drop_index(
         op.f("ix_document_changesets_user_id"), table_name="document_changesets"
     )
@@ -1346,8 +1407,6 @@ def downgrade() -> None:
     )
     op.drop_table("document_changesets")
     op.drop_table("profile_projects")
-    op.drop_index(op.f("ix_profile_changes_user_id"), table_name="profile_changes")
-    op.drop_table("profile_changes")
     op.drop_index(
         "uq_documents_master",
         table_name="documents",
@@ -1364,8 +1423,6 @@ def downgrade() -> None:
     op.drop_table("profiles")
     op.drop_index(op.f("ix_profile_skills_user_id"), table_name="profile_skills")
     op.drop_table("profile_skills")
-    op.drop_index(op.f("ix_profile_imports_user_id"), table_name="profile_imports")
-    op.drop_table("profile_imports")
     op.drop_index(op.f("ix_profile_entries_user_id"), table_name="profile_entries")
     op.drop_table("profile_entries")
     op.drop_index(
@@ -1384,6 +1441,8 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_job_runs_user_id"), table_name="job_runs")
     op.drop_table("job_runs")
     op.drop_table("job_preferences")
+    op.drop_index(op.f("ix_files_user_id"), table_name="files")
+    op.drop_table("files")
     op.drop_table("connections")
     op.drop_index(op.f("ix_auth_sessions_user_id"), table_name="auth_sessions")
     op.drop_table("auth_sessions")

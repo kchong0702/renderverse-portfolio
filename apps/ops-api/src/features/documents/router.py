@@ -4,7 +4,9 @@ from uuid import UUID
 from document_schema import Changeset, DocumentKind, TemplateSpec
 from fastapi import APIRouter, Depends, Header, Request, UploadFile, status
 from fastapi.sse import EventSourceResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.app.container import Container
 from src.clients.artifact import Render
 from src.clients.ezcareer import Answer
 from src.core.auth import CurrentUserDep
@@ -19,35 +21,34 @@ from src.features.documents.schemas import (
     DocumentRead,
     DocumentSummary,
     DocumentUpdate,
-    ImportRead,
     VersionCreate,
     VersionRead,
 )
 from src.features.documents.service import DocumentService
-from src.features.profile import ProfileServiceDep
-from src.features.settings import SettingsServiceDep
+from src.features.imports import ImportRead, ImportServiceDep, ImportSource
+from src.features.profile import ProfileService
+from src.features.settings import settings_service
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-def get_document_service(
-    session: SessionDep,
-    profile: ProfileServiceDep,
-    settings: SettingsServiceDep,
-    request: Request,
-) -> DocumentService:
-    """The documents service on the request's database session, the profile and
-    settings services, the harness and the app's runner"""
+def document_service(session: AsyncSession, container: Container) -> DocumentService:
+    """The documents service on the session, its clients from the container"""
     return DocumentService(
         session,
-        request.app.state.session_factory,
-        request.app.state.artifact,
+        container.session_factory(),
+        container.artifact(),
         get_settings().documents,
-        profile,
-        settings,
-        request.app.state.ezcareer,
-        request.app.state.runner,
+        ProfileService(session),
+        settings_service(session, container),
+        container.ezcareer(),
+        container.runner(),
     )
+
+
+def get_document_service(session: SessionDep, request: Request) -> DocumentService:
+    """The documents service on the request's database session"""
+    return document_service(session, request.app.state.container)
 
 
 DocumentServiceDep = Annotated[DocumentService, Depends(get_document_service)]
@@ -80,38 +81,33 @@ async def list_templates(
 
 @router.get("/imports")
 async def list_imports(
-    user: CurrentUserDep, service: DocumentServiceDep
+    user: CurrentUserDep, service: ImportServiceDep
 ) -> list[ImportRead]:
-    """Every uploaded résumé file, the latest first"""
-    return await service.imports(user.id)
+    """Every résumé uploaded in Documents, the latest first"""
+    return await service.imports(user.id, ImportSource.DOCUMENTS)
 
 
 @router.post("/imports", status_code=status.HTTP_201_CREATED)
 async def start_import(
-    file: UploadFile, user: CurrentUserDep, service: DocumentServiceDep
+    file: UploadFile, user: CurrentUserDep, service: ImportServiceDep
 ) -> ImportRead:
-    """Store a PDF or Word résumé as a pending import; POST its read to turn it
-    into a draft"""
-    return await service.start_import(
-        user.id, file.filename or "resume", file.content_type or "", await file.read()
+    """Store a PDF or Word résumé and queue its import; an earlier import still
+    queued or processing is abandoned"""
+    return await service.upload(
+        user.id,
+        ImportSource.DOCUMENTS,
+        file.filename or "resume",
+        file.content_type or "",
+        await file.read(),
     )
-
-
-@router.post("/imports/{import_id}/read")
-async def read_import(
-    import_id: UUID, user: CurrentUserDep, service: DocumentServiceDep
-) -> ImportRead:
-    """Run import-resume on the file: the import comes back done with its draft,
-    or failed with the reason"""
-    return await service.read_import(user.id, import_id)
 
 
 @router.delete("/imports/{import_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_import(
-    import_id: UUID, user: CurrentUserDep, service: DocumentServiceDep
+    import_id: UUID, user: CurrentUserDep, service: ImportServiceDep
 ) -> None:
-    """Remove an import and its file"""
-    await service.delete_import(user.id, import_id)
+    """Abandon an import still queued or processing"""
+    await service.delete(user.id, import_id)
 
 
 @router.get("/{document_id}")

@@ -1,10 +1,12 @@
 from tests.conftest import (
     PREFIX,
     a2a_sent,
+    a2a_task,
     sse_events,
     stream_chunk,
     stream_status,
     stream_task,
+    work,
 )
 
 JOBS = f"{PREFIX}/jobs"
@@ -128,6 +130,54 @@ async def test_without_a_master_resume_nothing_is_tailored(client, harness):
     assert "master résumé" in response.json()["detail"]
     assert harness.received == []
     assert (await client.get(DOCUMENTS)).json() == []
+
+
+async def test_a_copy_shows_the_lines_of_its_masters_import(app, client, harness):
+    harness.outcomes = [
+        a2a_task(
+            "COMPLETED",
+            artifact_parts=[
+                {
+                    "data": {
+                        "document": RESUME,
+                        "pdf": "JVBERi0=",
+                        "report": {
+                            "render_id": "0" * 64,
+                            "pages": 1,
+                            "last_page_fill": 0.4,
+                        },
+                        "lines": [
+                            {
+                                "id": "p1.s1",
+                                "text": "Kelvin Chong",
+                                "page": 1,
+                                "x0": 72.0,
+                                "top": 60.5,
+                                "x1": 180.25,
+                                "bottom": 74.0,
+                            }
+                        ],
+                        "suggestion": {"template": "serif", "columns": 1, "traits": []},
+                    }
+                }
+            ],
+        )
+    ]
+    await client.post(
+        f"{DOCUMENTS}/imports",
+        files={"file": ("resume.pdf", b"%PDF-1.7 resume", "application/pdf")},
+    )
+    await work(app)
+    [imported] = (await client.get(DOCUMENTS)).json()
+    await client.put(f"{DOCUMENTS}/{imported['id']}/master")
+    job_id = await _job(client)
+    harness.outcomes = [_proposed(RESUME_EDITS)]
+
+    tailored = (await client.post(f"{JOBS}/{job_id}/tailor")).json()
+
+    copy = (await client.get(f"{DOCUMENTS}/{tailored['resume']['document_id']}")).json()
+    assert copy["lines"] == [{"id": "p1.s1", "text": "Kelvin Chong"}]
+    await _follow(client, copy["id"])
 
 
 async def test_tailoring_copies_each_master_and_starts_its_chat_turn(client, harness):

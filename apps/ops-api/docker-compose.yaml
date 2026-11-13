@@ -1,26 +1,33 @@
+x-ops-api: &ops-api
+  image: ops-api:${TAG:-dev}
+  profiles: ["apps"]
+  restart: always
+  depends_on:
+    - ezcareer-harness
+    - artifact-service
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    OPS_API_EZCAREER__URL: http://ezcareer-harness:8000/ezcareer
+    OPS_API_ARTIFACT__URL: http://artifact-service:8000/artifact-service
+    OPS_API_APP__FORWARDED_ALLOW_IPS: 172.16.0.0/12,192.168.0.0/16
+  volumes:
+    - ops-api-data:/app/apps/ops-api/.data
+
 services:
   ops-api:
-    image: ops-api:${TAG:-dev}
-    profiles: ["apps"]
+    <<: *ops-api
     build:
       context: ../..
       dockerfile: apps/ops-api/Dockerfile
       target: ops-api
-    restart: always
-    depends_on:
-      - ezcareer-harness
-      - artifact-service
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      OPS_API_EZCAREER__URL: http://ezcareer-harness:8000/ezcareer
-      OPS_API_ARTIFACT__URL: http://artifact-service:8000/artifact-service
-      OPS_API_APP__FORWARDED_ALLOW_IPS: 172.16.0.0/12,192.168.0.0/16
-    volumes:
-      - ops-api-data:/app/apps/ops-api/.data
     ports:
       - "127.0.0.1:${OPS_API_HOST_PORT:-8100}:8000"
+
+  ops-worker:
+    <<: *ops-api
+    command: ["python", "-m", "src.worker"]
 
 volumes:
   ops-api-data:

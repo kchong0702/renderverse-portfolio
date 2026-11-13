@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from hashlib import sha256
 from typing import Any, Literal
 from uuid import UUID
 
@@ -10,14 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.config import get_settings
 from src.core.exceptions import InvalidInput, NotFound
 from src.db.base import utcnow
+from src.features.imports import Import
 from src.features.preferences import PreferencesService
-from src.features.profile.enums import ChangeChoice, ChangeKind, EntryKind, ImportSource
+from src.features.profile.enums import ChangeChoice, ChangeKind, EntryKind
 from src.features.profile.models import (
     Networking,
     Profile,
     ProfileChange,
     ProfileEntry,
-    ProfileImport,
     ProfileProject,
     ProfileSkill,
 )
@@ -35,7 +34,6 @@ from src.features.profile.schemas import (
     NetworkingRead,
     Preferences,
     ProfileFact,
-    ProfileImportRead,
     ProfileRead,
     ProfileUpdate,
     SkillRead,
@@ -308,20 +306,6 @@ class ProfileService:
         networking.written_at = utcnow()
         return await self.networking(user_id)
 
-    async def imports(self, user_id: UUID) -> list[ProfileImportRead]:
-        """Every import into the profile, the latest first"""
-        return [
-            ProfileImportRead.model_validate(row, from_attributes=True)
-            for row in await self._repository.imports(user_id)
-        ]
-
-    async def imported(self, user_id: UUID, content: bytes) -> ProfileImportRead | None:
-        """The user's earlier import of this very file, if any"""
-        row = await self._repository.imported(user_id, sha256(content).hexdigest())
-        return (
-            ProfileImportRead.model_validate(row, from_attributes=True) if row else None
-        )
-
     async def changes(self, user_id: UUID) -> list[ChangeRead]:
         """Every change imports left for the user to settle, the oldest first"""
         return [
@@ -420,32 +404,16 @@ class ProfileService:
             )
         )
 
-    async def sync(
-        self,
-        user_id: UUID,
-        source: ImportSource,
-        filename: str,
-        media_type: str,
-        content: bytes,
-        imported: ImportedProfile,
-    ) -> ProfileImportRead:
-        """Add what the profile lacks and a pending change for each value an import
-        would overwrite or entry it may be; the same file again changes nothing"""
-        digest = sha256(content).hexdigest()
-        if (earlier := await self._repository.imported(user_id, digest)) is not None:
-            return ProfileImportRead.model_validate(earlier, from_attributes=True)
+    async def sync(self, row: Import, imported: ImportedProfile) -> None:
+        """Add what the profile lacks and a pending change for each value the import
+        would overwrite or entry it may be, counting them on the import; a file
+        imported before changes nothing"""
+        user_id = row.user_id
+        await self._repository.lock(user_id)
+        if await self._repository.imported(user_id, row.file_id, row.id):
+            return
         profile = await self._load(user_id)
         changes = await self._repository.changes(user_id)
-        row = await self._repository.add(
-            ProfileImport(
-                user_id=user_id,
-                filename=filename[:255],
-                media_type=media_type,
-                size=len(content),
-                digest=digest,
-                source=source,
-            )
-        )
         outcomes = [
             await self._offer(
                 changes, row.id, profile, field, getattr(imported.about, field)
@@ -518,7 +486,6 @@ class ProfileService:
         row.added += outcomes.count("filled")
         row.conflicts += outcomes.count("conflict")
         await self._repository.flush()
-        return ProfileImportRead.model_validate(row, from_attributes=True)
 
     async def resolve(self, user_id: UUID, answers: ChangeAnswers) -> list[ChangeRead]:
         """Settle pending changes: keep the current value or take the import's, and

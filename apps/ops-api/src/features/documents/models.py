@@ -1,24 +1,21 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
-from document_schema import AnyDocument, Changeset, DocumentKind
-from pydantic import TypeAdapter
-from sqlalchemy import (
-    ForeignKey,
-    Index,
-    LargeBinary,
-    String,
-    Text,
-    UniqueConstraint,
-    text,
+from document_schema import (
+    AnyDocument,
+    AnyEdit,
+    Changeset,
+    ChangesetStatus,
+    DocumentKind,
 )
+from pydantic import TypeAdapter
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base, EnumString, PydanticJson
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
-from src.features.documents.enums import ImportStatus
-from src.features.documents.schemas import LookSuggestion, SourceLine
 
 
 class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -49,12 +46,6 @@ class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
     )
     """The current draft as document-schema's AnyDocument"""
 
-    lines: Mapped[list[SourceLine]] = mapped_column(
-        PydanticJson(TypeAdapter(list[SourceLine])), default=list
-    )
-    """The imported file's lines, which edit-document checks citations against;
-    empty for a document not imported"""
-
     job_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("jobs.id", ondelete="SET NULL"), default=None
     )
@@ -84,56 +75,55 @@ class DocumentVersion(IdMixin, UserScopedMixin, AuditMixin, Base):
 
 class DocumentChangeset(IdMixin, UserScopedMixin, AuditMixin, Base):
     __tablename__ = "document_changesets"
+    __table_args__ = (
+        Index(
+            "uq_document_changesets_pending",
+            "document_id",
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
+            sqlite_where=text("status = 'pending'"),
+        ),
+    )
 
     document_id: Mapped[UUID] = mapped_column(
         ForeignKey("documents.id", ondelete="CASCADE"), index=True
     )
     """The document the edits are for"""
 
-    changeset: Mapped[Changeset] = mapped_column(PydanticJson(TypeAdapter(Changeset)))
-    """An agent's proposal; its status turns accepted or rejected when the user
-    answers it"""
+    key: Mapped[str] = mapped_column(String(64))
+    """The id the agent gave the changeset, which accepted wording cites"""
 
+    agent: Mapped[str] = mapped_column(String(100))
+    """Which agent made it, such as career-consultant"""
 
-class DocumentImport(IdMixin, UserScopedMixin, AuditMixin, Base):
-    __tablename__ = "document_imports"
+    reason: Mapped[str] = mapped_column(Text())
+    """Why, in a sentence the user reads"""
 
-    filename: Mapped[str] = mapped_column(String(255))
-    """Name of the uploaded file"""
-
-    media_type: Mapped[str] = mapped_column(String(100))
-    """PDF or Word"""
-
-    size: Mapped[int] = mapped_column()
-    """Bytes in the file"""
-
-    content: Mapped[bytes] = mapped_column(LargeBinary(), deferred=True)
-    """The file itself; loaded only when asked for"""
-
-    status: Mapped[ImportStatus] = mapped_column(
-        EnumString(ImportStatus), default=ImportStatus.PENDING
+    edits: Mapped[list[AnyEdit]] = mapped_column(
+        PydanticJson(TypeAdapter(list[AnyEdit]))
     )
-    """How far the import has got"""
+    """The edits, applied together when accepted"""
 
-    document_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("documents.id", ondelete="SET NULL"), default=None
+    status: Mapped[ChangesetStatus] = mapped_column(
+        EnumString(ChangesetStatus), default=ChangesetStatus.PENDING
     )
-    """The draft import-resume made, once it is done"""
+    """Pending until the user accepts or rejects it"""
 
-    error: Mapped[str] = mapped_column(Text(), default="")
-    """Why the import failed; empty otherwise"""
-
-    suggestion: Mapped[LookSuggestion | None] = mapped_column(
-        PydanticJson(TypeAdapter(LookSuggestion)), default=None
+    decided_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
     )
-    """The look import-resume suggests from the file's layout, once it is done"""
+    """When the user answered it; None while it is pending"""
+
+    @property
+    def changeset(self) -> Changeset:
+        """The proposal as the agent sent it, with its status"""
+        return Changeset(
+            id=self.key,
+            agent=self.agent,
+            edits=self.edits,
+            reason=self.reason,
+            status=self.status,
+        )
 
 
-__all__ = [
-    "Document",
-    "DocumentChangeset",
-    "DocumentImport",
-    "DocumentVersion",
-    "LookSuggestion",
-    "SourceLine",
-]
+__all__ = ["Document", "DocumentChangeset", "DocumentVersion"]

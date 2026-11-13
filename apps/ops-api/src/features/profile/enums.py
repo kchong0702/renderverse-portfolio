@@ -14,14 +14,6 @@ class EntryKind(StrEnum):
     """Something the user built or led"""
 
 
-class ImportSource(StrEnum):
-    DATA = "data"
-    """Uploaded on the Data page"""
-
-    DOCUMENTS = "documents"
-    """A résumé imported in Documents, which also made a document"""
-
-
 class ChangeKind(StrEnum):
     FIELD = "field"
     """An import's value for a field that differs from the current one"""
@@ -48,5 +40,4 @@ __all__ = [
     "ChangeChoice",
     "ChangeKind",
     "EntryKind",
-    "ImportSource",
 ]

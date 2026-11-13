@@ -3,7 +3,7 @@ import os
 import re
 from base64 import b64encode, urlsafe_b64encode
 from collections.abc import AsyncIterator, Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
@@ -404,6 +404,18 @@ class FakeGoogle:
         if request.headers.get("authorization", "").startswith("Bearer access-"):
             return self._api(request)
         return httpx2.Response(401, content=json.dumps({"error": "unauthorized"}))
+
+
+async def work(app: FastAPI) -> None:
+    """Claim and process imports until none is due"""
+    from src.features.imports.processing import claim_import, process_import
+
+    while True:
+        async with app.state.session_factory() as session, session.begin():
+            claimed = await claim_import(session, timedelta(seconds=60))
+        if claimed is None:
+            return
+        await process_import(claimed.id, claimed.claim_token, app.state.container)
 
 
 async def connect_google(client: httpx2.AsyncClient, next_path: str = "/settings"):

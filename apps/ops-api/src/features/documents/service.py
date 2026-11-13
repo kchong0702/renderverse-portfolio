@@ -2,10 +2,8 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
 from contextlib import suppress
-from datetime import timedelta
 from functools import partial
-from pathlib import PurePath
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from document_schema import (
     AnyDocument,
@@ -27,27 +25,18 @@ from src.clients.ezcareer import (
     Completed,
     DataRequest,
     EzcareerClient,
-    Failed,
-    InputRequired,
     Published,
     RunEvent,
 )
 from src.core.config import DocumentsSettings
-from src.core.exceptions import (
-    Conflict,
-    InvalidInput,
-    NotFound,
-    ServiceUnavailable,
-)
+from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.core.logging import get_logger
 from src.core.runner import Runner
 from src.db.base import utcnow
 from src.db.session import session_scope
-from src.features.documents.enums import ImportStatus
 from src.features.documents.models import (
     Document,
     DocumentChangeset,
-    DocumentImport,
     DocumentVersion,
 )
 from src.features.documents.repository import DocumentRepository
@@ -68,15 +57,12 @@ from src.features.documents.schemas import (
     EditDocumentInput,
     EditDocumentOutput,
     FetchError,
-    ImportRead,
-    ImportResumeInput,
-    ImportResumeOutput,
     LineRead,
     TailoredDocument,
     VersionCreate,
     VersionRead,
 )
-from src.features.profile import ImportSource, ProfileService, resume_profile
+from src.features.profile import ProfileService
 from src.features.settings import SettingsService
 
 logger = get_logger(__name__)
@@ -84,13 +70,13 @@ logger = get_logger(__name__)
 
 def _pending(changesets: Sequence[DocumentChangeset]) -> int:
     """How many of these changesets wait for the user's answer"""
-    return sum(row.changeset.status is ChangesetStatus.PENDING for row in changesets)
+    return sum(row.status is ChangesetStatus.PENDING for row in changesets)
 
 
 def _waiting(changesets: Sequence[DocumentChangeset]) -> DocumentChangeset | None:
     """The changeset still waiting for the user's answer, if any"""
     return next(
-        (row for row in changesets if row.changeset.status is ChangesetStatus.PENDING),
+        (row for row in changesets if row.status is ChangesetStatus.PENDING),
         None,
     )
 
@@ -133,22 +119,24 @@ async def _propose(
     if changeset.status is not ChangesetStatus.PENDING:
         raise InvalidInput("A new changeset must be pending")
     pending = _waiting(await repository.changesets([document.id]))
-    edits = [*(pending.changeset.edits if pending else []), *changeset.edits]
+    edits = [*(pending.edits if pending else []), *changeset.edits]
     try:
         apply_edits(document.body, edits)
     except ValueError as error:
         raise InvalidInput(str(error)) from error
     if pending:
-        pending.changeset = pending.changeset.model_copy(
-            update={"edits": edits, "reason": changeset.reason}
-        )
+        pending.edits = edits
+        pending.reason = changeset.reason
         await repository.flush()
         return pending
     return await repository.add(
         DocumentChangeset(
             user_id=document.user_id,
             document_id=document.id,
-            changeset=changeset,
+            key=changeset.id,
+            agent=changeset.agent,
+            reason=changeset.reason,
+            edits=changeset.edits,
         )
     )
 
@@ -213,6 +201,18 @@ class DocumentService:
         )
         await self._keep(document, "Created")
         return await self._read(document)
+
+    async def import_draft(
+        self, user_id: UUID, title: str, body: AnyDocument
+    ) -> Document:
+        """Store a document an import made and keep its draft as version 1; Conflict
+        when the user keeps the most of its kind already"""
+        await self._make_room(user_id, body.kind)
+        document = await self._repository.add(
+            Document(user_id=user_id, kind=body.kind, title=title, body=body)
+        )
+        await self._keep(document, "Imported")
+        return document
 
     async def update(
         self, user_id: UUID, document_id: UUID, patch: DocumentUpdate
@@ -317,15 +317,14 @@ class DocumentService:
         is left; Conflict when the edits left no longer fit the draft"""
         document = await _load(self._repository, user_id, document_id)
         row = await self._repository.changeset(document.id, changeset_id)
-        if row is None or not 0 <= index < len(row.changeset.edits):
+        if row is None or not 0 <= index < len(row.edits):
             raise NotFound("No such edit")
-        if row.changeset.status is not ChangesetStatus.PENDING:
+        if row.status is not ChangesetStatus.PENDING:
             raise Conflict("This changeset is already answered")
-        edits = [e for i, e in enumerate(row.changeset.edits) if i != index]
+        edits = [e for i, e in enumerate(row.edits) if i != index]
         if not edits:
-            row.changeset = row.changeset.model_copy(
-                update={"status": ChangesetStatus.REJECTED}
-            )
+            row.status = ChangesetStatus.REJECTED
+            row.decided_at = utcnow()
         else:
             try:
                 apply_edits(document.body, edits)
@@ -333,7 +332,7 @@ class DocumentService:
                 raise Conflict(
                     f"The other edits need this one to fit the document: {error}"
                 ) from error
-            row.changeset = row.changeset.model_copy(update={"edits": edits})
+            row.edits = edits
         return ChangesetRead.model_validate(row, from_attributes=True)
 
     async def propose_from_run(
@@ -350,7 +349,7 @@ class DocumentService:
                     document_id=document.id,
                     title=document.title,
                     changeset_id=row.id,
-                    edits=len(row.changeset.edits),
+                    edits=len(row.edits),
                 )
         except (NotFound, InvalidInput) as error:
             logger.warning("changeset_skipped", reason=error.message)
@@ -374,7 +373,10 @@ class DocumentService:
                 case DocumentRequest(id=document_id):
                     document = await repository.owned(Document, user_id, document_id)
                     answer = (
-                        DocumentAnswer(document=document.body, lines=document.lines)
+                        DocumentAnswer(
+                            document=document.body,
+                            lines=await repository.lines(document),
+                        )
                         if document
                         else FetchError(error="No such document")
                     )
@@ -420,20 +422,21 @@ class DocumentService:
         row = await self._repository.changeset(document.id, changeset_id)
         if row is None:
             raise NotFound("No such changeset")
-        if row.changeset.status is decision.status:
+        if row.status is decision.status:
             return ChangesetRead.model_validate(row, from_attributes=True)
-        if row.changeset.status is not ChangesetStatus.PENDING:
+        if row.status is not ChangesetStatus.PENDING:
             raise Conflict("This changeset is already answered")
         if decision.status is ChangesetStatus.ACCEPTED:
             try:
-                edited = apply_edits(document.body, row.changeset.edits)
+                edited = apply_edits(document.body, row.edits)
             except ValueError as error:
                 raise Conflict(
                     f"These edits no longer fit the document: {error}"
                 ) from error
-            await self._keep(document, f"Before {row.changeset.agent}'s edits")
+            await self._keep(document, f"Before {row.agent}'s edits")
             document.body = edited
-        row.changeset = row.changeset.model_copy(update={"status": decision.status})
+        row.status = decision.status
+        row.decided_at = utcnow()
         return ChangesetRead.model_validate(row, from_attributes=True)
 
     async def copy_for_job(
@@ -458,7 +461,6 @@ class DocumentService:
                     kind=kind,
                     title=title,
                     body=master.body,
-                    lines=master.lines,
                     job_id=job_id,
                 )
             )
@@ -473,7 +475,7 @@ class DocumentService:
         """Start the copy's chat turn on text unless a changeset still waits for the
         user; a turn already running carries on"""
         waiting = any(
-            row.changeset.status is ChangesetStatus.PENDING
+            row.status is ChangesetStatus.PENDING
             for row in await self._repository.changesets([document.id])
         )
         if not waiting:
@@ -578,110 +580,6 @@ class DocumentService:
             "edit-document", task_id, f"{user_id}:document:{document_id}"
         )
 
-    async def imports(self, user_id: UUID) -> list[ImportRead]:
-        """Every uploaded résumé file, the latest first"""
-        return [
-            ImportRead.model_validate(row, from_attributes=True)
-            for row in await self._repository.imports(user_id)
-        ]
-
-    async def start_import(
-        self, user_id: UUID, filename: str, media_type: str, content: bytes
-    ) -> ImportRead:
-        """Store an uploaded PDF or Word résumé as a pending import for
-        read_import to run import-resume on"""
-        if media_type not in self._limits.upload_types:
-            raise InvalidInput("Upload a PDF or Word (.docx) file")
-        if not content or len(content) > self._limits.max_upload_bytes:
-            raise InvalidInput(
-                f"The file must be between 1 byte and "
-                f"{self._limits.max_upload_bytes // (1024 * 1024)} MB"
-            )
-        row = await self._repository.add(
-            DocumentImport(
-                user_id=user_id,
-                filename=filename[:255],
-                media_type=media_type,
-                size=len(content),
-                content=content,
-            )
-        )
-        return ImportRead.model_validate(row, from_attributes=True)
-
-    async def read_import(self, user_id: UUID, import_id: UUID) -> ImportRead:
-        """Claim a pending or failed import and run import-resume on it with no
-        transaction open: it becomes a draft and syncs the profile, or fails"""
-        row = await self._repository.claim_import(
-            user_id,
-            import_id,
-            utcnow() - timedelta(seconds=self._ezcareer.run_timeout_seconds),
-        )
-        if row is None:
-            if await self._repository.owned(DocumentImport, user_id, import_id) is None:
-                raise NotFound("No such import")
-            raise Conflict("This import is already done or being read")
-        data = ImportResumeInput(file=await self._repository.file(row))
-        metadata = await self._settings.run_metadata(user_id)
-        await self._session.commit()
-        try:
-            run = await self._ezcareer.send(
-                "import-resume",
-                ImportResumeOutput,
-                user_id=user_id,
-                context_id=f"{user_id}:{uuid4()}",
-                data=data,
-                metadata=metadata,
-            )
-        except ServiceUnavailable:
-            row.status = ImportStatus.PENDING
-            await self._session.commit()
-            raise
-        match run:
-            case Completed(reply=reply):
-                await self._profile.sync(
-                    user_id,
-                    ImportSource.DOCUMENTS,
-                    row.filename,
-                    row.media_type,
-                    data.file,
-                    resume_profile(reply.document.content),
-                )
-                try:
-                    await self._make_room(user_id, reply.document.kind)
-                except Conflict as error:
-                    row.status = ImportStatus.FAILED
-                    row.error = error.message
-                else:
-                    document = await self._repository.add(
-                        Document(
-                            user_id=user_id,
-                            kind=reply.document.kind,
-                            title=PurePath(row.filename).stem[:200] or "Résumé",
-                            body=reply.document,
-                            lines=reply.lines,
-                        )
-                    )
-                    await self._keep(document, "Imported")
-                    row.status = ImportStatus.DONE
-                    row.document_id = document.id
-                    row.suggestion = reply.suggestion
-                    row.error = ""
-            case InputRequired():
-                row.status = ImportStatus.FAILED
-                row.error = "import-resume asked for input ops cannot give"
-            case Failed(reason=reason):
-                row.status = ImportStatus.FAILED
-                row.error = reason
-        await self._repository.flush()
-        return ImportRead.model_validate(row, from_attributes=True)
-
-    async def delete_import(self, user_id: UUID, import_id: UUID) -> None:
-        """Remove an import and its file; a draft it made stays"""
-        row = await self._repository.owned(DocumentImport, user_id, import_id)
-        if row is None:
-            raise NotFound("No such import")
-        await self._repository.delete(row)
-
     async def _read(self, document: Document) -> DocumentRead:
         """The document as the API returns it, flushed so updated_at is current"""
         await self._repository.flush()
@@ -690,7 +588,10 @@ class DocumentService:
         return DocumentRead(
             **_summary(document, _pending(changesets)).model_dump(),
             body=document.body,
-            lines=[LineRead(id=line.id, text=line.text) for line in document.lines],
+            lines=[
+                LineRead(id=line.id, text=line.text)
+                for line in await self._repository.lines(document)
+            ],
             pending_body=_applied(document.body, pending.changeset.edits)
             if pending
             else None,

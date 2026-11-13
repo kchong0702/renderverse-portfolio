@@ -21,11 +21,11 @@ import type {
   Tag,
   Value,
 } from "@renderverse/document-renderer";
+import type { ImportRecord } from "@/features/imports";
 import { http } from "@/shared/api/http";
 import { config } from "@/shared/config";
 
 export type DocumentKind = AnyDocument["kind"];
-export type ImportStatus = "pending" | "running" | "done" | "failed";
 
 export type Item =
   | Contact
@@ -91,30 +91,6 @@ interface Render {
   artifact: string;
 }
 
-type LookTrait =
-  | "accent_band"
-  | "photo"
-  | "tinted_headings"
-  | "ruled_headings"
-  | "serif_font"
-  | "coloured_name";
-
-export interface DocumentImport {
-  id: string;
-  filename: string;
-  media_type: string;
-  size: number;
-  status: ImportStatus;
-  document_id: string | null;
-  error: string;
-  suggestion: {
-    template: string;
-    columns: 1 | 2;
-    traits: LookTrait[];
-  } | null;
-  created_at: string;
-}
-
 const URL = `${config.opsApiUrl}/documents`;
 
 export const fetchDocuments = (signal?: AbortSignal) =>
@@ -164,15 +140,12 @@ export const undoChangesetEdit = ({
 }) => http.delete(`${URL}/${id}/changesets/${changesetId}/edits/${index}`);
 
 export const fetchImports = (signal?: AbortSignal) =>
-  http.get<DocumentImport[]>(`${URL}/imports`, signal);
+  http.get<ImportRecord[]>(`${URL}/imports`, signal);
 
 export const startImport = (file: File) => {
   const form = new FormData();
   form.append("file", file);
-  return http.post<DocumentImport>(`${URL}/imports`, form);
+  return http.post<ImportRecord>(`${URL}/imports`, form);
 };
 
 export const cancelImport = (id: string) => http.delete(`${URL}/imports/${id}`);
-
-export const readImport = (id: string) =>
-  http.post<DocumentImport>(`${URL}/imports/${id}/read`);

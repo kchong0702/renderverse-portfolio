@@ -2,11 +2,12 @@ import { Check, LoaderCircle, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { isActive } from "@/features/imports";
 import { buttonClass } from "@/shared/components/button";
 import { dayMonth } from "@/shared/lib/dates";
 import { formatSize } from "@/shared/lib/size";
 import { cn } from "@/shared/lib/cn";
-import { useImportFile } from "../hooks/useData";
+import { useImportFile, useImports } from "../hooks/useData";
 
 const ACCEPT = [".pdf", ".docx", ".zip"];
 
@@ -20,13 +21,14 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const upload = useImportFile();
+  const imports = useImports();
   const [file, setFile] = useState<File | null>(null);
   const [sent, setSent] = useState(false);
-  const [startedAt, setStartedAt] = useState(0);
   const [wrongType, setWrongType] = useState<string | null>(null);
-  const result = upload.data;
-  const again =
-    result && new Date(result.created_at).getTime() < startedAt - 60_000;
+  const result =
+    upload.data &&
+    (imports.data?.find((row) => row.id === upload.data.id) ?? upload.data);
+  const again = upload.data?.status === "done";
 
   useEffect(() => {
     if (open) dialog.current?.showModal();
@@ -47,11 +49,12 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
     setFile(null);
     onClose();
   };
-  const step = upload.isPending
-    ? "reading"
-    : upload.isSuccess
-      ? "done"
-      : "pick";
+  const step =
+    upload.isPending || (result && isActive(result))
+      ? "reading"
+      : result?.status === "done"
+        ? "done"
+        : "pick";
 
   return (
     <dialog
@@ -123,12 +126,12 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
                 </span>
               </button>
             )}
-            {(wrongType || upload.isError) && (
+            {(wrongType || upload.isError || result?.status === "failed") && (
               <p role="alert" className="text-crit m-0 text-sm">
                 {wrongType
                   ? t("data.importDialog.wrongType", { name: wrongType })
                   : t("data.importDialog.failed", {
-                      reason: upload.error?.message,
+                      reason: upload.error?.message ?? result?.error,
                     })}
               </p>
             )}
@@ -142,7 +145,6 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
                 onClick={() => {
                   if (!file) return;
                   setSent(false);
-                  setStartedAt(Date.now());
                   upload.mutate({ file, onSent: () => setSent(true) });
                 }}
                 className={buttonClass("primary")}
@@ -164,7 +166,10 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
             </div>
             <ol role="status" className="m-0 flex list-none flex-col gap-3 p-0">
               {[
-                { label: t("data.importDialog.sending"), done: sent },
+                {
+                  label: t("data.importDialog.sending"),
+                  done: sent && !upload.isPending,
+                },
                 { label: t("data.importDialog.comparing"), done: false },
               ].map((item, index) => (
                 <li
@@ -178,7 +183,7 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
                     <span className="bg-ok flex size-[18px] items-center justify-center rounded-full text-white">
                       <Check size={12} strokeWidth={3} />
                     </span>
-                  ) : index === 0 || sent ? (
+                  ) : index === 0 || (sent && !upload.isPending) ? (
                     <LoaderCircle
                       size={18}
                       className="text-amber animate-spin"
@@ -190,6 +195,11 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
                 </li>
               ))}
             </ol>
+            {result?.status === "queued" && result.error && (
+              <p role="alert" className="text-crit m-0 text-sm">
+                {t("data.importDialog.retrying", { reason: result.error })}
+              </p>
+            )}
             <div className="flex justify-end">
               <button type="button" onClick={onClose} className={buttonClass()}>
                 {t("data.importDialog.close")}
@@ -262,14 +272,12 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
                 type="button"
                 onClick={finish}
                 className={
-                  result.conflicts && !again
-                    ? buttonClass()
-                    : buttonClass("primary")
+                  result.conflicts ? buttonClass() : buttonClass("primary")
                 }
               >
                 {t("data.importDialog.finish")}
               </button>
-              {result.conflicts > 0 && !again && (
+              {result.conflicts > 0 && (
                 <Link
                   to="/data/review"
                   onClick={finish}

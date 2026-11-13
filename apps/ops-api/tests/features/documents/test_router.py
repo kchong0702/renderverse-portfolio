@@ -1,12 +1,12 @@
 from base64 import b64decode
+from hashlib import sha256
 from uuid import UUID
 
 import pytest
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from src.core.auth.models import User
-from src.features.documents.models import Document, DocumentImport
+from src.features.documents.models import Document
 from tests.conftest import PREFIX
 
 DOCUMENTS = f"{PREFIX}/documents"
@@ -415,8 +415,9 @@ async def test_templates_and_pdf_come_from_artifact_service(client, artifact):
     assert (await client.get(f"{DOCUMENTS}/{document['id']}/render")).status_code == 503
 
 
-async def test_an_upload_is_stored_as_a_pending_import(app, client):
+async def test_an_upload_is_stored_as_a_queued_import(client, storage):
     pdf = b"%PDF-1.7 resume"
+    me = (await client.get(f"{PREFIX}/me")).json()
 
     created = await client.post(
         f"{DOCUMENTS}/imports",
@@ -424,24 +425,25 @@ async def test_an_upload_is_stored_as_a_pending_import(app, client):
     )
 
     assert created.status_code == 201
-    assert created.json()["status"] == "pending"
+    assert created.json()["status"] == "queued"
+    assert created.json()["source"] == "documents"
     assert created.json()["size"] == len(pdf)
     assert created.json()["document_id"] is None
     assert created.json()["suggestion"] is None
     assert [
         i["filename"] for i in (await client.get(f"{DOCUMENTS}/imports")).json()
     ] == ["kelvin-chong-resume.pdf"]
-    async with app.state.session_factory() as session:
-        stored = await session.scalar(
-            select(DocumentImport.content).where(
-                DocumentImport.id == UUID(created.json()["id"])
-            )
-        )
-    assert stored == pdf
+    assert await storage.read_private(f"{me['id']}/{sha256(pdf).hexdigest()}") == pdf
+    assert [i["id"] for i in (await client.get(f"{PREFIX}/imports/active")).json()] == [
+        created.json()["id"]
+    ]
 
     cancelled = await client.delete(f"{DOCUMENTS}/imports/{created.json()['id']}")
     assert cancelled.status_code == 204
-    assert (await client.get(f"{DOCUMENTS}/imports")).json() == []
+    [abandoned] = (await client.get(f"{DOCUMENTS}/imports")).json()
+    assert abandoned["status"] == "abandoned"
+    assert abandoned["finished_at"] is not None
+    assert (await client.get(f"{PREFIX}/imports/active")).json() == []
 
 
 async def test_an_upload_must_be_a_pdf_or_word_file(client):

@@ -1,18 +1,8 @@
 import i18n from "@/i18n";
 import { ApiError, http } from "@/shared/api/http";
 import { config } from "@/shared/config";
+import type { ImportRecord } from "@/features/imports";
 import type { EntryKind } from "@/features/portfolio";
-
-export interface ProfileImport {
-  id: string;
-  filename: string;
-  media_type: string;
-  source: "data" | "documents";
-  added: number;
-  conflicts: number;
-  matched: number;
-  created_at: string;
-}
 
 export type ChangeField =
   | "name"
@@ -88,10 +78,10 @@ export interface NetworkingWrite {
 const URL = `${config.opsApiUrl}/profile`;
 
 export const fetchImports = (signal?: AbortSignal) =>
-  http.get<ProfileImport[]>(`${URL}/imports`, signal);
+  http.get<ImportRecord[]>(`${URL}/imports`, signal);
 
 export const importFile = (file: File, onSent: () => void) =>
-  new Promise<ProfileImport>((resolve, reject) => {
+  new Promise<ImportRecord>((resolve, reject) => {
     const form = new FormData();
     form.append("file", file);
     const request = new XMLHttpRequest();

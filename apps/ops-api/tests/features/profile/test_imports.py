@@ -5,7 +5,7 @@ import pytest
 
 from src.features.profile.exceptions import UnreadableExport
 from src.features.profile.export import read_export
-from tests.conftest import PREFIX, _client, a2a_sent, a2a_task
+from tests.conftest import PREFIX, _client, a2a_sent, a2a_task, work
 from tests.core.conftest import DATABASE_URL
 
 PROFILE = f"{PREFIX}/profile"
@@ -71,18 +71,28 @@ def _profile(
     return a2a_task("COMPLETED", artifact_parts=[{"data": reply}])
 
 
-async def _import(client, harness, outcome, data: bytes, name="export.zip"):
-    """Upload a file to the profile with the harness answering outcome"""
+async def _import(app, client, harness, outcome, data: bytes, name="export.zip"):
+    """Upload a file to the profile and work the queue with the harness answering
+    outcome; the import as it ends up"""
     harness.outcomes.append(outcome)
     media = "application/zip" if name.endswith(".zip") else "application/pdf"
-    return await client.post(f"{PROFILE}/imports", files={"file": (name, data, media)})
+    uploaded = await client.post(
+        f"{PROFILE}/imports", files={"file": (name, data, media)}
+    )
+    assert uploaded.status_code == 201
+    await work(app)
+    return next(
+        row
+        for row in (await client.get(f"{PROFILE}/imports")).json()
+        if row["id"] == uploaded.json()["id"]
+    )
 
 
 async def _changes(client) -> list[dict]:
     return (await client.get(f"{PROFILE}/changes")).json()
 
 
-async def test_an_export_adds_what_the_profile_lacks(client, harness):
+async def test_an_export_adds_what_the_profile_lacks(app, client, harness):
     me = (await client.get(f"{PREFIX}/me")).json()
     data = _export(
         Profile="First Name,Last Name,Headline\nKelvin,Chong,Backend engineer\n",
@@ -103,19 +113,28 @@ async def test_an_export_adds_what_the_profile_lacks(client, harness):
     skills = [{"name": "Python", "group": "Languages"}]
 
     imported = await _import(
-        client, harness, _profile(ACME, RENDERVERSE, about=about, skills=skills), data
+        app,
+        client,
+        harness,
+        _profile(ACME, RENDERVERSE, about=about, skills=skills),
+        data,
     )
 
-    assert imported.status_code == 201
-    assert imported.json() | {"id": None, "created_at": None} == {
+    assert imported | {"id": None, "created_at": None, "finished_at": None} == {
         "id": None,
         "filename": "export.zip",
         "media_type": "application/zip",
+        "size": len(data),
         "source": "data",
+        "status": "done",
+        "document_id": None,
+        "suggestion": None,
         "added": 9,
         "conflicts": 0,
         "matched": 0,
+        "error": "",
         "created_at": None,
+        "finished_at": None,
     }
     profile = (await client.get(PROFILE)).json()
     assert profile["name"] == "Kelvin Chong"
@@ -149,62 +168,73 @@ async def test_an_export_adds_what_the_profile_lacks(client, harness):
         }
     ]
     listed = (await client.get(f"{PROFILE}/imports")).json()
-    assert [i["id"] for i in listed] == [imported.json()["id"]]
+    assert [i["id"] for i in listed] == [imported["id"]]
 
 
-async def test_the_same_file_again_changes_nothing(client, harness):
+async def test_the_same_file_again_returns_the_import_that_read_it(
+    app, client, harness
+):
     data = _export(Positions=POSITIONS)
-    first = await _import(client, harness, _profile(ACME), data)
+    first = await _import(app, client, harness, _profile(ACME), data)
 
-    again = await _import(client, harness, _profile(ACME), data)
+    again = await client.post(
+        f"{PROFILE}/imports", files={"file": ("export.zip", data, "application/zip")}
+    )
 
-    assert again.status_code == 201
-    assert again.json()["id"] == first.json()["id"]
+    assert (first["status"], first["added"]) == ("done", 1)
+    assert again.status_code == 200
+    assert again.json()["id"] == first["id"]
     assert len(harness.received) == 1
-    assert len((await client.get(f"{PROFILE}/entries")).json()) == 1
     assert len((await client.get(f"{PROFILE}/imports")).json()) == 1
+    assert (await client.get(f"{PREFIX}/imports/active")).json() == []
 
 
-async def test_new_items_are_added_once(client, harness):
+async def test_new_items_are_added_once(app, client, harness):
     skills = [{"name": "Python", "group": "Languages"}]
     await _import(
-        client, harness, _profile(ACME, skills=skills), _export(Positions=POSITIONS)
+        app,
+        client,
+        harness,
+        _profile(ACME, skills=skills),
+        _export(Positions=POSITIONS),
     )
 
     again = await _import(
+        app,
         client,
         harness,
         _profile(ACME | {"title": "SENIOR ENGINEER"}, skills=[{"name": "python"}]),
         _export("later", Positions=POSITIONS),
     )
 
-    assert (again.json()["added"], again.json()["matched"]) == (0, 2)
+    assert (again["added"], again["matched"]) == (0, 2)
     assert len((await client.get(f"{PROFILE}/entries")).json()) == 1
     assert len((await client.get(f"{PROFILE}/skills")).json()) == 1
     assert await _changes(client) == []
 
 
-async def test_a_roles_project_fields_are_dropped_on_import(client, harness):
+async def test_a_roles_project_fields_are_dropped_on_import(app, client, harness):
     acme = ACME | {"link": "https://acme.example", "tools": ["Go"]}
     first = await _import(
-        client, harness, _profile(acme), _export("first", Positions=POSITIONS)
+        app, client, harness, _profile(acme), _export("first", Positions=POSITIONS)
     )
 
     again = await _import(
-        client, harness, _profile(acme), _export("again", Positions=POSITIONS)
+        app, client, harness, _profile(acme), _export("again", Positions=POSITIONS)
     )
 
-    assert (first.status_code, first.json()["added"]) == (201, 1)
-    assert (again.status_code, again.json()["matched"]) == (201, 1)
+    assert (first["status"], first["added"]) == ("done", 1)
+    assert (again["status"], again["matched"]) == ("done", 1)
     [entry] = (await client.get(f"{PROFILE}/entries")).json()
     assert (entry["link"], entry["tools"]) == (None, [])
     assert await _changes(client) == []
 
 
-async def test_differing_values_wait_as_one_conflict_per_field(client, harness):
+async def test_differing_values_wait_as_one_conflict_per_field(app, client, harness):
     await client.patch(PROFILE, json={"headline": "Backend engineer"})
     entry = (await client.post(f"{PROFILE}/entries", json=ACME)).json()
     first = await _import(
+        app,
         client,
         harness,
         _profile(
@@ -213,9 +243,10 @@ async def test_differing_values_wait_as_one_conflict_per_field(client, harness):
         ),
         _export("first", Positions=POSITIONS),
     )
-    assert (first.json()["conflicts"], first.json()["matched"]) == (2, 1)
+    assert (first["conflicts"], first["matched"]) == (2, 1)
 
     newer = await _import(
+        app,
         client,
         harness,
         _profile(
@@ -232,11 +263,12 @@ async def test_differing_values_wait_as_one_conflict_per_field(client, harness):
         (None, "headline", "Backend engineer", "Staff engineer"),
         (entry["id"], "summary", "Led the platform team", "Grew the platform team"),
     ]
-    assert {c["import_id"] for c in changes} == {newer.json()["id"]}
+    assert {c["import_id"] for c in changes} == {newer["id"]}
     assert {c["kind"] for c in changes} == {"field"}
     assert (await client.get(PROFILE)).json()["headline"] == "Backend engineer"
 
     await _import(
+        app,
         client,
         harness,
         _profile(ACME, about={"headline": "backend engineer."}),
@@ -246,23 +278,25 @@ async def test_differing_values_wait_as_one_conflict_per_field(client, harness):
     assert await _changes(client) == []
 
 
-async def test_a_year_only_date_agrees_with_any_month_of_it(client, harness):
+async def test_a_year_only_date_agrees_with_any_month_of_it(app, client, harness):
     await client.post(f"{PROFILE}/entries", json=ACME)
 
     imported = await _import(
+        app,
         client,
         harness,
         _profile(ACME | {"start": "2022"}),
         _export(Positions=POSITIONS),
     )
 
-    assert (imported.json()["matched"], imported.json()["conflicts"]) == (1, 0)
+    assert (imported["matched"], imported["conflicts"]) == (1, 0)
 
 
-async def test_a_close_match_waits_and_a_newer_import_updates_it(client, harness):
+async def test_a_close_match_waits_and_a_newer_import_updates_it(app, client, harness):
     globex = ACME | {"organisation": "Globex Inc.", "summary": "Kept the lights on"}
     entry = (await client.post(f"{PROFILE}/entries", json=globex)).json()
     await _import(
+        app,
         client,
         harness,
         _profile(globex | {"organisation": "Globex"}),
@@ -270,26 +304,28 @@ async def test_a_close_match_waits_and_a_newer_import_updates_it(client, harness
     )
 
     newer = await _import(
+        app,
         client,
         harness,
         _profile(globex | {"organisation": "Globex", "summary": "Ran the platform"}),
         _export("newer", Positions=POSITIONS),
     )
 
-    assert newer.json()["conflicts"] == 1
+    assert newer["conflicts"] == 1
     [change] = await _changes(client)
     assert change["kind"] == "match"
     assert change["entry_id"] == entry["id"]
-    assert change["import_id"] == newer.json()["id"]
+    assert change["import_id"] == newer["id"]
     assert change["entry"]["organisation"] == "Globex"
     assert change["entry"]["summary"] == "Ran the platform"
     assert len((await client.get(f"{PROFILE}/entries")).json()) == 1
 
 
-async def test_a_close_match_needs_no_organisation(client, harness):
+async def test_a_close_match_needs_no_organisation(app, client, harness):
     entry = (await client.post(f"{PROFILE}/entries", json=RENDERVERSE)).json()
 
     await _import(
+        app,
         client,
         harness,
         _profile(RENDERVERSE | {"title": "Renderverse portfolio"}),
@@ -301,10 +337,13 @@ async def test_a_close_match_needs_no_organisation(client, harness):
     assert len((await client.get(f"{PROFILE}/entries")).json()) == 1
 
 
-async def test_resolving_a_field_keeps_or_takes_the_imported_value(client, harness):
+async def test_resolving_a_field_keeps_or_takes_the_imported_value(
+    app, client, harness
+):
     await client.patch(PROFILE, json={"headline": "Backend engineer"})
     entry = (await client.post(f"{PROFILE}/entries", json=ACME)).json()
     await _import(
+        app,
         client,
         harness,
         _profile(
@@ -334,12 +373,13 @@ async def test_resolving_a_field_keeps_or_takes_the_imported_value(client, harne
     assert stored["highlights"] == ["Cut deploys to 5 minutes."]
 
 
-async def test_resolving_a_match_merges_it_or_adds_it(client, harness):
+async def test_resolving_a_match_merges_it_or_adds_it(app, client, harness):
     globex = ACME | {"organisation": "Globex Inc."}
     other = ACME | {"organisation": "Initech Inc.", "title": "Engineer"}
     first = (await client.post(f"{PROFILE}/entries", json=globex)).json()
     await client.post(f"{PROFILE}/entries", json=other)
     await _import(
+        app,
         client,
         harness,
         _profile(
@@ -371,9 +411,10 @@ async def test_resolving_a_match_merges_it_or_adds_it(client, harness):
     ]
 
 
-async def test_an_answer_must_fit_its_change(client, harness):
+async def test_an_answer_must_fit_its_change(app, client, harness):
     await client.post(f"{PROFILE}/entries", json=ACME | {"organisation": "Globex Inc."})
     await _import(
+        app,
         client,
         harness,
         _profile(ACME | {"organisation": "Globex"}),
@@ -487,12 +528,14 @@ def resume_reply(document: dict = RESUME) -> dict:
     return a2a_task("COMPLETED", artifact_parts=[{"data": reply}])
 
 
-async def test_a_resume_syncs_the_profile_without_making_a_document(client, harness):
+async def test_a_resume_syncs_the_profile_without_making_a_document(
+    app, client, harness
+):
     imported = await _import(
-        client, harness, resume_reply(), b"%PDF-1.7 resume", name="cv.pdf"
+        app, client, harness, resume_reply(), b"%PDF-1.7 resume", name="cv.pdf"
     )
 
-    assert imported.status_code == 201
+    assert imported["status"] == "done"
     assert harness.received[0].url.path == "/ezcareer/a2a/import-resume"
     assert (await client.get(f"{PREFIX}/documents")).json() == []
     profile = (await client.get(PROFILE)).json()
@@ -517,8 +560,9 @@ async def test_a_resume_syncs_the_profile_without_making_a_document(client, harn
     }
 
 
-async def test_a_year_only_end_is_kept_as_its_december(client, harness):
+async def test_a_year_only_end_is_kept_as_its_december(app, client, harness):
     await _import(
+        app,
         client,
         harness,
         _profile(ACME | {"start": "2019", "end": "2021"}),
@@ -529,8 +573,9 @@ async def test_a_year_only_end_is_kept_as_its_december(client, harness):
     assert (entry["start"], entry["end"]) == ("2019-01", "2021-12")
 
 
-async def test_long_imported_values_are_cut_to_fit(client, harness):
+async def test_long_imported_values_are_cut_to_fit(app, client, harness):
     imported = await _import(
+        app,
         client,
         harness,
         _profile(
@@ -541,7 +586,7 @@ async def test_long_imported_values_are_cut_to_fit(client, harness):
         _export(Positions=POSITIONS),
     )
 
-    assert imported.status_code == 201
+    assert imported["status"] == "done"
     [entry] = (await client.get(f"{PROFILE}/entries")).json()
     assert (len(entry["title"]), entry["tools"]) == (200, ["x" * 50])
     assert len((await client.get(PROFILE)).json()["headline"]) == 200
@@ -549,25 +594,25 @@ async def test_long_imported_values_are_cut_to_fit(client, harness):
     assert len(skill["name"]) == 100
 
 
-async def test_a_reply_ops_cannot_store_fails_the_import(client, harness):
+async def test_a_reply_ops_cannot_store_fails_the_import(app, client, harness):
     failed = await _import(
+        app,
         client,
         harness,
         _profile(ACME | {"title": ""}),
         _export(Positions=POSITIONS),
     )
 
-    assert failed.status_code == 422
-    assert failed.json()["detail"] == (
-        "import-profile replied with values ops cannot store"
-    )
-    assert (await client.get(f"{PROFILE}/imports")).json() == []
+    assert failed["status"] == "failed"
+    assert failed["error"] == "import-profile replied with values ops cannot store"
+    assert (await client.get(f"{PROFILE}/entries")).json() == []
 
 
-async def test_a_failed_import_adds_nothing(client, harness):
+async def test_a_failed_import_adds_nothing(app, client, harness):
     reason = "The file has no text to read"
 
     failed = await _import(
+        app,
         client,
         harness,
         a2a_task("FAILED", status_parts=[{"text": reason}]),
@@ -575,25 +620,36 @@ async def test_a_failed_import_adds_nothing(client, harness):
         name="cv.pdf",
     )
 
-    assert failed.status_code == 422
-    assert failed.json()["detail"] == reason
-    assert (await client.get(f"{PROFILE}/imports")).json() == []
+    assert failed["status"] == "failed"
+    assert failed["error"] == reason
+    assert (await client.get(f"{PROFILE}/entries")).json() == []
 
 
-async def test_only_resumes_and_exports_are_imported(client, harness):
+async def test_only_resumes_and_exports_are_uploaded(client, harness):
     image = await client.post(
         f"{PROFILE}/imports", files={"file": ("me.png", b"png", "image/png")}
     )
-    not_zip = await client.post(
-        f"{PROFILE}/imports", files={"file": ("x.zip", b"not a zip", "application/zip")}
-    )
-    no_profile = await client.post(
-        f"{PROFILE}/imports",
-        files={"file": ("x.zip", _export(Messages="a\n1\n"), "application/zip")},
+    empty = await client.post(
+        f"{PROFILE}/imports", files={"file": ("x.zip", b"", "application/zip")}
     )
 
-    assert [r.status_code for r in (image, not_zip, no_profile)] == [422, 422, 422]
-    assert not_zip.json()["detail"] == "The file is not a zip archive"
+    assert [r.status_code for r in (image, empty)] == [422, 422]
+    assert harness.received == []
+
+
+@pytest.mark.parametrize(
+    ("data", "error"),
+    [
+        (b"not a zip", "The file is not a zip archive"),
+        (_export(Messages="a\n1\n"), "The zip has no profile, job or skill files"),
+    ],
+)
+async def test_an_unreadable_export_fails_before_the_harness(
+    app, client, harness, data, error
+):
+    failed = await _import(app, client, harness, _profile(ACME), data, name="x.zip")
+
+    assert (failed["status"], failed["error"]) == ("failed", error)
     assert harness.received == []
 
 
@@ -608,6 +664,7 @@ async def test_imports_and_their_changes_round_trip_on_postgres(postgres_app, ha
     async with _client(postgres_app) as client:
         await client.post(f"{PROFILE}/entries", json=ACME | {"highlights": ["Led it."]})
         await _import(
+            postgres_app,
             client,
             harness,
             _profile(ACME | {"highlights": ["Cut deploys to 5 minutes."]}),
@@ -617,6 +674,7 @@ async def test_imports_and_their_changes_round_trip_on_postgres(postgres_app, ha
             f"{PROFILE}/entries", json=ACME | {"organisation": "Globex Inc."}
         )
         await _import(
+            postgres_app,
             client,
             harness,
             _profile(ACME | {"organisation": "Globex", "summary": "Other"}),

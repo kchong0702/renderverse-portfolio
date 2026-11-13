@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from hashlib import sha256
 from typing import NamedTuple
 from uuid import UUID
 
@@ -26,7 +27,8 @@ from src.features.assistant.schemas import (
 )
 from src.features.documents import DocumentService
 from src.features.documents.schemas import DocumentAnswer, FetchError
-from src.features.profile import ImportSource, ProfileService, resume_profile
+from src.features.imports import File, Import, ImportSource, ImportStatus
+from src.features.profile import ProfileService, resume_profile
 from src.features.profile.schemas import (
     ChangeRead,
     EntryCreate,
@@ -208,17 +210,28 @@ class ProfileEdits:
             answer.document, ResumeDocument
         ):
             raise NotFound("No such résumé or CV")
+        content = answer.document.model_dump_json().encode()
         async with self._factory() as session:
             service = ProfileService(session)
             before = await _snapshot(service, user_id)
-            row = await service.sync(
-                user_id,
-                ImportSource.DOCUMENTS,
-                "",
-                "application/json",
-                answer.document.model_dump_json().encode(),
-                resume_profile(answer.document.content),
+            file = File(
+                user_id=user_id,
+                sha256=sha256(content).hexdigest(),
+                media_type="application/json",
+                size=len(content),
+                filename="",
             )
+            session.add(file)
+            await session.flush()
+            row = Import(
+                user_id=user_id,
+                file_id=file.id,
+                source=ImportSource.DOCUMENTS,
+                status=ImportStatus.DONE,
+            )
+            session.add(row)
+            await session.flush()
+            await service.sync(row, resume_profile(answer.document.content))
             after = await _snapshot(service, user_id)
             pending = [
                 c for c in await service.changes(user_id) if c.import_id == row.id

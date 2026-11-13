@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-from base64 import b64encode
-from datetime import datetime
 from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from document_schema import ResumeDocument
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    PlainSerializer,
     StringConstraints,
     model_validator,
 )
@@ -18,12 +14,7 @@ from pydantic import (
 from src.features.preferences.enums import WorkMode
 from src.features.preferences.schemas import Salary
 from src.features.preferences.types import CountryCode
-from src.features.profile.enums import (
-    ChangeChoice,
-    ChangeKind,
-    EntryKind,
-    ImportSource,
-)
+from src.features.profile.enums import ChangeChoice, ChangeKind, EntryKind
 from src.features.profile.types import (
     ChangeField,
     EntryEnd,
@@ -242,21 +233,6 @@ class ImportProfileInput(BaseModel):
     """The export's profile, job, education, project and skill files"""
 
 
-class ResumeFile(BaseModel):
-    file: Annotated[
-        bytes,
-        PlainSerializer(
-            lambda file: b64encode(file).decode(), return_type=str, when_used="json"
-        ),
-    ]
-    """The uploaded PDF or Word file, standard base64 in JSON"""
-
-
-class ImportedResume(BaseModel):
-    document: ResumeDocument
-    """The draft document made from the file"""
-
-
 class ImportedAbout(BaseModel):
     name: Annotated[str, clipped(200)] = ""
     """Full name; empty when the import has none"""
@@ -334,32 +310,6 @@ class ImportedProfile(BaseModel):
 
     skills: list[ImportedSkill] = Field(default_factory=list)
     """Skills and spoken languages"""
-
-
-class ProfileImportRead(BaseModel):
-    id: UUID
-    """The import's id"""
-
-    filename: str
-    """Name of the uploaded file"""
-
-    media_type: str
-    """PDF, Word or zip"""
-
-    source: ImportSource
-    """Whether it was uploaded on the Data page or in Documents"""
-
-    added: int
-    """Entries, skills, links and empty fields it filled in"""
-
-    conflicts: int
-    """Fields and matches it left for the user to settle"""
-
-    matched: int
-    """Entries and skills it found already there"""
-
-    created_at: datetime
-    """When it was imported"""
 
 
 class FieldChangeRead(BaseModel):
@@ -482,7 +432,6 @@ __all__ = [
     "ImportedAbout",
     "ImportedEntry",
     "ImportedProfile",
-    "ImportedResume",
     "ImportedSkill",
     "MatchChangeRead",
     "NetworkingCopy",
@@ -493,11 +442,9 @@ __all__ = [
     "Preferences",
     "ProfileExport",
     "ProfileFact",
-    "ProfileImportRead",
     "ProfileLink",
     "ProfileRead",
     "ProfileUpdate",
-    "ResumeFile",
     "SkillRead",
     "SkillWrite",
     "WriteNetworkingInput",
