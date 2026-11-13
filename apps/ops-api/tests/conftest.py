@@ -21,7 +21,7 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 
 if TYPE_CHECKING:
-    from src.clients.storage import LocalStorage
+    from src.adapters.storage import LocalStorage
 
 PREFIX = "/ops-api/v1"
 OWNER = "owner@example.com"
@@ -53,7 +53,7 @@ class FakeProvider:
     """Stands in for Google or GitHub: redirects nowhere, returns a set identity"""
 
     def __init__(self, subject: str, emails: list[str]):
-        from src.core.auth.oauth_providers import OAuthIdentity
+        from src.adapters.oauth_providers import OAuthIdentity
 
         self.identity = OAuthIdentity(subject=subject, emails=emails)
         self.fails = False
@@ -64,7 +64,7 @@ class FakeProvider:
         return RedirectResponse("https://provider.test/authorize")
 
     async def fetch_identity(self, request: Request):
-        from src.core.auth.exceptions import OAuthFailed
+        from src.adapters.oauth_providers import OAuthFailed
 
         if self.fails:
             raise OAuthFailed("access_denied")
@@ -590,7 +590,7 @@ def jsearch() -> FakeJSearch:
 @pytest.fixture
 def storage(tmp_path: Path) -> "LocalStorage":
     """Local storage with public files under tmp_path/public, uploads under private"""
-    from src.clients.storage import LocalStorage
+    from src.adapters.storage import LocalStorage
 
     return LocalStorage(
         tmp_path / "public", tmp_path / "private", "/ops-api/v1/portfolio/uploads"

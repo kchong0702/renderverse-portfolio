@@ -8,7 +8,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.clients.storage import LocalStorage, Storage, UploadTarget
+from src.adapters.storage import LocalStorage, Storage, UploadTarget
 from src.core.config import get_settings
 from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.features.portfolio.enums import MediaSlot, MediaType

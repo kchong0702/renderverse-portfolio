@@ -8,8 +8,8 @@ from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.exceptions import Conflict, ServiceUnavailable
+from src.core.providers import Provider
 from src.db.base import utcnow
-from src.features.connections.enums import Provider
 from src.features.connections.models import Connection
 from src.features.connections.repository import ConnectionRepository
 from src.features.connections.schemas import GoogleDetails, JSearchDetails

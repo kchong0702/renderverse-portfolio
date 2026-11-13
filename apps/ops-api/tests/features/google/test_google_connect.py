@@ -8,7 +8,8 @@ from sqlalchemy import select, text, update
 from src.core.auth.dependencies import current_user
 from src.core.auth.models import User
 from src.core.config import reload_settings
-from src.features.connections import Connection, GoogleDetails, Provider
+from src.core.providers import Provider
+from src.features.connections import Connection, GoogleDetails
 from tests.conftest import (
     ENCRYPTION_KEY,
     GOOGLE_SCOPES,

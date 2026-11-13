@@ -11,7 +11,7 @@ from src.adapters.job_sources.schemas import (
     PostingLine,
 )
 from src.core.config import JSearchSettings
-from src.features.connections import Provider
+from src.core.providers import Provider
 
 
 def _jsearch_query(query: JobQuery) -> JSearchQuery:

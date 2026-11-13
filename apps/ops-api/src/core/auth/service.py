@@ -6,9 +6,9 @@ from datetime import timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.adapters.oauth_providers import OAuthIdentity, Provider
 from src.core.auth.enums import AttemptScope, IdentityProvider, Role
 from src.core.auth.models import AuthIdentity, AuthSession, User
-from src.core.auth.oauth_providers import OAuthIdentity, Provider
 from src.core.auth.passwords import MIN_PASSWORD_LENGTH, hash_password, verify_password
 from src.core.auth.repository import AuthRepository
 from src.core.config import AuthSettings

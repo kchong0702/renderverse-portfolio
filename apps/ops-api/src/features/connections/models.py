@@ -7,9 +7,9 @@ from pydantic import TypeAdapter
 from sqlalchemy import DateTime, ForeignKey, LargeBinary, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
+from src.core.providers import Provider
 from src.db.base import Base, EnumString, PydanticJson, utcnow
 from src.db.mixins import AuditMixin
-from src.features.connections.enums import Provider
 from src.features.connections.schemas import ConnectionDetails
 
 

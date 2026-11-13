@@ -10,7 +10,7 @@ from src.clients.google import GoogleClient
 from src.core.agent_runner import ToolError
 from src.core.config import GoogleSettings, get_settings
 from src.core.exceptions import ServiceException
-from src.features.calendar import CalendarService
+from src.features.calendar import token_free_slots
 from src.features.calendar.schemas import FreeSlots
 from src.features.google import GoogleService
 from src.features.settings import SettingsService
@@ -40,8 +40,12 @@ async def free_slots(
                 session, google, get_settings().jsearch
             ).get(user_id)
             refresh_token = await google.refresh_token(user_id)
-        free = await CalendarService(google, client, config).token_free_slots(
-            await client.refresh(refresh_token), settings.scheduling, request.days
+        free = await token_free_slots(
+            client,
+            config,
+            await client.refresh(refresh_token),
+            settings.scheduling,
+            request.days,
         )
         result = (
             free

@@ -5,8 +5,8 @@ from uuid import UUID
 from sqlalchemy import JSON, func, literal, update
 from sqlalchemy.dialects.postgresql import JSONB
 
+from src.core.providers import Provider
 from src.db.repository import Repository
-from src.features.connections.enums import Provider
 from src.features.connections.models import Connection
 
 

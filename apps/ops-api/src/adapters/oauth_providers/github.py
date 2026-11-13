@@ -6,11 +6,11 @@ import httpx2
 from authlib.integrations.starlette_client import OAuth
 from starlette.requests import Request
 
-from src.core.auth.exceptions import OAuthFailed
-from src.core.auth.oauth_providers.base import (
+from src.adapters.oauth_providers.base import (
     AuthlibAdapter,
     OAuthIdentity,
 )
+from src.adapters.oauth_providers.exceptions import OAuthFailed
 from src.core.config import GitHubOAuthSettings
 
 

@@ -7,10 +7,10 @@ from sqlalchemy import Engine, create_engine, func, select, update
 from sqlalchemy.orm import Session
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
+from src.adapters.oauth_providers import OAuthIdentity
 from src.core.auth.cli import main
 from src.core.auth.enums import Role
 from src.core.auth.models import AuthIdentity, AuthSession, User
-from src.core.auth.oauth_providers import OAuthIdentity
 from src.core.auth.passwords import verify_password
 from src.core.auth.service import AuthService
 from src.core.config import get_settings, reload_settings

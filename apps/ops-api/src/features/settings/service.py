@@ -13,7 +13,8 @@ from src.clients.ezcareer import (
 )
 from src.core.config import JSearchSettings, get_settings
 from src.core.exceptions import InvalidInput
-from src.features.connections import JSearchDetails, Provider, api_key_connections
+from src.core.providers import Provider
+from src.features.connections import JSearchDetails, api_key_connections
 from src.features.google import GoogleService
 from src.features.settings.models import UserSettings
 from src.features.settings.repository import SettingsRepository

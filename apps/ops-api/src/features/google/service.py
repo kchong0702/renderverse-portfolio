@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.clients.google import RECONNECT, GoogleClient
 from src.core.config import GoogleSettings
 from src.core.exceptions import Conflict, InvalidInput, ServiceUnavailable
-from src.features.connections import ConnectionService, GoogleDetails, Provider
+from src.core.providers import Provider
+from src.features.connections import ConnectionService, GoogleDetails
 
 
 class GoogleService:

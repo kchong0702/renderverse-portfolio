@@ -192,9 +192,9 @@ class JobService:
             raise Conflict("The run has already started")
         await self._repository.delete(row)
 
-    async def keep_found(self, run: JobRun, reply: FindJobsOutput) -> None:
-        """Store each job find-jobs found as a pick, cut to fit or skipped when its URL
-        is too long, and count them on the run against min_score"""
+    async def keep_found(self, run: JobRun, reply: FindJobsOutput, source: str) -> None:
+        """Store each job find-jobs found on the source as a pick, cut to fit or skipped
+        when its URL is too long, and count them on the run against min_score"""
         kept = []
         for job in reply.jobs:
             if len(job.posting.apply_url) > 2000:
@@ -208,7 +208,7 @@ class JobService:
                 run.user_id,
                 JobCreate(
                     external_id=job.posting.id,
-                    source="JSearch",
+                    source=source,
                     title=job.posting.title[:200],
                     company=job.posting.company[:200],
                     location=(

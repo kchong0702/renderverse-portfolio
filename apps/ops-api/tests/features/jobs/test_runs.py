@@ -7,6 +7,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.core.auth.models import User
+from src.core.providers import Provider
 from src.db.base import utcnow
 from src.db.queue import (
     MAX_ATTEMPTS,
@@ -18,7 +19,7 @@ from src.db.queue import (
     heartbeat,
     release,
 )
-from src.features.connections import Connection, Provider
+from src.features.connections import Connection
 from src.features.jobs.enums import RunStatus, RunTrigger
 from src.features.jobs.models import JobRun
 from src.features.jobs.processing import JOB_RUNS, enqueue_scheduled_runs
@@ -72,7 +73,7 @@ async def _delete(factory: async_sessionmaker[AsyncSession], users: list[UUID]) 
 async def _tick(factory: async_sessionmaker[AsyncSession]) -> int:
     """One worker's tick on a session of its own"""
     async with factory() as session, session.begin():
-        return await enqueue_scheduled_runs(session)
+        return await enqueue_scheduled_runs(session, Provider.JSEARCH)
 
 
 async def _runs(

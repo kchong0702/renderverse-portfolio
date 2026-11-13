@@ -8,6 +8,12 @@ from fastapi import APIRouter, Cookie, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
+from src.adapters.oauth_providers import (
+    AuthlibAdapter,
+    OAuthFailed,
+    OAuthIdentity,
+    Provider,
+)
 from src.core.auth.dependencies import (
     SESSION_COOKIE,
     AuthServiceDep,
@@ -16,8 +22,6 @@ from src.core.auth.dependencies import (
     current_user,
 )
 from src.core.auth.enums import IdentityProvider, Role
-from src.core.auth.exceptions import OAuthFailed
-from src.core.auth.oauth_providers import AuthlibAdapter, OAuthIdentity, Provider
 from src.core.auth.service import AuthService
 from src.core.config import AuthSettings, get_settings
 from src.core.exceptions import (

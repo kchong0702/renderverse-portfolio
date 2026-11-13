@@ -4,8 +4,8 @@ import pytest
 from botocore.stub import Stubber
 from pydantic import SecretStr, ValidationError
 
-from src.clients.storage import create_storage
-from src.clients.storage.client import LocalStorage, R2Storage
+from src.adapters.storage import LocalStorage, create_storage
+from src.adapters.storage.r2 import R2Storage
 from src.core.config import R2Settings, StorageSettings
 from src.core.exceptions import ServiceUnavailable
 

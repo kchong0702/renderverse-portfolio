@@ -37,6 +37,46 @@ def _event(event: GoogleEvent) -> CalendarEvent:
     )
 
 
+async def token_free_slots(
+    client: GoogleClient,
+    settings: GoogleSettings,
+    token: str,
+    scheduling: Scheduling,
+    days: int,
+) -> FreeSlots:
+    """Free time in the token's calendar's weekday work hours from tomorrow, in the
+    user's time zone or its own, an interview long with the meeting gap clear"""
+    now = utcnow()
+    found = await client.events(token, now, now + timedelta(days=days + 1))
+    timezone = scheduling.timezone or found.time_zone
+    zone = ZoneInfo(timezone)
+    gap = timedelta(minutes=scheduling.meeting_gap_minutes)
+    busy = sorted(
+        (event.start.date_time - gap, event.end.date_time + gap)
+        for event in found.items
+        if event.start.date_time
+        and event.end.date_time
+        and event.status != "cancelled"
+        and event.transparency != "transparent"
+    )
+    shortest = timedelta(minutes=settings.interview_minutes)
+    today = now.astimezone(zone).date()
+    slots = []
+    for day in (today + timedelta(days=n) for n in range(1, days + 1)):
+        if day.weekday() >= 5:
+            continue
+        free_from = datetime.combine(day, scheduling.work_day_start, zone)
+        close = datetime.combine(day, scheduling.work_day_end, zone)
+        for busy_from, busy_to in [*busy, (close, close)]:
+            free_to = min(busy_from, close)
+            if free_to - free_from >= shortest:
+                slots.append(Slot(start=free_from, end=free_to.astimezone(zone)))
+            free_from = max(free_from, busy_to.astimezone(zone))
+            if free_from >= close:
+                break
+    return FreeSlots(free_slots=slots, timezone=timezone)
+
+
 class CalendarService:
     def __init__(
         self, google: GoogleService, client: GoogleClient, settings: GoogleSettings
@@ -105,49 +145,18 @@ class CalendarService:
             await self._google.access_token(user_id), event_id
         )
 
-    async def token_free_slots(
-        self, token: str, scheduling: Scheduling, days: int
-    ) -> FreeSlots:
-        """Free time in the token's calendar's weekday work hours from tomorrow, in the
-        user's time zone or its own, an interview long with the meeting gap clear"""
-        now = utcnow()
-        found = await self._client.events(token, now, now + timedelta(days=days + 1))
-        timezone = scheduling.timezone or found.time_zone
-        zone = ZoneInfo(timezone)
-        gap = timedelta(minutes=scheduling.meeting_gap_minutes)
-        busy = sorted(
-            (event.start.date_time - gap, event.end.date_time + gap)
-            for event in found.items
-            if event.start.date_time
-            and event.end.date_time
-            and event.status != "cancelled"
-            and event.transparency != "transparent"
-        )
-        shortest = timedelta(minutes=self._settings.interview_minutes)
-        today = now.astimezone(zone).date()
-        slots = []
-        for day in (today + timedelta(days=n) for n in range(1, days + 1)):
-            if day.weekday() >= 5:
-                continue
-            free_from = datetime.combine(day, scheduling.work_day_start, zone)
-            close = datetime.combine(day, scheduling.work_day_end, zone)
-            for busy_from, busy_to in [*busy, (close, close)]:
-                free_to = min(busy_from, close)
-                if free_to - free_from >= shortest:
-                    slots.append(Slot(start=free_from, end=free_to.astimezone(zone)))
-                free_from = max(free_from, busy_to.astimezone(zone))
-                if free_from >= close:
-                    break
-        return FreeSlots(free_slots=slots, timezone=timezone)
-
     async def free_slots(
         self, user_id: UUID, scheduling: Scheduling, days: int
     ) -> FreeSlots:
         """The user's free time in their work hours from tomorrow, read with a fresh
         access token"""
-        return await self.token_free_slots(
-            await self._google.access_token(user_id), scheduling, days
+        return await token_free_slots(
+            self._client,
+            self._settings,
+            await self._google.access_token(user_id),
+            scheduling,
+            days,
         )
 
 
-__all__ = ["CalendarService"]
+__all__ = ["CalendarService", "token_free_slots"]

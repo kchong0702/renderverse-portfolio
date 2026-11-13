@@ -4,10 +4,10 @@ from typing import Annotated
 
 from fastapi import Cookie, Depends, Request
 
+from src.adapters.oauth_providers import AuthlibAdapter, Provider
 from src.app.actor import set_actor, user_actor
 from src.core.auth.enums import Role
 from src.core.auth.models import User
-from src.core.auth.oauth_providers import AuthlibAdapter, Provider
 from src.core.auth.service import AuthService
 from src.core.config import get_settings
 from src.core.exceptions import Forbidden, Unauthorized

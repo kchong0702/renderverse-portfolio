@@ -3,11 +3,11 @@ from sqlalchemy import text
 
 from src.core.auth.models import User
 from src.core.config import get_settings
+from src.core.providers import Provider
 from src.features.connections import (
     ConnectionService,
     GoogleDetails,
     JSearchDetails,
-    Provider,
 )
 from tests.core.conftest import DATABASE_URL
 
