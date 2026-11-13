@@ -1,6 +1,7 @@
 from typing import Literal
 from uuid import UUID, uuid4
 
+import pytest
 from pydantic import BaseModel, Field
 from structlog.testing import capture_logs
 
@@ -62,6 +63,17 @@ async def test_each_kind_is_answered_by_its_feature_for_the_user():
         (user_id, _ShelfRequest(fetch="shelf", size=1)),
         (user_id, _BookRequest(fetch="book", title="Emma")),
     ]
+
+
+def test_two_features_answering_the_same_kind_is_refused():
+    library = _Library()
+
+    with pytest.raises(ValueError, match=r"registered twice: \['book'\]"):
+        DataRequestDispatcher(
+            {"shelf": DataRequestKind(_ShelfRequest, library.shelf)},
+            {"book": DataRequestKind(_BookRequest, library.book)},
+            {"book": DataRequestKind(_BookRequest, library.book)},
+        )
 
 
 async def test_a_kind_no_feature_answers_is_answered_with_why():

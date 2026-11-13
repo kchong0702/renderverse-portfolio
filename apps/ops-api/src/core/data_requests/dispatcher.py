@@ -1,3 +1,4 @@
+from collections import Counter
 from functools import partial
 from uuid import UUID
 
@@ -12,7 +13,10 @@ logger = get_logger(__name__)
 
 class DataRequestDispatcher:
     def __init__(self, *tables: DataRequestKinds):
-        """Answer every kind these tables map"""
+        """Answer every kind these tables map; ValueError when two map the same kind"""
+        kinds = Counter(kind for table in tables for kind in table)
+        if repeated := [kind for kind, count in kinds.items() if count > 1]:
+            raise ValueError(f"Data request kinds registered twice: {repeated}")
         self._kinds = {kind: entry for table in tables for kind, entry in table.items()}
 
     async def _answer(self, user_id: UUID, request: DataRequest) -> BaseModel:
