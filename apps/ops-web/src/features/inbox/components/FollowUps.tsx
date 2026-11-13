@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import type { Application } from "@/features/applications";
 import { GoogleNotice } from "@/features/settings";
-import { ApiError } from "@/shared/api/http";
+import { ApiError, RunFailed } from "@/shared/api/http";
 import { buttonClass } from "@/shared/components/button";
 import type { Email } from "../api/inbox";
 import { useDraftFollowUp } from "../hooks/useInbox";
@@ -28,17 +28,15 @@ export default function FollowUps({
   const asked = useRef(params.get("followUp"));
   const start = (application: Application) =>
     draft.mutate(application.id, {
-      onSuccess: (result) => {
-        if ("body" in result)
-          onDrafted({
-            to:
-              threads.find(
-                ({ application_id }) => application_id === application.id,
-              )?.from_email ?? "",
-            subject: t("inbox.followUp.subject", { role: application.role }),
-            body: result.body,
-          });
-      },
+      onSuccess: (result) =>
+        onDrafted({
+          to:
+            threads.find(
+              ({ application_id }) => application_id === application.id,
+            )?.from_email ?? "",
+          subject: t("inbox.followUp.subject", { role: application.role }),
+          body: result.body,
+        }),
     });
 
   useEffect(() => {
@@ -95,6 +93,20 @@ export default function FollowUps({
               <span className="text-ink-3 text-[13px]">
                 {t("inbox.followUp.drafting")}
               </span>
+            ) : draft.error instanceof RunFailed ? (
+              <span className="flex flex-col items-start gap-2">
+                <span role="alert" className="text-[13px]">
+                  {draft.error.message}
+                </span>
+                {draft.error.next && (
+                  <Link
+                    to={`/${draft.error.next.screen}`}
+                    className={buttonClass()}
+                  >
+                    {draft.error.next.label}
+                  </Link>
+                )}
+              </span>
             ) : draft.isError ? (
               draft.error instanceof ApiError && draft.error.status === 409 ? (
                 <GoogleNotice
@@ -107,24 +119,7 @@ export default function FollowUps({
                   {t("inbox.followUp.failed", { reason: draft.error.message })}
                 </span>
               )
-            ) : (
-              draft.data &&
-              "status" in draft.data && (
-                <span className="flex flex-col items-start gap-2">
-                  <span role="alert" className="text-[13px]">
-                    {draft.data.reason}
-                  </span>
-                  {draft.data.next && (
-                    <Link
-                      to={`/${draft.data.next.screen}`}
-                      className={buttonClass()}
-                    >
-                      {draft.data.next.label}
-                    </Link>
-                  )}
-                </span>
-              )
-            ))}
+            ) : null)}
         </div>
       ))}
     </section>

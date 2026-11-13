@@ -2,17 +2,10 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.clients.ezcareer import (
-    Completed,
-    Failed,
-    InputRequired,
-    RunMetadata,
-)
 from src.core.agent_runner import AgentRunner
-from src.core.exceptions import InvalidInput, NotFound, ServiceUnavailable
+from src.core.exceptions import InvalidInput, NotFound
 from src.features.profile.schemas import (
     NetworkingCopy,
     NetworkingRead,
@@ -21,25 +14,6 @@ from src.features.profile.schemas import (
 )
 from src.features.profile.service import ProfileService
 from src.features.settings import SettingsService
-
-
-async def run_workflow[R](
-    runner: AgentRunner,
-    executable: str,
-    reply: type[R],
-    user_id: UUID,
-    data: BaseModel,
-    metadata: RunMetadata | None,
-) -> R:
-    """A harness workflow's reply for the data; InvalidInput with the reason when it
-    fails"""
-    match await runner.run(user_id, executable, reply, data=data, metadata=metadata):
-        case Completed(reply=result):
-            return result
-        case InputRequired():
-            raise ServiceUnavailable(f"{executable} asked for input ops cannot give")
-        case Failed(reason=reason):
-            raise InvalidInput(reason)
 
 
 class ProfileRunService:
@@ -72,19 +46,18 @@ class ProfileRunService:
                 raise NotFound("No such fact")
         metadata = await self._settings.run_metadata(user_id)
         await self._session.commit()
-        written = await run_workflow(
-            self._runner,
+        written = await self._runner.run(
+            user_id,
             "write-networking",
             NetworkingCopy,
-            user_id,
-            WriteNetworkingInput(
+            data=WriteNetworkingInput(
                 profession=request.profession, facts=facts, only=request.only
             ),
-            metadata,
+            metadata=metadata,
         )
         return await self._profile.keep_networking(
             user_id, request.profession, written, request.only
         )
 
 
-__all__ = ["ProfileRunService", "run_workflow"]
+__all__ = ["ProfileRunService"]

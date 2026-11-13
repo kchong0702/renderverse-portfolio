@@ -6,13 +6,8 @@ from document_schema import DocumentKind
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.clients.ezcareer import (
-    Completed,
-    Failed,
-    InputRequired,
-)
 from src.core.agent_runner import AgentRunner
-from src.core.exceptions import Conflict, InvalidInput, NotFound, ServiceUnavailable
+from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.core.logging import get_logger
 from src.db.base import utcnow
 from src.features.documents import DocumentChat, DocumentService
@@ -234,9 +229,7 @@ class JobService:
         run.matched = sum(job.fit >= min_score for job in kept)
         await self._settings.record_quota(run.user_id, reply.quota)
 
-    async def analyse_posting(
-        self, user_id: UUID, job_id: UUID
-    ) -> Completed[JobRead] | Failed:
+    async def analyse_posting(self, user_id: UUID, job_id: UUID) -> JobRead:
         """Run analyse-job on the job's posting and the profile, and store the
         analysis in place of any earlier one"""
         job = await self.job(user_id, job_id)
@@ -245,7 +238,7 @@ class JobService:
         profile = await self._profile.agent_profile(user_id)
         metadata = await self._settings.run_metadata(user_id)
         await self._session.commit()
-        run = await self._runner.run(
+        reply = await self._runner.run(
             user_id,
             "analyse-job",
             AnalyseJobOutput,
@@ -254,15 +247,7 @@ class JobService:
             ),
             metadata=metadata,
         )
-        match run:
-            case Completed(reply=reply):
-                return Completed(
-                    reply=await self.analyse(user_id, job_id, reply.analysis)
-                )
-            case InputRequired():
-                raise ServiceUnavailable("analyse-job asked for input ops cannot give")
-            case Failed():
-                return run
+        return await self.analyse(user_id, job_id, reply.analysis)
 
     async def tailor(self, user_id: UUID, job_id: UUID) -> TailorRead:
         """Copy the master résumé, and the master cover letter when there is one, for

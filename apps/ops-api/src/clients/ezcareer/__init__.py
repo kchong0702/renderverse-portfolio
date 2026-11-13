@@ -1,4 +1,5 @@
 from src.clients.ezcareer.client import EzcareerClient
+from src.clients.ezcareer.exceptions import AgentRunFailed
 from src.clients.ezcareer.schemas import (
     Answer,
     Cancelled,
@@ -26,6 +27,7 @@ from src.clients.ezcareer.schemas import (
 from src.clients.ezcareer.types import ModelFamily
 
 __all__ = [
+    "AgentRunFailed",
     "Answer",
     "Cancelled",
     "Completed",

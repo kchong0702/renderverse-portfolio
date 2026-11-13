@@ -14,12 +14,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.clients.ezcareer import (
-    Completed,
-    Failed,
-    InputRequired,
-    RunMetadata,
-)
+from src.clients.ezcareer import AgentRunFailed, RunMetadata
 from src.clients.google import (
     GmailMessage,
     GmailPart,
@@ -158,7 +153,7 @@ class InboxService:
         next sync tries again"""
         try:
             thread = await self._client.thread(token, thread_id)
-            run = await self._runner.run(
+            return await self._runner.run(
                 user_id,
                 "triage-email",
                 TriageEmailOutput,
@@ -169,11 +164,9 @@ class InboxService:
             )
         except (NotFound, ServiceUnavailable) as error:
             logger.warning("triage_skipped", thread_id=thread_id, reason=error.message)
-            return None
-        if not isinstance(run, Completed):
-            logger.warning("triage_failed", thread_id=thread_id, status=run.status)
-            return None
-        return run.reply
+        except AgentRunFailed as error:
+            logger.warning("triage_failed", thread_id=thread_id, reason=error.message)
+        return None
 
     async def _keep_step(
         self, thread: EmailThread, kind: StepKind, **found: object
@@ -383,7 +376,7 @@ class InboxService:
         user_id: UUID,
         thread: GmailThread | None,
         application: Application | None,
-    ) -> DraftReplyOutput | Failed:
+    ) -> DraftReplyOutput:
         """Run draft-reply on the thread or the application and the profile's facts,
         offering free slots for a thread while the user lets it"""
         settings = await self._settings.get(user_id)
@@ -396,7 +389,7 @@ class InboxService:
         facts = (await self._profile.agent_profile(user_id)).facts
         metadata = await self._settings.run_metadata(user_id)
         await self._session.commit()
-        run = await self._runner.run(
+        reply = await self._runner.run(
             user_id,
             "draft-reply",
             DraftReplyOutput,
@@ -416,19 +409,11 @@ class InboxService:
             ),
             metadata=metadata,
         )
-        match run:
-            case Completed(reply=reply):
-                return reply.model_copy(
-                    update={"slots": [s for s in reply.slots if s in offered]}
-                )
-            case InputRequired():
-                raise ServiceUnavailable("draft-reply asked for input ops cannot give")
-            case Failed():
-                return run
+        return reply.model_copy(
+            update={"slots": [s for s in reply.slots if s in offered]}
+        )
 
-    async def draft_reply(
-        self, user_id: UUID, thread_id: str
-    ) -> DraftReplyOutput | Failed:
+    async def draft_reply(self, user_id: UUID, thread_id: str) -> DraftReplyOutput:
         """A reply to the thread with the free slots it offers; nothing is sent"""
         token = await self._google.access_token(user_id)
         thread = await self._client.thread(token, thread_id)
@@ -442,17 +427,14 @@ class InboxService:
 
     async def draft_follow_up(
         self, user_id: UUID, application_id: UUID
-    ) -> FollowUpDraft | Failed:
+    ) -> FollowUpDraft:
         """A follow-up for an application with no reply; nothing is sent"""
         application = await self._applications.owned(
             Application, user_id, application_id
         )
         if application is None:
             raise NotFound("No such application")
-        run = await self._draft(user_id, None, application)
-        return (
-            FollowUpDraft(body=run.body) if isinstance(run, DraftReplyOutput) else run
-        )
+        return FollowUpDraft(body=(await self._draft(user_id, None, application)).body)
 
     async def reply(self, user_id: UUID, thread_id: str, reply: ReplyCreate) -> None:
         """Answer the newest email in the thread that someone else sent, in the thread"""

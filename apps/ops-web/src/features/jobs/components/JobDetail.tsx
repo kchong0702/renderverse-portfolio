@@ -37,11 +37,7 @@ export default function JobDetail({ job }: { job: Job }) {
     },
     select: (mutation) => mutation.state.variables,
   }).includes(job.id);
-  const analyseFailed = analyse.isError
-    ? analyse.error.message
-    : analyse.data?.status === "failed"
-      ? analyse.data.reason
-      : null;
+  const analyseFailed = analyse.isError ? analyse.error.message : null;
   const { analysis } = job;
   const saved = job.status === "saved";
 

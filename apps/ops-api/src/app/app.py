@@ -7,8 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from src.app.container import Container
-from src.app.handlers.exception import service_exception
+from src.app.handlers.exception import agent_run_failed, service_exception
 from src.app.routers import api_router
+from src.clients.ezcareer import AgentRunFailed
 from src.core.auth.csrf import CSRFMiddleware
 from src.core.config import Settings, get_settings
 from src.core.exceptions import ServiceException
@@ -71,7 +72,10 @@ def create_app(container: Container | None = None) -> FastAPI:
         openapi_url=f"{settings.app.route_prefix}/openapi.json",
         docs_url=f"{settings.app.route_prefix}/docs",
         lifespan=lifespan,
-        exception_handlers={ServiceException: service_exception},
+        exception_handlers={
+            ServiceException: service_exception,
+            AgentRunFailed: agent_run_failed,
+        },
     )
     app.state.container = container
     app.state.artifact = container.artifact()

@@ -7,17 +7,20 @@ import pytest
 from pydantic import BaseModel
 
 from src.clients.ezcareer import (
+    AgentRunFailed,
     Completed,
     EzcareerClient,
+    Failed,
     InputRequired,
+    Run,
     RunEvent,
     Started,
     Widget,
 )
-from src.clients.ezcareer.schemas import Text
+from src.clients.ezcareer.schemas import NextScreen, Text
 from src.core.agent_runner import AgentRunner, ToolExecutor
 from src.core.config import EzcareerSettings
-from src.core.exceptions import Conflict, NotFound
+from src.core.exceptions import Conflict, NotFound, ServiceUnavailable
 from src.core.stores import AgentRunStatus, InMemoryRunStore
 
 SETTINGS = EzcareerSettings(replay_ttl_seconds=60)
@@ -47,6 +50,27 @@ class _Finishes(InMemoryRunStore):
     ) -> None:
         self.finished.append((status, task_id))
         await super().finish(run_id, status, task_id)
+
+
+class _Ends:
+    def __init__(self, run: Run[Any]):
+        """Ends every one-shot run as run"""
+        self.run = run
+
+    async def send(self, *args: object, **kwargs: object) -> Run[Any]:
+        """How the run ended"""
+        return self.run
+
+
+async def _run(run: Run[Any]) -> object:
+    """What AgentRunner.run gives for a one-shot run of agent that ends as run"""
+    runner = AgentRunner(
+        cast(EzcareerClient, _Ends(run)),
+        ToolExecutor(),
+        InMemoryRunStore(SETTINGS),
+        retry_ms=2000,
+    )
+    return await runner.run(uuid4(), "agent", str, data=_Input(), metadata=None)
 
 
 async def _events(*texts: str) -> AsyncIterator[RunEvent[Any]]:
@@ -177,3 +201,24 @@ async def test_closing_marks_each_running_turn_cancelled():
 
     assert store.finished == [(AgentRunStatus.CANCELLED, "task-1")]
     await _start(runner, "chat-1")
+
+
+async def test_a_completed_run_gives_its_reply():
+    assert await _run(Completed(reply="Drafted.")) == "Drafted."
+
+
+async def test_a_failed_run_raises_its_reason_and_the_screen_that_would_help():
+    portfolio = NextScreen(label="Add a fact in Portfolio", screen="portfolio")
+
+    with pytest.raises(AgentRunFailed) as failed:
+        await _run(Failed(reason="No facts to draft from", next=portfolio))
+
+    assert (failed.value.message, failed.value.next) == (
+        "No facts to draft from",
+        portfolio,
+    )
+
+
+async def test_a_one_shot_run_that_asks_for_input_is_unavailable():
+    with pytest.raises(ServiceUnavailable, match="agent asked for input"):
+        await _run(InputRequired(task_id="task-1", widget=Widget(label="Which?")))

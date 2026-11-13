@@ -11,6 +11,7 @@ from pydantic import BaseModel, ValidationError
 from pydantic_core import to_json
 
 from src.clients.ezcareer import (
+    AgentRunFailed,
     Answer,
     Cancelled,
     Completed,
@@ -19,13 +20,12 @@ from src.clients.ezcareer import (
     Failed,
     InputRequired,
     ModelCatalog,
-    Run,
     RunEvent,
     RunMetadata,
     Started,
     ToolRequest,
 )
-from src.core.exceptions import NotFound
+from src.core.exceptions import NotFound, ServiceUnavailable
 from src.core.logging import get_logger
 from src.core.stores import AgentRunStatus, RunStore
 
@@ -127,10 +127,10 @@ class AgentRunner:
         *,
         data: BaseModel,
         metadata: RunMetadata | None,
-    ) -> Run[R]:
-        """Run an agent or workflow on the data to its end on a thread of its own,
-        executing the tools it pauses on; how it ended"""
-        return await self._ezcareer.send(
+    ) -> R:
+        """The reply of a run to its end on its own thread, running the tools it pauses
+        on; ServiceUnavailable when it asks for input, AgentRunFailed when it fails"""
+        match await self._ezcareer.send(
             executable,
             reply,
             user_id=user_id,
@@ -138,7 +138,15 @@ class AgentRunner:
             data=data,
             metadata=metadata,
             execute_tool=partial(self._tools.execute, user_id),
-        )
+        ):
+            case Completed(reply=result):
+                return result
+            case InputRequired():
+                raise ServiceUnavailable(
+                    f"{executable} asked for input ops cannot give"
+                )
+            case Failed(reason=reason, next=next_screen):
+                raise AgentRunFailed(reason, next_screen)
 
     async def _write(self, run_id: str, events: AsyncIterator[BaseModel]) -> None:
         """Write each of the run's events to the store, then mark it finished with how

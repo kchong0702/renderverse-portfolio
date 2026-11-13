@@ -4,7 +4,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.clients.ezcareer import Completed, Failed
 from src.core.auth import CurrentUserDep
 from src.core.exceptions import InvalidInput
 from src.db.session import SessionDep
@@ -125,7 +124,7 @@ async def replace_analysis(
 @router.post("/{job_id}/analyse")
 async def analyse_job(
     job_id: UUID, user: CurrentUserDep, service: JobServiceDep
-) -> Completed[JobRead] | Failed:
+) -> JobRead:
     """Analyse the job's posting against the profile and store the analysis,
     or fail with the agent's reason"""
     return await service.analyse_posting(user.id, job_id)

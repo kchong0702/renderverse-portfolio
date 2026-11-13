@@ -237,11 +237,8 @@ async def test_a_refused_draft_returns_the_screen_to_fix_it(client, google, harn
 
     response = await client.post(f"{INBOX}/t-1/reply-draft")
 
-    assert response.json() == {
-        "status": "failed",
-        "reason": "No facts to draft from",
-        "next": portfolio,
-    }
+    assert response.status_code == 422
+    assert response.json() == {"reason": "No facts to draft from", "next": portfolio}
 
 
 async def test_a_follow_up_draft_is_written_for_the_application(
