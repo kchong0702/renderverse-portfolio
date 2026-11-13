@@ -10,7 +10,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import create_async_engine
 from structlog.testing import capture_logs
 
-from src.clients.storage import LocalStorage
+from src.adapters.storage import LocalStorage
 from src.core.auth.models import User
 from src.core.config import get_settings
 from src.db.session import create_session_factory

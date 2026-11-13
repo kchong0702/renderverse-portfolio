@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from src.clients.storage import LocalStorage
+from src.adapters.storage import LocalStorage
 from src.core.auth.models import User
 from src.core.config import get_settings
 from src.db.session import create_session_factory

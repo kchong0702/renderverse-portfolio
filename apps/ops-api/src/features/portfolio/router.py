@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Path, Request, status
 from fastapi.responses import FileResponse
 
-from src.clients.storage import UploadTarget
+from src.adapters.storage import UploadTarget
 from src.core.auth import AdminDep
 from src.db.session import SessionDep
 from src.features.portfolio.enums import MediaSlot, MediaType

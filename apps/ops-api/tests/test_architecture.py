@@ -33,6 +33,26 @@ def _names(path: Path) -> set[str]:
     return names
 
 
+def _classes(root: Path) -> list[ast.ClassDef]:
+    """Every class defined under the directory"""
+    return [
+        node
+        for path in root.rglob("*.py")
+        for node in ast.walk(ast.parse(path.read_text()))
+        if isinstance(node, ast.ClassDef)
+    ]
+
+
+def _methods(cls: ast.ClassDef) -> set[str]:
+    """The class's public method names"""
+    return {
+        node.name
+        for node in cls.body
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        and not node.name.startswith("_")
+    }
+
+
 def test_the_jobs_feature_knows_no_job_source_by_name():
     offenders = {
         f"{path.relative_to(SRC.parent)}: {name}"
@@ -53,6 +73,23 @@ def test_adapters_import_no_feature():
     }
 
     assert offenders == set(), f"adapters importing features: {sorted(offenders)}"
+
+
+def test_clients_implement_no_adapter_interface():
+    interfaces = {
+        cls.name: _methods(cls)
+        for cls in _classes(SRC / "adapters")
+        if any(getattr(base, "id", None) in {"ABC", "Protocol"} for base in cls.bases)
+    }
+    offenders = {
+        f"{cls.name} implements {name}"
+        for cls in _classes(SRC / "clients")
+        for name, methods in interfaces.items()
+        if methods <= _methods(cls)
+        or name in {getattr(base, "id", None) for base in cls.bases}
+    }
+
+    assert offenders == set(), f"adapters in src/clients: {sorted(offenders)}"
 
 
 def test_only_the_agent_runner_talks_to_the_harness():

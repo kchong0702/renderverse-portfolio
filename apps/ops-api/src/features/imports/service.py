@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.clients.storage import Storage
+from src.adapters.storage import Storage
 from src.core.config import DocumentsSettings, ProfileSettings
 from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.db.base import utcnow
