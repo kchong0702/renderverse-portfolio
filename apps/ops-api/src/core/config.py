@@ -106,6 +106,25 @@ class DocumentsSettings(BaseModel):
     """The media types an uploaded résumé may have: PDF or Word"""
 
 
+class ProfileSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    max_export_bytes: int = Field(default=50 * 1024 * 1024, gt=0)
+    """The largest profile export zip a user may upload"""
+
+    max_unzipped_bytes: int = Field(default=20 * 1024 * 1024, gt=0)
+    """The most an export's read files may unpack to"""
+
+    export_types: frozenset[str] = frozenset(
+        {"application/zip", "application/x-zip-compressed"}
+    )
+    """The media types an uploaded profile export may have"""
+
+    match_cutoff: int = Field(default=85, ge=0, le=100)
+    """How closely, from 0 to 100, an imported organisation or title must match an
+    entry's to be an unsure match"""
+
+
 class OAuthClientSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
@@ -472,6 +491,9 @@ class Settings(BaseSettings):
     portfolio: PortfolioSettings = Field(default_factory=PortfolioSettings)
     """The portfolio site"""
 
+    profile: ProfileSettings = Field(default_factory=ProfileSettings)
+    """Imports into the profile"""
+
     storage: StorageSettings = Field(default_factory=StorageSettings)
     """Where published files are written"""
 
@@ -517,6 +539,7 @@ __all__ = [
     "JSearchSettings",
     "ObservabilitySettings",
     "PortfolioSettings",
+    "ProfileSettings",
     "R2Settings",
     "Settings",
     "StorageSettings",

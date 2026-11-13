@@ -1,26 +1,54 @@
 from __future__ import annotations
 
+from hashlib import sha256
+from typing import Literal
 from uuid import UUID
 
+from pydantic import TypeAdapter
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.exceptions import NotFound
-from src.features.profile.enums import EntryKind
-from src.features.profile.models import Profile, ProfileEntry, ProfileSkill
+from src.core.config import get_settings
+from src.core.exceptions import InvalidInput, NotFound
+from src.features.profile.enums import ChangeChoice, ChangeKind, EntryKind, ImportSource
+from src.features.profile.models import (
+    Profile,
+    ProfileChange,
+    ProfileEntry,
+    ProfileImport,
+    ProfileSkill,
+)
 from src.features.profile.repository import ProfileRepository
 from src.features.profile.schemas import (
     AgentProfile,
+    ChangeAnswers,
+    ChangeRead,
     EntryCreate,
     EntryRead,
     EntryWrite,
+    ImportedEntry,
+    ImportedProfile,
+    NetworkingCopy,
+    NetworkingRead,
     Preferences,
     ProfileFact,
+    ProfileImportRead,
     ProfileRead,
     ProfileUpdate,
     Salary,
     SkillRead,
     SkillWrite,
 )
+from src.features.profile.sync import (
+    ABOUT_FIELDS,
+    ENTRY_FIELDS,
+    agrees,
+    entry_match,
+    normalised,
+    stored,
+)
+from src.features.profile.types import ChangeField, FieldValue
+
+_CHANGE: TypeAdapter[ChangeRead] = TypeAdapter(ChangeRead)
 
 
 def _preferences(profile: Profile) -> Preferences:
@@ -85,6 +113,14 @@ def _entry_fact(entry: ProfileEntry) -> ProfileFact:
         text="\n".join(line.strip() for line in lines if line.strip()),
         start=entry.start if is_role else None,
         end=entry.end if is_role else None,
+    )
+
+
+def _skill_fact(skill: ProfileSkill) -> ProfileFact:
+    """A skill as one fact, under its group when it has one"""
+    return ProfileFact(
+        id=f"skill-{skill.id}",
+        text=f"{skill.group}: {skill.name}" if skill.group else skill.name,
     )
 
 
@@ -187,16 +223,301 @@ class ProfileService:
         skills = await self._repository.skills(user_id)
         return AgentProfile(
             facts=[_entry_fact(e) for e in entries if not e.archived]
-            + [
-                ProfileFact(
-                    id=f"skill-{s.id}",
-                    text=f"{s.group}: {s.name}" if s.group else s.name,
-                )
-                for s in skills
-                if not s.archived
-            ],
+            + [_skill_fact(s) for s in skills if not s.archived],
             preferences=_preferences(await self._load(user_id)),
         )
+
+    async def networking_facts(self, user_id: UUID) -> list[ProfileFact]:
+        """Every fact the Networking copy is written from: the user's headline,
+        summary and location, then every entry and skill, archived ones included"""
+        profile = await self._load(user_id)
+        about = "\n".join(
+            line
+            for line in (profile.headline, profile.summary, profile.location)
+            if line
+        )
+        return [
+            *([ProfileFact(id="about", text=about)] if about else []),
+            *map(_entry_fact, await self._repository.entries(user_id)),
+            *map(_skill_fact, await self._repository.skills(user_id)),
+        ]
+
+    async def networking(self, user_id: UUID) -> NetworkingRead:
+        """The latest Networking copy and the profession it was written for"""
+        profile = await self._load(user_id)
+        return NetworkingRead(
+            profession=profile.profession,
+            **(profile.networking or NetworkingCopy()).model_dump(),
+        )
+
+    async def keep_networking(
+        self, user_id: UUID, profession: str, written: NetworkingCopy, only: str | None
+    ) -> NetworkingRead:
+        """Keep newly written copy: all of it, or only the headline, summary or
+        one fact's description"""
+        profile = await self._load(user_id)
+        copy = profile.networking or NetworkingCopy()
+        match only:
+            case None:
+                copy = written
+            case "headline" | "summary":
+                copy = copy.model_copy(update={only: getattr(written, only)})
+            case fact:
+                copy = copy.model_copy(
+                    update={
+                        "descriptions": [
+                            *(d for d in copy.descriptions if d.fact != fact),
+                            *(d for d in written.descriptions if d.fact == fact),
+                        ]
+                    }
+                )
+        profile.networking = copy
+        profile.profession = profession
+        return await self.networking(user_id)
+
+    async def imports(self, user_id: UUID) -> list[ProfileImportRead]:
+        """Every import into the profile, the latest first"""
+        return [
+            ProfileImportRead.model_validate(row, from_attributes=True)
+            for row in await self._repository.imports(user_id)
+        ]
+
+    async def imported(self, user_id: UUID, content: bytes) -> ProfileImportRead | None:
+        """The user's earlier import of this very file, if any"""
+        row = await self._repository.imported(user_id, sha256(content).hexdigest())
+        return (
+            ProfileImportRead.model_validate(row, from_attributes=True) if row else None
+        )
+
+    async def changes(self, user_id: UUID) -> list[ChangeRead]:
+        """Every change imports left for the user to settle, the oldest first"""
+        return [
+            _CHANGE.validate_python(change, from_attributes=True)
+            for change in await self._repository.changes(user_id)
+        ]
+
+    async def _drop(self, changes: list[ProfileChange], change: ProfileChange) -> None:
+        """Delete a pending change"""
+        changes.remove(change)
+        await self._repository.delete(change)
+
+    async def _offer(
+        self,
+        changes: list[ProfileChange],
+        import_id: UUID,
+        target: Profile | ProfileEntry,
+        field: ChangeField,
+        incoming: FieldValue,
+    ) -> Literal["filled", "conflict"] | None:
+        """Settle one imported value: fill an empty field, drop the field's pending
+        change once the import agrees, or keep one pending change with its value"""
+        if not incoming:
+            return None
+        entry_id = target.id if isinstance(target, ProfileEntry) else None
+        pending = next(
+            (
+                c
+                for c in changes
+                if c.kind is ChangeKind.FIELD
+                and c.entry_id == entry_id
+                and c.field == field
+            ),
+            None,
+        )
+        current = getattr(target, field)
+        if agrees(field, current, incoming):
+            if pending is not None:
+                await self._drop(changes, pending)
+            return None
+        if not current:
+            if pending is not None:
+                await self._drop(changes, pending)
+            setattr(target, field, stored(field, incoming))
+            return "filled"
+        if pending is not None:
+            pending.import_id = import_id
+            pending.current = current
+            pending.conflict = stored(field, incoming)
+        else:
+            changes.append(
+                await self._repository.add(
+                    ProfileChange(
+                        user_id=target.user_id,
+                        import_id=import_id,
+                        kind=ChangeKind.FIELD,
+                        entry_id=entry_id,
+                        field=field,
+                        current=current,
+                        conflict=stored(field, incoming),
+                    )
+                )
+            )
+        return "conflict"
+
+    async def _merge(
+        self,
+        changes: list[ProfileChange],
+        import_id: UUID,
+        entry: ProfileEntry,
+        incoming: ImportedEntry,
+    ) -> list[Literal["filled", "conflict"] | None]:
+        """Offer each of an imported entry's fields to the entry it is"""
+        return [
+            await self._offer(
+                changes, import_id, entry, field, getattr(incoming, field)
+            )
+            for field in ENTRY_FIELDS
+        ]
+
+    async def _add_entry(self, user_id: UUID, incoming: ImportedEntry) -> ProfileEntry:
+        """Store an imported entry as a new one the assistant uses, off the site"""
+        return await self._repository.add(
+            ProfileEntry(
+                user_id=user_id,
+                kind=incoming.kind,
+                archived=False,
+                on_site=False,
+                **{
+                    field: stored(field, getattr(incoming, field))
+                    for field in ENTRY_FIELDS
+                },
+            )
+        )
+
+    async def sync(
+        self,
+        user_id: UUID,
+        source: ImportSource,
+        filename: str,
+        media_type: str,
+        content: bytes,
+        imported: ImportedProfile,
+    ) -> ProfileImportRead:
+        """Add what the profile lacks and a pending change for each value an import
+        would overwrite or entry it may be; the same file again changes nothing"""
+        digest = sha256(content).hexdigest()
+        if (earlier := await self._repository.imported(user_id, digest)) is not None:
+            return ProfileImportRead.model_validate(earlier, from_attributes=True)
+        profile = await self._load(user_id)
+        changes = await self._repository.changes(user_id)
+        row = await self._repository.add(
+            ProfileImport(
+                user_id=user_id,
+                filename=filename[:255],
+                media_type=media_type,
+                size=len(content),
+                digest=digest,
+                source=source,
+            )
+        )
+        outcomes = [
+            await self._offer(
+                changes, row.id, profile, field, getattr(imported.about, field)
+            )
+            for field in ABOUT_FIELDS
+        ]
+        known = {normalised(link.url) for link in profile.links}
+        for link in imported.about.links:
+            if len(profile.links) < 3 and normalised(link.url) not in known:
+                profile.links = [*profile.links, link]
+                known.add(normalised(link.url))
+                row.added += 1
+        unmatched = list(await self._repository.entries(user_id))
+        cutoff = get_settings().profile.match_cutoff
+        for incoming in imported.entries:
+            exact = next(
+                (e for e in unmatched if entry_match(e, incoming, cutoff) == "exact"),
+                None,
+            )
+            unsure = next(
+                (e for e in unmatched if entry_match(e, incoming, cutoff) == "unsure"),
+                None,
+            )
+            if exact is not None:
+                unmatched.remove(exact)
+                row.matched += 1
+                outcomes += await self._merge(changes, row.id, exact, incoming)
+            elif unsure is not None:
+                unmatched.remove(unsure)
+                row.conflicts += 1
+                pending = next(
+                    (
+                        c
+                        for c in changes
+                        if c.kind is ChangeKind.MATCH and c.entry_id == unsure.id
+                    ),
+                    None,
+                )
+                if pending is not None:
+                    pending.import_id = row.id
+                    pending.entry = incoming
+                else:
+                    changes.append(
+                        await self._repository.add(
+                            ProfileChange(
+                                user_id=user_id,
+                                import_id=row.id,
+                                kind=ChangeKind.MATCH,
+                                entry_id=unsure.id,
+                                entry=incoming,
+                            )
+                        )
+                    )
+            else:
+                await self._add_entry(user_id, incoming)
+                row.added += 1
+        names = {
+            skill.name.strip().casefold()
+            for skill in await self._repository.skills(user_id)
+        }
+        for skill in imported.skills:
+            if skill.name.strip().casefold() in names:
+                row.matched += 1
+            else:
+                await self._repository.add(
+                    ProfileSkill(user_id=user_id, name=skill.name, group=skill.group)
+                )
+                names.add(skill.name.strip().casefold())
+                row.added += 1
+        row.added += outcomes.count("filled")
+        row.conflicts += outcomes.count("conflict")
+        await self._repository.flush()
+        return ProfileImportRead.model_validate(row, from_attributes=True)
+
+    async def resolve(self, user_id: UUID, answers: ChangeAnswers) -> list[ChangeRead]:
+        """Settle pending changes: keep the current value or take the import's, and
+        merge a match into its entry or add it as another"""
+        changes = await self._repository.changes(user_id)
+        for answer in answers.answers:
+            change = next((c for c in changes if c.id == answer.id), None)
+            if change is None:
+                raise NotFound("No such change")
+            target = (
+                await self._repository.owned(ProfileEntry, user_id, change.entry_id)
+                if change.entry_id
+                else await self._load(user_id)
+            )
+            match change.kind, answer.choice:
+                case ChangeKind.FIELD, ChangeChoice.CURRENT:
+                    pass
+                case ChangeKind.FIELD, ChangeChoice.CONFLICT:
+                    if target is not None and change.field:
+                        setattr(target, change.field, change.conflict)
+                case ChangeKind.MATCH, ChangeChoice.SAME:
+                    if isinstance(target, ProfileEntry) and change.entry:
+                        await self._merge(
+                            changes, change.import_id, target, change.entry
+                        )
+                case ChangeKind.MATCH, ChangeChoice.DIFFERENT:
+                    if change.entry:
+                        await self._add_entry(user_id, change.entry)
+                case _:
+                    raise InvalidInput(
+                        "Answer a field with current or conflict,"
+                        " and a match with same or different"
+                    )
+            await self._drop(changes, change)
+        return await self.changes(user_id)
 
     async def _load(self, user_id: UUID) -> Profile:
         """The user's profile row, created empty when missing"""

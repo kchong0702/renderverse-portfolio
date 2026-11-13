@@ -76,7 +76,7 @@ from src.features.documents.schemas import (
     VersionCreate,
     VersionRead,
 )
-from src.features.profile import ProfileService
+from src.features.profile import ImportSource, ProfileService, resume_profile
 from src.features.settings import SettingsService
 
 logger = get_logger(__name__)
@@ -610,7 +610,7 @@ class DocumentService:
 
     async def read_import(self, user_id: UUID, import_id: UUID) -> ImportRead:
         """Claim a pending or failed import and run import-resume on it with no
-        transaction open: it becomes a draft document, or fails with the reason"""
+        transaction open: it becomes a draft and syncs the profile, or fails"""
         row = await self._repository.claim_import(
             user_id,
             import_id,
@@ -638,6 +638,14 @@ class DocumentService:
             raise
         match run:
             case Completed(reply=reply):
+                await self._profile.sync(
+                    user_id,
+                    ImportSource.DOCUMENTS,
+                    row.filename,
+                    row.media_type,
+                    data.file,
+                    resume_profile(reply.document.content),
+                )
                 try:
                     await self._make_room(user_id, reply.document.kind)
                 except Conflict as error:

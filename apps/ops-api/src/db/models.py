@@ -11,7 +11,13 @@ from src.features.google.models import GoogleAccount
 from src.features.inbox.models import EmailThread
 from src.features.jobs.models import Job, JobRun
 from src.features.portfolio.models import Asset, PortfolioRelease
-from src.features.profile.models import Profile, ProfileEntry, ProfileSkill
+from src.features.profile.models import (
+    Profile,
+    ProfileChange,
+    ProfileEntry,
+    ProfileImport,
+    ProfileSkill,
+)
 from src.features.settings.models import UserSettings
 
 __all__ = [
@@ -31,7 +37,9 @@ __all__ = [
     "JobRun",
     "PortfolioRelease",
     "Profile",
+    "ProfileChange",
     "ProfileEntry",
+    "ProfileImport",
     "ProfileSkill",
     "SignInAttempts",
     "User",

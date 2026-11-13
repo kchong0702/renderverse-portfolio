@@ -1,21 +1,29 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, UploadFile, status
 
 from src.core.auth import CurrentUserDep
+from src.core.config import get_settings
 from src.db.session import SessionDep
+from src.features.profile.runs import ProfileRunService
 from src.features.profile.schemas import (
     AgentProfile,
+    ChangeAnswers,
+    ChangeRead,
     EntryCreate,
     EntryRead,
     EntryWrite,
+    NetworkingRead,
+    NetworkingWrite,
+    ProfileImportRead,
     ProfileRead,
     ProfileUpdate,
     SkillRead,
     SkillWrite,
 )
 from src.features.profile.service import ProfileService
+from src.features.settings import SettingsServiceDep
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
@@ -26,6 +34,26 @@ def get_profile_service(session: SessionDep) -> ProfileService:
 
 
 ProfileServiceDep = Annotated[ProfileService, Depends(get_profile_service)]
+
+
+def get_profile_run_service(
+    session: SessionDep,
+    profile: ProfileServiceDep,
+    settings: SettingsServiceDep,
+    request: Request,
+) -> ProfileRunService:
+    """The service that runs the harness on the profile, on the request's session"""
+    return ProfileRunService(
+        session,
+        profile,
+        settings,
+        request.app.state.ezcareer,
+        get_settings().profile,
+        get_settings().documents,
+    )
+
+
+ProfileRunServiceDep = Annotated[ProfileRunService, Depends(get_profile_run_service)]
 
 
 @router.get("")
@@ -112,3 +140,54 @@ async def delete_skill(
 ) -> None:
     """Delete a skill"""
     await service.delete_skill(user.id, skill_id)
+
+
+@router.get("/imports")
+async def list_imports(
+    user: CurrentUserDep, service: ProfileServiceDep
+) -> list[ProfileImportRead]:
+    """Every import into the profile with what it added, conflicted and matched"""
+    return await service.imports(user.id)
+
+
+@router.post("/imports", status_code=status.HTTP_201_CREATED)
+async def import_file(
+    file: UploadFile, user: CurrentUserDep, service: ProfileRunServiceDep
+) -> ProfileImportRead:
+    """Import a résumé (PDF or Word) or a profile export (.zip): new facts are added
+    and anything that would change one waits in the pending changes"""
+    return await service.upload(
+        user.id, file.filename or "import", file.content_type or "", await file.read()
+    )
+
+
+@router.get("/changes")
+async def list_changes(
+    user: CurrentUserDep, service: ProfileServiceDep
+) -> list[ChangeRead]:
+    """Every change imports left for the user to settle"""
+    return await service.changes(user.id)
+
+
+@router.post("/changes/resolve")
+async def resolve_changes(
+    answers: ChangeAnswers, user: CurrentUserDep, service: ProfileServiceDep
+) -> list[ChangeRead]:
+    """Settle some pending changes and return the ones still pending"""
+    return await service.resolve(user.id, answers)
+
+
+@router.get("/networking")
+async def read_networking(
+    user: CurrentUserDep, service: ProfileServiceDep
+) -> NetworkingRead:
+    """The latest copy to paste into job portals"""
+    return await service.networking(user.id)
+
+
+@router.post("/networking")
+async def write_networking(
+    request: NetworkingWrite, user: CurrentUserDep, service: ProfileRunServiceDep
+) -> NetworkingRead:
+    """Write the copy again, or only its headline, summary or one description"""
+    return await service.write_networking(user.id, request)
