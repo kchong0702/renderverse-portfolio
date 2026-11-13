@@ -21,7 +21,7 @@ export default function NetworkingTab({ entries, skills }: NetworkingTabProps) {
   const { t, i18n } = useTranslation();
   const networking = useNetworking();
   const write = useWriteNetworking();
-  const [aim, setAim] = useState<string | null>(null);
+  const [profession, setProfession] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<string | null>(null);
   const [sources, setSources] = useState(false);
@@ -54,7 +54,7 @@ export default function NetworkingTab({ entries, skills }: NetworkingTabProps) {
   const writing = write.isPending && write.variables.only === null;
   const rewrite = (only: string | null) =>
     write.mutate(
-      { aim: (aim ?? copyText.aim).trim(), only },
+      { profession: (profession ?? copyText.profession).trim(), only },
       {
         onSuccess: () =>
           setEdits((current) =>
@@ -113,12 +113,14 @@ export default function NetworkingTab({ entries, skills }: NetworkingTabProps) {
         className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5"
       >
         <label className="flex flex-[1_1_380px] flex-wrap items-center gap-x-3 gap-y-1.5">
-          <span className="text-ink-3 text-sm">{t("data.networking.aim")}</span>
+          <span className="text-ink-3 text-sm">
+            {t("data.networking.profession")}
+          </span>
           <input
             maxLength={200}
-            placeholder={t("data.networking.aimPlaceholder")}
-            value={aim ?? copyText.aim}
-            onChange={(event) => setAim(event.target.value)}
+            placeholder={t("data.networking.professionPlaceholder")}
+            value={profession ?? copyText.profession}
+            onChange={(event) => setProfession(event.target.value)}
             className="border-hair text-ink placeholder:text-ink-3 min-h-10 flex-[1_1_260px] border-0 border-b bg-transparent px-0.5 text-base font-semibold placeholder:font-normal"
           />
         </label>

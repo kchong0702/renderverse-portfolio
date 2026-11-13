@@ -74,14 +74,14 @@ export interface NetworkingText {
 }
 
 export interface Networking {
-  aim: string;
+  profession: string;
   headline: NetworkingText | null;
   summary: NetworkingText | null;
   descriptions: (NetworkingText & { fact: string })[];
 }
 
 export interface NetworkingWrite {
-  aim: string;
+  profession: string;
   only: string | null;
 }
 

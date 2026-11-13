@@ -1437,8 +1437,8 @@
     },
     "networking": {
       "loadFailed": "Your networking copy could not be loaded: {{reason}}",
-      "aim": "Aim for jobs like",
-      "aimPlaceholder": "e.g. Senior backend roles",
+      "profession": "Optimized for your profession:",
+      "professionPlaceholder": "e.g. Senior Backend Engineer",
       "write": "Write it",
       "writeAgain": "Write again",
       "writing": "Writing…",
