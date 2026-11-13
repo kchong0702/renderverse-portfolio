@@ -133,7 +133,7 @@ class EditDocumentOutput(BaseModel):
 
 
 class DocumentsRequest(BaseModel):
-    fetch: Literal["documents"]
+    execute_tool: Literal["documents"]
     """A paused run asks for the user's documents"""
 
     name: str | None = None
@@ -144,7 +144,7 @@ class DocumentsRequest(BaseModel):
 
 
 class DocumentRequest(BaseModel):
-    fetch: Literal["document"]
+    execute_tool: Literal["document"]
     """A paused run asks for one of the user's documents"""
 
     id: UUID

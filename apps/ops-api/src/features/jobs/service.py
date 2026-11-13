@@ -13,9 +13,9 @@ from src.clients.ezcareer import (
     Failed,
     InputRequired,
 )
-from src.core.data_requests import DataRequestKind, DataRequestKinds, FetchError
 from src.core.exceptions import Conflict, InvalidInput, NotFound, ServiceUnavailable
 from src.core.logging import get_logger
+from src.core.runner import Tool, ToolError, Tools
 from src.db.base import utcnow
 from src.db.session import session_scope
 from src.features.documents import DocumentService
@@ -70,9 +70,9 @@ def _tailor_request(job: JobRead, document: str) -> str:
 
 async def answer_job_run(
     factory: async_sessionmaker[AsyncSession], user_id: UUID, request: JobRunRequest
-) -> JobRunQueued | FetchError:
+) -> JobRunQueued | ToolError:
     """Queue the agent run a paused run asks for, on a session of its own;
-    FetchError while an agent run is queued"""
+    ToolError while an agent run is queued"""
     async for session in session_scope(factory):
         try:
             queued = await JobRepository(session).queue_run(
@@ -80,13 +80,13 @@ async def answer_job_run(
             )
             answer = JobRunQueued(id=queued.id, run_after=queued.run_after)
         except IntegrityError:
-            answer = FetchError(error="A job agent run is already queued")
+            answer = ToolError(error="A job agent run is already queued")
     return answer
 
 
-def job_data_requests(factory: async_sessionmaker[AsyncSession]) -> DataRequestKinds:
-    """The jobs' data request kinds"""
-    return {"job_run": DataRequestKind(JobRunRequest, partial(answer_job_run, factory))}
+def job_tools(factory: async_sessionmaker[AsyncSession]) -> Tools:
+    """The jobs' tools"""
+    return {"job_run": Tool(JobRunRequest, partial(answer_job_run, factory))}
 
 
 class JobService:

@@ -32,7 +32,6 @@ from src.clients.google import (
     GoogleClient,
 )
 from src.core.config import GoogleSettings, get_settings
-from src.core.data_requests import DataRequestKind, DataRequestKinds, FetchError
 from src.core.exceptions import (
     AlreadyExists,
     InvalidInput,
@@ -41,6 +40,7 @@ from src.core.exceptions import (
     ServiceUnavailable,
 )
 from src.core.logging import get_logger
+from src.core.runner import Tool, ToolError, Tools
 from src.db.base import as_utc, utcnow
 from src.db.session import session_scope
 from src.features.applications.enums import NextStepFormat, StepKind, StepStatus
@@ -211,7 +211,7 @@ async def answer_thread(
     config: GoogleSettings,
     user_id: UUID,
     request: ThreadRequest,
-) -> ThreadAnswer | FetchError:
+) -> ThreadAnswer | ToolError:
     """One of the user's email threads, on a session of its own"""
     async for session in session_scope(factory):
         google = GoogleService(session, client, config)
@@ -222,7 +222,7 @@ async def answer_thread(
                 )
             )
         except ServiceException as error:
-            answer = FetchError(error=error.message)
+            answer = ToolError(error=error.message)
     return answer
 
 
@@ -232,7 +232,7 @@ async def answer_threads(
     config: GoogleSettings,
     user_id: UUID,
     request: ThreadsRequest,
-) -> ThreadsAnswer | FetchError:
+) -> ThreadsAnswer | ToolError:
     """The user's email threads a search finds, on a session of its own"""
     async for session in session_scope(factory):
         google = GoogleService(session, client, config)
@@ -259,7 +259,7 @@ async def answer_threads(
                 total=total,
             )
         except ServiceException as error:
-            answer = FetchError(error=error.message)
+            answer = ToolError(error=error.message)
     return answer
 
 
@@ -270,7 +270,7 @@ async def answer_free_slots(
     ezcareer: EzcareerClient,
     user_id: UUID,
     request: FreeSlotsRequest,
-) -> FreeSlots | FetchError:
+) -> FreeSlots | ToolError:
     """The times the user is free in the days asked, none when they don't offer free
     slots, on a session of its own"""
     async for session in session_scope(factory):
@@ -288,25 +288,23 @@ async def answer_free_slots(
                 else free.model_copy(update={"free_slots": []})
             )
         except ServiceException as error:
-            answer = FetchError(error=error.message)
+            answer = ToolError(error=error.message)
     return answer
 
 
-def inbox_data_requests(
+def inbox_tools(
     factory: async_sessionmaker[AsyncSession],
     client: GoogleClient,
     config: GoogleSettings,
     ezcareer: EzcareerClient,
-) -> DataRequestKinds:
-    """The inbox's data request kinds"""
+) -> Tools:
+    """The inbox's tools"""
     return {
-        "thread": DataRequestKind(
-            ThreadRequest, partial(answer_thread, factory, client, config)
-        ),
-        "threads": DataRequestKind(
+        "thread": Tool(ThreadRequest, partial(answer_thread, factory, client, config)),
+        "threads": Tool(
             ThreadsRequest, partial(answer_threads, factory, client, config)
         ),
-        "free_slots": DataRequestKind(
+        "free_slots": Tool(
             FreeSlotsRequest,
             partial(answer_free_slots, factory, client, config, ezcareer),
         ),

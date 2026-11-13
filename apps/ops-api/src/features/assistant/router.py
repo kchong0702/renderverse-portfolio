@@ -23,7 +23,7 @@ def get_assistant_service(
     request: Request,
 ) -> AssistantService:
     """The assistant service on its profile, settings and documents services, the
-    profile edits, the harness, the app's runner and its data request dispatcher"""
+    profile edits, the harness, the app's runner and its tool executor"""
     return AssistantService(
         profile,
         settings,
@@ -31,7 +31,7 @@ def get_assistant_service(
         ProfileEdits(request.app.state.session_factory),
         request.app.state.ezcareer,
         request.app.state.runner,
-        request.app.state.container.data_requests(),
+        request.app.state.container.tools(),
     )
 
 

@@ -86,7 +86,7 @@ class ThreadContent(BaseModel):
 
 
 class ThreadRequest(BaseModel):
-    fetch: Literal["thread"]
+    execute_tool: Literal["thread"]
     """A paused run asks for one of the user's email threads"""
 
     id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
@@ -94,7 +94,7 @@ class ThreadRequest(BaseModel):
 
 
 class FreeSlotsRequest(BaseModel):
-    fetch: Literal["free_slots"]
+    execute_tool: Literal["free_slots"]
     """A paused run asks for the times the user is free"""
 
     days: int = Field(ge=1, le=30)
@@ -102,7 +102,7 @@ class FreeSlotsRequest(BaseModel):
 
 
 class ThreadsRequest(BaseModel):
-    fetch: Literal["threads"]
+    execute_tool: Literal["threads"]
     """A paused run searches the user's email threads"""
 
     since: date | None = None

@@ -99,7 +99,7 @@ class UpdateProfileArgs(BaseModel):
 
 
 class ProfileSyncRequest(BaseModel):
-    fetch: Literal["profile_sync"]
+    execute_tool: Literal["profile_sync"]
     """A paused run asks what syncing a document into the profile would change"""
 
     document_id: UUID
@@ -107,7 +107,7 @@ class ProfileSyncRequest(BaseModel):
 
 
 class ProfileUpdateRequest(BaseModel):
-    fetch: Literal["profile_update"]
+    execute_tool: Literal["profile_update"]
     """A paused run asks to save changes the user approved"""
 
     edits: list[ProfileEdit]

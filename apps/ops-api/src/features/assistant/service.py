@@ -15,10 +15,9 @@ from src.clients.ezcareer import (
     RunEvent,
     RunMetadata,
 )
-from src.core.data_requests import DataRequestDispatcher
 from src.core.exceptions import InvalidInput, NotFound
 from src.core.logging import get_logger
-from src.core.runner import Runner
+from src.core.runner import Runner, ToolExecutor
 from src.features.assistant.profile_edits import ProfileEdits
 from src.features.assistant.schemas import (
     ChatMessage,
@@ -45,17 +44,17 @@ class AssistantService:
         edits: ProfileEdits,
         ezcareer: EzcareerClient,
         runner: Runner,
-        data_requests: DataRequestDispatcher,
+        tools: ToolExecutor,
     ):
         """Hold the profile, settings, documents, profile edits and harness a turn
-        uses, the runner it runs on and what answers its data requests"""
+        uses, the runner it runs on and what executes its tools"""
         self._profile = profile
         self._settings = settings
         self._documents = documents
         self._edits = edits
         self._ezcareer = ezcareer
         self._runner = runner
-        self._data_requests = data_requests
+        self._tools = tools
 
     async def _review(
         self, user_id: UUID, review: ReviewRequired
@@ -105,7 +104,7 @@ class AssistantService:
                             * len(event.actions)
                         ),
                         metadata=metadata,
-                        answer_data_request=self._data_requests.for_user(user_id),
+                        execute_tool=self._tools.for_user(user_id),
                     ),
                 ):
                     yield resumed
@@ -148,7 +147,7 @@ class AssistantService:
                     text=message.text,
                     data=data,
                     metadata=metadata,
-                    answer_data_request=self._data_requests.for_user(user_id),
+                    execute_tool=self._tools.for_user(user_id),
                 ),
             ),
         )
@@ -176,7 +175,7 @@ class AssistantService:
                     task_id=task_id,
                     answer=answer,
                     metadata=metadata,
-                    answer_data_request=self._data_requests.for_user(user_id),
+                    execute_tool=self._tools.for_user(user_id),
                 ),
             ),
         )

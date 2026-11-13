@@ -33,7 +33,7 @@ async def _create(client, title: str, kind: str = "resume") -> dict:
 
 
 async def _answer(client, harness, request: dict) -> dict:
-    """What ops-api answered career-director pausing with this data request"""
+    """What ops-api resumed career-director with after it paused on this tool"""
     harness.outcomes = [
         [stream_task(), stream_status("INPUT_REQUIRED", [{"data": request}])],
         [
@@ -53,7 +53,7 @@ async def test_documents_are_found_by_a_misspelled_name_best_first(client, harne
     northwind_cv = await _create(client, "CV for Northwind Labs", "cv")
 
     answer = await _answer(
-        client, harness, {"fetch": "documents", "name": "nortwind labs résumé"}
+        client, harness, {"execute_tool": "documents", "name": "nortwind labs résumé"}
     )
 
     assert [d.pop("updated_at")[:19] for d in answer["documents"]] == [
@@ -70,9 +70,13 @@ async def test_documents_are_found_by_part_of_a_name_and_their_kind(client, harn
     await _create(client, "Résumé for Lumen Pay")
     await _create(client, "CV for Northwind Labs", "cv")
 
-    lumen = await _answer(client, harness, {"fetch": "documents", "name": "lumen"})
+    lumen = await _answer(
+        client, harness, {"execute_tool": "documents", "name": "lumen"}
+    )
     cv = await _answer(
-        client, harness, {"fetch": "documents", "name": "northwind", "kind": "cv"}
+        client,
+        harness,
+        {"execute_tool": "documents", "name": "northwind", "kind": "cv"},
     )
 
     assert [d["title"] for d in lumen["documents"]] == ["Résumé for Lumen Pay"]
@@ -88,7 +92,9 @@ async def test_documents_without_a_name_list_the_master_then_the_newest(
     await _create(client, "Résumé for Lumen Pay")
     await _create(client, "Kelvin's CV", "cv")
 
-    answer = await _answer(client, harness, {"fetch": "documents", "kind": "resume"})
+    answer = await _answer(
+        client, harness, {"execute_tool": "documents", "kind": "resume"}
+    )
 
     assert [d["title"] for d in answer["documents"]] == [
         "Master résumé",
@@ -97,7 +103,7 @@ async def test_documents_without_a_name_list_the_master_then_the_newest(
     ]
 
 
-async def test_a_document_of_another_user_is_not_fetched(app, client, harness):
+async def test_a_document_of_another_user_is_not_executed(app, client, harness):
     mine = await _create(client, "Master résumé")
     async with app.state.session_factory() as session:
         other = User(email="other@example.com")
@@ -112,8 +118,10 @@ async def test_a_document_of_another_user_is_not_fetched(app, client, harness):
         session.add(theirs)
         await session.commit()
 
-    answer = await _answer(client, harness, {"fetch": "document", "id": str(theirs.id)})
-    own = await _answer(client, harness, {"fetch": "document", "id": mine["id"]})
+    answer = await _answer(
+        client, harness, {"execute_tool": "document", "id": str(theirs.id)}
+    )
+    own = await _answer(client, harness, {"execute_tool": "document", "id": mine["id"]})
 
     assert answer == {"error": "No such document"}
     assert own == {"document": mine["body"], "lines": []}

@@ -268,8 +268,8 @@ async def test_a_follow_up_for_an_unknown_application_is_not_found(
     assert harness.received == []
 
 
-async def _fetched(client, harness, request: dict) -> dict:
-    """What ops-api answered career-director's draft_reply pausing with this request"""
+async def _executed(client, harness, request: dict) -> dict:
+    """What ops-api resumed career-director's draft_reply with after it paused on this tool"""
     harness.outcomes = [
         [stream_task(), stream_status("INPUT_REQUIRED", [{"data": request}])],
         [
@@ -286,13 +286,13 @@ async def _fetched(client, harness, request: dict) -> dict:
     return part["data"]
 
 
-async def test_career_director_fetches_the_thread_it_drafts_a_reply_to(
+async def test_career_director_reads_the_thread_it_drafts_a_reply_to(
     client, google, harness
 ):
     await connect_google(client)
     google.messages = {"m1": THREAD}
 
-    answer = await _fetched(client, harness, {"fetch": "thread", "id": "t-1"})
+    answer = await _executed(client, harness, {"execute_tool": "thread", "id": "t-1"})
 
     assert answer == {
         "thread": {
@@ -309,23 +309,27 @@ async def test_career_director_fetches_the_thread_it_drafts_a_reply_to(
 
 
 async def test_a_thread_ops_cannot_read_is_answered_with_why(client, google, harness):
-    unconnected = await _fetched(client, harness, {"fetch": "thread", "id": "t-1"})
+    unconnected = await _executed(
+        client, harness, {"execute_tool": "thread", "id": "t-1"}
+    )
     await connect_google(client)
-    missing = await _fetched(client, harness, {"fetch": "thread", "id": "t-9"})
-    unsafe = await _fetched(client, harness, {"fetch": "thread", "id": "../profile"})
+    missing = await _executed(client, harness, {"execute_tool": "thread", "id": "t-9"})
+    unsafe = await _executed(
+        client, harness, {"execute_tool": "thread", "id": "../profile"}
+    )
 
     assert unconnected == {"error": "Connect a Google account in Settings first"}
     assert missing == {"error": "Google has no such item"}
     assert list(unsafe) == ["error"]
 
 
-async def test_career_director_fetches_free_slots_for_the_days_it_asks(
+async def test_career_director_reads_free_slots_for_the_days_it_asks(
     client, google, harness
 ):
     await connect_google(client)
     google.events = EVENTS
 
-    answer = await _fetched(client, harness, {"fetch": "free_slots", "days": 3})
+    answer = await _executed(client, harness, {"execute_tool": "free_slots", "days": 3})
 
     assert answer == {"free_slots": FREE[:3], "timezone": "Asia/Kuala_Lumpur"}
     [params] = google.calendar_params
@@ -341,7 +345,7 @@ async def test_career_director_gets_no_free_slots_with_the_rule_off(
     )
     google.events = EVENTS
 
-    answer = await _fetched(client, harness, {"fetch": "free_slots", "days": 3})
+    answer = await _executed(client, harness, {"execute_tool": "free_slots", "days": 3})
 
     assert answer == {"free_slots": [], "timezone": "Asia/Kuala_Lumpur"}
 
@@ -392,11 +396,11 @@ async def test_career_director_searches_threads_with_the_filters_it_sets(
     await connect_google(client)
     google.messages = {m["id"]: m for m in MAILBOX}
 
-    answer = await _fetched(
+    answer = await _executed(
         client,
         harness,
         {
-            "fetch": "threads",
+            "execute_tool": "threads",
             "since": "2026-11-01",
             "until": "2026-11-10",
             "keyword": "data platform",
@@ -434,17 +438,17 @@ async def test_a_thread_search_sends_at_most_its_limit_and_how_many_match(
     await connect_google(client)
     google.messages = {m["id"]: m for m in MAILBOX}
 
-    answer = await _fetched(
+    answer = await _executed(
         client,
         harness,
         {
-            "fetch": "threads",
+            "execute_tool": "threads",
             "sender": "riverstone",
             "has_attachment": False,
             "limit": 1,
         },
     )
-    every = await _fetched(client, harness, {"fetch": "threads", "limit": 500})
+    every = await _executed(client, harness, {"execute_tool": "threads", "limit": 500})
 
     assert google.thread_searches[0]["q"] == ['from:"riverstone" -has:attachment']
     assert [t["id"] for t in answer["threads"]] == ["t-old"]
@@ -459,16 +463,18 @@ async def test_a_thread_search_with_an_unsafe_value_never_reaches_gmail(
 ):
     await connect_google(client)
 
-    sender = await _fetched(
+    sender = await _executed(
         client,
         harness,
-        {"fetch": "threads", "sender": 'x" OR from:"boss', "limit": 20},
+        {"execute_tool": "threads", "sender": 'x" OR from:"boss', "limit": 20},
     )
-    keyword = await _fetched(
-        client, harness, {"fetch": "threads", "keyword": 'offer" OR "x', "limit": 20}
+    keyword = await _executed(
+        client,
+        harness,
+        {"execute_tool": "threads", "keyword": 'offer" OR "x', "limit": 20},
     )
-    day = await _fetched(
-        client, harness, {"fetch": "threads", "since": "last week", "limit": 20}
+    day = await _executed(
+        client, harness, {"execute_tool": "threads", "since": "last week", "limit": 20}
     )
 
     assert [list(sender), list(keyword), list(day)] == [["error"]] * 3

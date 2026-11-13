@@ -8,8 +8,8 @@ from document_schema import ResumeDocument
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.core.data_requests import DataRequestKind, DataRequestKinds, FetchError
 from src.core.exceptions import InvalidInput, NotFound
+from src.core.runner import Tool, ToolError, Tools
 from src.features.assistant.schemas import (
     AboutEdit,
     ApprovalRow,
@@ -203,7 +203,7 @@ class ProfileEdits:
         answer = await answer_document(
             self._factory,
             user_id,
-            DocumentRequest(fetch="document", id=document_id),
+            DocumentRequest(execute_tool="document", id=document_id),
         )
         if not isinstance(answer, DocumentAnswer) or not isinstance(
             answer.document, ResumeDocument
@@ -240,25 +240,25 @@ class ProfileEdits:
 
     async def sync(
         self, user_id: UUID, request: ProfileSyncRequest
-    ) -> ProfileSyncPreview | FetchError:
-        """What syncing a résumé or CV into the profile would change; FetchError says
+    ) -> ProfileSyncPreview | ToolError:
+        """What syncing a résumé or CV into the profile would change; ToolError says
         why nothing came of it"""
         try:
             return await self._preview(user_id, request.document_id)
         except (ValidationError, NotFound, InvalidInput) as error:
-            return FetchError(error=str(error))
+            return ToolError(error=str(error))
 
     async def update(
         self, user_id: UUID, request: ProfileUpdateRequest
-    ) -> ProfileUpdated | FetchError:
-        """Save the approved changes all or none; FetchError says why nothing came of
+    ) -> ProfileUpdated | ToolError:
+        """Save the approved changes all or none; ToolError says why nothing came of
         it"""
         try:
             async with self._factory() as session, session.begin():
                 await _apply(ProfileService(session), user_id, request.edits)
             return ProfileUpdated(saved=len(request.edits))
         except (ValidationError, NotFound, InvalidInput) as error:
-            return FetchError(error=str(error))
+            return ToolError(error=str(error))
 
     async def approval(
         self, user_id: UUID, task_id: str, args: UpdateProfileArgs
@@ -271,15 +271,15 @@ class ProfileEdits:
         return ProfileApproval(task_id=task_id, source=args.source, rows=rows)
 
 
-def profile_data_requests(
+def profile_tools(
     factory: async_sessionmaker[AsyncSession],
-) -> DataRequestKinds:
-    """The profile edits' data request kinds"""
+) -> Tools:
+    """The profile edits' tools"""
     edits = ProfileEdits(factory)
     return {
-        "profile_sync": DataRequestKind(ProfileSyncRequest, edits.sync),
-        "profile_update": DataRequestKind(ProfileUpdateRequest, edits.update),
+        "profile_sync": Tool(ProfileSyncRequest, edits.sync),
+        "profile_update": Tool(ProfileUpdateRequest, edits.update),
     }
 
 
-__all__ = ["ProfileEdits", "profile_data_requests"]
+__all__ = ["ProfileEdits", "profile_tools"]

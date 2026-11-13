@@ -151,16 +151,17 @@ type Run[R] = Completed[R] | InputRequired | Failed
 """How a run of a harness executable ended"""
 
 
-class DataRequest(BaseModel):
+class ToolRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    fetch: str
-    """What a paused run asks ops-api for, such as documents; the rest are its
-    arguments"""
+    execute_tool: str
+    """The tool a paused run asks ops-api to execute, such as documents; the rest
+    are its arguments"""
 
 
-type AnswerDataRequest = Callable[[DataRequest], Awaitable[BaseModel]]
-"""Answers the data request a run paused with, for the user the run is for"""
+type ExecuteTool = Callable[[ToolRequest], Awaitable[BaseModel]]
+"""Executes the tool a run paused on, for the user the run is for, and returns
+the tool result the run resumes with"""
 
 
 class Started(BaseModel):
@@ -295,12 +296,11 @@ type RunEvent[R] = (
 __all__ = [
     "Action",
     "Answer",
-    "AnswerDataRequest",
     "Cancelled",
     "Completed",
-    "DataRequest",
     "Decision",
     "Decisions",
+    "ExecuteTool",
     "Failed",
     "FamilyModels",
     "InputRequired",
@@ -319,6 +319,7 @@ __all__ = [
     "StepUpdate",
     "Text",
     "Thinking",
+    "ToolRequest",
     "Usage",
     "Widget",
 ]

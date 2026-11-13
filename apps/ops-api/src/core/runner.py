@@ -1,21 +1,87 @@
 import asyncio
-from collections.abc import AsyncIterator
+from collections import Counter
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from dataclasses import dataclass
+from functools import partial
 from typing import Any
 from uuid import UUID
 
 from fastapi.sse import format_sse_event
+from pydantic import BaseModel, ValidationError
 from pydantic_core import to_json
 
 from src.clients.ezcareer import (
     Cancelled,
     Completed,
+    ExecuteTool,
     Failed,
     InputRequired,
     RunEvent,
     Started,
+    ToolRequest,
 )
 from src.core.exceptions import NotFound
+from src.core.logging import get_logger
 from src.core.stores import AgentRunStatus, RunStore
+
+logger = get_logger(__name__)
+
+
+class ToolError(BaseModel):
+    error: str
+    """Why ops-api cannot execute the tool, such as No such document"""
+
+
+@dataclass(frozen=True)
+class Tool[R: BaseModel]:
+    request: type[R]
+    """The model the tool's request parses into"""
+
+    execute: Callable[[UUID, R], Awaitable[BaseModel]]
+    """Executes a parsed request for its user and returns the tool result"""
+
+
+type Tools = Mapping[str, Tool[Any]]
+"""A feature's tools, by the name a run asks for"""
+
+
+class ToolExecutor:
+    def __init__(self, *features: Tools):
+        """Execute every feature's tools; ValueError when two features register the
+        same name"""
+        names = Counter(name for tools in features for name in tools)
+        if repeated := [name for name, count in names.items() if count > 1]:
+            raise ValueError(f"Tools registered twice: {repeated}")
+        self._tools = {name: tool for tools in features for name, tool in tools.items()}
+        """Each tool by the name a paused run asks for it by"""
+
+    async def _execute(self, user_id: UUID, request: ToolRequest) -> BaseModel:
+        """The tool result a paused run resumes with, for the user; ToolError for a
+        tool ops-api lacks or a malformed request"""
+        match self._tools.get(request.execute_tool):
+            case None:
+                result = ToolError(error=f"Ops has no {request.execute_tool} tool")
+                outcome = "unknown"
+            case tool:
+                try:
+                    parsed = tool.request.model_validate(request.model_dump())
+                except ValidationError as error:
+                    result = ToolError(error=str(error))
+                    outcome = "malformed"
+                else:
+                    result = await tool.execute(user_id, parsed)
+                    outcome = "refused" if isinstance(result, ToolError) else "executed"
+        logger.info(
+            "tool_execution",
+            tool=request.execute_tool,
+            user_id=str(user_id),
+            outcome=outcome,
+        )
+        return result
+
+    def for_user(self, user_id: UUID) -> ExecuteTool:
+        """Executes the tools a run of this user pauses on"""
+        return partial(self._execute, user_id)
 
 
 class Runner:
@@ -100,4 +166,4 @@ class Runner:
         await asyncio.gather(*self._tasks, return_exceptions=True)
 
 
-__all__ = ["Runner"]
+__all__ = ["Runner", "Tool", "ToolError", "ToolExecutor", "Tools"]

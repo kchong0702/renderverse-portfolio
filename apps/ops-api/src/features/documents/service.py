@@ -28,15 +28,15 @@ from src.clients.ezcareer import (
     RunEvent,
 )
 from src.core.config import DocumentsSettings
-from src.core.data_requests import (
-    DataRequestDispatcher,
-    DataRequestKind,
-    DataRequestKinds,
-    FetchError,
-)
 from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.core.logging import get_logger
-from src.core.runner import Runner
+from src.core.runner import (
+    Runner,
+    Tool,
+    ToolError,
+    ToolExecutor,
+    Tools,
+)
 from src.db.base import utcnow
 from src.db.session import session_scope
 from src.features.documents.models import (
@@ -147,7 +147,7 @@ async def _propose(
 
 async def answer_document(
     factory: async_sessionmaker[AsyncSession], user_id: UUID, request: DocumentRequest
-) -> DocumentAnswer | FetchError:
+) -> DocumentAnswer | ToolError:
     """One of the user's documents with its imported lines, on a session of its own"""
     async for session in session_scope(factory):
         repository = DocumentRepository(session)
@@ -157,7 +157,7 @@ async def answer_document(
                 document=document.body, lines=await repository.lines(document)
             )
             if document
-            else FetchError(error="No such document")
+            else ToolError(error="No such document")
         )
     return answer
 
@@ -196,15 +196,13 @@ async def answer_documents(
     return answer
 
 
-def document_data_requests(
+def document_tools(
     factory: async_sessionmaker[AsyncSession], limits: DocumentsSettings
-) -> DataRequestKinds:
-    """The documents' data request kinds"""
+) -> Tools:
+    """The documents' tools"""
     return {
-        "document": DataRequestKind(DocumentRequest, partial(answer_document, factory)),
-        "documents": DataRequestKind(
-            DocumentsRequest, partial(answer_documents, factory, limits)
-        ),
+        "document": Tool(DocumentRequest, partial(answer_document, factory)),
+        "documents": Tool(DocumentsRequest, partial(answer_documents, factory, limits)),
     }
 
 
@@ -219,7 +217,7 @@ class DocumentService:
         settings: SettingsService,
         ezcareer: EzcareerClient,
         runner: Runner,
-        data_requests: DataRequestDispatcher,
+        tools: ToolExecutor,
     ):
         """Hold the session, its repository and a factory for sessions runs outlive,
         artifact-service, the documents limit, and what the agents use and run on"""
@@ -232,7 +230,7 @@ class DocumentService:
         self._settings = settings
         self._ezcareer = ezcareer
         self._runner = runner
-        self._data_requests = data_requests
+        self._tools = tools
 
     async def _make_room(self, user_id: UUID, kind: DocumentKind) -> None:
         """Conflict when the user already keeps the most documents of this kind"""
@@ -547,7 +545,7 @@ class DocumentService:
                     text=text,
                     data=data,
                     metadata=metadata,
-                    answer_data_request=self._data_requests.for_user(user_id),
+                    execute_tool=self._tools.for_user(user_id),
                 ),
             ),
         )
@@ -576,7 +574,7 @@ class DocumentService:
                     task_id=task_id,
                     answer=answer,
                     metadata=metadata,
-                    answer_data_request=self._data_requests.for_user(user_id),
+                    execute_tool=self._tools.for_user(user_id),
                 ),
             ),
         )

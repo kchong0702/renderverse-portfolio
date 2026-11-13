@@ -126,7 +126,7 @@ class JobRunCreate(BaseModel):
 
 
 class JobRunRequest(JobRunCreate):
-    fetch: Literal["job_run"]
+    execute_tool: Literal["job_run"]
     """A paused run asks to queue a run of the job agent"""
 
 
