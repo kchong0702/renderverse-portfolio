@@ -66,13 +66,13 @@ pnpm nx run artifact-service:dev  # PDFs and Word conversion (http://localhost:8
 pnpm run build                # production artifacts: renderverse and ops-web dist, the app images
 pnpm run preview:renderverse  # serve the built dist locally
 pnpm run preview:ops-web      # serve the built Ops UI (http://localhost:4174), proxying to ops-api like dev
-pnpm run start                # run the built images as the server does (collector, Laya, Ezbot, ezcareer-harness, artifact-service, ops-api, ops-web)
+pnpm run start                # run the built images locally to test them before production (collector, Postgres, Laya, Ezbot, ezcareer-harness, artifact-service, ops-api, ops-web)
 pnpm run lint                 # ESLint + Ruff
 pnpm run test
 pnpm run format               # Prettier + Ruff
 pnpm run format:check
 
-pnpm run infra:up             # start the OpenTelemetry collector for local dev
+pnpm run infra:up             # start the OpenTelemetry collector and the Ops Postgres for local dev
 pnpm run infra:logs
 pnpm run infra:down           # stop every container, including Postgres and those from pnpm run start
 ```
@@ -105,16 +105,16 @@ While the reply streams, the [Laya](https://github.com/NandhaKishorM/laya) inten
 To chat locally:
 
 1. Put a free API key in `apps/ezbot-harness/.env`, e.g. `GROQ_API_KEY`.
-2. `pnpm run infra:up` to start the collector, then `pnpm run dev:ezbot-harness`, which also starts Laya.
+2. `pnpm run infra:up` to start the collector and Postgres, then `pnpm run dev:ezbot-harness`, which also starts Laya.
 3. Set `VITE_CHATBOT_ENABLED=true` and `VITE_EZBOT_API_URL=http://localhost:8000` in `apps/renderverse/.env`, then `pnpm run dev:renderverse`.
 
 In production the frontend and API must share a site (e.g. `example.com` and `api.example.com`) so the `SameSite=Lax` cookie is sent; set `EZBOT_APP__CORS_ORIGIN` to the frontend origin and `EZBOT_SESSION__COOKIE_SECURE=true`. Behind the Cloudflare Tunnel every request arrives from `cloudflared`, so [apps/ezbot-harness/docker-compose.yaml](apps/ezbot-harness/docker-compose.yaml) sets `EZBOT_RATE_LIMIT__CLIENT_IP_HEADER=cf-connecting-ip`; without it all visitors would share one IP's limits.
 
 ## Deployment
 
-The frontend is built to `apps/renderverse/dist` for Cloudflare Pages. [apps/renderverse/Dockerfile](apps/renderverse/Dockerfile) can also build it as an nginx image, taking its `VITE_*` settings from `apps/renderverse/.env` as build arguments. Its compose service is in the `renderverse` profile, so `pnpm run start` leaves it out; run it with `docker compose --profile renderverse up -d renderverse`. The backend runs on a server from Docker images: [apps/ezbot-harness/Dockerfile](apps/ezbot-harness/Dockerfile) builds both `ezbot` and `ezbot-laya` (one target each), and [apps/ezbot-harness/docker-compose.yaml](apps/ezbot-harness/docker-compose.yaml) runs them. The root [docker-compose.yaml](docker-compose.yaml) includes it, adds the collector, and puts every service on the `renderverse` network, where Ezbot reaches Laya and the collector by service name.
+The frontend is built to `apps/renderverse/dist` for Cloudflare Pages. [apps/renderverse/Dockerfile](apps/renderverse/Dockerfile) can also build it as an nginx image, taking its `VITE_*` settings from `apps/renderverse/.env` as build arguments. Its compose service is in the `renderverse` profile, so `pnpm run start` leaves it out; run it with `docker compose --profile renderverse up -d renderverse`. The backend runs on a server from Docker images: [apps/ezbot-harness/Dockerfile](apps/ezbot-harness/Dockerfile) builds both `ezbot` and `ezbot-laya` (one target each), and [apps/ezbot-harness/docker-compose.yaml](apps/ezbot-harness/docker-compose.yaml) runs them. The root [docker-compose.yaml](docker-compose.yaml) includes it, adds the collector and Postgres, and puts every service on the `renderverse` network, where Ezbot reaches Laya and the collector by service name. The compose files run the images locally, so `pnpm run start` tests what production runs; production runs the images themselves, with no source code on the server.
 
-Ops runs from images too. [apps/ops-api/Dockerfile](apps/ops-api/Dockerfile) builds ops-api, which the `ops-worker` service runs as `python -m src.worker` with no port, and [apps/ops-web/Dockerfile](apps/ops-web/Dockerfile) builds the UI and serves it with nginx on port 5174, forwarding `/ops-api` to ops-api, so `tailscale serve` on the VM only needs to point at it. ops-web's `build` target stays the Vite `dist`; build its image with `docker compose build ops-web`. ops-api reads its database URL and keys from `apps/ops-api/.env` (Supabase in production) and keeps local files in the `ops-api-data` volume while R2 is not set up. Apply its migrations with:
+Ops runs from images too. [apps/ops-api/Dockerfile](apps/ops-api/Dockerfile) builds ops-api, which the `ops-worker` service runs as `python -m src.worker` with no port, and [apps/ops-web/Dockerfile](apps/ops-web/Dockerfile) builds the UI and serves it with nginx on port 5174, forwarding `/ops-api` to ops-api, so `tailscale serve` on the VM only needs to point at it. ops-web's `build` target stays the Vite `dist`; build its image with `docker compose build ops-web`. ops-api reads its keys from `apps/ops-api/.env` and keeps local files in the `ops-api-data` volume while R2 is not set up. Under compose its database is the `postgres` service; in production its database URL points at Supabase. Once `pnpm run start` is up, apply its migrations with:
 
 ```bash
 docker compose run --rm --no-deps ops-api alembic upgrade head
@@ -124,7 +124,7 @@ docker compose run --rm --no-deps ops-api alembic upgrade head
 
 ## Ops
 
-Ops runs locally against the `postgres` service of the root docker compose, which stands in for Supabase. It is in the `local` profile, so `pnpm run start` never runs it; `migrate` and `dev:ops-api` start it first.
+Ops runs locally against the `postgres` service of the root docker compose, which stands in for Supabase. It has no profile, so `pnpm run infra:up` and `pnpm run start` run it, and `migrate` and `dev:ops-api` start it first.
 
 ```bash
 pnpm run migrate
