@@ -7,14 +7,14 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.adapters.job_sources import SearchResult
 from src.agents import AgentOverride
 from src.core.config import get_settings
+from src.core.errors import ExecuteError
 from src.features.find_jobs.configurations import CHECKS, FindJobsConfigurations
 from src.features.find_jobs.ranking import matched_jobs
 from src.features.find_jobs.schemas import MatchedJob, RankedJobs
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
-from src.shared.jobs import JobPosting, JobSearch, Quota
+from src.shared.jobs import FoundJobs, JobPosting, JobSearch
 from src.shared.profile import Preferences, Profile, ProfileFact, require_facts
 
 
@@ -40,9 +40,6 @@ class FindJobsOutput(BaseModel):
     jobs: list[MatchedJob] = Field(default_factory=list)
     """Ranked jobs with their computed fit, for ops"""
 
-    quota: Quota | None = None
-    """JSearch's requests left and allowed after the last search, if it said"""
-
 
 class FindJobsState(FindJobsInput, FindJobsOutput):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
@@ -54,10 +51,11 @@ class FindJobsState(FindJobsInput, FindJobsOutput):
     """What the latest check found"""
 
 
-def _searches(messages: list[AnyMessage]) -> list[SearchResult]:
-    """What each search_jobs call in the conversation returned"""
+def _searches(messages: list[AnyMessage]) -> list[FoundJobs]:
+    """What each search_jobs call in the conversation returned, read back into
+    FoundJobs since a checkpoint keeps it as a dict"""
     return [
-        message.artifact
+        FoundJobs.model_validate(message.artifact)
         for message in messages
         if isinstance(message, ToolMessage)
         and message.name == "search_jobs"
@@ -65,9 +63,20 @@ def _searches(messages: list[AnyMessage]) -> list[SearchResult]:
     ]
 
 
+def _failures(messages: list[AnyMessage]) -> list[str]:
+    """Why each search_jobs call in the conversation that failed failed"""
+    return [
+        message.text
+        for message in messages
+        if isinstance(message, ToolMessage)
+        and message.name == "search_jobs"
+        and message.status == "error"
+    ]
+
+
 def _postings(messages: list[AnyMessage]) -> list[JobPosting]:
     """Every posting search_jobs returned in the conversation"""
-    return [posting for result in _searches(messages) for posting in result.postings]
+    return [posting for found in _searches(messages) for posting in found.jobs]
 
 
 def _brief(state: FindJobsState) -> dict:
@@ -89,13 +98,8 @@ def _brief(state: FindJobsState) -> dict:
 
 
 def _output(state: FindJobsState) -> dict:
-    """Join the ranked jobs with their postings, highest fit first, and add the
-    quota the last search reported"""
-    quotas = [result.quota for result in _searches(state.messages) if result.quota]
-    return {
-        "jobs": matched_jobs(state.structured_response, _postings(state.messages)),
-        "quota": quotas[-1] if quotas else None,
-    }
+    """Join the ranked jobs with their postings, highest fit first"""
+    return {"jobs": matched_jobs(state.structured_response, _postings(state.messages))}
 
 
 def build_graph(
@@ -110,6 +114,8 @@ def build_graph(
     checks = [CHECKS[name] for name in configurations.checks]
 
     def check(state: FindJobsState) -> CheckRound:
+        if not _searches(state.messages) and (failures := _failures(state.messages)):
+            raise ExecuteError("; ".join(dict.fromkeys(failures)))
         if state.structured_response is None:
             return check_round(
                 [

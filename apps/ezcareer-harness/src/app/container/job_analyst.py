@@ -2,36 +2,25 @@ from dependency_injector import containers, providers
 
 from src.agents import build_agent
 from src.agents.job_analyst import JobAnalystState
-from src.agents.job_analyst.tools import search_jobs_tool
+from src.agents.job_analyst.tools import search_jobs
 from src.app.a2a import Executable
-from src.core.config import Settings
 from src.features import analyse_job, find_jobs
 from src.tools import read_profile_facts
 
 
 class JobAnalystContainer(containers.DeclarativeContainer):
-    settings = providers.Dependency(instance_of=Settings)
-    """The app's settings"""
-
     registry = providers.Dependency(instance_of=dict)
     """Every registered agent, by name"""
 
     checkpointer = providers.Dependency()
     """Where the served graphs keep checkpoints"""
 
-    job_sources = providers.Dependency()
-    """Job sources by name"""
-
     agent = providers.Singleton(
         build_agent,
         agent=registry.provided["job-analyst"],
         response_formats=(analyse_job.JobRequirements, find_jobs.RankedJobs),
         tools=(read_profile_facts,),
-        skill_tools=providers.List(
-            providers.Callable(
-                search_jobs_tool, job_sources, settings.provided.job_sources
-            )
-        ),
+        skill_tools=(search_jobs,),
         state_schema=JobAnalystState,
     )
     """The job-analyst agent, built once"""

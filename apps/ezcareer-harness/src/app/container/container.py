@@ -31,10 +31,8 @@ class Container(containers.DeclarativeContainer):
 
     job_analyst = providers.Container(
         JobAnalystContainer,
-        settings=settings,
         registry=registry,
         checkpointer=checkpointer,
-        job_sources=clients.job_sources,
     )
     """job-analyst and the workflows that run on it"""
 

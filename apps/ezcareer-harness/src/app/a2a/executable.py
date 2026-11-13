@@ -19,7 +19,6 @@ from pydantic import (
     ConfigDict,
     Field,
     RootModel,
-    SecretStr,
     ValidationError,
 )
 from pydantic_core import to_jsonable_python
@@ -57,15 +56,6 @@ class ModelChoice(BaseModel):
     """A model [models] offers for that family"""
 
 
-class JSearchKey(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid", frozen=True, use_attribute_docstrings=True
-    )
-
-    api_key: SecretStr
-    """The user's own RapidAPI key for JSearch"""
-
-
 class RunMetadata(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -76,9 +66,6 @@ class RunMetadata(BaseModel):
 
     model: ModelChoice | None = None
     """The model the user picked for the run; None keeps each agent's own"""
-
-    jsearch: JSearchKey | None = None
-    """The user's JSearch key; None searches on the server's"""
 
 
 class Step(BaseModel):
@@ -289,7 +276,6 @@ class LanggraphExecutor(AgentExecutor):
                     model=llm_provider(metadata.model.family, metadata.model.model)
                     if metadata.model
                     else None,
-                    jsearch_api_key=metadata.jsearch and metadata.jsearch.api_key,
                 )
                 if metadata
                 else None,

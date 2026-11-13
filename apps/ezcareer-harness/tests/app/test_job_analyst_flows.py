@@ -1,33 +1,30 @@
-import io
 import json
-import logging
-from typing import override
 
-import pytest
 import respx
-import structlog
-from a2a.server.tasks import InMemoryTaskStore
-from dependency_injector import providers
 from fastapi.testclient import TestClient
-from google.protobuf.json_format import MessageToJson
+from langchain_core.messages import AIMessage, ToolMessage
 
 from src.app.app import create_app
 from src.app.container import Container
-from src.core.config import reload_settings
-from src.infrastructure.observability import logging as obs_logging
-from tests.agents.job_analyst.test_search_jobs import RESPONSE
-from tests.agents.job_analyst.test_search_jobs import URL as JSEARCH
+from tests.agents.job_analyst.test_search_jobs import FOUND
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.analyse_job import test_analyse_job_graph as analyse_job
 
 URL = "https://jobs.example.com/gone"
-USER_KEY = "user-rapidapi-key-0123456789"
+USER_KEY = "user-api-key-0123456789"
 
 
 def _send(
-    client: TestClient, path: str, parts: list[dict], metadata: dict | None = None
+    client: TestClient,
+    path: str,
+    parts: list[dict],
+    metadata: dict | None = None,
+    task: dict | None = None,
 ) -> dict:
+    message = {"messageId": f"m-{id(parts)}", "role": "ROLE_USER", "parts": parts}
+    if task:
+        message |= {"taskId": task["id"], "contextId": task["contextId"]}
     response = client.post(
         path,
         headers={"A2A-Version": "1.0"},
@@ -36,11 +33,7 @@ def _send(
             "id": 1,
             "method": "SendMessage",
             "params": {
-                "message": {
-                    "messageId": "m1",
-                    "role": "ROLE_USER",
-                    "parts": parts,
-                },
+                "message": message,
                 **({"metadata": metadata} if metadata else {}),
             },
         },
@@ -48,37 +41,9 @@ def _send(
     return response.json()["result"]["task"]
 
 
-@pytest.fixture
-def debug_logs(make_settings):
-    """Every log line at DEBUG, into a private buffer, restoring global logging after"""
-    root = logging.getLogger()
-    handlers, level = root.handlers[:], root.level
-    buffer = io.StringIO()
-    obs_logging.configure_logging(make_settings(log_level="DEBUG"), force=True)
-    root.handlers[-1].setStream(buffer)
-    yield buffer
-    root.handlers[:] = handlers
-    root.setLevel(level)
-    obs_logging._configured = False
-    structlog.reset_defaults()
-
-
-@respx.mock
-def test_jsearch_only_metadata_runs_on_its_key_and_never_logs_or_stores_it(
-    isolate_env, debug_logs
-):
-    reload_settings()
-    route = respx.get(JSEARCH).respond(200, text=RESPONSE)
-    saved: list[str] = []
-
-    class RecordingStore(InMemoryTaskStore):
-        @override
-        async def save(self, task, context) -> None:
-            saved.append(MessageToJson(task))
-            await super().save(task, context)
-
+def _searching_container() -> Container:
+    """A container whose job-analyst searches once and ranks nothing"""
     container = Container()
-    container.task_store.override(providers.Singleton(RecordingStore))
     container.job_analyst.agent(
         model=ScriptedChatModel(
             replies=[
@@ -88,29 +53,103 @@ def test_jsearch_only_metadata_runs_on_its_key_and_never_logs_or_stores_it(
             ]
         )
     )
+    return container
 
-    task = _send(
-        TestClient(create_app(container)),
+
+def test_find_jobs_asks_ops_api_to_search_and_finishes_on_its_answer():
+    client = TestClient(create_app(_searching_container()))
+
+    asked = _send(
+        client,
         "/ezcareer/a2a/find-jobs",
         [{"data": {"facts": analyse_job.INPUT["facts"]}}],
-        metadata={"jsearch": {"api_key": USER_KEY}},
+    )
+    done = _send(client, "/ezcareer/a2a/find-jobs", [{"data": FOUND}], task=asked)
+
+    assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
+    [request] = asked["status"]["message"]["parts"]
+    assert request["data"] == {
+        "execute_tool": "job_search",
+        "query": "backend engineer",
+        "location": None,
+        "country": None,
+        "remote_only": False,
+        "posted_within": "week",
+        "employment_types": [],
+        "job_requirements": [],
+        "radius_km": None,
+        "max_jobs": 30,
+    }
+    assert done["status"]["state"] == "TASK_STATE_COMPLETED"
+
+
+def test_a_search_ops_api_cannot_run_fails_the_task_with_its_reason():
+    reason = "Connect a job search key in Settings to search for jobs"
+    client = TestClient(create_app(_searching_container()))
+
+    asked = _send(
+        client,
+        "/ezcareer/a2a/find-jobs",
+        [{"data": {"facts": analyse_job.INPUT["facts"]}}],
+    )
+    failed = _send(
+        client, "/ezcareer/a2a/find-jobs", [{"data": {"error": reason}}], task=asked
     )
 
-    assert task["status"]["state"] == "TASK_STATE_COMPLETED"
-    assert route.calls.last.request.headers["X-RapidAPI-Key"] == USER_KEY
-    assert saved
-    assert USER_KEY not in json.dumps(task) + "".join(saved)
-    assert "find-jobs" in debug_logs.getvalue()
-    assert USER_KEY not in debug_logs.getvalue()
-    reload_settings()
+    assert failed["status"]["state"] == "TASK_STATE_FAILED"
+    assert failed["status"]["message"]["parts"] == [{"text": reason}]
 
 
-def test_metadata_that_does_not_validate_fails_without_echoing_the_key():
+def test_parallel_searches_answered_one_at_a_time_each_reach_the_agent():
+    model = ScriptedChatModel(
+        replies=[
+            _call("read_file", file_path="/search-jobs/SKILL.md"),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {"name": "search_jobs", "args": {"query": "backend"}, "id": "c1"},
+                    {"name": "search_jobs", "args": {"query": "platform"}, "id": "c2"},
+                ],
+            ),
+            _call("RankedJobs", jobs=[]),
+        ]
+    )
+    container = Container()
+    container.job_analyst.agent(model=model)
+    client = TestClient(create_app(container))
+
+    asked = _send(
+        client,
+        "/ezcareer/a2a/find-jobs",
+        [{"data": {"facts": analyse_job.INPUT["facts"]}}],
+    )
+    left = _send(client, "/ezcareer/a2a/find-jobs", [{"data": FOUND}], task=asked)
+    done = _send(
+        client,
+        "/ezcareer/a2a/find-jobs",
+        [{"data": {**FOUND, "requests_left": 1}}],
+        task=left,
+    )
+
+    assert sorted(p["data"]["query"] for p in asked["status"]["message"]["parts"]) == [
+        "backend",
+        "platform",
+    ]
+    assert len(left["status"]["message"]["parts"]) == 1
+    assert done["status"]["state"] == "TASK_STATE_COMPLETED"
+    searched = [m for m in model.requests[-1] if isinstance(m, ToolMessage)][-2:]
+    assert sorted(json.loads(m.text)["requests_left"] for m in searched) == [
+        1,
+        FOUND["requests_left"],
+    ]
+
+
+def test_metadata_with_a_key_is_refused_without_echoing_it():
     task = _send(
         TestClient(create_app()),
         "/ezcareer/a2a/find-jobs",
-        [{"data": {"facts": []}}],
-        metadata={"jsearch": {"api_key": USER_KEY, "extra": True}},
+        [{"data": {"facts": analyse_job.INPUT["facts"]}}],
+        metadata={"job_search": {"api_key": USER_KEY}},
     )
 
     assert task["status"]["state"] == "TASK_STATE_FAILED"
@@ -161,15 +200,6 @@ def test_a_served_analysis_completes_through_the_containers_checkpointer():
     assert task["artifacts"][0]["parts"][0]["data"]["analysis"]["fit"] == 67
     assert model.requests[0][1].text == "Focus on visa"
     assert "<posting untrusted>" in model.requests[0][2].text
-
-
-def test_find_jobs_gets_its_sources_from_the_containers_one_factory():
-    container = Container()
-
-    factory = container.clients.job_sources()
-
-    assert container.clients.job_sources() is factory
-    assert factory.create("jsearch") is factory.create("jsearch")
 
 
 def test_job_analyst_is_served_as_an_agent_with_the_containers_checkpointer():
@@ -224,27 +254,3 @@ def test_a_run_without_profile_facts_fails_with_a_way_to_portfolio():
         },
         {"data": {"next": {"label": "Add your experience", "screen": "portfolio"}}},
     ]
-
-
-def test_a_search_without_any_jsearch_key_fails_with_a_way_to_settings(isolate_env):
-    reload_settings()
-    container = Container()
-    container.job_analyst.agent(
-        model=ScriptedChatModel(
-            replies=[
-                _call("read_file", file_path="/search-jobs/SKILL.md"),
-                _call("search_jobs", query="backend engineer"),
-            ]
-        )
-    )
-
-    task = _send(
-        TestClient(create_app(container)),
-        "/ezcareer/a2a/find-jobs",
-        [{"data": {"facts": analyse_job.INPUT["facts"]}}],
-    )
-
-    assert task["status"]["state"] == "TASK_STATE_FAILED"
-    assert task["status"]["message"]["parts"][1] == {
-        "data": {"next": {"label": "Add a JSearch key", "screen": "settings"}}
-    }

@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import json
 import os
+from collections import Counter
 from collections.abc import Awaitable, Callable, Sequence
 from functools import partial
 from hashlib import sha256
@@ -30,25 +31,32 @@ CONTAINER = Container()
 
 
 async def _run_graph(name: str, task: object) -> object:
-    """Runs the container's graph served as name on the task in a thread of its own,
-    answering each tool it pauses to have executed from the task's tool results"""
+    """Runs the graph served as name on the task on a thread of its own, answering each
+    tool call from tool_results: a list's next item, or one value for every call"""
     [graph] = [e.graph for e in CONTAINER.executables() if e.name == name]
     fields = TypeAdapter(dict[str, JsonValue]).validate_python(task)
     results = TypeAdapter(dict[str, JsonValue]).validate_python(
         fields.pop("tool_results", {})
     )
+    calls: Counter[str] = Counter()
     run: RunnableConfig = {"configurable": {"thread_id": str(uuid4())}}
     result = await graph.ainvoke(graph.get_input_schema().model_validate(fields), run)
     while interrupts := result.get("__interrupt__"):
-        [request] = interrupts
-        asked = (
-            request.value.get("execute_tool")
-            if isinstance(request.value, dict)
-            else None
-        )
-        if asked not in results:
-            raise ValueError(f"The task has no tool result for {request.value!r}")
-        result = await graph.ainvoke(Command(resume=results[asked]), run)
+        answers = {}
+        for request in interrupts:
+            asked = (
+                request.value.get("execute_tool")
+                if isinstance(request.value, dict)
+                else None
+            )
+            if not isinstance(asked, str) or asked not in results:
+                raise ValueError(f"The task has no tool result for {request.value!r}")
+            given = results[asked]
+            answers[request.id] = (
+                given[calls[asked]] if isinstance(given, list) else given
+            )
+            calls[asked] += 1
+        result = await graph.ainvoke(Command(resume=answers), run)
     return result
 
 

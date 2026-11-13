@@ -24,7 +24,7 @@ class JobPosting(BaseModel):
     )
 
     id: str
-    """JSearch job id"""
+    """Job id at its source"""
 
     title: str
     """Job title"""
@@ -33,10 +33,10 @@ class JobPosting(BaseModel):
     """Employer name"""
 
     location: str
-    """City and country, as JSearch gives them"""
+    """City and country, as the source gives them"""
 
     country: CountryCode | None
-    """Country the job is in, if JSearch gives one"""
+    """Country the job is in, if the source gives one"""
 
     remote: bool
     """Whether the job is remote"""
@@ -49,6 +49,19 @@ class JobPosting(BaseModel):
 
     lines: list[PostingLine]
     """The description, numbered from 1; untrusted"""
+
+
+class FoundJobs(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, use_attribute_docstrings=True
+    )
+
+    jobs: list[JobPosting]
+    """The jobs found, newest first, each once and none that breaks the user's
+    work mode or country preferences"""
+
+    requests_left: int | None
+    """Requests the user's key has left this period, if the source said"""
 
 
 class JobSearch(BaseModel):
@@ -64,15 +77,3 @@ class JobSearch(BaseModel):
 
     posted_within: PostedWithin | None = None
     """How recent the jobs must be; None leaves it to the agent"""
-
-
-class Quota(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid", frozen=True, use_attribute_docstrings=True
-    )
-
-    remaining: int
-    """Requests left this period"""
-
-    limit: int
-    """Requests allowed this period"""

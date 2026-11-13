@@ -19,6 +19,7 @@ from tests.agents.career_director.test_career_director import (
 )
 from tests.agents.career_director.test_handoffs import ACME
 from tests.agents.career_director.test_update_profile import HEADLINE, READ_SKILL
+from tests.agents.job_analyst.test_search_jobs import FOUND
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.analyse_job import test_analyse_job_graph as analyse_job
@@ -142,12 +143,18 @@ def test_career_director_analyses_the_posting_at_a_url_through_analyse_job():
 
 
 def test_career_director_finds_jobs_for_the_users_preferences_through_find_jobs():
-    analyst = ScriptedChatModel(replies=[_call("RankedJobs", jobs=[])])
+    analyst = ScriptedChatModel(
+        replies=[
+            _call("read_file", file_path="/search-jobs/SKILL.md"),
+            _call("search_jobs", query="backend engineer", remote_only=True),
+            _call("RankedJobs", jobs=[]),
+        ]
+    )
     director = _model(_call("find_jobs"), AIMessage("No jobs fit yet."))
-    container = _container(analyst, _model(), director)
+    client = TestClient(create_app(_container(analyst, _model(), director)))
 
-    task = _send(
-        TestClient(create_app(container)),
+    asked = _send(
+        client,
         [
             {"text": "Find me remote jobs"},
             {
@@ -158,11 +165,44 @@ def test_career_director_finds_jobs_for_the_users_preferences_through_find_jobs(
             },
         ],
     )
+    done = _send(client, [{"data": FOUND}], task=asked)
 
-    assert task["status"]["state"] == "TASK_STATE_COMPLETED"
+    assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
+    [request] = asked["status"]["message"]["parts"]
+    assert (request["data"]["execute_tool"], request["data"]["remote_only"]) == (
+        "job_search",
+        True,
+    )
+    assert done["status"]["state"] == "TASK_STATE_COMPLETED"
     [report] = [m for m in director.requests[1] if isinstance(m, ToolMessage)]
-    assert json.loads(report.text) == {"jobs": [], "quota": None}
+    assert json.loads(report.text) == {"jobs": []}
     assert '"work_modes":["remote"]' in analyst.requests[0][-1].text
+
+
+def test_career_director_hears_why_find_jobs_could_not_search():
+    reason = "Connect JSearch in Settings to search for jobs"
+    analyst = ScriptedChatModel(
+        replies=[
+            _call("read_file", file_path="/search-jobs/SKILL.md"),
+            _call("search_jobs", query="backend engineer"),
+            _call("RankedJobs", jobs=[]),
+        ]
+    )
+    director = _model(_call("find_jobs"), AIMessage("Connect JSearch first."))
+    client = TestClient(create_app(_container(analyst, _model(), director)))
+
+    asked = _send(
+        client,
+        [
+            {"text": "Find me jobs"},
+            {"data": {"facts": analyse_job.INPUT["facts"], "preferences": {}}},
+        ],
+    )
+    done = _send(client, [{"data": {"error": reason}}], task=asked)
+
+    assert done["status"]["state"] == "TASK_STATE_COMPLETED"
+    [report] = [m for m in director.requests[1] if isinstance(m, ToolMessage)]
+    assert (report.status, report.text) == ("error", reason)
 
 
 def _director_request() -> list[dict[str, JsonValue]]:
