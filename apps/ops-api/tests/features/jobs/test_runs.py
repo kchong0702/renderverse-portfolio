@@ -73,7 +73,7 @@ async def _delete(factory: async_sessionmaker[AsyncSession], users: list[UUID]) 
 async def _tick(factory: async_sessionmaker[AsyncSession]) -> int:
     """One worker's tick on a session of its own"""
     async with factory() as session, session.begin():
-        return await enqueue_scheduled_runs(session)
+        return await enqueue_scheduled_runs(session, Provider.JSEARCH)
 
 
 async def _runs(

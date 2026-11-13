@@ -11,6 +11,7 @@ from src.app.actor import set_actor, user_actor
 from src.app.container import Container
 from src.core.exceptions import ServiceException, ServiceUnavailable
 from src.core.logging import get_logger
+from src.core.providers import Provider
 from src.db.queue import Queue, complete, fail
 from src.features.jobs.enums import RunStatus
 from src.features.jobs.models import JobRun
@@ -55,18 +56,19 @@ ENQUEUE_SCHEDULED = text("""
     WHERE u.disabled_at IS NULL
         AND p.target_roles <> ''
         AND EXISTS (
-            SELECT 1 FROM connections c WHERE c.user_id = u.id AND c.provider = 'jsearch'
+            SELECT 1 FROM connections c WHERE c.user_id = u.id AND c.provider = :provider
         )
         AND (now() AT TIME ZONE coalesce(s.timezone, 'UTC'))::time >= p.run_at
     ON CONFLICT DO NOTHING
 """)
-"""Queue today's scheduled run for every enabled user with target roles, a JSearch
-key and a local time past run_at, unless the day's run exists"""
+"""Queue today's scheduled run for every enabled user with target roles, a connection
+to the provider and a local time past run_at, unless the day's run exists"""
 
 
-async def enqueue_scheduled_runs(session: AsyncSession) -> int:
-    """Queue the scheduled runs due today in the users' own time zones; how many"""
-    return (await session.execute(ENQUEUE_SCHEDULED)).rowcount
+async def enqueue_scheduled_runs(session: AsyncSession, provider: Provider) -> int:
+    """Queue the scheduled runs due today in the users' own time zones for users
+    connected to the provider; how many"""
+    return (await session.execute(ENQUEUE_SCHEDULED, {"provider": provider})).rowcount
 
 
 async def _fail(
@@ -116,7 +118,9 @@ async def process_job_run(
             if done is None:
                 logger.info("job_run_claim_lost", run_id=str(run_id))
                 return
-            await job_service(session, container).keep_found(done, reply)
+            await job_service(session, container).keep_found(
+                done, reply, container.job_source().label
+            )
     except ServiceException as error:
         logger.warning("job_run_failed", run_id=str(run_id), reason=error.message)
         await _fail(

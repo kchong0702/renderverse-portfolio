@@ -49,7 +49,7 @@ class JobCreate(BaseModel):
     """The posting's id at its source; adding it again refreshes the stored job"""
 
     source: str = Field(default="", max_length=50)
-    """Where the posting was found, such as JSearch"""
+    """Where the posting was found"""
 
     title: str = Field(min_length=1, max_length=200)
     """Job title as posted"""

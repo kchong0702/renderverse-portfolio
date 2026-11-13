@@ -124,7 +124,9 @@ async def tick(container: Container, stop: asyncio.Event) -> None:
     while not stop.is_set():
         try:
             async with factory() as session, session.begin():
-                queued = await enqueue_scheduled_runs(session)
+                queued = await enqueue_scheduled_runs(
+                    session, container.job_source().provider
+                )
             if queued:
                 logger.info("job_runs_scheduled", count=queued)
         except Exception:

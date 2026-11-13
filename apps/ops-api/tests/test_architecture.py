@@ -22,14 +22,16 @@ def _imports(path: Path) -> set[str]:
 
 
 def _names(path: Path) -> set[str]:
-    """Every name the module imports, qualified by its module, and every name and
-    attribute its code uses"""
+    """Every name the module imports, qualified by its module, every name and
+    attribute its code uses and every string literal"""
     names = _imports(path)
     for node in ast.walk(ast.parse(path.read_text())):
         if isinstance(node, ast.Name):
             names.add(node.id)
         elif isinstance(node, ast.Attribute):
             names.add(node.attr)
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            names.add(node.value)
     return names
 
 

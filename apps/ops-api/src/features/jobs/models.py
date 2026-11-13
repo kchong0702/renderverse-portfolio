@@ -18,10 +18,10 @@ class Job(IdMixin, UserScopedMixin, AuditMixin, Base):
     __table_args__ = (UniqueConstraint("user_id", "external_id"),)
 
     external_id: Mapped[str | None] = mapped_column(String(200), default=None)
-    """The posting's id at its source, such as a JSearch job id"""
+    """The posting's id at its source"""
 
     source: Mapped[str] = mapped_column(String(50), default="")
-    """Where the posting was found, such as JSearch"""
+    """Where the posting was found"""
 
     title: Mapped[str] = mapped_column(String(200))
     """Job title as posted"""
