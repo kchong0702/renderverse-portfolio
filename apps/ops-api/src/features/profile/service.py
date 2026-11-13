@@ -243,15 +243,15 @@ class ProfileService:
         ]
 
     async def networking(self, user_id: UUID) -> NetworkingRead:
-        """The latest Networking copy and the roles it was written for"""
+        """The latest Networking copy and the profession it was written for"""
         profile = await self._load(user_id)
         return NetworkingRead(
-            aim=profile.networking_aim,
+            profession=profile.profession,
             **(profile.networking or NetworkingCopy()).model_dump(),
         )
 
     async def keep_networking(
-        self, user_id: UUID, aim: str, written: NetworkingCopy, only: str | None
+        self, user_id: UUID, profession: str, written: NetworkingCopy, only: str | None
     ) -> NetworkingRead:
         """Keep newly written copy: all of it, or only the headline, summary or
         one fact's description"""
@@ -272,7 +272,7 @@ class ProfileService:
                     }
                 )
         profile.networking = copy
-        profile.networking_aim = aim
+        profile.profession = profession
         return await self.networking(user_id)
 
     async def imports(self, user_id: UUID) -> list[ProfileImportRead]:

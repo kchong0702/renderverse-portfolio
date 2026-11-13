@@ -2,7 +2,7 @@ from tests.conftest import PREFIX, a2a_sent, a2a_task
 
 PROFILE = f"{PREFIX}/profile"
 
-AIM = "Senior backend roles in fintech"
+PROFESSION = "Senior backend roles in fintech"
 
 
 def _written(reply: dict) -> dict:
@@ -28,7 +28,7 @@ async def test_networking_starts_empty(client):
     response = await client.get(f"{PROFILE}/networking")
 
     assert response.json() == {
-        "aim": "",
+        "profession": "",
         "headline": None,
         "summary": None,
         "descriptions": [],
@@ -49,15 +49,17 @@ async def test_the_copy_is_written_from_every_fact_and_kept(client, harness):
     }
     harness.outcomes = [_written(copy)]
 
-    written = await client.post(f"{PROFILE}/networking", json={"aim": AIM})
+    written = await client.post(
+        f"{PROFILE}/networking", json={"profession": PROFESSION}
+    )
 
     assert written.status_code == 200
-    assert written.json() == {"aim": AIM, **copy}
+    assert written.json() == {"profession": PROFESSION, **copy}
     assert (await client.get(f"{PROFILE}/networking")).json() == written.json()
     [request] = harness.received
     assert request.url.path == "/ezcareer/a2a/write-networking"
     data = a2a_sent(harness)[0]["params"]["message"]["parts"][0]["data"]
-    assert data["aim"] == AIM
+    assert data["profession"] == PROFESSION
     assert data["only"] is None
     assert {fact["id"] for fact in data["facts"]} == {"about", used, archived}
 
@@ -77,15 +79,17 @@ async def test_one_part_is_rewritten_alone(client, harness):
             {"descriptions": [{"fact": used, "text": "Led payments.", "facts": [used]}]}
         ),
     ]
-    await client.post(f"{PROFILE}/networking", json={"aim": AIM})
+    await client.post(f"{PROFILE}/networking", json={"profession": PROFESSION})
 
-    await client.post(f"{PROFILE}/networking", json={"aim": AIM, "only": "headline"})
+    await client.post(
+        f"{PROFILE}/networking", json={"profession": PROFESSION, "only": "headline"}
+    )
     rewritten = await client.post(
-        f"{PROFILE}/networking", json={"aim": "Payments roles", "only": used}
+        f"{PROFILE}/networking", json={"profession": "Payments roles", "only": used}
     )
 
     assert rewritten.json() == {
-        "aim": "Payments roles",
+        "profession": "Payments roles",
         "headline": {"text": "Payments engineer", "facts": [used]},
         "summary": {"text": "I build things.", "facts": [used]},
         "descriptions": [{"fact": used, "text": "Led payments.", "facts": [used]}],
@@ -102,7 +106,7 @@ async def test_one_part_is_rewritten_alone(client, harness):
 
 async def test_rewriting_a_fact_that_is_gone_is_not_found(client, harness):
     response = await client.post(
-        f"{PROFILE}/networking", json={"aim": AIM, "only": "role-gone"}
+        f"{PROFILE}/networking", json={"profession": PROFESSION, "only": "role-gone"}
     )
 
     assert response.status_code == 404
@@ -113,7 +117,9 @@ async def test_only_a_role_or_project_description_is_rewritten(client, harness):
     skill = (await client.post(f"{PROFILE}/skills", json={"name": "Python"})).json()
 
     responses = [
-        await client.post(f"{PROFILE}/networking", json={"aim": AIM, "only": only})
+        await client.post(
+            f"{PROFILE}/networking", json={"profession": PROFESSION, "only": only}
+        )
         for only in ("about", f"skill-{skill['id']}")
     ]
 

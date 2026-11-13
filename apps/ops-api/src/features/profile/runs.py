@@ -138,10 +138,12 @@ class ProfileRunService:
             "write-networking",
             NetworkingCopy,
             user_id,
-            WriteNetworkingInput(aim=request.aim, facts=facts, only=request.only),
+            WriteNetworkingInput(
+                profession=request.profession, facts=facts, only=request.only
+            ),
         )
         return await self._profile.keep_networking(
-            user_id, request.aim, written, request.only
+            user_id, request.profession, written, request.only
         )
 
 

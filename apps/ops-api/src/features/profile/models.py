@@ -64,10 +64,8 @@ class Profile(AuditMixin, Base):
     )
     """What min_salary_amount is paid for"""
 
-    networking_aim: Mapped[str] = mapped_column(
-        String(200), default="", server_default=""
-    )
-    """The roles the Networking copy is written for"""
+    profession: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    """The profession the Networking copy is written for"""
 
     networking: Mapped[NetworkingCopy | None] = mapped_column(
         PydanticJson(TypeAdapter(NetworkingCopy)), default=None

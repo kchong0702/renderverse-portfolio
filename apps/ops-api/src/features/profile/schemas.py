@@ -464,13 +464,13 @@ class NetworkingCopy(BaseModel):
 
 
 class NetworkingRead(NetworkingCopy):
-    aim: str
-    """The roles the copy is written for"""
+    profession: str
+    """The profession the copy is written for"""
 
 
 class NetworkingWrite(BaseModel):
-    aim: str = Field(max_length=200)
-    """The roles the copy is written for, such as Senior backend roles"""
+    profession: str = Field(max_length=200)
+    """The profession the copy is written for, such as Senior Backend Engineer"""
 
     only: Literal["headline", "summary"] | FactId | None = None
     """Rewrite only the headline, summary or one role's or project's description;
@@ -478,8 +478,8 @@ class NetworkingWrite(BaseModel):
 
 
 class WriteNetworkingInput(BaseModel):
-    aim: str
-    """The roles the copy is written for"""
+    profession: str
+    """The profession the copy is written for"""
 
     facts: list[ProfileFact]
     """Every fact, archived ones included"""
