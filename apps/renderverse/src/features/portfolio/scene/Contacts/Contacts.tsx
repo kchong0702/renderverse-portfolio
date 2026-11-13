@@ -4,12 +4,21 @@ import { useControls } from "leva";
 import { extend } from "@react-three/fiber";
 import { geometry } from "maath";
 import { MdEmail } from "react-icons/md";
-import { FaLinkedin } from "react-icons/fa6";
-import { FaInstagram } from "react-icons/fa";
+import {
+  FaFacebook,
+  FaGithub,
+  FaGitlab,
+  FaInstagram,
+  FaLink,
+  FaLinkedin,
+  FaXTwitter,
+  FaYoutube,
+} from "react-icons/fa6";
 import { MdClose } from "react-icons/md";
 import Indicator from "@/shared/components/Indicator";
 import { MdContactPhone } from "react-icons/md";
 import { useTranslation } from "react-i18next";
+import { useRelease } from "@/features/portfolio/hooks/useRelease";
 import type {
   SceneInteraction,
   SceneState,
@@ -27,24 +36,42 @@ const contacts = [
     contact_type_id: 0,
     contact_type: "Email",
     link: "kelvinchong.dev@gmail.com",
-    icon: null,
   },
   {
     contact_type_id: 1,
     contact_type: "LinkedIn",
     link: "https://www.linkedin.com/in/kelvin-chong-001570243",
-    icon: <FaLinkedin size={25} />,
   },
   {
     contact_type_id: 2,
     contact_type: "Instagram",
     link: "https://www.instagram.com/kelvinchong0702?igsh=MWJtYWZrODB2aGh2Zw==",
-    icon: <FaInstagram size={25} />,
+  },
+];
+
+const linkIcons = [
+  { pattern: /linkedin/, icon: <FaLinkedin size={25} /> },
+  { pattern: /github/, icon: <FaGithub size={25} /> },
+  { pattern: /gitlab/, icon: <FaGitlab size={25} /> },
+  { pattern: /instagram/, icon: <FaInstagram size={25} /> },
+  { pattern: /facebook/, icon: <FaFacebook size={25} /> },
+  { pattern: /youtube|youtu\.be/, icon: <FaYoutube size={25} /> },
+  {
+    pattern: /twitter|^x\b|\/\/(www\.)?x\.com/,
+    icon: <FaXTwitter size={25} />,
   },
 ];
 
 function Contacts({ handlePLInteraction, state }: ContactsProps) {
   const { t } = useTranslation();
+  const { data: release } = useRelease();
+  const links = release
+    ? release.about.links.map((link) =>
+        typeof link === "string" ? { label: "", url: link } : link,
+      )
+    : contacts
+        .slice(1)
+        .map((contact) => ({ label: contact.contact_type, url: contact.link }));
   const { position, rotation } = useControls("Contact html", {
     position: {
       value: {
@@ -103,18 +130,15 @@ function Contacts({ handlePLInteraction, state }: ContactsProps) {
             </div>
             <div className={styles.social}>
               <ul>
-                {contacts.map((contact, index) => {
-                  if (index === 0) {
-                    return null;
-                  }
-                  return (
-                    <li key={contact.contact_type_id}>
-                      <a target="_blank" href={contact.link}>
-                        {contact.icon}
-                      </a>
-                    </li>
-                  );
-                })}
+                {links.map((link) => (
+                  <li key={link.url}>
+                    <a target="_blank" href={link.url} title={link.label}>
+                      {linkIcons.find(({ pattern }) =>
+                        pattern.test(`${link.label} ${link.url}`.toLowerCase()),
+                      )?.icon ?? <FaLink size={25} />}
+                    </a>
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
