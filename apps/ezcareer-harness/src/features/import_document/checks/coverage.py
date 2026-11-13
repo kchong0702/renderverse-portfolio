@@ -1,13 +1,13 @@
 from src.features.import_document.checks.text import letters_and_digits
 from src.features.import_document.checks.values import cited_values
 from src.features.import_document.configurations import ImportResumeConfigurations
-from src.features.import_document.schemas import ResumeImport
+from src.features.import_document.schemas import ImportedResume
 from src.shared.checks import CheckError, CheckRule
 from src.shared.extraction import Line
 
 
 def check_coverage(
-    reply: ResumeImport,
+    reply: ImportedResume,
     lines: list[Line],
     configurations: ImportResumeConfigurations,
 ) -> list[CheckError]:

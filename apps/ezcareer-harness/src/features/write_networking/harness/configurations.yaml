@@ -1,0 +1,5 @@
+checks: [coverage, citations, form]
+max_headline_chars: 220
+max_summary_chars: 2600
+max_description_chars: 2000
+recursion_limit: 20

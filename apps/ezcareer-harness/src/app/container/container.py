@@ -70,7 +70,8 @@ class Container(containers.DeclarativeContainer):
         checkpointer=checkpointer,
         artifact_service=clients.artifact_service,
     )
-    """The import-resume workflow, which turns an uploaded résumé into a draft"""
+    """The import-resume and import-profile workflows, which turn an uploaded résumé
+    into a draft and a profile export into profile facts"""
 
     executables = providers.List(
         job_analyst.agent_executable,
@@ -78,10 +79,12 @@ class Container(containers.DeclarativeContainer):
         job_analyst.find_jobs_executable,
         career_consultant.agent_executable,
         career_consultant.edit_document_executable,
+        career_consultant.write_networking_executable,
         career_director.agent_executable,
         productivity_assistant.triage_email_executable,
         productivity_assistant.draft_reply_executable,
         import_document.import_resume_executable,
+        import_document.import_profile_executable,
     )
     """Agents and workflows served over A2A; add an agent's container above and
     its Executable providers here"""

@@ -18,7 +18,7 @@ class ImportInput(BaseModel):
     """The user's note on how to import the résumé, if any"""
 
 
-class ResumeImport(ResumeContent):
+class ImportedResume(ResumeContent):
     model_config = ConfigDict(
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )

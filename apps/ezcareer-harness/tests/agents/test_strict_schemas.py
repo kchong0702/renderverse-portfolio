@@ -7,7 +7,9 @@ from pydantic import BaseModel
 from src.clients.llm_providers import llm_provider
 from src.features.analyse_job import JobRequirements
 from src.features.find_jobs import RankedJobs
-from src.features.import_document import ResumeImport
+from src.features.import_document import ImportedResume
+from src.features.import_profile import ImportedProfile
+from src.features.write_networking import NetworkingCopy
 
 
 def _empty_objects(node: object, at: str) -> list[str]:
@@ -32,7 +34,15 @@ def _empty_objects(node: object, at: str) -> list[str]:
 
 
 @pytest.mark.parametrize(
-    "response_format", [Changeset, ResumeImport, JobRequirements, RankedJobs]
+    "response_format",
+    [
+        Changeset,
+        ImportedResume,
+        JobRequirements,
+        RankedJobs,
+        ImportedProfile,
+        NetworkingCopy,
+    ],
 )
 def test_claude_strict_output_takes_every_response_format_with_closed_shapes(
     response_format: type[BaseModel], monkeypatch: pytest.MonkeyPatch

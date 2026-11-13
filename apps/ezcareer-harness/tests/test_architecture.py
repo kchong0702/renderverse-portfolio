@@ -1,4 +1,5 @@
 import ast
+import re
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1] / "src"
@@ -160,3 +161,29 @@ def test_tools_check_catches_a_features_tools(tmp_path: Path):
     (root / "features/find_jobs/tools/__init__.py").write_text("")
 
     assert feature_tools(root) == ["src/features/find_jobs/tools"]
+
+
+def misnamed_agents(root: Path) -> list[str]:
+    return sorted(
+        str(prompt.relative_to(root.parent))
+        for prompt in root.glob("agents/*/system.md")
+        if not re.match(
+            rf"You are {prompt.parent.name.replace('_', '-')}[.,]", prompt.read_text()
+        )
+    )
+
+
+def test_each_agent_prompt_names_its_own_agent():
+    assert misnamed_agents(SRC) == []
+
+
+def test_name_check_catches_a_prompt_naming_another_agent(tmp_path: Path):
+    root = tmp_path / "src"
+    for name, opening in (
+        ("job_analyst", "You are job-analyst. You read jobs."),
+        ("document_analyst", "You are a career consultant. You read files."),
+    ):
+        (root / "agents" / name).mkdir(parents=True)
+        (root / "agents" / name / "system.md").write_text(opening)
+
+    assert misnamed_agents(root) == ["src/agents/document_analyst/system.md"]

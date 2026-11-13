@@ -48,7 +48,16 @@ class CheckRule(StrEnum):
     """An imported document doesn't fit the schema"""
 
     VERBATIM = "verbatim"
-    """Imported text isn't word for word in the PDF lines it cites"""
+    """Imported text isn't word for word in the PDF lines or export rows it comes from"""
+
+    MISSING = "missing"
+    """Written copy leaves out a field or entry it was asked for"""
+
+    TOO_LONG = "too_long"
+    """Written copy is longer than its cap"""
+
+    NOT_PLAIN = "not_plain"
+    """Written copy uses Markdown or HTML instead of plain text"""
 
     COVERAGE = "coverage"
     """An import leaves PDF lines out"""

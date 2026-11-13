@@ -31,13 +31,13 @@ The harness serves three kinds of graph over A2A:
 - **A workflow**: a LangGraph graph that runs an agent as one of its nodes, to make a run deterministic.
 - **An agent graph**: a main agent and the child agents it hands the conversation to, each a node (see [Agent graphs](#agent-graphs)).
 
-| Agent                  | Workflows it runs                                | Served as                                |
-| ---------------------- | ------------------------------------------------ | ---------------------------------------- |
-| job-analyst            | `analyse-job`, `find-jobs`                       | an agent                                 |
-| career-consultant      | `edit-document` (`src/features/write_document`)  | an agent                                 |
-| career-director        | none; it runs the others as its tools            | the main agent of its agent graph        |
-| productivity-assistant | `triage-email`, `draft-reply`                    | a child agent in career-director's graph |
-| document-analyst       | `import-resume` (`src/features/import_document`) | not served; only its workflow is         |
+| Agent                  | Workflows it runs                                                   | Served as                                |
+| ---------------------- | ------------------------------------------------------------------- | ---------------------------------------- |
+| job-analyst            | `analyse-job`, `find-jobs`                                          | an agent                                 |
+| career-consultant      | `edit-document` (`src/features/write_document`), `write-networking` | an agent                                 |
+| career-director        | none; it runs the others as its tools                               | the main agent of its agent graph        |
+| productivity-assistant | `triage-email`, `draft-reply`                                       | a child agent in career-director's graph |
+| document-analyst       | `import-resume` (`src/features/import_document`), `import-profile`  | not served; only its workflows are       |
 
 productivity-assistant reads the emails of the user's job search and drafts the user's replies. It never sends anything. career-director hands it the conversation when the user asks about their email. It drafts a reply itself, with tools it owns:
 
@@ -53,7 +53,17 @@ These limits are under `[email]` in `config.toml`.
 
 `triage-email` uses its model only to read a thread. Code matches the thread to an application by the company it names, narrowed by role, and keeps `decide_by` only for an offer and `interview` only for a confirmed interview.
 
-document-analyst only structures the file's lines. `import-resume` picks the draft's look in code: its `extract` node measures the file's layout (`layout.py`: columns, rules, tinted strips, a coloured band, a photo, the body font and the name's colour) and suggests the closest document-renderer template. The draft is made in that template, and the result's `suggestion` names it with the columns and traits it rests on.
+document-analyst only structures what it is given: a résumé's lines or a profile export's records. `import-resume` picks the draft's look in code: its `extract` node measures the file's layout (`layout.py`: columns, rules, tinted strips, a coloured band, a photo, the body font and the name's colour) and suggests the closest document-renderer template. The draft is made in that template, and the result's `suggestion` names it with the columns and traits it rests on.
+
+`import-profile` turns a profile export into profile facts. ops-api unpacks the export, such as a LinkedIn data-export .zip, and sends its profile files as `files`, each with its `name` and its `rows` by column header. The reply is the run's output: `about` (headline, summary, location and up to three labelled links), `entries` (roles, education and projects) and `skills` (name and group). document-analyst's judgement is only in splitting a description into a `summary` and `highlights`, labelling links and grouping skills. Every other value is copied. Dates are `YYYY-MM`, or `YYYY` when the row gives only the year, so ops-api can match them to the profile's months. The `verbatim` check makes sure each copied value is word for word somewhere in the export. A reply that fails goes back with its errors until the recursion limit leaves no round to check, and then the run fails. Matching the import against the user's existing profile is ops-api's job. A résumé needs no workflow of its own for this: ops-api maps `import-resume`'s output to profile facts.
+
+`write-networking` writes the job portal content that Ops' Networking tab shows: a headline, a summary and a description of each role and project, to paste into job portal and networking profiles so recruiters looking for the user's kind of role find them. It isn't tailored to one job posting. It takes every profile fact, including those the user switched off for the assistant, the user's `profession`, and optionally `only`, the one field to write: `headline`, `summary` or a role or project fact's id. Role and project facts are those whose ids start with `role-` and `project-`. career-consultant writes it after loading its `write-job-portal-content` skill, with only `read_profile_facts` allowed. Each field lists the ids of the facts it rests on in `facts`. Three checks verify the answer:
+
+- `coverage`: each field asked for is there, and each description is of a role or project.
+- `citations`: each cited fact exists.
+- `form`: each field keeps to its cap in `configurations.yaml` (headline 220 characters, summary 2600, description 2000), and is plain text, with bullets as `•`.
+
+career-consultant's `document_prompt` adds the document to the system prompt only when the state has one, so the same agent writes job portal content with no document.
 
 ## Agent graphs
 

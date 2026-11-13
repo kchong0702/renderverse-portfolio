@@ -3,7 +3,7 @@ from dependency_injector import containers, providers
 from src.agents import build_agent
 from src.app.a2a import Executable
 from src.clients.artifact_service import ArtifactServiceClient
-from src.features import import_document
+from src.features import import_document, import_profile
 
 
 class ImportDocumentContainer(containers.DeclarativeContainer):
@@ -19,7 +19,10 @@ class ImportDocumentContainer(containers.DeclarativeContainer):
     agent = providers.Singleton(
         build_agent,
         agent=registry.provided["document-analyst"],
-        response_formats=(import_document.ResumeImport,),
+        response_formats=(
+            import_document.ImportedResume,
+            import_profile.ImportedProfile,
+        ),
     )
     """The document-analyst agent, built once"""
 
@@ -35,3 +38,13 @@ class ImportDocumentContainer(containers.DeclarativeContainer):
         ),
     )
     """The import-resume workflow served over A2A"""
+
+    import_profile_executable = providers.Singleton(
+        Executable,
+        name="import-profile",
+        description="Turn the unpacked files of a profile export, such as a LinkedIn data export, into profile facts whose values come word for word from the export",
+        graph=providers.Singleton(
+            import_profile.build_graph, agent=agent, checkpointer=checkpointer
+        ),
+    )
+    """The import-profile workflow served over A2A"""
