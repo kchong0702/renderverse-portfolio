@@ -311,6 +311,12 @@ export default function AssistantPanel({
               t("documents.assistant.placeholder")
             }
             onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                ask(draft);
+              }
+            }}
             className="border-hair bg-ground text-ink min-h-10 flex-1 resize-y rounded-lg border px-3 py-2.5 text-sm leading-normal"
           />
           {running ? (
