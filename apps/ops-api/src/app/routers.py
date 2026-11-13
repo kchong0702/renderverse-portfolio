@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from src.core.auth import router as auth_router
-from src.features.applications import router as applications_router
+from src.features.applications.router import router as applications_router
 from src.features.assistant import router as assistant_router
 from src.features.calendar import router as calendar_router
 from src.features.documents import router as documents_router
