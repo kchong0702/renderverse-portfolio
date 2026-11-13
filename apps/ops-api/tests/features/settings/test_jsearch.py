@@ -2,7 +2,8 @@ from cryptography.fernet import Fernet
 from sqlalchemy import select
 
 from src.core.config import reload_settings
-from src.features.connections import Connection, Provider
+from src.core.providers import Provider
+from src.features.connections import Connection
 from tests.conftest import JSEARCH_ENCRYPTION_KEY, PREFIX
 
 SETTINGS = f"{PREFIX}/settings"

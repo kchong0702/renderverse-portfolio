@@ -44,6 +44,17 @@ def test_the_jobs_feature_knows_no_job_source_by_name():
     assert offenders == set(), f"jobs modules naming JSearch: {sorted(offenders)}"
 
 
+def test_adapters_import_no_feature():
+    offenders = {
+        f"{path.relative_to(SRC.parent)}: {name}"
+        for path in (SRC / "adapters").rglob("*.py")
+        for name in _imports(path)
+        if name.startswith("src.features.")
+    }
+
+    assert offenders == set(), f"adapters importing features: {sorted(offenders)}"
+
+
 def test_only_the_agent_runner_talks_to_the_harness():
     offenders = [
         str(path.relative_to(SRC.parent))

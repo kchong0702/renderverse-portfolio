@@ -5,7 +5,7 @@ from typing import Protocol
 from pydantic import SecretStr
 
 from src.adapters.job_sources.schemas import JobQuery, JobSearchResults
-from src.features.connections import Provider
+from src.core.providers import Provider
 
 
 class JobSource(Protocol):

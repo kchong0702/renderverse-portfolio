@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from src.features.connections.enums import Provider
+from src.core.providers import Provider
 
 
 class GoogleDetails(BaseModel):
