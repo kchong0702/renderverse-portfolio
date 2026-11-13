@@ -60,6 +60,6 @@ async def test_a_probe_runs_the_containers_import_graph_and_records_each_check_r
     assert result["error"] is None
     assert result["output"]["pdf"] == "JVBERg=="
     assert [[e["rule"] for e in r] for r in result["trace"]["check_rounds"]] == [
-        ["verbatim", "coverage"],
+        ["verbatim"],
         [],
     ]

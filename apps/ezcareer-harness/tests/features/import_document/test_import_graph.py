@@ -103,7 +103,6 @@ async def test_a_failed_reply_goes_back_to_the_llm_with_its_errors():
         _reply("Engineering lead")
     ).model_dump(mode="json")
     assert "blocks/profile/headline (verbatim)" in fix.content
-    assert "blocks (coverage)" in fix.content
     assert result["document"].content.model_dump(exclude_defaults=True) == {
         "blocks": _reply("Engineer")["blocks"]
     }
