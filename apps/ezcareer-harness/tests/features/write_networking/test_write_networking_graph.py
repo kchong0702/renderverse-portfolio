@@ -10,7 +10,7 @@ from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 
 REQUEST: dict[str, JsonValue] = {
-    "aim": "Staff backend engineer",
+    "profession": "Staff backend engineer",
     "facts": [
         {
             "id": "role-acme",
@@ -85,7 +85,9 @@ async def test_the_copy_comes_back_with_its_citations():
     assert result["summary"].text == "I lead payments engineering at Acme."
     assert [d.model_dump() for d in result["descriptions"]] == [ROLE, PROJECT]
     brief = model.requests[0][1].text
-    assert "recruiters looking for jobs like Staff backend engineer" in brief
+    assert (
+        "recruiters hiring for my profession, Staff backend engineer, find me" in brief
+    )
     assert "a description of fact:role-acme, a description of fact:project-ledger." in (
         brief
     )

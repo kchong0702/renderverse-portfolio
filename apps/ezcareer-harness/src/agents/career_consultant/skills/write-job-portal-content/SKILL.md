@@ -5,7 +5,7 @@ description: How to write the user's headline, summary and role and project desc
 
 # Write job portal content
 
-This content makes the user's profile easy for recruiters to find and choose. It is not tailored to one job posting: the aim names the kind of roles the user wants to be found for.
+This content makes the user's profile easy for recruiters to find and choose. It is not tailored to one job posting: the profession names the kind of roles the user wants to be found for.
 
 1. Call `read_profile_facts` once. Every fact counts here, including facts the user switched off for the assistant.
 2. Write only the fields the request asks for, within the caps it gives:

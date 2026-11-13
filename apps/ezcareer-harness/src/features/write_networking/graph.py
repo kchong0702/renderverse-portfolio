@@ -39,7 +39,7 @@ class WriteNetworkingState(WriteNetworkingInput, NetworkingCopy):
 def _brief(
     state: WriteNetworkingState, configurations: WriteNetworkingConfigurations
 ) -> dict:
-    """Ask the agent for the fields to write, aimed at the user's jobs, within
+    """Ask the agent for the fields to write, for the user's profession, within
     their caps"""
     require_facts(state.facts)
     asked = [
@@ -48,12 +48,16 @@ def _brief(
         else f"a description of fact:{field}"
         for field in state.fields()
     ]
-    aim = f"jobs like {state.aim}" if state.aim else "the jobs my facts point to"
+    profession = (
+        f"my profession, {state.profession},"
+        if state.profession
+        else "the profession my facts point to"
+    )
     return {
         "messages": [
             HumanMessage(
                 "Write my job portal content, to paste into my job portal and networking"
-                f" profiles so recruiters looking for {aim} find me.\n\n"
+                f" profiles so recruiters hiring for {profession} find me.\n\n"
                 + ("Write " if state.only is None else "Write only ")
                 + ", ".join(asked)
                 + ".\n\nCaps: the headline at most"

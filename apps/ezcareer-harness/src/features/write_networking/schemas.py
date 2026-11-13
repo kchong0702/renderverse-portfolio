@@ -71,8 +71,8 @@ class NetworkingCopy(BaseModel):
 class WriteNetworkingInput(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
-    aim: str = ""
-    """The jobs the user aims for, in their words"""
+    profession: str = ""
+    """The profession the user wants to be found for, such as Senior Backend Engineer"""
 
     facts: list[ProfileFact]
     """Every profile fact, those switched off for the assistant included"""
