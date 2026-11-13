@@ -33,12 +33,6 @@ export interface Slot {
   end: string;
 }
 
-export interface Failed {
-  status: "failed";
-  reason: string;
-  next: { label: string; screen: string } | null;
-}
-
 export interface Email {
   to: string;
   subject: string;
@@ -54,9 +48,7 @@ export const fetchMessage = (id: string, signal?: AbortSignal) =>
   http.get<InboxMessageDetail>(`${URL}/${id}`, signal);
 
 export const draftReply = (threadId: string) =>
-  http.post<{ body: string; slots: Slot[] } | Failed>(
-    `${URL}/${threadId}/reply-draft`,
-  );
+  http.post<{ body: string; slots: Slot[] }>(`${URL}/${threadId}/reply-draft`);
 
 export const sendReply = ({
   threadId,
@@ -70,6 +62,6 @@ export const sendEmail = (email: Email) =>
   http.post<void>(`${URL}/compose`, email);
 
 export const draftFollowUp = (applicationId: string) =>
-  http.post<{ body: string } | Failed>(
+  http.post<{ body: string }>(
     `${config.opsApiUrl}/applications/${applicationId}/follow-up-draft`,
   );

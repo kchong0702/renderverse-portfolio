@@ -17,7 +17,6 @@ from src.features.jobs.models import JobRun
 from src.features.jobs.router import job_service
 from src.features.jobs.schemas import FindJobsInput, FindJobsOutput
 from src.features.profile import ProfileService
-from src.features.profile.runs import run_workflow
 from src.features.settings import settings_service
 
 logger = get_logger(__name__)
@@ -101,15 +100,14 @@ async def process_job_run(
             metadata = await settings_service(session, container).run_metadata(
                 row.user_id
             )
-        reply = await run_workflow(
-            container.ezcareer(),
+        reply = await container.runner().run(
+            row.user_id,
             "find-jobs",
             FindJobsOutput,
-            row.user_id,
-            FindJobsInput(
+            data=FindJobsInput(
                 facts=profile.facts, preferences=profile.preferences, search=row.search
             ),
-            metadata,
+            metadata=metadata,
         )
         async with factory() as session, session.begin():
             done = await complete(session, JOB_RUNS, run_id, claim_token)

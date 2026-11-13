@@ -14,8 +14,9 @@ import pytest
 from dependency_injector import providers
 from fastapi import FastAPI
 from pydantic import JsonValue
-from sqlalchemy import delete
+from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.pool import NullPool
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 
@@ -434,6 +435,24 @@ async def work(app: FastAPI) -> None:
             if claimed is None:
                 break
             await process(claimed.id, claimed.claim_token, app.state.container)
+
+
+async def idle_in_transaction() -> int:
+    """How many connections to the test Postgres database sit idle inside a
+    transaction"""
+    from tests.core.conftest import DATABASE_URL
+
+    engine = create_async_engine(DATABASE_URL, poolclass=NullPool)
+    async with engine.connect() as db:
+        count = await db.scalar(
+            text(
+                "SELECT count(*) FROM pg_stat_activity"
+                " WHERE datname = current_database()"
+                " AND state = 'idle in transaction'"
+            )
+        )
+    await engine.dispose()
+    return count
 
 
 async def connect_google(client: httpx2.AsyncClient, next_path: str = "/settings"):

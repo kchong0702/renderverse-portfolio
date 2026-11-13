@@ -2,7 +2,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Request, status
 
-from src.clients.ezcareer import Failed
 from src.core.auth import CurrentUserDep
 from src.core.config import get_settings
 from src.db.session import SessionDep
@@ -31,16 +30,15 @@ def get_inbox_service(
     request: Request,
 ) -> InboxService:
     """The inbox service on the request's database session, with Gmail, Calendar,
-    the user's settings and profile, and the harness"""
+    the user's settings and profile, and the agent runner"""
     return InboxService(
         session,
-        request.app.state.session_factory,
         google,
         settings,
         calendar,
         profile,
         request.app.state.google,
-        request.app.state.ezcareer,
+        request.app.state.runner,
         get_settings().google,
     )
 
@@ -91,7 +89,7 @@ async def send_reply(
 @router.post("/{thread_id}/reply-draft")
 async def draft_reply(
     thread_id: GmailId, user: CurrentUserDep, service: InboxServiceDep
-) -> DraftReplyOutput | Failed:
+) -> DraftReplyOutput:
     """Draft a reply to the thread, offering free calendar slots while the user lets
     it, or fail with the agent's reason; nothing is sent"""
     return await service.draft_reply(user.id, thread_id)

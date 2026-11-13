@@ -4,11 +4,11 @@ from langchain_core.tools import BaseTool, StructuredTool, ToolException
 from langgraph.types import interrupt
 from pydantic import ConfigDict, Field, TypeAdapter, ValidationError, create_model
 
-from src.agents.productivity_assistant.types import FetchedThread
+from src.agents.productivity_assistant.types import LoadedThread
 from src.core.errors import ExecuteError
 from src.shared.email import latest_messages, untrusted_thread
-from src.shared.fetch_failed import FetchFailed
 from src.shared.tool_artifact import StepDetail
+from src.shared.tool_error import ToolError
 
 
 def _read_thread(
@@ -16,19 +16,19 @@ def _read_thread(
 ) -> tuple[str, StepDetail]:
     """Reads one email thread's latest messages, each with its sender and time"""
     try:
-        fetched = TypeAdapter(FetchedThread | FetchFailed).validate_python(
-            interrupt({"fetch": "thread", "id": thread_id})
+        loaded = TypeAdapter(LoadedThread | ToolError).validate_python(
+            interrupt({"execute_tool": "thread", "id": thread_id})
         )
     except ValidationError as error:
         raise ExecuteError(f"The thread didn't load: {error}") from error
-    if isinstance(fetched, FetchFailed):
-        raise ToolException(fetched.error)
-    thread = latest_messages(fetched.thread, max_messages, max_chars)
-    left_out = len(fetched.thread.messages) - len(thread.messages)
+    if isinstance(loaded, ToolError):
+        raise ToolException(loaded.error)
+    thread = latest_messages(loaded.thread, max_messages, max_chars)
+    left_out = len(loaded.thread.messages) - len(thread.messages)
     earlier = f"{left_out} earlier messages are left out.\n\n" if left_out else ""
     return f"{earlier}{untrusted_thread(thread)}", {
-        "step_detail": f"{len(fetched.thread.messages)} messages"
-        if len(fetched.thread.messages) > 1
+        "step_detail": f"{len(loaded.thread.messages)} messages"
+        if len(loaded.thread.messages) > 1
         else "1 message"
     }
 

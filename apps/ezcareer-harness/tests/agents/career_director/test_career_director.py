@@ -25,7 +25,7 @@ from tests.agents.career_consultant import test_career_consultant as career_cons
 from tests.agents.career_director.test_handoffs import _graph, _turn
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
-from tests.features.write_document.test_write_document_graph import _fetched, _print
+from tests.features.write_document.test_write_document_graph import _loaded, _print
 
 AGENTS = load_agents(get_settings().agents)
 AGENT = AGENTS["career-director"]
@@ -121,12 +121,12 @@ async def test_a_single_match_is_edited_by_id_and_the_changeset_is_an_artifact()
     )
 
     asked, result = await _run(
-        _director(director, consultant), {"documents": [BACKEND]}, _fetched()
+        _director(director, consultant), {"documents": [BACKEND]}, _loaded()
     )
 
     assert asked == [
-        {"fetch": "documents", "name": "backend résumé", "kind": "resume"},
-        {"fetch": "document", "id": "doc-1"},
+        {"execute_tool": "documents", "name": "backend résumé", "kind": "resume"},
+        {"execute_tool": "document", "id": "doc-1"},
     ]
     [found] = _reports(result, "find_documents")
     assert json.loads(found.text) == [BACKEND]
@@ -164,19 +164,19 @@ async def test_several_matches_let_the_user_choose_then_the_choice_is_found():
         {"documents": [BACKEND, FRONTEND]},
         Answer(input="Backend résumé").model_dump(),
         {"documents": [BACKEND]},
-        _fetched(),
+        _loaded(),
     )
 
     assert asked == [
-        {"fetch": "documents", "name": None, "kind": "resume"},
+        {"execute_tool": "documents", "name": None, "kind": "resume"},
         WidgetSetting(
             label="Which résumé?",
             choose="document",
             kind=DocumentKind.RESUME,
             submit_btn="Send",
         ).model_dump(exclude_none=True),
-        {"fetch": "documents", "name": "Backend résumé", "kind": None},
-        {"fetch": "document", "id": "doc-1"},
+        {"execute_tool": "documents", "name": "Backend résumé", "kind": None},
+        {"execute_tool": "document", "id": "doc-1"},
     ]
     assert [m.artifact for m in _reports(result, "find_documents")] == [
         {"step_detail": "2 résumés"},
@@ -189,7 +189,7 @@ async def test_several_matches_let_the_user_choose_then_the_choice_is_found():
     assert report.artifact == {"step_detail": "Backend résumé"}
 
 
-async def test_a_workflows_question_pauses_the_director_after_the_fetch_and_resumes():
+async def test_a_workflows_question_pauses_the_director_after_the_document_loads_and_resumes():
     consultant = career_consultant._model(
         _call("clarify", question="Which bullet?"),
         career_consultant._propose(career_consultant.GOOD_EDIT),
@@ -202,12 +202,12 @@ async def test_a_workflows_question_pauses_the_director_after_the_fetch_and_resu
 
     asked, result = await _run(
         _director(director, consultant),
-        _fetched(),
+        _loaded(),
         Answer(input="The queue one").model_dump(),
     )
 
     assert asked == [
-        {"fetch": "document", "id": "doc-1"},
+        {"execute_tool": "document", "id": "doc-1"},
         WidgetSetting(
             label="Which bullet?",
             input_placeholder="Type your answer here...",

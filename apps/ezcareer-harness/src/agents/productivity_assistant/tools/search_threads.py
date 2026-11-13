@@ -8,8 +8,8 @@ from pydantic_core import to_json
 
 from src.agents.productivity_assistant.types import FoundThreads
 from src.core.errors import ExecuteError
-from src.shared.fetch_failed import FetchFailed
 from src.shared.tool_artifact import StepDetail
+from src.shared.tool_error import ToolError
 
 
 def _search_threads(
@@ -23,10 +23,10 @@ def _search_threads(
     """Finds the user's email threads that match every filter given, latest first,
     each with the id read_thread takes"""
     try:
-        found = TypeAdapter(FoundThreads | FetchFailed).validate_python(
+        found = TypeAdapter(FoundThreads | ToolError).validate_python(
             interrupt(
                 {
-                    "fetch": "threads",
+                    "execute_tool": "threads",
                     "since": since and since.isoformat(),
                     "until": until and until.isoformat(),
                     "keyword": keyword,
@@ -38,7 +38,7 @@ def _search_threads(
         )
     except ValidationError as error:
         raise ExecuteError(f"The threads didn't load: {error}") from error
-    if isinstance(found, FetchFailed):
+    if isinstance(found, ToolError):
         raise ToolException(found.error)
     shown = found.threads[:max_threads]
     hidden = max(found.total, len(found.threads)) - len(shown)

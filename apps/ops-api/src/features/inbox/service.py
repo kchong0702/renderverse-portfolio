@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import html
-import re
 from base64 import urlsafe_b64encode
 from collections.abc import Sequence
 from contextlib import suppress
@@ -10,21 +9,12 @@ from datetime import UTC, date, datetime, timedelta
 from email.message import EmailMessage
 from email.utils import parseaddr
 from hashlib import sha256
-from html.parser import HTMLParser
-from uuid import UUID, uuid4
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from pydantic import TypeAdapter, ValidationError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.clients.ezcareer import (
-    Completed,
-    DataRequest,
-    EzcareerClient,
-    Failed,
-    InputRequired,
-    RunMetadata,
-)
+from src.clients.ezcareer import AgentRunFailed, RunMetadata
 from src.clients.google import (
     GmailMessage,
     GmailPart,
@@ -32,24 +22,23 @@ from src.clients.google import (
     GmailThread,
     GoogleClient,
 )
-from src.core.config import GoogleSettings, get_settings
+from src.core.agent_runner import AgentRunner
+from src.core.config import GoogleSettings
 from src.core.exceptions import (
     AlreadyExists,
     InvalidInput,
     NotFound,
-    ServiceException,
     ServiceUnavailable,
 )
 from src.core.logging import get_logger
 from src.db.base import as_utc, utcnow
-from src.db.session import session_scope
 from src.features.applications.enums import NextStepFormat, StepKind, StepStatus
 from src.features.applications.models import Application, ApplicationStep
 from src.features.applications.repository import ApplicationRepository
 from src.features.calendar import CalendarService
-from src.features.calendar.schemas import EventCreate, FreeSlots
-from src.features.documents.schemas import FetchError
+from src.features.calendar.schemas import EventCreate
 from src.features.google import GoogleService
+from src.features.inbox.content import message_text, thread_content
 from src.features.inbox.enums import ThreadState
 from src.features.inbox.models import EmailThread
 from src.features.inbox.repository import InboxRepository
@@ -59,18 +48,10 @@ from src.features.inbox.schemas import (
     DraftReplyOutput,
     EmailCreate,
     FollowUpDraft,
-    FreeSlotsRequest,
     InboxList,
     InboxMessage,
     InboxMessageDetail,
     ReplyCreate,
-    ThreadAnswer,
-    ThreadContent,
-    ThreadMessage,
-    ThreadRequest,
-    ThreadsAnswer,
-    ThreadsRequest,
-    ThreadSummary,
     TriageApplication,
     TriageEmailInput,
     TriageEmailOutput,
@@ -121,77 +102,6 @@ def _summary(
     )
 
 
-class _TextParser(HTMLParser):
-    def __init__(self):
-        """Collect an HTML body's text, leaving out styles and scripts"""
-        super().__init__()
-        self.parts: list[str] = []
-        self._hidden = False
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        """Hide a style or script's text; a br starts a new line"""
-        if tag in ("style", "script"):
-            self._hidden = True
-        elif tag == "br":
-            self.parts.append("\n")
-
-    def handle_endtag(self, tag: str) -> None:
-        """Show text again after a style or script; a block ends its line"""
-        if tag in ("style", "script"):
-            self._hidden = False
-        elif tag in ("p", "div", "tr", "li", "h1", "h2", "h3", "h4", "h5", "h6"):
-            self.parts.append("\n")
-
-    def handle_data(self, data: str) -> None:
-        """Keep text that is not inside a style or script"""
-        if not self._hidden:
-            self.parts.append(data)
-
-
-def _html_text(markup: str) -> str:
-    """The readable text of an HTML body: no styles, scripts or tags"""
-    parser = _TextParser()
-    parser.feed(markup)
-    parser.close()
-    return re.sub(r"\n\s*\n+", "\n\n", "".join(parser.parts)).strip()
-
-
-def _text(part: GmailPart) -> str:
-    """A message's body as plain text; HTML-only mail is reduced to its text"""
-    return part.find("text/plain").strip() or _html_text(part.find("text/html"))
-
-
-def _content(thread: GmailThread) -> ThreadContent:
-    """A Gmail thread as the harness workflows read it"""
-    return ThreadContent(
-        subject=thread.messages[0].payload.header("Subject"),
-        messages=[
-            ThreadMessage(
-                sender=m.payload.header("From"),
-                sent_at=m.internal_date,
-                text=_text(m.payload),
-            )
-            for m in thread.messages
-        ],
-    )
-
-
-def _search(request: ThreadsRequest) -> str:
-    """The Gmail search for a run's thread search, each value quoted so it adds no
-    operator; before: is exclusive, so it names the day after until"""
-    terms = []
-    if request.since:
-        terms.append(f"after:{request.since:%Y/%m/%d}")
-    if request.until:
-        terms.append(f"before:{request.until + timedelta(days=1):%Y/%m/%d}")
-    if request.sender:
-        terms.append(f'from:"{request.sender}"')
-    if request.has_attachment is not None:
-        terms.append("has:attachment" if request.has_attachment else "-has:attachment")
-    terms += [f'"{word}"' for word in (request.keyword or "").split()]
-    return " ".join(terms)
-
-
 def _mime(to: str, subject: str, body: str, answers: GmailPart | None = None) -> str:
     """An email as Gmail's send takes it, RFC 2822 and base64url encoded; a reply
     names the message it answers so mail clients thread it"""
@@ -210,19 +120,17 @@ class InboxService:
     def __init__(
         self,
         session: AsyncSession,
-        factory: async_sessionmaker[AsyncSession],
         google: GoogleService,
         settings: SettingsService,
         calendar: CalendarService,
         profile: ProfileService,
         client: GoogleClient,
-        ezcareer: EzcareerClient,
+        runner: AgentRunner,
         config: GoogleSettings,
     ):
-        """Read and send Gmail with the user's token, triage threads and draft emails
-        with the harness, and keep the triage through a repository on the session"""
+        """Read and send Gmail with the user's token, triage and draft through the agent
+        runner, and keep the triage through a repository on the session"""
         self._session = session
-        self._factory = factory
         self._repository = InboxRepository(session)
         self._applications = ApplicationRepository(session)
         self._google = google
@@ -230,7 +138,7 @@ class InboxService:
         self._calendar = calendar
         self._profile = profile
         self._client = client
-        self._ezcareer = ezcareer
+        self._runner = runner
         self._config = config
 
     async def _triage(
@@ -245,23 +153,20 @@ class InboxService:
         next sync tries again"""
         try:
             thread = await self._client.thread(token, thread_id)
-            run = await self._ezcareer.send(
+            return await self._runner.run(
+                user_id,
                 "triage-email",
                 TriageEmailOutput,
-                user_id=user_id,
-                context_id=f"{user_id}:{uuid4()}",
                 data=TriageEmailInput(
-                    thread=_content(thread), applications=applications
+                    thread=thread_content(thread), applications=applications
                 ),
                 metadata=metadata,
             )
         except (NotFound, ServiceUnavailable) as error:
             logger.warning("triage_skipped", thread_id=thread_id, reason=error.message)
-            return None
-        if not isinstance(run, Completed):
-            logger.warning("triage_failed", thread_id=thread_id, status=run.status)
-            return None
-        return run.reply
+        except AgentRunFailed as error:
+            logger.warning("triage_failed", thread_id=thread_id, reason=error.message)
+        return None
 
     async def _keep_step(
         self, thread: EmailThread, kind: StepKind, **found: object
@@ -463,7 +368,7 @@ class InboxService:
         return InboxMessageDetail(
             **_summary(message, thread, steps).model_dump(),
             to=message.payload.header("To"),
-            body=_text(message.payload),
+            body=message_text(message.payload),
         )
 
     async def _draft(
@@ -471,7 +376,7 @@ class InboxService:
         user_id: UUID,
         thread: GmailThread | None,
         application: Application | None,
-    ) -> DraftReplyOutput | Failed:
+    ) -> DraftReplyOutput:
         """Run draft-reply on the thread or the application and the profile's facts,
         offering free slots for a thread while the user lets it"""
         settings = await self._settings.get(user_id)
@@ -484,13 +389,12 @@ class InboxService:
         facts = (await self._profile.agent_profile(user_id)).facts
         metadata = await self._settings.run_metadata(user_id)
         await self._session.commit()
-        run = await self._ezcareer.send(
+        reply = await self._runner.run(
+            user_id,
             "draft-reply",
             DraftReplyOutput,
-            user_id=user_id,
-            context_id=f"{user_id}:{uuid4()}",
             data=DraftReplyInput(
-                thread=_content(thread) if thread else None,
+                thread=thread_content(thread) if thread else None,
                 application=DraftApplication(
                     company=application.job.company,
                     role=application.job.title,
@@ -505,19 +409,11 @@ class InboxService:
             ),
             metadata=metadata,
         )
-        match run:
-            case Completed(reply=reply):
-                return reply.model_copy(
-                    update={"slots": [s for s in reply.slots if s in offered]}
-                )
-            case InputRequired():
-                raise ServiceUnavailable("draft-reply asked for input ops cannot give")
-            case Failed():
-                return run
+        return reply.model_copy(
+            update={"slots": [s for s in reply.slots if s in offered]}
+        )
 
-    async def draft_reply(
-        self, user_id: UUID, thread_id: str
-    ) -> DraftReplyOutput | Failed:
+    async def draft_reply(self, user_id: UUID, thread_id: str) -> DraftReplyOutput:
         """A reply to the thread with the free slots it offers; nothing is sent"""
         token = await self._google.access_token(user_id)
         thread = await self._client.thread(token, thread_id)
@@ -531,80 +427,14 @@ class InboxService:
 
     async def draft_follow_up(
         self, user_id: UUID, application_id: UUID
-    ) -> FollowUpDraft | Failed:
+    ) -> FollowUpDraft:
         """A follow-up for an application with no reply; nothing is sent"""
         application = await self._applications.owned(
             Application, user_id, application_id
         )
         if application is None:
             raise NotFound("No such application")
-        run = await self._draft(user_id, None, application)
-        return (
-            FollowUpDraft(body=run.body) if isinstance(run, DraftReplyOutput) else run
-        )
-
-    async def answer_data_request(
-        self, user_id: UUID, request: DataRequest
-    ) -> ThreadAnswer | ThreadsAnswer | FreeSlots | FetchError:
-        """A paused run's thread, thread search or free slots, on a session of its own"""
-        try:
-            parsed = TypeAdapter(
-                ThreadRequest | ThreadsRequest | FreeSlotsRequest
-            ).validate_python(request.model_dump())
-        except ValidationError as error:
-            return FetchError(error=str(error))
-        async for session in session_scope(self._factory):
-            google = GoogleService(session, self._client, self._config)
-            try:
-                match parsed:
-                    case ThreadRequest(id=thread_id):
-                        answer = ThreadAnswer(
-                            thread=_content(
-                                await self._client.thread(
-                                    await google.access_token(user_id), thread_id
-                                )
-                            )
-                        )
-                    case ThreadsRequest(limit=limit):
-                        threads, total = await self._client.threads(
-                            await google.access_token(user_id),
-                            _search(parsed),
-                            min(limit, self._config.thread_search_limit),
-                        )
-                        answer = ThreadsAnswer(
-                            threads=[
-                                ThreadSummary(
-                                    id=thread.id,
-                                    subject=thread.messages[0].payload.header(
-                                        "Subject"
-                                    ),
-                                    sender=thread.messages[-1].payload.header("From"),
-                                    last_sent_at=thread.messages[-1].internal_date,
-                                    message_count=len(thread.messages),
-                                    has_attachment=any(
-                                        m.payload.has_attachment()
-                                        for m in thread.messages
-                                    ),
-                                )
-                                for thread in threads
-                            ],
-                            total=total,
-                        )
-                    case FreeSlotsRequest(days=days):
-                        settings = await SettingsService(
-                            session, self._ezcareer, google, get_settings().jsearch
-                        ).get(user_id)
-                        free = await CalendarService(
-                            google, self._client, self._config
-                        ).free_slots(user_id, settings.scheduling, days)
-                        answer = (
-                            free
-                            if settings.automation.offer_free_slots
-                            else free.model_copy(update={"free_slots": []})
-                        )
-            except ServiceException as error:
-                answer = FetchError(error=error.message)
-        return answer
+        return FollowUpDraft(body=(await self._draft(user_id, None, application)).body)
 
     async def reply(self, user_id: UUID, thread_id: str, reply: ReplyCreate) -> None:
         """Answer the newest email in the thread that someone else sent, in the thread"""

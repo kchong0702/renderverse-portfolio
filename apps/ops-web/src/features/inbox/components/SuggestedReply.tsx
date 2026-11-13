@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { useFreeSlots } from "@/features/calendar";
 import { GoogleNotice } from "@/features/settings";
-import { ApiError } from "@/shared/api/http";
+import { ApiError, RunFailed } from "@/shared/api/http";
 import { buttonClass } from "@/shared/components/button";
 import { cn } from "@/shared/lib/cn";
 import { useReplyDraft, useSendReply } from "../hooks/useInbox";
@@ -27,8 +27,7 @@ export default function SuggestedReply({ thread }: { thread: Thread }) {
       hourCycle: "h23",
       timeZone: "UTC",
     });
-  const offered =
-    draft.data && !("status" in draft.data) ? draft.data.slots : [];
+  const offered = draft.data ? draft.data.slots : [];
   const slots = (
     picked && free.data
       ? free.data.free_slots.filter(({ start }) =>
@@ -36,10 +35,9 @@ export default function SuggestedReply({ thread }: { thread: Thread }) {
         )
       : offered
   ).map(({ start }) => label(start));
-  const email =
-    draft.data && !("status" in draft.data)
-      ? [draft.data.body, slots.join("\n")].filter(Boolean).join("\n\n")
-      : "";
+  const email = draft.data
+    ? [draft.data.body, slots.join("\n")].filter(Boolean).join("\n\n")
+    : "";
 
   return (
     <div className="bg-warn-bg flex flex-col gap-3 rounded-xl px-[18px] py-4">
@@ -53,6 +51,22 @@ export default function SuggestedReply({ thread }: { thread: Thread }) {
         <p className="text-ink-3 m-0 text-[14px]">
           {t("inbox.reply.drafting")}
         </p>
+      ) : draft.error instanceof RunFailed ? (
+        <>
+          <p role="alert" className="m-0">
+            {draft.error.message}
+          </p>
+          {draft.error.next && (
+            <div>
+              <Link
+                to={`/${draft.error.next.screen}`}
+                className={buttonClass()}
+              >
+                {draft.error.next.label}
+              </Link>
+            </div>
+          )}
+        </>
       ) : draft.isError ? (
         draft.error instanceof ApiError && draft.error.status === 409 ? (
           <GoogleNotice
@@ -65,19 +79,6 @@ export default function SuggestedReply({ thread }: { thread: Thread }) {
             {t("inbox.reply.failed", { reason: draft.error.message })}
           </p>
         )
-      ) : "status" in draft.data ? (
-        <>
-          <p role="alert" className="m-0">
-            {draft.data.reason}
-          </p>
-          {draft.data.next && (
-            <div>
-              <Link to={`/${draft.data.next.screen}`} className={buttonClass()}>
-                {draft.data.next.label}
-              </Link>
-            </div>
-          )}
-        </>
       ) : (
         <>
           {edited === null ? (

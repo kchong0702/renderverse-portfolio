@@ -376,10 +376,7 @@ async def test_analysing_a_job_stores_the_analysis(client, harness):
 
     assert response.status_code == 200
     analysis = {"fit": 67, "band": "possible", "requirements": READ_BACK}
-    assert response.json() == {
-        "status": "completed",
-        "reply": {**job, "analysis": analysis},
-    }
+    assert response.json() == {**job, "analysis": analysis}
     assert (await client.get(JOBS)).json()["jobs"][0]["analysis"] == analysis
     [request] = harness.received
     assert request.url.path == "/ezcareer/a2a/analyse-job"
@@ -408,7 +405,8 @@ async def test_a_failed_analysis_returns_its_reason_and_keeps_the_job(client, ha
 
     response = await client.post(f"{JOBS}/{job['id']}/analyse")
 
-    assert response.json() == {"status": "failed", "reason": reason, "next": None}
+    assert response.status_code == 422
+    assert response.json() == {"reason": reason, "next": None}
     assert (await client.get(JOBS)).json()["jobs"] == [job]
 
 

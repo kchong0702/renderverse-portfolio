@@ -1,9 +1,8 @@
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.app.container import Container
 from src.clients.ezcareer import ModelCatalog
 from src.core.auth import CurrentUserDep
 from src.core.config import get_settings
@@ -12,15 +11,18 @@ from src.features.google import GoogleService
 from src.features.settings.schemas import JSearchKey, SettingsRead, SettingsUpdate
 from src.features.settings.service import SettingsService
 
+if TYPE_CHECKING:
+    from src.app.container import Container
+
+
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 
-def settings_service(session: AsyncSession, container: Container) -> SettingsService:
+def settings_service(session: AsyncSession, container: "Container") -> SettingsService:
     """The settings service on the session, its clients from the container"""
     settings = get_settings()
     return SettingsService(
         session,
-        container.ezcareer(),
         GoogleService(session, container.google(), settings.google),
         settings.jsearch,
     )
@@ -48,18 +50,16 @@ async def update_settings(
     patch: SettingsUpdate,
     user: CurrentUserDep,
     service: SettingsServiceDep,
+    request: Request,
 ) -> SettingsRead:
     """Change some of the signed-in user's settings"""
-    return await service.update(user.id, patch)
+    return await service.update(user.id, patch, request.app.state.runner.models)
 
 
 @router.get("/models")
-async def read_models(
-    _: CurrentUserDep,
-    service: SettingsServiceDep,
-) -> ModelCatalog:
+async def read_models(_: CurrentUserDep, request: Request) -> ModelCatalog:
     """The models the user can pick, from ezcareer-harness"""
-    return await service.models()
+    return await request.app.state.runner.models()
 
 
 @router.put("/connections/jsearch")

@@ -29,11 +29,10 @@ from src.clients.ezcareer.a2a import (
 from src.clients.ezcareer.schemas import (
     Action,
     Answer,
-    AnswerDataRequest,
     Cancelled,
     Completed,
-    DataRequest,
     Decisions,
+    ExecuteTool,
     Failed,
     InputRequired,
     ModelCatalog,
@@ -48,6 +47,7 @@ from src.clients.ezcareer.schemas import (
     StepUpdate,
     Text,
     Thinking,
+    ToolRequest,
     Usage,
     Widget,
 )
@@ -67,7 +67,8 @@ def _new_message(context_id: str, text: str, data: BaseModel) -> Message:
 
 
 def _answer_message(context_id: str, task_id: str, answer: BaseModel) -> Message:
-    """A message answering the widget or data request a paused task asked"""
+    """A message answering a paused task's widget, or resuming it with the tool
+    result it asked for"""
     return Message(
         message_id=uuid4().hex,
         context_id=context_id,
@@ -76,12 +77,12 @@ def _answer_message(context_id: str, task_id: str, answer: BaseModel) -> Message
     )
 
 
-def _data_request(status: TaskStatus) -> DataRequest | None:
-    """The data request a paused task asks ops-api for, or None for a user widget"""
+def _tool_request(status: TaskStatus) -> ToolRequest | None:
+    """The tool a paused task asks ops-api to execute, or None for a user widget"""
     data = status.message.parts[0].data if status.message else None
     return (
-        DataRequest.model_validate(data)
-        if isinstance(data, dict) and "fetch" in data
+        ToolRequest.model_validate(data)
+        if isinstance(data, dict) and "execute_tool" in data
         else None
     )
 
@@ -164,11 +165,11 @@ class EzcareerClient:
         user_id: UUID,
         message: Message,
         metadata: RunMetadata | None,
-        answer_data_request: AnswerDataRequest | None,
+        execute_tool: ExecuteTool | None,
     ) -> Run[R]:
-        """POST an A2A SendMessage, with metadata on the request, answering any data
-        request the task pauses with, keeping the usage its history reports, and read
-        how the task ended"""
+        """POST an A2A SendMessage, with metadata on the request, executing any tool
+        the task pauses on, keeping the usage its history reports, and read how the
+        task ended"""
         recorded: set[str] = set()
         try:
             while True:
@@ -204,13 +205,13 @@ class EzcareerClient:
                                 part.data if part.text is None else part.text
                             )
                         )
-                    case "TASK_STATE_INPUT_REQUIRED" if answer_data_request and (
-                        request := _data_request(status)
+                    case "TASK_STATE_INPUT_REQUIRED" if execute_tool and (
+                        request := _tool_request(status)
                     ):
                         message = _answer_message(
                             message.context_id,
                             task.id,
-                            await answer_data_request(request),
+                            await execute_tool(request),
                         )
                     case "TASK_STATE_INPUT_REQUIRED" if status.message:
                         return InputRequired(
@@ -234,7 +235,7 @@ class EzcareerClient:
         data: BaseModel,
         metadata: RunMetadata | None,
         text: str = "",
-        answer_data_request: AnswerDataRequest | None = None,
+        execute_tool: ExecuteTool | None = None,
     ) -> Run[R]:
         """Run a harness executable on the user's text and its input data, on the
         model metadata names; context_id scopes the task to one user"""
@@ -244,7 +245,7 @@ class EzcareerClient:
             user_id,
             _new_message(context_id, text, data),
             metadata,
-            answer_data_request,
+            execute_tool,
         )
 
     async def resume[R](
@@ -257,7 +258,7 @@ class EzcareerClient:
         task_id: str,
         answer: Answer,
         metadata: RunMetadata | None,
-        answer_data_request: AnswerDataRequest | None = None,
+        execute_tool: ExecuteTool | None = None,
     ) -> Run[R]:
         """Send the user's answer to a paused task, which runs on from there on the
         model metadata names"""
@@ -267,7 +268,7 @@ class EzcareerClient:
             user_id,
             _answer_message(context_id, task_id, answer),
             metadata,
-            answer_data_request,
+            execute_tool,
         )
 
     def stream[R](
@@ -280,7 +281,7 @@ class EzcareerClient:
         data: BaseModel,
         metadata: RunMetadata | None,
         text: str = "",
-        answer_data_request: AnswerDataRequest | None = None,
+        execute_tool: ExecuteTool | None = None,
     ) -> AsyncIterator[RunEvent[R]]:
         """Run a harness executable as send does, streaming its start, thinking, text
         and steps, then how it ended"""
@@ -290,7 +291,7 @@ class EzcareerClient:
             user_id,
             _new_message(context_id, text, data),
             metadata,
-            answer_data_request,
+            execute_tool,
         )
 
     def stream_resume[R](
@@ -303,7 +304,7 @@ class EzcareerClient:
         task_id: str,
         answer: Answer | Decisions,
         metadata: RunMetadata | None,
-        answer_data_request: AnswerDataRequest | None = None,
+        execute_tool: ExecuteTool | None = None,
     ) -> AsyncIterator[RunEvent[R]]:
         """Answer a paused task as resume does, or approve or reject the tool calls
         it waits on, streaming the rest of its run"""
@@ -313,7 +314,7 @@ class EzcareerClient:
             user_id,
             _answer_message(context_id, task_id, answer),
             metadata,
-            answer_data_request,
+            execute_tool,
         )
 
     async def cancel(self, executable: str, task_id: str, context_id: str) -> None:
@@ -355,11 +356,11 @@ class EzcareerClient:
         user_id: UUID,
         message: Message,
         metadata: RunMetadata | None,
-        answer_data_request: AnswerDataRequest | None,
+        execute_tool: ExecuteTool | None,
     ) -> AsyncIterator[RunEvent[R]]:
         """POST an A2A SendStreamingMessage and turn its events into run events,
-        answering any data request and keeping each model call's usage; a stream
-        closed early cancels the task"""
+        executing any tool it pauses on and keeping each model call's usage; a
+        stream closed early cancels the task"""
         task_id = ""
         ended = False
         reply_part = None
@@ -438,14 +439,13 @@ class EzcareerClient:
                                         )
                                     )
                                     return
-                                case "TASK_STATE_INPUT_REQUIRED" if (
-                                    answer_data_request
-                                    and (asked := _data_request(status))
+                                case "TASK_STATE_INPUT_REQUIRED" if execute_tool and (
+                                    asked := _tool_request(status)
                                 ):
                                     next_message = _answer_message(
                                         message.context_id,
                                         update.task_id,
-                                        await answer_data_request(asked),
+                                        await execute_tool(asked),
                                     )
                                 case "TASK_STATE_INPUT_REQUIRED" if review := _review(
                                     update.task_id, status

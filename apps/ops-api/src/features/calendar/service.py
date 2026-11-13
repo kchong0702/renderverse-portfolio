@@ -105,14 +105,12 @@ class CalendarService:
             await self._google.access_token(user_id), event_id
         )
 
-    async def free_slots(
-        self, user_id: UUID, scheduling: Scheduling, days: int
+    async def token_free_slots(
+        self, token: str, scheduling: Scheduling, days: int
     ) -> FreeSlots:
-        """Free time in the work hours of the weekdays from tomorrow, in the user's time
-        zone or else the calendar's, kept the meeting gap clear of events and at least an
-        interview long"""
+        """Free time in the token's calendar's weekday work hours from tomorrow, in the
+        user's time zone or its own, an interview long with the meeting gap clear"""
         now = utcnow()
-        token = await self._google.access_token(user_id)
         found = await self._client.events(token, now, now + timedelta(days=days + 1))
         timezone = scheduling.timezone or found.time_zone
         zone = ZoneInfo(timezone)
@@ -141,6 +139,15 @@ class CalendarService:
                 if free_from >= close:
                     break
         return FreeSlots(free_slots=slots, timezone=timezone)
+
+    async def free_slots(
+        self, user_id: UUID, scheduling: Scheduling, days: int
+    ) -> FreeSlots:
+        """The user's free time in their work hours from tomorrow, read with a fresh
+        access token"""
+        return await self.token_free_slots(
+            await self._google.access_token(user_id), scheduling, days
+        )
 
 
 __all__ = ["CalendarService"]

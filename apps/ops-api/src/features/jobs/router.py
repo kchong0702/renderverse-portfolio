@@ -1,15 +1,13 @@
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.app.container import Container
-from src.clients.ezcareer import Completed, Failed
 from src.core.auth import CurrentUserDep
 from src.core.exceptions import InvalidInput
 from src.db.session import SessionDep
-from src.features.documents import document_service
+from src.features.documents import document_chat, document_service
 from src.features.jobs.enums import RunTrigger
 from src.features.jobs.schemas import (
     FitAnalysis,
@@ -26,18 +24,22 @@ from src.features.jobs.service import JobService
 from src.features.profile import ProfileService
 from src.features.settings import settings_service
 
+if TYPE_CHECKING:
+    from src.app.container import Container
+
+
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
-def job_service(session: AsyncSession, container: Container) -> JobService:
+def job_service(session: AsyncSession, container: "Container") -> JobService:
     """The job service on the session, its clients from the container"""
     return JobService(
         session,
-        container.session_factory(),
         ProfileService(session),
         settings_service(session, container),
         document_service(session, container),
-        container.ezcareer(),
+        document_chat(session, container),
+        container.runner(),
     )
 
 
@@ -122,7 +124,7 @@ async def replace_analysis(
 @router.post("/{job_id}/analyse")
 async def analyse_job(
     job_id: UUID, user: CurrentUserDep, service: JobServiceDep
-) -> Completed[JobRead] | Failed:
+) -> JobRead:
     """Analyse the job's posting against the profile and store the analysis,
     or fail with the agent's reason"""
     return await service.analyse_posting(user.id, job_id)

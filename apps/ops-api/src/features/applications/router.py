@@ -4,7 +4,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request, status
 from pydantic import AwareDatetime
 
-from src.clients.ezcareer import Failed
 from src.core.auth import CurrentUserDep
 from src.db.session import SessionDep
 from src.features.applications.schemas import (
@@ -156,7 +155,7 @@ async def delete_step(
 @router.post("/{application_id}/follow-up-draft")
 async def draft_follow_up(
     application_id: UUID, user: CurrentUserDep, inbox: InboxServiceDep
-) -> FollowUpDraft | Failed:
+) -> FollowUpDraft:
     """Draft a follow-up email for an application with no reply, or fail with the
     agent's reason; nothing is sent"""
     return await inbox.draft_follow_up(user.id, application_id)

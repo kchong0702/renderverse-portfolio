@@ -79,7 +79,7 @@ async def test_email_goes_to_productivity_assistant_which_keeps_the_next_turn_an
 
     assert found_asked == [
         {
-            "fetch": "threads",
+            "execute_tool": "threads",
             "since": "2026-11-02",
             "until": None,
             "keyword": None,
@@ -91,8 +91,8 @@ async def test_email_goes_to_productivity_assistant_which_keeps_the_next_turn_an
     assert found["active_agent"] == "productivity-assistant"
     assert found["messages"][-1].text == "Priya from Acme wrote about your interview."
     assert drafted_asked == [
-        {"fetch": "thread", "id": "t-1"},
-        {"fetch": "free_slots", "days": 7},
+        {"execute_tool": "thread", "id": "t-1"},
+        {"execute_tool": "free_slots", "days": 7},
     ]
     assert drafted["messages"][-1].text == draft_test.BODY
     assert "<thread untrusted>" in assistant.requests[3][-1].text

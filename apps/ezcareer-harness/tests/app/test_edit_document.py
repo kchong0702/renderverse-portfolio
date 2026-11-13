@@ -19,8 +19,8 @@ from tests.agents.career_consultant.test_career_consultant import (
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.write_document.test_write_document_graph import (
-    _fetched,
     _input,
+    _loaded,
     _print,
 )
 
@@ -95,16 +95,16 @@ def _request() -> list[dict[str, JsonValue]]:
     ]
 
 
-def test_a_message_fetches_the_document_then_returns_the_reply_and_changeset():
+def test_a_message_loads_the_document_then_returns_the_reply_and_changeset():
     model = _model(READ_SKILL, _propose(GOOD_EDIT), DONE)
     client = _client(model)
 
     asked = _send(client, _request())
-    done = _send(client, [{"data": _fetched()}], task=asked)
+    done = _send(client, [{"data": _loaded()}], task=asked)
 
     assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
     assert asked["status"]["message"]["parts"] == [
-        {"data": {"fetch": "document", "id": "doc-1"}}
+        {"data": {"execute_tool": "document", "id": "doc-1"}}
     ]
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
     [artifact] = [a for a in done["artifacts"] if a["name"] == "edit-document"]
@@ -117,7 +117,7 @@ def test_a_message_fetches_the_document_then_returns_the_reply_and_changeset():
     assert model.requests[0][1].text == "Mention my Kubernetes work"
 
 
-def test_a_fetch_the_client_cannot_answer_fails_the_task_with_its_reason():
+def test_a_tool_ops_cannot_execute_fails_the_task_with_its_reason():
     client = _client(_model(DONE))
 
     asked = _send(client, _request())
@@ -138,8 +138,8 @@ def test_an_unclear_request_shows_the_user_a_widget_then_finishes():
         )
     )
 
-    fetching = _send(client, _request())
-    asked = _send(client, [{"data": _fetched()}], task=fetching)
+    loading = _send(client, _request())
+    asked = _send(client, [{"data": _loaded()}], task=loading)
     done = _send(client, [{"data": {"input": "Lumen Pay"}}], task=asked)
 
     assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
@@ -155,7 +155,7 @@ def test_an_agent_that_never_stops_proposing_fails_without_a_changeset():
     client = _client(_model(READ_SKILL, _propose(BAD_EDIT)))
 
     asked = _send(client, _request())
-    task = _send(client, [{"data": _fetched()}], task=asked)
+    task = _send(client, [{"data": _loaded()}], task=asked)
 
     assert task["status"]["state"] == "TASK_STATE_FAILED"
     assert "artifacts" not in task
@@ -174,7 +174,7 @@ def test_the_consultants_thinking_and_reply_stream_before_the_output():
     )
 
     asked = _send(client, _request())
-    events = _stream(client, [{"data": _fetched()}], asked)
+    events = _stream(client, [{"data": _loaded()}], asked)
 
     assert [
         (

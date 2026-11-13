@@ -5,11 +5,9 @@ from typing import NamedTuple
 from uuid import UUID
 
 from document_schema import ResumeDocument
-from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.clients.ezcareer import DataRequest
-from src.core.exceptions import InvalidInput, NotFound
+from src.core.exceptions import NotFound
 from src.features.assistant.schemas import (
     AboutEdit,
     ApprovalRow,
@@ -20,13 +18,11 @@ from src.features.assistant.schemas import (
     ProfileApproval,
     ProfileEdit,
     ProfileSyncPreview,
-    ProfileSyncRequest,
     ProfileUpdated,
-    ProfileUpdateRequest,
     UpdateProfileArgs,
 )
-from src.features.documents import DocumentService
-from src.features.documents.schemas import DocumentAnswer, FetchError
+from src.features.documents.models import Document
+from src.features.documents.repository import DocumentRepository
 from src.features.imports import File, Import, ImportSource, ImportStatus
 from src.features.profile import ProfileService, resume_profile
 from src.features.profile.schemas import (
@@ -192,26 +188,22 @@ async def _apply(
 
 
 class ProfileEdits:
-    def __init__(
-        self, factory: async_sessionmaker[AsyncSession], documents: DocumentService
-    ):
+    def __init__(self, factory: async_sessionmaker[AsyncSession]):
         """Preview and make career-director's changes to the profile on sessions of
-        their own, reading résumés through the documents service"""
+        their own"""
         self._factory = factory
-        self._documents = documents
 
-    async def _preview(self, user_id: UUID, document_id: UUID) -> ProfileSyncPreview:
+    async def preview(self, user_id: UUID, document_id: UUID) -> ProfileSyncPreview:
         """What syncing one of the user's résumés or CVs into the profile would
         change, from a real sync that is rolled back; NotFound for any other document"""
-        answer = await self._documents.answer_data_request(
-            user_id, DataRequest(fetch="document", id=str(document_id))
-        )
-        if not isinstance(answer, DocumentAnswer) or not isinstance(
-            answer.document, ResumeDocument
-        ):
-            raise NotFound("No such résumé or CV")
-        content = answer.document.model_dump_json().encode()
         async with self._factory() as session:
+            document = await DocumentRepository(session).owned(
+                Document, user_id, document_id
+            )
+            if document is None or not isinstance(document.body, ResumeDocument):
+                raise NotFound("No such résumé or CV")
+            resume = document.body
+            content = resume.model_dump_json().encode()
             service = ProfileService(session)
             before = await _snapshot(service, user_id)
             file = File(
@@ -231,7 +223,7 @@ class ProfileEdits:
             )
             session.add(row)
             await session.flush()
-            await service.sync(row, resume_profile(answer.document.content))
+            await service.sync(row, resume_profile(resume.content))
             after = await _snapshot(service, user_id)
             pending = [
                 c for c in await service.changes(user_id) if c.import_id == row.id
@@ -239,23 +231,12 @@ class ProfileEdits:
             await session.rollback()
         return ProfileSyncPreview(edits=_synced(before, after, pending))
 
-    async def answer_data_request(
-        self, user_id: UUID, request: DataRequest
-    ) -> ProfileSyncPreview | ProfileUpdated | FetchError:
-        """Answer a paused run's request to preview a sync, or to save approved
-        changes all or none; FetchError says why nothing came of it"""
-        try:
-            match TypeAdapter(
-                ProfileSyncRequest | ProfileUpdateRequest
-            ).validate_python(request.model_dump()):
-                case ProfileSyncRequest(document_id=document_id):
-                    return await self._preview(user_id, document_id)
-                case ProfileUpdateRequest(edits=edits):
-                    async with self._factory() as session, session.begin():
-                        await _apply(ProfileService(session), user_id, edits)
-                    return ProfileUpdated(saved=len(edits))
-        except (ValidationError, NotFound, InvalidInput) as error:
-            return FetchError(error=str(error))
+    async def save(self, user_id: UUID, edits: list[ProfileEdit]) -> ProfileUpdated:
+        """Save the approved changes all or none; NotFound, InvalidInput or
+        ValidationError for an edit the profile can't take"""
+        async with self._factory() as session, session.begin():
+            await _apply(ProfileService(session), user_id, edits)
+        return ProfileUpdated(saved=len(edits))
 
     async def approval(
         self, user_id: UUID, task_id: str, args: UpdateProfileArgs

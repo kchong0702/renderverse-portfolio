@@ -48,12 +48,13 @@ async def _document(client) -> dict:
     return response.json()
 
 
-def _fetches(document_id: str) -> list[dict]:
-    """edit-document starting and pausing to fetch the document"""
+def _loads(document_id: str) -> list[dict]:
+    """edit-document starting and pausing to load the document"""
     return [
         stream_task(),
         stream_status(
-            "INPUT_REQUIRED", [{"data": {"fetch": "document", "id": document_id}}]
+            "INPUT_REQUIRED",
+            [{"data": {"execute_tool": "document", "id": document_id}}],
         ),
     ]
 
@@ -76,7 +77,7 @@ async def test_a_chat_turn_stores_the_edits_it_proposes_before_its_reply(
     me = (await client.get(f"{PREFIX}/me")).json()
     facts = (await client.get(f"{PREFIX}/profile/agent")).json()["facts"]
     harness.outcomes = [
-        _fetches(document["id"]),
+        _loads(document["id"]),
         _replies("I added your years of experience.", TAILOR),
     ]
 
@@ -98,24 +99,24 @@ async def test_a_chat_turn_stores_the_edits_it_proposes_before_its_reply(
         },
         {"status": "completed", "reply": "I added your years of experience."},
     ]
-    first, fetched = (sent["params"]["message"] for sent in a2a_sent(harness))
+    first, resumed = (sent["params"]["message"] for sent in a2a_sent(harness))
     assert harness.received[0].url.path == "/ezcareer/a2a/edit-document"
     assert first["contextId"] == f"{me['id']}:document:{document['id']}"
     assert first["parts"] == [
         {"text": "Mention my years"},
         {"data": {"document_id": document["id"], "facts": facts}},
     ]
-    assert fetched["taskId"] == "task-1"
-    assert fetched["parts"] == [{"data": {"document": document["body"], "lines": []}}]
+    assert resumed["taskId"] == "task-1"
+    assert resumed["parts"] == [{"data": {"document": document["body"], "lines": []}}]
 
 
 async def test_a_second_turns_edits_join_the_pending_changeset(client, harness):
     document = await _document(client)
     chat = f"{DOCUMENTS}/{document['id']}/chat"
     harness.outcomes = [
-        _fetches(document["id"]),
+        _loads(document["id"]),
         _replies("I added your years.", TAILOR),
-        _fetches(document["id"]),
+        _loads(document["id"]),
         _replies("I tightened it.", TAILOR),
     ]
 
@@ -136,7 +137,7 @@ async def test_a_chat_turn_asks_back_and_the_answer_replies_without_edits(
     document = await _document(client)
     chat = f"{DOCUMENTS}/{document['id']}/chat"
     harness.outcomes = [
-        _fetches(document["id"]),
+        _loads(document["id"]),
         [stream_status("INPUT_REQUIRED", [{"data": WIDGET}])],
         _replies("Your summary already fits Northwind.", None),
     ]
@@ -160,7 +161,7 @@ async def test_a_broken_chat_stream_resumes_after_the_last_event_it_got(
 ):
     document = await _document(client)
     chat = f"{DOCUMENTS}/{document['id']}/chat"
-    harness.outcomes = [_fetches(document["id"]), _replies("Done.", TAILOR)]
+    harness.outcomes = [_loads(document["id"]), _replies("Done.", TAILOR)]
     first = await client.post(f"{chat}/messages", json={"text": "Tighten it"})
 
     resumed = await client.get(

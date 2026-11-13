@@ -85,45 +85,6 @@ class ThreadContent(BaseModel):
     """Every message, oldest first"""
 
 
-class ThreadRequest(BaseModel):
-    fetch: Literal["thread"]
-    """A paused run asks for one of the user's email threads"""
-
-    id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
-    """The Gmail thread"""
-
-
-class FreeSlotsRequest(BaseModel):
-    fetch: Literal["free_slots"]
-    """A paused run asks for the times the user is free"""
-
-    days: int = Field(ge=1, le=30)
-    """How many days from tomorrow to look in"""
-
-
-class ThreadsRequest(BaseModel):
-    fetch: Literal["threads"]
-    """A paused run searches the user's email threads"""
-
-    since: date | None = None
-    """Earliest day a message was sent; None for any"""
-
-    until: date | None = None
-    """Latest day a message was sent; None for any"""
-
-    keyword: str | None = Field(default=None, pattern=r'^[^"]{1,200}$')
-    """Words the subject or a message contains; None for any"""
-
-    sender: str | None = Field(default=None, pattern=r"^[\w .@+'&-]{1,200}$")
-    """A sender's name, address or domain; None for anyone"""
-
-    has_attachment: bool | None = None
-    """Only threads with an attachment, or only those without; None for both"""
-
-    limit: int = Field(ge=1)
-    """The most threads to send back"""
-
-
 class ThreadAnswer(BaseModel):
     thread: ThreadContent
     """The thread the run asked for"""
@@ -267,7 +228,6 @@ __all__ = [
     "DraftReplyOutput",
     "EmailCreate",
     "FollowUpDraft",
-    "FreeSlotsRequest",
     "InboxList",
     "InboxMessage",
     "InboxMessageDetail",
@@ -275,10 +235,8 @@ __all__ = [
     "ThreadAnswer",
     "ThreadContent",
     "ThreadMessage",
-    "ThreadRequest",
     "ThreadSummary",
     "ThreadsAnswer",
-    "ThreadsRequest",
     "TriageApplication",
     "TriageEmailInput",
     "TriageEmailOutput",

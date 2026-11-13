@@ -21,7 +21,7 @@ class EditInput(BaseModel):
     """The user's profile facts"""
 
 
-class FetchedDocument(BaseModel):
+class LoadedDocument(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
     document: AnyDocument

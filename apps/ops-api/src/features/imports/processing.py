@@ -21,7 +21,6 @@ from src.features.imports.models import File, Import
 from src.features.imports.schemas import ImportResumeInput, ImportResumeOutput
 from src.features.profile import ProfileService, resume_profile
 from src.features.profile.export import read_export
-from src.features.profile.runs import run_workflow
 from src.features.profile.schemas import ImportedProfile, ImportProfileInput
 from src.features.settings import settings_service
 
@@ -78,24 +77,22 @@ async def _read(
     """What the harness reads from the file: a résumé's draft, lines and look, or a
     profile export's profile"""
     settings = container.settings()
-    ezcareer = container.ezcareer()
+    runner = container.runner()
     if file.media_type not in settings.profile.export_types:
-        return await run_workflow(
-            ezcareer,
+        return await runner.run(
+            user_id,
             "import-resume",
             ImportResumeOutput,
-            user_id,
-            ImportResumeInput(file=content),
-            metadata,
+            data=ImportResumeInput(file=content),
+            metadata=metadata,
         )
     read = read_export(content, settings.profile.max_unzipped_bytes)
-    reply = await run_workflow(
-        ezcareer,
+    reply = await runner.run(
+        user_id,
         "import-profile",
         dict,
-        user_id,
-        ImportProfileInput(files=read.files),
-        metadata,
+        data=ImportProfileInput(files=read.files),
+        metadata=metadata,
     )
     try:
         imported = ImportedProfile.model_validate(reply)

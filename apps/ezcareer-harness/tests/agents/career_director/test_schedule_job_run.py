@@ -30,7 +30,7 @@ async def test_a_run_is_queued_through_ops_api_without_approval():
 
     assert asked == [
         {
-            "fetch": "job_run",
+            "execute_tool": "job_run",
             "run_after": "2026-11-13T08:00:00+08:00",
             "search": {
                 "query": "Staff backend engineer",
@@ -60,7 +60,7 @@ async def test_a_run_ops_api_refuses_tells_the_director_nothing_was_queued():
         {"error": "The job agent is already running"},
     )
 
-    assert asked == [{"fetch": "job_run", "run_after": None, "search": None}]
+    assert asked == [{"execute_tool": "job_run", "run_after": None, "search": None}]
     [report] = _reports(result, "schedule_job_run")
     assert report.text == "No run was queued: The job agent is already running"
     assert report.artifact == {}

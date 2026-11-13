@@ -8,7 +8,7 @@ from pydantic import BaseModel, TypeAdapter
 from sqlalchemy import select
 
 from src.clients.ezcareer import Answer, EzcareerClient
-from src.clients.ezcareer.schemas import Completed, DataRequest, Started
+from src.clients.ezcareer.schemas import Completed, Started, ToolRequest
 from src.core.auth.models import User
 from src.core.config import get_settings
 from src.core.stores import AgentModelCall
@@ -395,10 +395,10 @@ class _Documents(BaseModel):
     documents: list[str]
 
 
-async def test_a_stream_answers_the_data_requests_its_run_pauses_with(harness):
-    asked: list[DataRequest] = []
+async def test_a_stream_executes_the_tools_its_run_pauses_with(harness):
+    asked: list[ToolRequest] = []
 
-    async def answer(request: DataRequest) -> _Documents:
+    async def answer(request: ToolRequest) -> _Documents:
         asked.append(request)
         return _Documents(documents=["Résumé for Northwind"])
 
@@ -406,7 +406,8 @@ async def test_a_stream_answers_the_data_requests_its_run_pauses_with(harness):
         [
             stream_task(),
             stream_status(
-                "INPUT_REQUIRED", [{"data": {"fetch": "documents", "name": "nw"}}]
+                "INPUT_REQUIRED",
+                [{"data": {"execute_tool": "documents", "name": "nw"}}],
             ),
         ],
         [
@@ -428,23 +429,25 @@ async def test_a_stream_answers_the_data_requests_its_run_pauses_with(harness):
             context_id="u:c",
             data=Answer(),
             metadata=None,
-            answer_data_request=answer,
+            execute_tool=answer,
         )
     ]
 
     assert events == [Started(task_id="task-1"), Completed(reply="Found it.")]
-    assert [r.model_dump() for r in asked] == [{"fetch": "documents", "name": "nw"}]
+    assert [r.model_dump() for r in asked] == [
+        {"execute_tool": "documents", "name": "nw"}
+    ]
     resume = a2a_sent(harness)[1]["params"]["message"]
     assert resume["taskId"] == "task-1"
     assert resume["contextId"] == "u:c"
     assert resume["parts"] == [{"data": {"documents": ["Résumé for Northwind"]}}]
 
 
-async def test_a_data_request_ops_does_not_know_is_answered_with_why(client, harness):
+async def test_a_tool_ops_does_not_have_is_refused_with_why(client, harness):
     harness.outcomes = [
         [
             stream_task(),
-            stream_status("INPUT_REQUIRED", [{"data": {"fetch": "weather"}}]),
+            stream_status("INPUT_REQUIRED", [{"data": {"execute_tool": "weather"}}]),
         ],
         _replied("I can't check the weather."),
     ]
@@ -456,11 +459,11 @@ async def test_a_data_request_ops_does_not_know_is_answered_with_why(client, har
         "reply": "I can't check the weather.",
     }
     [part] = a2a_sent(harness)[1]["params"]["message"]["parts"]
-    assert part == {"data": {"error": "Ops can't answer weather"}}
+    assert part == {"data": {"error": "Ops has no weather tool"}}
 
 
-async def test_a_blocking_run_answers_its_data_requests_too(harness):
-    async def answer(request: DataRequest) -> _Documents:
+async def test_a_blocking_run_executes_its_tools_too(harness):
+    async def answer(request: ToolRequest) -> _Documents:
         return _Documents(documents=[request.model_dump()["name"]])
 
     paused = {
@@ -472,7 +475,9 @@ async def test_a_blocking_run_answers_its_data_requests_too(harness):
                     "message": {
                         "messageId": "m",
                         "role": "ROLE_AGENT",
-                        "parts": [{"data": {"fetch": "documents", "name": "nw"}}],
+                        "parts": [
+                            {"data": {"execute_tool": "documents", "name": "nw"}}
+                        ],
                     },
                 },
             }
@@ -505,7 +510,7 @@ async def test_a_blocking_run_answers_its_data_requests_too(harness):
         context_id="u:c",
         data=Answer(),
         metadata=None,
-        answer_data_request=answer,
+        execute_tool=answer,
     )
 
     assert run == Completed(reply="ok")
@@ -578,7 +583,7 @@ async def test_a_blocking_run_keeps_each_usage_its_history_reports_once(harness)
     async def record(user_id: UUID, thread_id: str, task_id: str, usage) -> None:
         kept.append((thread_id, task_id, usage.model))
 
-    async def answer(request: DataRequest) -> _Documents:
+    async def answer(request: ToolRequest) -> _Documents:
         return _Documents(documents=[])
 
     def usage(message_id: str, model: str) -> dict:
@@ -591,7 +596,7 @@ async def test_a_blocking_run_keeps_each_usage_its_history_reports_once(harness)
     asked = {
         "messageId": "ask",
         "role": "ROLE_AGENT",
-        "parts": [{"data": {"fetch": "documents"}}],
+        "parts": [{"data": {"execute_tool": "documents"}}],
     }
     paused = {
         "result": {
@@ -624,7 +629,7 @@ async def test_a_blocking_run_keeps_each_usage_its_history_reports_once(harness)
         context_id="u:c",
         data=Answer(),
         metadata=None,
-        answer_data_request=answer,
+        execute_tool=answer,
     )
 
     assert run == Completed(reply="ok")
@@ -841,7 +846,7 @@ async def test_approving_resumes_the_turn_and_its_update_saves_every_change(
         _resumed(
             stream_status(
                 "INPUT_REQUIRED",
-                [{"data": {"fetch": "profile_update", "edits": edits}}],
+                [{"data": {"execute_tool": "profile_update", "edits": edits}}],
             )
         ),
         _resumed(
@@ -1068,7 +1073,14 @@ async def test_a_sync_preview_lists_what_syncing_would_change_and_saves_nothing(
             stream_task(),
             stream_status(
                 "INPUT_REQUIRED",
-                [{"data": {"fetch": "profile_sync", "document_id": document["id"]}}],
+                [
+                    {
+                        "data": {
+                            "execute_tool": "profile_sync",
+                            "document_id": document["id"],
+                        }
+                    }
+                ],
             ),
         ],
         _replied("Four changes."),
@@ -1137,7 +1149,7 @@ async def test_a_job_run_the_director_asks_for_is_queued_and_answered(client, ha
                 [
                     {
                         "data": {
-                            "fetch": "job_run",
+                            "execute_tool": "job_run",
                             "run_after": "2026-11-13T08:00:00+08:00",
                             "search": search,
                         }
@@ -1150,7 +1162,15 @@ async def test_a_job_run_the_director_asks_for_is_queued_and_answered(client, ha
             stream_task(),
             stream_status(
                 "INPUT_REQUIRED",
-                [{"data": {"fetch": "job_run", "run_after": None, "search": None}}],
+                [
+                    {
+                        "data": {
+                            "execute_tool": "job_run",
+                            "run_after": None,
+                            "search": None,
+                        }
+                    }
+                ],
             ),
         ],
         _replied("One is already queued."),
@@ -1187,7 +1207,14 @@ async def test_only_a_resume_or_cv_has_a_sync_preview(client, harness):
                 stream_task(),
                 stream_status(
                     "INPUT_REQUIRED",
-                    [{"data": {"fetch": "profile_sync", "document_id": document_id}}],
+                    [
+                        {
+                            "data": {
+                                "execute_tool": "profile_sync",
+                                "document_id": document_id,
+                            }
+                        }
+                    ],
                 ),
             ],
             _replied("That isn't a résumé."),
@@ -1214,7 +1241,7 @@ async def test_an_update_saves_all_its_changes_or_none(client, harness):
             stream_task(),
             stream_status(
                 "INPUT_REQUIRED",
-                [{"data": {"fetch": "profile_update", "edits": edits}}],
+                [{"data": {"execute_tool": "profile_update", "edits": edits}}],
             ),
         ],
         _replied("Nothing was saved."),
@@ -1246,7 +1273,14 @@ async def test_an_update_giving_a_role_a_project_field_saves_nothing(client, har
                 stream_task(),
                 stream_status(
                     "INPUT_REQUIRED",
-                    [{"data": {"fetch": "profile_update", "edits": [headline, edit]}}],
+                    [
+                        {
+                            "data": {
+                                "execute_tool": "profile_update",
+                                "edits": [headline, edit],
+                            }
+                        }
+                    ],
                 ),
             ],
             _replied("Nothing was saved."),

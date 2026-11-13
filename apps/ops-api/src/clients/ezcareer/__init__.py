@@ -1,11 +1,12 @@
 from src.clients.ezcareer.client import EzcareerClient
+from src.clients.ezcareer.exceptions import AgentRunFailed
 from src.clients.ezcareer.schemas import (
     Answer,
     Cancelled,
     Completed,
-    DataRequest,
     Decision,
     Decisions,
+    ExecuteTool,
     Failed,
     FamilyModels,
     InputRequired,
@@ -19,18 +20,20 @@ from src.clients.ezcareer.schemas import (
     RunEvent,
     RunMetadata,
     Started,
+    ToolRequest,
     Usage,
     Widget,
 )
 from src.clients.ezcareer.types import ModelFamily
 
 __all__ = [
+    "AgentRunFailed",
     "Answer",
     "Cancelled",
     "Completed",
-    "DataRequest",
     "Decision",
     "Decisions",
+    "ExecuteTool",
     "EzcareerClient",
     "Failed",
     "FamilyModels",
@@ -46,6 +49,7 @@ __all__ = [
     "RunEvent",
     "RunMetadata",
     "Started",
+    "ToolRequest",
     "Usage",
     "Widget",
 ]

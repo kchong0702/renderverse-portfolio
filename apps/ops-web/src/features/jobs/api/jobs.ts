@@ -67,9 +67,6 @@ export const isActive = (run: JobRun | null | undefined) =>
   run?.status === "running" ||
   (run?.status === "queued" && Date.parse(run.run_after) <= Date.now());
 
-export type RunResult<R> =
-  { status: "completed"; reply: R } | { status: "failed"; reason: string };
-
 export interface TailoredDocument {
   document_id: string;
   tailoring: boolean;
@@ -104,7 +101,7 @@ export const findJobs = (search: JobSearch) =>
   http.post<JobRun>(`${URL}/find`, search);
 
 export const analyseJob = (id: string) =>
-  http.post<RunResult<Job>>(`${URL}/${id}/analyse`);
+  http.post<Job>(`${URL}/${id}/analyse`);
 
 export const tailorJob = (id: string) =>
   http.post<TailorResult>(`${URL}/${id}/tailor`);

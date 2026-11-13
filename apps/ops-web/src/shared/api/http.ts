@@ -11,8 +11,29 @@ export class ApiError extends Error {
   }
 }
 
-async function errorMessage(response: Response): Promise<string> {
-  const body = await response.json().catch(() => null);
+export interface NextScreen {
+  label: string;
+  screen: string;
+}
+
+export class RunFailed extends ApiError {
+  constructor(
+    status: number,
+    message: string,
+    readonly next: NextScreen | null,
+  ) {
+    super(status, message);
+    this.name = "RunFailed";
+  }
+}
+
+interface ErrorBody {
+  detail?: string | { msg: string }[];
+  reason?: string;
+  next?: NextScreen | null;
+}
+
+function errorMessage(response: Response, body: ErrorBody | null): string {
   if (typeof body?.detail === "string") return body.detail;
   if (Array.isArray(body?.detail) && body.detail[0]?.msg)
     return body.detail[0].msg;
@@ -20,6 +41,13 @@ async function errorMessage(response: Response): Promise<string> {
     response.statusText ||
     i18n.t("errors.requestFailed", { status: response.status })
   );
+}
+
+async function apiError(response: Response): Promise<ApiError> {
+  const body: ErrorBody | null = await response.json().catch(() => null);
+  return typeof body?.reason === "string"
+    ? new RunFailed(response.status, body.reason, body.next ?? null)
+    : new ApiError(response.status, errorMessage(response, body));
 }
 
 export async function request<T>(
@@ -36,8 +64,7 @@ export async function request<T>(
     },
   });
 
-  if (!response.ok)
-    throw new ApiError(response.status, await errorMessage(response));
+  if (!response.ok) throw await apiError(response);
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
@@ -55,8 +82,7 @@ export async function stream(
       ...init.headers,
     },
   });
-  if (!response.ok || !response.body)
-    throw new ApiError(response.status, await errorMessage(response));
+  if (!response.ok || !response.body) throw await apiError(response);
 
   return response.body
     .pipeThrough(new TextDecoderStream())
