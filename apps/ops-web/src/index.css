@@ -7,6 +7,14 @@
     overscroll-behavior: none;
   }
 
+  * {
+    scrollbar-width: none;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
   body {
     @apply bg-ground text-ink font-sans antialiased;
     font-size: 15px;

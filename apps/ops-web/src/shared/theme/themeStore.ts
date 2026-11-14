@@ -11,7 +11,7 @@ interface ThemeState {
 export const THEME_STORAGE_KEY = "ops:theme";
 
 export const useThemeStore = create<ThemeState>()(
-  persist((set) => ({ mode: "system", setMode: (mode) => set({ mode }) }), {
+  persist((set) => ({ mode: "light", setMode: (mode) => set({ mode }) }), {
     name: THEME_STORAGE_KEY,
   }),
 );
