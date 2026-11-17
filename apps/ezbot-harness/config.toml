@@ -62,7 +62,7 @@ retry_ms = 2000
 replay_ttl_s = 60
 
 [intent]
-enabled = true
+enabled = false
 url = "http://localhost:8001"
 model = "multilingual"
 timeout_s = 10
