@@ -738,9 +738,7 @@
     "signInMethods": {
       "title": "Sign-in methods",
       "names": {
-        "password": "Password",
-        "google": "Google",
-        "github": "GitHub"
+        "password": "Password"
       },
       "status": {
         "not_linked": "Not connected yet",
@@ -934,10 +932,7 @@
   "auth": {
     "title": "Sign in",
     "subtitle": "Only invited accounts can sign in.",
-    "continueWith": {
-      "google": "Continue with Google",
-      "github": "Continue with GitHub"
-    },
+    "continueWith": "Continue with {{name}}",
     "or": "or",
     "email": "Email",
     "password": "Password",

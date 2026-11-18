@@ -8,12 +8,7 @@ from fastapi import APIRouter, Cookie, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
-from src.adapters.oauth_providers import (
-    AuthlibAdapter,
-    OAuthFailed,
-    OAuthIdentity,
-    Provider,
-)
+from src.adapters.oauth_providers import OAuthFailed, OAuthIdentity, OAuthProvider
 from src.core.auth.dependencies import (
     SESSION_COOKIE,
     AuthServiceDep,
@@ -21,7 +16,8 @@ from src.core.auth.dependencies import (
     OAuthProvidersDep,
     current_user,
 )
-from src.core.auth.enums import IdentityProvider, Role
+from src.core.auth.enums import Role
+from src.core.auth.models import PASSWORD
 from src.core.auth.service import AuthService
 from src.core.config import AuthSettings, get_settings
 from src.core.exceptions import (
@@ -41,13 +37,23 @@ class MeRead(BaseModel):
     role: Role
 
 
+class ProviderRead(BaseModel):
+    name: str
+    """The name in the provider's sign-in URLs"""
+
+    label: str
+    """The provider's name on its sign-in button"""
+
+
 class SignInMethods(BaseModel):
     required: bool
     """False while auth is disabled: every request is auth.dev_email"""
 
     password: bool
-    google: bool
-    github: bool
+    """Whether a password signs in"""
+
+    providers: list[ProviderRead]
+    """The providers set up on this server"""
 
 
 class PasswordSignIn(BaseModel):
@@ -56,8 +62,12 @@ class PasswordSignIn(BaseModel):
 
 
 class IdentityRead(BaseModel):
-    provider: IdentityProvider
-    """The sign-in method"""
+    provider: str
+    """The sign-in method: password, or a provider's name"""
+
+    label: str | None
+    """The provider's name on its button; None for a password, or a provider no
+    longer in the settings"""
 
     email: str | None
     """The linked account's email; None while it is not linked"""
@@ -98,9 +108,7 @@ def _settings_page(settings: AuthSettings, error: str) -> RedirectResponse:
     )
 
 
-def _provider(
-    providers: dict[Provider, AuthlibAdapter], provider: Provider
-) -> AuthlibAdapter:
+def _provider(providers: dict[str, OAuthProvider], provider: str) -> OAuthProvider:
     client = providers.get(provider)
     if client is None:
         raise NotFound(f"Sign in with {provider} is not set up")
@@ -108,7 +116,7 @@ def _provider(
 
 
 async def _authorize(
-    client: AuthlibAdapter, request: Request, provider: Provider, next_path: str
+    client: OAuthProvider, request: Request, provider: str, next_path: str
 ) -> Response:
     """Send the user to the provider, coming back through the web callback to next"""
     request.session["next"] = _safe_next(next_path)
@@ -121,7 +129,7 @@ async def _authorize(
 async def _finish_link(
     request: Request,
     service: AuthService,
-    provider: Provider,
+    provider: str,
     identity: OAuthIdentity,
     user_id: str,
     next_path: str,
@@ -157,8 +165,10 @@ async def read_sign_in_methods(providers: OAuthProvidersDep) -> SignInMethods:
     return SignInMethods(
         required=get_settings().auth.enabled,
         password=True,
-        google="google" in providers,
-        github="github" in providers,
+        providers=[
+            ProviderRead(name=name, label=get_settings().auth.provider_labels[name])
+            for name in providers
+        ],
     )
 
 
@@ -179,7 +189,7 @@ async def sign_in_with_password(
 
 @router.get("/auth/{provider}/login")
 async def start_oauth(
-    provider: Provider,
+    provider: str,
     request: Request,
     providers: OAuthProvidersDep,
     next_path: Annotated[str, Query(alias="next")] = "/",
@@ -192,7 +202,7 @@ async def start_oauth(
 
 @router.get("/auth/{provider}/link")
 async def start_link(
-    provider: Provider,
+    provider: str,
     request: Request,
     user: CurrentUserDep,
     providers: OAuthProvidersDep,
@@ -206,7 +216,7 @@ async def start_link(
 
 @router.get("/auth/{provider}/callback")
 async def finish_oauth(
-    provider: Provider,
+    provider: str,
     request: Request,
     service: AuthServiceDep,
     providers: OAuthProvidersDep,
@@ -243,23 +253,26 @@ async def finish_oauth(
 async def read_identities(
     user: CurrentUserDep, service: AuthServiceDep, providers: OAuthProvidersDep
 ) -> list[IdentityRead]:
-    """Every sign-in method, the account linked to it and whether it can be linked"""
+    """The password, every provider in the settings and every account still linked,
+    each with the account's email and whether it can be linked"""
+    labels = service.settings.provider_labels
     linked = {
         identity.provider: identity.email for identity in await service.identities(user)
     }
     return [
         IdentityRead(
             provider=provider,
+            label=labels.get(provider),
             email=linked.get(provider),
-            configured=provider is IdentityProvider.PASSWORD or provider in providers,
+            configured=provider == PASSWORD or provider in providers,
         )
-        for provider in IdentityProvider
+        for provider in dict.fromkeys([PASSWORD, *labels, *linked])
     ]
 
 
 @router.delete("/auth/identities/{provider}", status_code=status.HTTP_204_NO_CONTENT)
 async def unlink_identity(
-    provider: IdentityProvider, user: CurrentUserDep, service: AuthServiceDep
+    provider: str, user: CurrentUserDep, service: AuthServiceDep
 ) -> None:
     """Remove one way the signed-in user signs in, never the last"""
     await service.unlink(user, provider)

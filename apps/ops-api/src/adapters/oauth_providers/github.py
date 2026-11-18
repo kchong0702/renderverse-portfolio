@@ -6,18 +6,15 @@ import httpx2
 from authlib.integrations.starlette_client import OAuth
 from starlette.requests import Request
 
-from src.adapters.oauth_providers.base import (
-    AuthlibAdapter,
-    OAuthIdentity,
-)
+from src.adapters.oauth_providers.base import OAuthIdentity, OAuthProvider
 from src.adapters.oauth_providers.exceptions import OAuthFailed
-from src.core.config import GitHubOAuthSettings
+from src.core.config import GitHubSettings
 
 
-class GitHubAdapter(AuthlibAdapter):
+class GitHubProvider(OAuthProvider):
     """Sign in with GitHub: OAuth 2 with PKCE, emails from the user API"""
 
-    def __init__(self, settings: GitHubOAuthSettings):
+    def __init__(self, settings: GitHubSettings):
         oauth = OAuth()
         oauth.register(
             "github",
@@ -49,4 +46,4 @@ class GitHubAdapter(AuthlibAdapter):
         )
 
 
-__all__ = ["GitHubAdapter"]
+__all__ = ["GitHubProvider"]

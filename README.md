@@ -155,12 +155,23 @@ renderverse reads the current release straight from the bucket, never from ops-a
 
 ### Sign-in
 
-With `OPS_API_AUTH__ENABLED=true`, Ops needs a signed-in session: Google, GitHub, or an email and password. `OPS_API_AUTH__SECRET_KEY` must be set (e.g. `openssl rand -hex 32`); [apps/ops-api/.env.example](apps/ops-api/.env.example) lists every variable. Google and GitHub appear once their client id and secret are set, with this callback URL registered at the provider (`auth.web_url` is where ops-web is served):
+With `OPS_API_AUTH__ENABLED=true`, Ops needs a signed-in session: an email and password, GitHub, or any OpenID Connect provider such as Google. `OPS_API_AUTH__SECRET_KEY` must be set (e.g. `openssl rand -hex 32`); [apps/ops-api/.env.example](apps/ops-api/.env.example) lists every variable.
+
+Each OpenID Connect provider is a `[auth.oidc.<name>]` table in [config.toml](apps/ops-api/config.toml) with a `label` for its button and its discovery document as `config_url`. Google is already there. To add another, add its table; no code changes:
+
+```toml
+[auth.oidc.microsoft]
+label = "Microsoft"
+config_url = "https://login.microsoftonline.com/<tenant-id>/v2.0/.well-known/openid-configuration"
+```
+
+A provider appears on the sign-in page once its client id and secret are set, as `OPS_API_AUTH__OIDC__<NAME>__CLIENT_ID` and `OPS_API_AUTH__OIDC__<NAME>__CLIENT_SECRET`, or `OPS_API_AUTH__GITHUB__CLIENT_ID` and `OPS_API_AUTH__GITHUB__CLIENT_SECRET` for GitHub. Register this callback URL at the provider (`auth.web_url` is where ops-web is served):
 
 ```
-<auth.web_url>/ops-api/v1/auth/google/callback
-<auth.web_url>/ops-api/v1/auth/github/callback
+<auth.web_url>/ops-api/v1/auth/<name>/callback
 ```
+
+The name is stored with each linked account, so after renaming a provider's table its linked accounts no longer sign in.
 
 The `users` table is the allowlist. Only a seeded user can sign in, by any method, and sign-in never creates a user. Seed one in the database, with the email lowercased and trimmed and a role of `admin` or `user`:
 

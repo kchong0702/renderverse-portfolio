@@ -1,7 +1,9 @@
+import { KeyRound } from "lucide-react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { oauthLoginUrl, type OAuthProvider } from "../api/auth";
 
-const providerMarks = {
+const providerMarks: Record<string, ReactNode> = {
   google: (
     <svg aria-hidden="true" width="18" height="18" viewBox="0 0 48 48">
       <path
@@ -45,11 +47,13 @@ export default function ProviderButton({
   const { t } = useTranslation();
   return (
     <a
-      href={oauthLoginUrl(provider, next)}
+      href={oauthLoginUrl(provider.name, next)}
       className="border-hair bg-ground text-ink hover:bg-well flex min-h-11 items-center justify-center gap-2.5 rounded-lg border text-sm font-medium no-underline"
     >
-      {providerMarks[provider]}
-      {t(`auth.continueWith.${provider}`)}
+      {providerMarks[provider.name] ?? (
+        <KeyRound aria-hidden="true" size={18} />
+      )}
+      {t("auth.continueWith", { name: provider.label })}
     </a>
   );
 }

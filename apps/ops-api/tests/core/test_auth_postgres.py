@@ -4,8 +4,7 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy import delete
 
-from src.core.auth.enums import IdentityProvider
-from src.core.auth.models import AuthIdentity, SignInAttempts, User
+from src.core.auth.models import PASSWORD, AuthIdentity, SignInAttempts, User
 from src.core.auth.service import AuthService
 from src.core.config import AuthSettings
 from src.core.exceptions import Conflict, ServiceException
@@ -45,13 +44,13 @@ async def test_parallel_unlinks_keep_the_last_method(engine, postgres_user: UUID
             [
                 AuthIdentity(
                     user_id=postgres_user,
-                    provider=IdentityProvider.PASSWORD,
+                    provider=PASSWORD,
                     email=f"{postgres_user}@example.com",
                     secret_hash="hash",
                 ),
                 AuthIdentity(
                     user_id=postgres_user,
-                    provider=IdentityProvider.GOOGLE,
+                    provider="google",
                     subject=str(postgres_user),
                     email=f"{postgres_user}@example.com",
                 ),
@@ -60,9 +59,9 @@ async def test_parallel_unlinks_keep_the_last_method(engine, postgres_user: UUID
     user = User(id=postgres_user)
 
     async with factory() as first, factory() as second:
-        await AuthService(first, AuthSettings()).unlink(user, IdentityProvider.GOOGLE)
+        await AuthService(first, AuthSettings()).unlink(user, "google")
         racing = asyncio.create_task(
-            AuthService(second, AuthSettings()).unlink(user, IdentityProvider.PASSWORD)
+            AuthService(second, AuthSettings()).unlink(user, PASSWORD)
         )
         await asyncio.sleep(0.5)
         assert not racing.done()

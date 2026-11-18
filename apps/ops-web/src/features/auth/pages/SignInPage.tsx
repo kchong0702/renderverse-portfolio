@@ -28,9 +28,7 @@ export default function SignInPage() {
 
   if (me.data) return <Navigate to={next} replace />;
 
-  const providers = (["google", "github"] as const).filter(
-    (provider) => methods.data?.[provider],
-  );
+  const providers = methods.data?.providers ?? [];
   const error = signIn.error
     ? t("auth.errors.password", { reason: signIn.error.message })
     : callbackErrors.includes(callbackError as CallbackError)
@@ -109,7 +107,7 @@ export default function SignInPage() {
             <div className="flex flex-col gap-2.5">
               {providers.map((provider) => (
                 <ProviderButton
-                  key={provider}
+                  key={provider.name}
                   provider={provider}
                   next={next}
                 />

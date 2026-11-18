@@ -403,8 +403,10 @@ async def test_sign_in_methods(auth_client):
     assert response.json() == {
         "required": True,
         "password": True,
-        "google": True,
-        "github": True,
+        "providers": [
+            {"name": "google", "label": "Google"},
+            {"name": "github", "label": "GitHub"},
+        ],
     }
 
 
@@ -520,18 +522,26 @@ async def test_unconfigured_provider_is_not_found(auth_client, oauth_providers):
     assert response.status_code == 404
 
 
-async def test_identities_list_every_method(auth_app, auth_client, oauth_providers):
+async def test_identities_list_the_password_each_provider_and_each_linked_account(
+    auth_app, auth_client, oauth_providers
+):
     await _set_password(auth_app)
     await _sign_in(auth_client)
     await _link(auth_client, "google")
-    del oauth_providers["github"]
+    async with auth_app.state.session_factory() as session, session.begin():
+        user = await session.scalar(select(User).where(User.email == OWNER))
+        session.add(
+            AuthIdentity(user_id=user.id, provider="okta", subject="o-1", email=OWNER)
+        )
+    del oauth_providers["google"]
 
     response = await auth_client.get(f"{PREFIX}/auth/identities")
 
     assert response.json() == [
-        {"provider": "password", "email": OWNER, "configured": True},
-        {"provider": "google", "email": OWNER, "configured": True},
-        {"provider": "github", "email": None, "configured": False},
+        {"provider": "password", "label": None, "email": OWNER, "configured": True},
+        {"provider": "google", "label": "Google", "email": OWNER, "configured": False},
+        {"provider": "github", "label": "GitHub", "email": None, "configured": True},
+        {"provider": "okta", "label": None, "email": OWNER, "configured": False},
     ]
 
 

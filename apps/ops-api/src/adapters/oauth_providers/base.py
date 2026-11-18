@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 import httpx2
 from authlib.integrations.starlette_client import OAuthError, StarletteOAuth2App
@@ -10,8 +10,6 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from src.adapters.oauth_providers.exceptions import OAuthFailed
-
-Provider = Literal["google", "github"]
 
 
 @dataclass(frozen=True)
@@ -23,8 +21,8 @@ class OAuthIdentity:
     """Verified emails, lowercased, primary first"""
 
 
-class AuthlibAdapter(ABC):
-    """Base for every provider's adapter: Authlib keeps the state, PKCE verifier and
+class OAuthProvider(ABC):
+    """Base for every sign-in provider: Authlib keeps the state, PKCE verifier and
     nonce in Starlette's session cookie between the redirect and the callback"""
 
     def __init__(self, client: StarletteOAuth2App):
@@ -44,8 +42,4 @@ class AuthlibAdapter(ABC):
         """The account behind the callback; raises OAuthFailed if there is none"""
 
 
-__all__ = [
-    "AuthlibAdapter",
-    "OAuthIdentity",
-    "Provider",
-]
+__all__ = ["OAuthIdentity", "OAuthProvider"]

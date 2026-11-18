@@ -9,14 +9,16 @@ export interface Me {
   role: "admin" | "user";
 }
 
+export interface OAuthProvider {
+  name: string;
+  label: string;
+}
+
 export interface SignInMethods {
   required: boolean;
   password: boolean;
-  google: boolean;
-  github: boolean;
+  providers: OAuthProvider[];
 }
-
-export type OAuthProvider = "google" | "github";
 
 export interface PasswordSignIn {
   email: string;
@@ -34,5 +36,5 @@ export const signInWithPassword = (body: PasswordSignIn) =>
 
 export const signOut = () => http.post<void>(`${base}/auth/sign-out`);
 
-export const oauthLoginUrl = (provider: OAuthProvider, next: string) =>
+export const oauthLoginUrl = (provider: string, next: string) =>
   `${base}/auth/${provider}/login?${new URLSearchParams({ next })}`;

@@ -6,9 +6,9 @@ from datetime import timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.adapters.oauth_providers import OAuthIdentity, Provider
-from src.core.auth.enums import AttemptScope, IdentityProvider, Role
-from src.core.auth.models import AuthIdentity, AuthSession, User
+from src.adapters.oauth_providers import OAuthIdentity
+from src.core.auth.enums import AttemptScope, Role
+from src.core.auth.models import PASSWORD, AuthIdentity, AuthSession, User
 from src.core.auth.passwords import MIN_PASSWORD_LENGTH, hash_password, verify_password
 from src.core.auth.repository import AuthRepository
 from src.core.config import AuthSettings
@@ -61,9 +61,7 @@ class AuthService:
         await self._count_attempt(email, address)
         user = await self._repository.user_by_email(email)
         identity = (
-            await self._repository.user_identity(user.id, IdentityProvider.PASSWORD)
-            if user
-            else None
+            await self._repository.user_identity(user.id, PASSWORD) if user else None
         )
         matches, new_hash = verify_password(
             password, identity.secret_hash if identity else None
@@ -81,9 +79,9 @@ class AuthService:
         return user
 
     async def sign_in_with_identity(
-        self, provider: Provider, identity: OAuthIdentity
+        self, provider: str, identity: OAuthIdentity
     ) -> User:
-        """The user a Google or GitHub account is linked to, or the first of its emails'
+        """The user a provider's account is linked to, or the first of its emails'
         seeded users with no sign-in method yet, who it is then linked to"""
         linked = await self._repository.identity(provider, identity.subject)
         user = (
@@ -109,15 +107,15 @@ class AuthService:
         return await self._repository.identities(user.id)
 
     async def link_identity(
-        self, user: User, provider: Provider, identity: OAuthIdentity
+        self, user: User, provider: str, identity: OAuthIdentity
     ) -> None:
-        """Add a Google or GitHub account as one more way the user signs in"""
+        """Add a provider's account as one more way the user signs in"""
         linked = await self._repository.identity(provider, identity.subject)
         if linked is not None and linked.user_id == user.id:
             return
         if linked is not None:
             raise Conflict(f"This {provider} account is linked to someone else")
-        if await self._repository.user_identity(user.id, IdentityProvider(provider)):
+        if await self._repository.user_identity(user.id, provider):
             raise Conflict(f"You already have a {provider} account linked")
         if not identity.emails:
             raise InvalidInput(f"This {provider} account has no verified email")
@@ -130,7 +128,7 @@ class AuthService:
             )
         )
 
-    async def unlink(self, user: User, provider: IdentityProvider) -> None:
+    async def unlink(self, user: User, provider: str) -> None:
         """Remove one way the user signs in, never the last one"""
         identities = await self._repository.identities(user.id, lock=True)
         identity = next((i for i in identities if i.provider == provider), None)
@@ -186,14 +184,12 @@ class AuthService:
             raise InvalidInput(
                 f"A password needs at least {MIN_PASSWORD_LENGTH} characters"
             )
-        identity = await self._repository.user_identity(
-            user.id, IdentityProvider.PASSWORD
-        )
+        identity = await self._repository.user_identity(user.id, PASSWORD)
         if identity is None:
             await self._repository.add(
                 AuthIdentity(
                     user_id=user.id,
-                    provider=IdentityProvider.PASSWORD,
+                    provider=PASSWORD,
                     email=email,
                     secret_hash=hash_password(password),
                 )
