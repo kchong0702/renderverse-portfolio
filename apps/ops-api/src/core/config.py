@@ -149,6 +149,9 @@ class ProfileSettings(BaseModel):
 class OAuthClientSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
+    label: str
+    """The provider's name on the sign-in button, such as Google"""
+
     client_id: str = ""
     """OAuth client id; the provider is offered only when it is set"""
 
@@ -163,15 +166,18 @@ class OAuthClientSettings(BaseModel):
         return bool(self.client_id and self.client_secret.get_secret_value())
 
 
-class GoogleOAuthSettings(OAuthClientSettings):
-    discovery_url: str = "https://accounts.google.com/.well-known/openid-configuration"
+class OIDCSettings(OAuthClientSettings):
+    config_url: str
     """OpenID Connect discovery document; Authlib reads the endpoints and keys from it"""
 
     scope: str = "openid email"
     """The ID token's subject and verified email"""
 
 
-class GitHubOAuthSettings(OAuthClientSettings):
+class GitHubSettings(OAuthClientSettings):
+    label: str = "GitHub"
+    """The provider's name on the sign-in button"""
+
     authorize_url: str = "https://github.com/login/oauth/authorize"
     """Where the user is sent to approve the sign-in"""
 
@@ -203,16 +209,27 @@ class AuthSettings(BaseModel):
     session_idle_days: int = Field(default=30, gt=0)
     """A session expires after this many days without a request"""
 
-    google: GoogleOAuthSettings = Field(default_factory=GoogleOAuthSettings)
-    """Sign in with Google"""
+    oidc: dict[Annotated[str, Field(pattern=r"^[a-z][a-z0-9-]*$")], OIDCSettings] = (
+        Field(default_factory=dict)
+    )
+    """Sign in with each OpenID Connect provider, keyed by the name in its URLs"""
 
-    github: GitHubOAuthSettings = Field(default_factory=GitHubOAuthSettings)
+    github: GitHubSettings = Field(default_factory=GitHubSettings)
     """Sign in with GitHub"""
 
     @field_validator("web_url", mode="after")
     @classmethod
     def _strip_trailing_slash(cls, v: str) -> str:
         return v.rstrip("/")
+
+    @field_validator("oidc", mode="after")
+    @classmethod
+    def _names_free(cls, v: dict[str, OIDCSettings]) -> dict[str, OIDCSettings]:
+        """Refuse an OIDC provider named password or github"""
+        taken = {"password", "github"} & v.keys()
+        if taken:
+            raise ValueError(f"auth.oidc can't use the names {sorted(taken)}")
+        return v
 
     @model_validator(mode="after")
     def _enabled_requires_key(self) -> AuthSettings:
@@ -226,6 +243,13 @@ class AuthSettings(BaseModel):
     @property
     def secure_cookies(self) -> bool:
         return self.web_url.startswith("https://")
+
+    @property
+    def provider_labels(self) -> dict[str, str]:
+        """Each sign-in provider's button label by name, set up or not"""
+        return {name: oidc.label for name, oidc in self.oidc.items()} | {
+            "github": self.github.label
+        }
 
 
 class DatabaseSettings(BaseModel):

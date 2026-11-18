@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import Cookie, Depends, Request
 
-from src.adapters.oauth_providers import AuthlibAdapter, Provider
+from src.adapters.oauth_providers import OAuthProvider
 from src.app.actor import set_actor, user_actor
 from src.core.auth.enums import Role
 from src.core.auth.models import User
@@ -24,14 +24,12 @@ def get_auth_service(session: SessionDep) -> AuthService:
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 
 
-def get_oauth_providers(request: Request) -> dict[Provider, AuthlibAdapter]:
+def get_oauth_providers(request: Request) -> dict[str, OAuthProvider]:
     """The OAuth clients the app built at startup, by provider"""
     return request.app.state.oauth_providers
 
 
-OAuthProvidersDep = Annotated[
-    dict[Provider, AuthlibAdapter], Depends(get_oauth_providers)
-]
+OAuthProvidersDep = Annotated[dict[str, OAuthProvider], Depends(get_oauth_providers)]
 
 
 async def current_user(

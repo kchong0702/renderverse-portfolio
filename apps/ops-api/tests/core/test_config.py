@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from src.adapters.oauth_providers import GitHubProvider, OIDCProvider, build_providers
 from src.core.config import AuthSettings, JSearchSettings, Settings
 
 
@@ -59,6 +60,33 @@ def test_enabled_auth_starts_anywhere():
     )
 
     assert settings.auth.enabled
+
+
+def _oidc(**values) -> dict:
+    return {"label": "Microsoft", "config_url": "https://idp.test/.well-known"} | values
+
+
+def test_each_oidc_provider_with_credentials_signs_in_under_its_name():
+    providers = build_providers(
+        AuthSettings(
+            oidc={
+                "microsoft": _oidc(client_id="id", client_secret="secret"),
+                "okta": _oidc(label="Okta"),
+            },
+            github={"client_id": "id", "client_secret": "secret"},
+        )
+    )
+
+    assert {name: type(p) for name, p in providers.items()} == {
+        "microsoft": OIDCProvider,
+        "github": GitHubProvider,
+    }
+
+
+@pytest.mark.parametrize("name", ["password", "github", "Bad Name"])
+def test_an_oidc_provider_cannot_take_a_reserved_or_unsafe_name(name):
+    with pytest.raises(ValidationError):
+        AuthSettings(oidc={name: _oidc()})
 
 
 def test_cookies_are_secure_on_https():

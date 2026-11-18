@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import case, delete, exists, select
 from sqlalchemy.dialects import postgresql, sqlite
 
-from src.core.auth.enums import AttemptScope, IdentityProvider
+from src.core.auth.enums import AttemptScope
 from src.core.auth.models import AuthIdentity, AuthSession, SignInAttempts, User
 from src.db.repository import Repository
 
@@ -36,9 +36,7 @@ class AuthRepository(Repository):
             )
         )
 
-    async def user_identity(
-        self, user_id: UUID, provider: IdentityProvider
-    ) -> AuthIdentity | None:
+    async def user_identity(self, user_id: UUID, provider: str) -> AuthIdentity | None:
         """The user's identity with this provider, if they have one"""
         return await self._session.scalar(
             select(AuthIdentity).where(

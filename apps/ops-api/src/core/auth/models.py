@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import CheckConstraint, DateTime, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.auth.enums import AttemptScope, IdentityProvider, Role
+from src.core.auth.enums import AttemptScope, Role
 from src.db.base import Base, EnumString, utcnow
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 
@@ -31,24 +31,25 @@ class User(IdMixin, AuditMixin, Base):
     """When access was revoked; None while the user can sign in"""
 
 
+PASSWORD = "password"
+"""The provider name of an identity that signs in with a password"""
+
+
 class AuthIdentity(IdMixin, UserScopedMixin, Base):
-    """One way a user signs in: a password, a Google account or a GitHub account"""
+    """One way a user signs in: a password or an account with a sign-in provider"""
 
     __tablename__ = "auth_identities"
     __table_args__ = (
         UniqueConstraint("provider", "subject"),
         UniqueConstraint("user_id", "provider"),
-        CheckConstraint(
-            "provider in ('password', 'google', 'github')", name="provider"
-        ),
         CheckConstraint("(provider = 'password') = (subject is null)", name="subject"),
         CheckConstraint(
             "(provider = 'password') = (secret_hash is not null)", name="secret_hash"
         ),
     )
 
-    provider: Mapped[IdentityProvider] = mapped_column(EnumString(IdentityProvider))
-    """How the user signs in"""
+    provider: Mapped[str] = mapped_column(String)
+    """PASSWORD, or the name of the provider the account is with"""
 
     subject: Mapped[str | None] = mapped_column(String(255))
     """The provider's stable account id; None for a password"""
@@ -57,7 +58,7 @@ class AuthIdentity(IdMixin, UserScopedMixin, Base):
     """The verified email when it was linked"""
 
     secret_hash: Mapped[str | None] = mapped_column(String(255))
-    """The password's Argon2id hash; None for Google and GitHub"""
+    """The password's Argon2id hash; None for a provider's account"""
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
@@ -98,4 +99,4 @@ class SignInAttempts(Base):
     window_ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
-__all__ = ["AuthIdentity", "AuthSession", "SignInAttempts", "User"]
+__all__ = ["PASSWORD", "AuthIdentity", "AuthSession", "SignInAttempts", "User"]

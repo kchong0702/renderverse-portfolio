@@ -21,7 +21,7 @@ export default function SignInMethodsPanel() {
           })}
         </p>
       )}
-      {identities.data?.map(({ provider, email, configured }) => (
+      {identities.data?.map(({ provider, label, email, configured }) => (
         <div
           key={provider}
           className="border-hair-soft flex flex-col gap-3.5 border-t pt-3.5"
@@ -29,7 +29,9 @@ export default function SignInMethodsPanel() {
           <div className="flex items-center justify-between gap-3.5">
             <span className="flex min-w-0 flex-col">
               <span className="font-semibold">
-                {t(`settings.signInMethods.names.${provider}`)}
+                {provider === "password"
+                  ? t("settings.signInMethods.names.password")
+                  : (label ?? provider)}
               </span>
               <span
                 className={cn(

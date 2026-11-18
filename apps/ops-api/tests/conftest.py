@@ -50,7 +50,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 class FakeProvider:
-    """Stands in for Google or GitHub: redirects nowhere, returns a set identity"""
+    """Stands in for a sign-in provider: redirects nowhere, returns a set identity"""
 
     def __init__(self, subject: str, emails: list[str]):
         from src.adapters.oauth_providers import OAuthIdentity
