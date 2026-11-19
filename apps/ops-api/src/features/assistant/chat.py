@@ -140,6 +140,10 @@ class AssistantChat:
         thread_id = _thread(user_id, chat_id)
         data = await self._profile.agent_profile(user_id)
         metadata = await self._settings.run_metadata(user_id)
+        if message.timezone:
+            metadata = (metadata or RunMetadata()).model_copy(
+                update={"timezone": message.timezone}
+            )
         return await self._runner.start(
             user_id,
             thread_id,

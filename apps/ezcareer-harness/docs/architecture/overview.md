@@ -218,9 +218,10 @@ ops-api resumes the task with one decision per action request, in order: `{"deci
 
 ## Run metadata
 
-A request's `params.metadata` sets up one run. `LanggraphExecutor` validates it as `RunMetadata` and hands it to the graph as the `RunContext` runtime context:
+A request's `params.metadata` sets up one run. `LanggraphExecutor` validates it as `RunMetadata`:
 
-- `model` picks the model every LLM call of the run uses. `dynamic_model_call` applies it. Without it, each agent keeps its own.
+- `model` picks the model every LLM call of the run uses. It goes to the graph as the `RunContext` runtime context, and `dynamic_model_call` applies it. Without it, each agent keeps its own.
+- `timezone` is the IANA time zone of the user's browser, UTC when it is missing. ops-web sends it with each assistant chat message, and ops-api passes it on. A zone that doesn't exist fails the run. `LanggraphExecutor._messages` starts an agent run's user message with the time the harness received it, read from the harness's own clock in that zone, such as `[Thu 19 Nov 2026, 21:05 Asia/Kuala_Lumpur] Search tomorrow at 9`. Each message keeps its stamp in the checkpointed history, so the agent knows the current date and time and how long ago earlier messages came, and the system prompt stays the same between turns. A workflow's message isn't stamped. ops-api sends only the zone, never a date or time.
 
 Metadata carries no credentials, and `RunMetadata` refuses any other field. The harness holds no third-party key apart from its own model keys: a tool that needs the user's account, such as Gmail or a job search, asks ops-api to execute a [tool](#tools-ops-api-executes), and ops-api makes the call.
 

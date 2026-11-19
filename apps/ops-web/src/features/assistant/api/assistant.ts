@@ -236,7 +236,13 @@ export const sendMessage = (
     chat,
     {
       url: `${chatUrl(chat)}/messages`,
-      body: { text },
+      body:
+        chat.kind === "document"
+          ? { text }
+          : {
+              text,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            },
     },
     null,
     signal,
