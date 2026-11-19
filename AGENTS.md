@@ -45,3 +45,11 @@
 - Never push to `main` or merge into it; changes reach `main` only through a pull request the user merges.
 - Never `git merge main` into a branch; rebase it onto `main` instead.
 - Never force push, except to update a branch after a rebase (use `--force-with-lease`).
+
+# Pull Requests
+
+- Make every pull request evidence-driven: show that the change works, not only what it changes. Include each kind of evidence that applies:
+  - **Screenshots** of the real app for any UI change, before and after when the look changes. Attach them with `gh pr create --attach`.
+  - **An architecture diagram** in Mermaid when the change adds or moves services, layers, agents, tools or data stores.
+  - **A sequence diagram** in Mermaid when the change adds or alters a flow across services or agents, such as requests, handoffs, pauses or approvals.
+- Under Testing, give what you ran and what it showed, such as commands and results, a real end-to-end run and its output, and anything not tested.
