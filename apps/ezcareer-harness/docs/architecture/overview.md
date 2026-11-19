@@ -30,13 +30,13 @@ The harness serves three kinds of graph over A2A:
 - **A workflow**: a LangGraph graph that runs an agent as one of its nodes, to make a run deterministic.
 - **An agent graph**: a main agent and the child agents it hands the conversation to, each a node (see [Agent graphs](#agent-graphs)).
 
-| Agent                  | Workflows it runs                                                   | Served as                                |
-| ---------------------- | ------------------------------------------------------------------- | ---------------------------------------- |
-| job-analyst            | `analyse-job`, `find-jobs`                                          | an agent                                 |
-| career-consultant      | `edit-document` (`src/features/write_document`), `write-networking` | an agent                                 |
-| career-director        | none; runs the others as tools; `update-profile` skill              | the main agent of its agent graph        |
-| productivity-assistant | `triage-email`, `draft-reply`                                       | a child agent in career-director's graph |
-| document-analyst       | `import-resume` (`src/features/import_document`), `import-profile`  | not served; only its workflows are       |
+| Agent                  | Workflows it runs                                                  | Served as                                              |
+| ---------------------- | ------------------------------------------------------------------ | ------------------------------------------------------ |
+| job-analyst            | `analyse-job`, `find-jobs`                                         | an agent                                               |
+| career-consultant      | `write-networking`                                                 | an agent, and a child agent in career-director's graph |
+| career-director        | none; runs the others as tools; `update-profile` skill             | the main agent of its agent graph                      |
+| productivity-assistant | `triage-email`, `draft-reply`                                      | a child agent in career-director's graph               |
+| document-analyst       | `import-resume` (`src/features/import_document`), `import-profile` | not served; only its workflows are                     |
 
 productivity-assistant reads the emails of the user's job search, says what is on the user's calendar and drafts the user's replies. It never sends anything. career-director hands it the conversation when the user asks about their email or calendar. It works with tools it owns:
 
@@ -65,15 +65,19 @@ document-analyst only structures what it is given: a résumé's lines or a profi
 - `citations`: each cited fact exists.
 - `form`: each field keeps to its cap in `configurations.yaml` (headline 220 characters, summary 2600, description 2000), and is plain text, with bullets as `•`.
 
-career-consultant's `document_prompt` adds the document to the system prompt only when the state has one, so the same agent writes job portal content with no document.
+career-consultant edits one résumé, CV or cover letter, the one its state's `document_id` names. Ops' document chat calls it with that `document_id`, and career-director hands it the conversation with one (see [Agent graphs](#agent-graphs)). Its own pieces keep every edit checked and fitted:
+
+- `load_document`, a `before_agent` middleware, loads the document at the start of every run: it pauses for ops-api's `document` tool and puts the document, its PDF lines and its files in state. It fails the run with ops-api's reason when it can't, and does nothing when no `document_id` is set.
+- `document_prompt`, a `@dynamic_prompt`, adds the document to the system prompt only when the state has one, so the same agent writes job portal content with no document.
+- `propose_changeset` runs the edit checks and returns their errors for the agent to fix. Once a changeset passes, it prints the document through artifact-service and deletes untouched bullets, from the entry with the most and never an entry's last, until the edited document prints on no more pages than before, at most `[documents] page_fit_trims` (5) of them. It publishes the fitted changeset as a `changeset` artifact with the `document_id`.
 
 ## Agent graphs
 
 An agent graph is a LangGraph graph whose main node is an agent, with child agents joined as nodes beside it. It follows LangChain's [handoffs pattern](https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs) with agent subgraphs. career-director's is the only one: `src/agents/career_director/graph.py` builds it, and `/ezcareer/a2a/career-director` serves it.
 
-- Each agent is a node named after it: the main agent `career-director`, and its children, today only `productivity-assistant`.
+- Each agent is a node named after it: the main agent `career-director`, and its children, `productivity-assistant` and `career-consultant`.
 - The state keeps `active_agent`, the agent the conversation is with. A turn starts at that agent, and at career-director when there is none yet. The served graph keeps checkpoints per A2A context, so a follow-up about email goes straight to productivity-assistant and makes no director model call. This is the "active agent" routing that issue #86 asks for.
-- career-director calls `handoff_to_child` with the child's name. Its choices are exactly the children joined to the graph.
+- career-director calls `handoff_to_child` with the child's name. Its choices are exactly the children joined to the graph. For career-consultant it also passes the `document_id` of the document `find_documents` found, which the handoff writes into the graph state, so career-consultant loads that document on every turn it answers.
 - A child calls `handoff_to_parent` when a message isn't its to answer.
 - A handoff tool returns `Command(goto=..., graph=Command.PARENT)`. It sets `active_agent` and passes on only the AI message that called it and a ToolMessage answering it, so the next agent sees a complete tool call and none of the last agent's own steps.
 - An agent that answers without a tool call ends the turn.
@@ -82,7 +86,7 @@ Only an agent that joins the graph as a child gets `handoff_to_parent`:
 
 - `build_agent` gives every agent `HandoffToParentMiddleware`. It registers the tool through `AgentMiddleware.tools`, and its `wrap_model_call` removes the tool from each model call with `request.override(tools=...)`, unless the run is a child node of an agent graph.
 - The graph builder joins each child with `child.with_config(configurable={"parent_agent": ...})`. The tool hands back to that agent.
-- So the same productivity-assistant instance that runs inside `triage-email` and `draft-reply`, or on its own, is never offered the tool.
+- So the same productivity-assistant instance that runs inside `triage-email` and `draft-reply`, or on its own, is never offered the tool, nor is career-consultant in `write-networking` or Ops' document chat.
 
 Both handoff tools live in `src/tools/handoff.py`.
 
@@ -122,7 +126,7 @@ Called directly with its state in the A2A data part, an agent does its whole job
 
 The direction is one way: a workflow runs an agent, and an agent never runs a workflow built on itself. productivity-assistant drafts a reply with its own reads, and `draft-reply` wraps it for Ops' Inbox.
 
-So whatever an agent's model must see comes from the agent itself. career-consultant's `document_prompt` middleware, LangChain's `@dynamic_prompt`, adds `state["document"]` to the system prompt on every model call. The document reaches the model the same way whether a direct caller sent it or edit-document's `load` node loaded it.
+So whatever an agent's model must see comes from the agent itself. career-consultant's `load_document` middleware loads the document its state names, and its `document_prompt` middleware adds it to the system prompt on every model call, whether Ops' document chat called it or career-director handed it the conversation.
 
 ## Workflows own no tools
 
@@ -154,7 +158,7 @@ interrupt({"execute_tool": "document", "id": document_id})
 
 The A2A task becomes `input-required`, and its message carries the request as a data part. The part's metadata holds the interrupt's id, `{"interrupt_id": ...}`. When the model calls several such tools at once, such as one search per country, the message has one part per call. ops-api executes every tool for the run's user, together, and resumes the task with one data part per result, each with the `interrupt_id` of the call it answers in its metadata. The harness resumes the graph with `Command(resume={interrupt_id: result})`, so each call gets its own result. A result is `{"error": ...}` when ops-api can't execute the tool. These tools exist today:
 
-- `{"execute_tool": "document", "id": ...}`, from `write_document`'s `load` node.
+- `{"execute_tool": "document", "id": ...}`, from career-consultant's `load_document` middleware.
 - `{"execute_tool": "documents", "name": ..., "kind": ...}`, from career-director's `find_documents` tool.
 - `{"execute_tool": "thread", "id": ...}`, from productivity-assistant's `read_thread` tool. ops-api returns `{"thread": ...}`, or `{"error": ...}` when it can't.
 - `{"execute_tool": "free_slots", "days": ...}`, from productivity-assistant's `read_free_slots` tool. ops-api returns `{"free_slots": [...], "timezone": ...}`, with no slots when the user offers none.
@@ -230,7 +234,7 @@ Clients call `SendStreamingMessage`. `LanggraphExecutor` streams the graph with 
 
 - **Steps.** Each node, tool call and subgraph task is a working status update whose data part is `{"step": ...}`.
 - **Agent graphs.** In career-director's graph, `Executable.agent_nodes` names the nodes that run an agent. The executor drops that node from each step's and model chunk's namespace, so whichever agent runs streams its tool calls, thinking and text as if it were served alone. A handoff ends its agent with `Command.PARENT`, so its tool task never reports a result. The step closes when the agent's node ends, with the next agent's name as its detail.
-- **Step details.** A finished step carries `detail`, a short result or target in plain words, such as `1 cover letter`. A tool sets it by returning `{"step_detail": ...}` in its ToolMessage artifact, beside `name` and `data` when it also publishes one. A tool call's step reads its own tool's detail. A node's step reads the last detail its tools set. `find_documents` sets the count by kind, `edit_document` the document's title, and `propose_changeset` the first fact its edits cite, such as `citing Acme Payments`.
+- **Step details.** A finished step carries `detail`, a short result or target in plain words, such as `1 cover letter`. A tool sets it by returning `{"step_detail": ...}` in its ToolMessage artifact, beside `name` and `data` when it also publishes one. A tool call's step reads its own tool's detail. A node's step reads the last detail its tools set. `find_documents` sets the count by kind, `handoff_to_child` the agent it hands to, and `propose_changeset` the first fact its edits cite, such as `citing Acme Payments`.
 - **Usage.** Each model call that ends, in any agent, workflow node or tool's workflow, is a working status update whose data part is `{"usage": ...}`. A LangChain callback handler, `UsageReporter`, reads the call's final `AIMessage`. The part carries `provider` (the model's family in `[models]`), `model` (as `[models]` names it), `agent` (the nearest configured agent graph the call runs in, else the executable), `node`, LangChain's `input_tokens` and `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `reasoning_tokens`, `latency_ms`, `stop_reason` and `request_id`. Tokens are 0 when the provider sent no usage, and a call that fails sends nothing. glm models set `stream_usage` so the gateway streams usage. A blocking `SendMessage` returns these messages in the task's `history`.
 - **Thinking and text.** The model's reasoning and text stream as `thinking` and `text` artifacts, one per model turn. For a workflow, they come from the node that `Executable.reply_node` names.
 - **Tool artifacts.** A tool that returns an artifact `{"name": ..., "data": ...}` publishes it as an artifact of that name. `propose_changeset` publishes `changeset` this way.

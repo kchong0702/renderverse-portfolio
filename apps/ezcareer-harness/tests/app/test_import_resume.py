@@ -7,10 +7,10 @@ from pydantic import JsonValue
 from src.app.app import create_app
 from src.app.container import Container
 from src.features.import_document import build_graph
+from tests.agents.career_consultant.test_career_consultant import _print
 from tests.conftest import ScriptedChatModel
 from tests.features.import_document.test_extract import _artifact_service
 from tests.features.import_document.test_import_graph import _model, _reply
-from tests.features.write_document.test_write_document_graph import _print
 from tests.pdfs import make_pdf
 
 PDF = make_pdf([(10, 10, "Ada Lovelace"), (10, 20, "Engineer")])

@@ -2,30 +2,24 @@ import json
 from functools import partial
 
 import httpx
+import pytest
 from document_schema import DocumentKind
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
-from langchain_core.tools import BaseTool
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
-from src.agents import build_agent, load_agents
+from src.agents import load_agents
 from src.agents.career_director import CareerDirectorState
-from src.agents.career_director.tools import (
-    choose_document,
-    edit_document_tool,
-    find_documents,
-)
-from src.clients.artifact_service import ArtifactServiceClient
+from src.app.container import Container
 from src.core.config import get_settings
-from src.features import write_document
+from src.core.errors import ExecuteError
 from src.shared.profile import Preferences
 from src.shared.widget import Answer, WidgetSetting
 from tests.agents.career_consultant import test_career_consultant as career_consultant
+from tests.agents.career_consultant.test_career_consultant import _loaded, _print
 from tests.agents.career_director.test_handoffs import _graph, _turn
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
-from tests.features.write_document.test_write_document_graph import _loaded, _print
 
 AGENTS = load_agents(get_settings().agents)
 AGENT = AGENTS["career-director"]
@@ -53,33 +47,19 @@ def _model(*replies: AIMessage) -> ScriptedChatModel:
     )
 
 
-def _edit_document(model: ScriptedChatModel) -> BaseTool:
-    return edit_document_tool(
-        write_document.build_graph(
-            career_consultant._agent(model),
-            ArtifactServiceClient(
-                httpx.AsyncClient(
-                    transport=httpx.MockTransport(partial(_print, sent=[])),
-                    base_url="http://artifact-service",
-                )
-            ),
-        )
-    )
-
-
 def _director(
     model: ScriptedChatModel, consultant: ScriptedChatModel | None = None
 ) -> CompiledStateGraph:
-    return build_agent(
-        AGENT,
-        tools=(
-            _edit_document(consultant or career_consultant._model()),
-            find_documents,
-            choose_document,
-        ),
-        state_schema=CareerDirectorState,
-        model=model,
-    ).copy(update={"checkpointer": InMemorySaver()})
+    container = Container()
+    container.clients.artifact_service(
+        client=httpx.AsyncClient(
+            transport=httpx.MockTransport(partial(_print, sent=[])),
+            base_url="http://artifact-service",
+        )
+    )
+    container.career_director.agent(model=model)
+    container.career_consultant.agent(model=consultant or career_consultant._model())
+    return container.career_director.agent_executable().graph
 
 
 async def _run(
@@ -109,16 +89,17 @@ def _reports(result: CareerDirectorState, tool: str) -> list[ToolMessage]:
     ]
 
 
-async def test_a_single_match_is_edited_by_id_and_the_changeset_is_an_artifact():
+def _handoff(document_id: str) -> AIMessage:
+    return _call("handoff_to_child", agent="career-consultant", document_id=document_id)
+
+
+async def test_a_single_match_is_handed_to_career_consultant_which_loads_it_by_id():
     consultant = career_consultant._model(
+        career_consultant.READ_SKILL,
         career_consultant._propose(career_consultant.GOOD_EDIT),
         career_consultant.DONE,
     )
-    director = _model(
-        _find(name="backend résumé", kind="resume"),
-        _call("edit_document", document_id="doc-1", request=REQUEST),
-        AIMessage("I proposed one edit."),
-    )
+    director = _model(_find(name="backend résumé", kind="resume"), _handoff("doc-1"))
 
     asked, result = await _run(
         _director(director, consultant), {"documents": [BACKEND]}, _loaded()
@@ -128,35 +109,37 @@ async def test_a_single_match_is_edited_by_id_and_the_changeset_is_an_artifact()
         {"execute_tool": "documents", "name": "backend résumé", "kind": "resume"},
         {"execute_tool": "document", "id": "doc-1"},
     ]
-    [found] = _reports(result, "find_documents")
+    [found] = [
+        m
+        for m in director.requests[1]
+        if isinstance(m, ToolMessage) and m.name == "find_documents"
+    ]
     assert json.loads(found.text) == [BACKEND]
     assert found.artifact == {"step_detail": "1 résumé"}
-    [report] = _reports(result, "edit_document")
-    assert report.text.startswith(career_consultant.DONE.text)
-    assert report.text.endswith(
-        "Edits proposed: 1.\n"
-        "- update_field blocks/experience/items/lumen/bullets/queue/text\n"
-        "The user accepts or rejects each in the document."
+    [handoff] = _reports(result, "handoff_to_child")
+    assert handoff.artifact == {"step_detail": "career-consultant"}
+    assert (result["active_agent"], result["document_id"]) == (
+        "career-consultant",
+        "doc-1",
     )
-    assert report.artifact["name"] == "changeset"
-    assert report.artifact["step_detail"] == "Backend résumé"
-    assert report.artifact["data"]["document_id"] == "doc-1"
-    assert report.artifact["data"]["changeset"]["edits"] == [
+    [proposed] = _reports(result, "propose_changeset")
+    assert proposed.artifact["name"] == "changeset"
+    assert proposed.artifact["data"]["document_id"] == "doc-1"
+    assert proposed.artifact["data"]["changeset"]["edits"] == [
         career_consultant.GOOD_EDIT.model_dump(mode="json")
     ]
     assert "<document>" in consultant.requests[0][0].text
-    assert consultant.requests[0][-1].text == REQUEST
-    assert result["messages"][-1].text == "I proposed one edit."
-    assert len(director.requests) == 3
+    assert REQUEST in [m.text for m in consultant.requests[0]]
+    assert result["messages"][-1].text == career_consultant.DONE.text
+    assert len(director.requests) == 2
 
 
-async def test_several_matches_let_the_user_choose_then_the_choice_is_found():
+async def test_several_matches_let_the_user_choose_then_the_choice_is_handed_over():
     director = _model(
         _find(kind="resume"),
         _call("choose_document", question="Which résumé?", kind="resume"),
         _find(name="Backend résumé"),
-        _call("edit_document", document_id="doc-1", request=REQUEST),
-        AIMessage("I proposed one edit."),
+        _handoff("doc-1"),
     )
 
     asked, result = await _run(
@@ -178,27 +161,29 @@ async def test_several_matches_let_the_user_choose_then_the_choice_is_found():
         {"execute_tool": "documents", "name": "Backend résumé", "kind": None},
         {"execute_tool": "document", "id": "doc-1"},
     ]
-    assert [m.artifact for m in _reports(result, "find_documents")] == [
-        {"step_detail": "2 résumés"},
-        {"step_detail": "1 résumé"},
+    assert [
+        m.artifact
+        for m in director.requests[-1]
+        if isinstance(m, ToolMessage) and m.name == "find_documents"
+    ] == [{"step_detail": "2 résumés"}, {"step_detail": "1 résumé"}]
+    [chosen] = [
+        m.text
+        for m in director.requests[-1]
+        if isinstance(m, ToolMessage) and m.name == "choose_document"
     ]
-    [chosen] = _reports(result, "choose_document")
-    assert chosen.text == "Backend résumé"
-    [report] = _reports(result, "edit_document")
-    assert report.text == career_consultant.DONE.text
-    assert report.artifact == {"step_detail": "Backend résumé"}
+    assert chosen == "Backend résumé"
+    assert result["document_id"] == "doc-1"
+    assert result["messages"][-1].text == career_consultant.DONE.text
 
 
-async def test_a_workflows_question_pauses_the_director_after_the_document_loads_and_resumes():
+async def test_the_consultants_question_pauses_the_turn_after_the_document_loads():
     consultant = career_consultant._model(
         _call("clarify", question="Which bullet?"),
+        career_consultant.READ_SKILL,
         career_consultant._propose(career_consultant.GOOD_EDIT),
         career_consultant.DONE,
     )
-    director = _model(
-        _call("edit_document", document_id="doc-1", request=REQUEST),
-        AIMessage("I proposed one edit."),
-    )
+    director = _model(_handoff("doc-1"))
 
     asked, result = await _run(
         _director(director, consultant),
@@ -220,23 +205,28 @@ async def test_a_workflows_question_pauses_the_director_after_the_document_loads
         if isinstance(m, ToolMessage) and m.name == "clarify"
     ]
     assert answer == "The queue one"
-    [report] = _reports(result, "edit_document")
-    assert report.artifact["data"]["changeset"]["edits"]
-    assert len(director.requests) == 2
+    [proposed] = _reports(result, "propose_changeset")
+    assert proposed.artifact["data"]["changeset"]["edits"]
+    assert len(director.requests) == 1
 
 
-async def test_a_document_that_does_not_load_tells_the_director_why():
-    director = _model(
-        _call("edit_document", document_id="doc-9", request=REQUEST),
-        AIMessage("That document is gone."),
+async def test_the_next_turn_stays_with_career_consultant_which_reloads_the_document():
+    consultant = career_consultant._model(
+        career_consultant.DONE, AIMessage("The queue bullet now names Kubernetes.")
     )
+    graph = _director(_model(_handoff("doc-1")), consultant)
 
-    _, result = await _run(_director(director), {"error": "No document doc-9"})
+    first, _ = await _turn(graph, REQUEST, _loaded())
+    again, result = await _turn(graph, "Is it in now?", _loaded())
 
-    [report] = _reports(result, "edit_document")
-    assert report.status == "error" and "No document doc-9" in report.text
-    assert report.artifact is None
-    assert result["messages"][-1].text == "That document is gone."
+    assert first == again == [{"execute_tool": "document", "id": "doc-1"}]
+    assert result["active_agent"] == "career-consultant"
+    assert result["messages"][-1].text == "The queue bullet now names Kubernetes."
+
+
+async def test_a_document_that_does_not_load_fails_the_turn_with_the_reason():
+    with pytest.raises(ExecuteError, match="No document doc-9"):
+        await _run(_director(_model(_handoff("doc-9"))), {"error": "No document doc-9"})
 
 
 async def test_the_director_offers_its_document_tools_but_no_task_or_write_tools():
@@ -245,10 +235,9 @@ async def test_the_director_offers_its_document_tools_but_no_task_or_write_tools
     await _run(_director(model))
 
     offered = model.offered_tools[0]
-    assert {"edit_document", "find_documents", "choose_document"} <= offered
-    assert {"task", "write_file", "edit_file", "execute"}.isdisjoint(offered)
-    assert model.tool_descriptions["edit_document"].startswith(
-        "Hands the user's request"
+    assert {"handoff_to_child", "find_documents", "choose_document"} <= offered
+    assert {"edit_document", "task", "write_file", "edit_file", "execute"}.isdisjoint(
+        offered
     )
     system = model.requests[0][0].text
     assert "find_documents" in system

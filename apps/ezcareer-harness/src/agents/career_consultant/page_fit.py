@@ -2,12 +2,15 @@ from uuid import uuid4
 
 import httpx
 from document_schema import (
+    AnyDocument,
     Awards,
     Certifications,
+    Changeset,
     Custom,
     Delete,
     Education,
     Experience,
+    FileHash,
     InsertBlock,
     InsertItem,
     Move,
@@ -19,16 +22,18 @@ from document_schema import (
 
 from src.clients.artifact_service import ArtifactServiceClient
 from src.core.errors import ExecuteError
-from src.features.write_document.state import EditGraphState
 
 
-async def page_fit(
-    state: EditGraphState, artifact_service: ArtifactServiceClient, trims: int
-) -> EditGraphState:
-    """Adds bullet deletes to the changeset until it prints on no more pages than before,
-    from the entry with the most, never an entry's last bullet or one the edits wrote"""
-    document, assets = state["document"], state.get("assets", {})
-    changeset = state["changeset"]
+async def fit_pages(
+    document: AnyDocument,
+    assets: dict[FileHash, bytes],
+    changeset: Changeset,
+    artifact_service: ArtifactServiceClient,
+    trims: int,
+) -> Changeset:
+    """The changeset with bullet deletes added until it prints on no more pages than
+    before, from the entry with the most, never an entry's last bullet or one the
+    edits wrote"""
     edits = list(changeset.edits)
     touched = (
         [edit.path for edit in edits if isinstance(edit, UpdateField | Move | Delete)]
@@ -75,8 +80,6 @@ async def page_fit(
             )
     except httpx.HTTPError as error:
         raise ExecuteError(f"Couldn't print the edited document: {error}") from error
-    return {
-        "changeset": changeset.model_copy(
-            update={"id": uuid4().hex, "agent": "career-consultant", "edits": edits}
-        )
-    }
+    return changeset.model_copy(
+        update={"id": uuid4().hex, "agent": "career-consultant", "edits": edits}
+    )

@@ -20,3 +20,7 @@ class CareerDirectorHandoffState(AgentState):
 
     active_agent: NotRequired[str]
     """The agent the conversation is with; a new turn goes to it"""
+
+    document_id: NotRequired[str]
+    """The document career-consultant works on, set when the conversation is handed
+    to it"""

@@ -1,6 +1,7 @@
 from functools import partial
 
 import httpx
+from pydantic_core import to_jsonable_python
 
 from scripts import probe
 from tests.agents.career_consultant.test_career_consultant import (
@@ -8,14 +9,18 @@ from tests.agents.career_consultant.test_career_consultant import (
     DONE,
     GOOD_EDIT,
     READ_SKILL,
-    _model,
-    _propose,
-)
-from tests.features.write_document.test_write_document_graph import (
-    _input,
     _loaded,
+    _model,
     _print,
+    _propose,
+    _state,
 )
+
+TASK = {
+    "messages": [{"type": "human", "content": "Mention my Kubernetes work"}],
+    "document_id": "doc-1",
+    "facts": to_jsonable_python(_state()["facts"]),
+}
 
 
 def _container(*replies) -> None:
@@ -29,12 +34,12 @@ def _container(*replies) -> None:
     probe.CONTAINER.career_consultant.agent(model=_model(*replies))
 
 
-async def test_a_probe_runs_the_containers_edit_graph_and_records_each_check_round():
+async def test_a_probe_runs_the_containers_consultant_and_records_each_check_round():
     _container(READ_SKILL, _propose(BAD_EDIT), _propose(GOOD_EDIT), DONE)
 
     result = await probe.probe(
-        probe.WORKFLOWS["edit-document"],
-        _input().model_dump(mode="json") | {"tool_results": {"document": _loaded()}},
+        probe.WORKFLOWS["career-consultant"],
+        TASK | {"tool_results": {"document": _loaded()}},
     )
 
     assert result["error"] is None
@@ -50,12 +55,10 @@ async def test_a_probe_runs_the_containers_edit_graph_and_records_each_check_rou
 async def test_a_task_without_the_tool_result_fails_with_the_request():
     _container(DONE)
 
-    result = await probe.probe(
-        probe.WORKFLOWS["edit-document"], _input().model_dump(mode="json")
-    )
+    result = await probe.probe(probe.WORKFLOWS["career-consultant"], TASK)
 
     assert result["output"] is None
     assert result["error"] == (
         "ValueError: The task has no tool result for "
-        f"{{'execute_tool': 'document', 'id': '{_input().document_id}'}}"
+        "{'execute_tool': 'document', 'id': 'doc-1'}"
     )

@@ -10,10 +10,10 @@ from src.app.container import Container
 from src.features.import_document import build_graph
 from src.features.import_document.exceptions import ImportFailed
 from src.features.import_document.schemas import ImportInput
+from tests.agents.career_consultant.test_career_consultant import _print
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.import_document.test_extract import _artifact_service
-from tests.features.write_document.test_write_document_graph import _print
 from tests.pdfs import make_pdf
 
 PDF = make_pdf([(10, 10, "Ada Lovelace"), (10, 20, "Engineer")])

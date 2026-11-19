@@ -27,6 +27,10 @@ instrumentations = ["langchain"]
 hide_inputs = false
 hide_outputs = false
 
+[documents]
+page_fit_trims = 5
+recursion_limit = 40
+
 [email]
 max_threads = 20
 max_thread_messages = 6
@@ -75,10 +79,6 @@ path = "src/features/analyse_job/harness/configurations.yaml"
 [[graph_profiles]]
 name = "find-jobs"
 path = "src/features/find_jobs/harness/configurations.yaml"
-
-[[graph_profiles]]
-name = "write-document"
-path = "src/features/write_document/harness/configurations.yaml"
 
 [[graph_profiles]]
 name = "write-networking"

@@ -1,15 +1,20 @@
+from langchain.agents.middleware import before_agent
+from langgraph.runtime import Runtime
 from langgraph.types import interrupt
 from pydantic import TypeAdapter, ValidationError
 
+from src.agents.career_consultant.state import CareerConsultantState
+from src.agents.career_consultant.types import LoadedDocument
 from src.core.errors import ExecuteError
-from src.features.write_document.state import EditGraphState
-from src.features.write_document.types import LoadedDocument
 from src.shared.tool_error import ToolError
 
 
-def load(state: EditGraphState) -> EditGraphState:
-    """Loads the document the run edits through ops-api's document tool, with its
-    PDF lines and files, failing the run with ops-api's reason when it can't"""
+@before_agent(state_schema=CareerConsultantState)
+def load_document(state: CareerConsultantState, runtime: Runtime) -> dict | None:
+    """Loads the document state names through ops-api's document tool, with its PDF
+    lines and files, at the start of every run; nothing when no document is named"""
+    if "document_id" not in state:
+        return None
     try:
         loaded = TypeAdapter(LoadedDocument | ToolError).validate_python(
             interrupt({"execute_tool": "document", "id": state["document_id"]})

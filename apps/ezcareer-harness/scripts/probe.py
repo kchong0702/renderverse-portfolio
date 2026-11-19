@@ -16,7 +16,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-from pydantic import JsonValue, TypeAdapter
+from pydantic import JsonValue, RootModel, TypeAdapter
 from pydantic_core import to_jsonable_python
 
 from src.agents import register_harness_profiles
@@ -40,7 +40,10 @@ async def _run_graph(name: str, task: object) -> object:
     )
     calls: Counter[str] = Counter()
     run: RunnableConfig = {"configurable": {"thread_id": str(uuid4())}}
-    result = await graph.ainvoke(graph.get_input_schema().model_validate(fields), run)
+    graph_input = graph.get_input_schema().model_validate(fields)
+    result = await graph.ainvoke(
+        graph_input.root if isinstance(graph_input, RootModel) else graph_input, run
+    )
     while interrupts := result.get("__interrupt__"):
         answers = {}
         for request in interrupts:
@@ -63,7 +66,7 @@ async def _run_graph(name: str, task: object) -> object:
 WORKFLOWS: dict[str, RunWorkflow] = {
     "analyse-job": partial(_run_graph, "analyse-job"),
     "find-jobs": partial(_run_graph, "find-jobs"),
-    "edit-document": partial(_run_graph, "edit-document"),
+    "career-consultant": partial(_run_graph, "career-consultant"),
     "import-resume": partial(_run_graph, "import-resume"),
     "triage-email": partial(_run_graph, "triage-email"),
     "draft-reply": partial(_run_graph, "draft-reply"),

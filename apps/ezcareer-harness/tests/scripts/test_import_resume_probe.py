@@ -10,9 +10,9 @@ from scripts import probe
 from src.app.container import Container
 from src.core.config import reload_settings
 from src.features.import_document import build_graph
+from tests.agents.career_consultant.test_career_consultant import _print
 from tests.features.import_document.test_extract import _artifact_service, _convert
 from tests.features.import_document.test_import_graph import _model, _reply
-from tests.features.write_document.test_write_document_graph import _print
 from tests.pdfs import make_pdf
 
 

@@ -16,7 +16,7 @@ def find_documents(
     name: str | None = None, kind: DocumentKind | None = None
 ) -> tuple[str, StepDetail]:
     """Finds the user's résumés, CVs and cover letters by name, kind or both, best
-    match first, each with the id edit_document takes"""
+    match first, each with the id career-consultant works on"""
     try:
         found = FoundDocuments.model_validate(
             interrupt({"execute_tool": "documents", "name": name, "kind": kind})

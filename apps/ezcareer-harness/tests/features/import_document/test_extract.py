@@ -9,7 +9,7 @@ import pytest
 from src.clients.artifact_service import ArtifactServiceClient
 from src.features.import_document.exceptions import ImportFailed
 from src.features.import_document.nodes import extract
-from tests.features.write_document.test_write_document_graph import _fail
+from tests.agents.career_consultant.test_career_consultant import _fail
 from tests.pdfs import make_pdf
 
 WORD = b"PK\x03\x04 a Word file"

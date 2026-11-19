@@ -5,7 +5,6 @@ from src.agents.career_director import CareerDirectorState, build_graph
 from src.agents.career_director.tools import (
     analyse_job_tool,
     choose_document,
-    edit_document_tool,
     find_applications,
     find_documents,
     find_jobs_tool,
@@ -29,7 +28,7 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
     """job-analyst's container, whose workflows become tools"""
 
     career_consultant = providers.DependenciesContainer()
-    """career-consultant's container, whose workflow becomes a tool"""
+    """career-consultant's container, whose agent the director hands documents to"""
 
     productivity_assistant = providers.DependenciesContainer()
     """productivity-assistant's container, whose agent the director hands email to"""
@@ -45,10 +44,8 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
                 find_jobs_tool, job_analyst.find_jobs_executable.provided.graph
             ),
             providers.Callable(
-                edit_document_tool,
-                career_consultant.edit_document_executable.provided.graph,
+                handoff_to_child_tool, ["productivity-assistant", "career-consultant"]
             ),
-            providers.Callable(handoff_to_child_tool, ["productivity-assistant"]),
             find_documents,
             find_applications,
             find_saved_jobs,
@@ -67,14 +64,18 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
         Executable,
         kind="agent",
         name="career-director",
-        description="Talk to career-director from any page; it edits documents and analyses and finds jobs through workflows, reads the user's applications and saved jobs, queues background job runs, updates the profile once the user approves, and hands email and the calendar to productivity-assistant",
+        description="Talk to career-director from any page; it analyses and finds jobs through workflows, reads the user's applications and saved jobs, queues background job runs, updates the profile once the user approves, hands email and the calendar to productivity-assistant, and hands a document to edit to career-consultant",
         graph=providers.Singleton(
             build_graph,
             director=agent,
-            children=providers.List(productivity_assistant.agent),
+            children=providers.List(
+                productivity_assistant.agent, career_consultant.agent
+            ),
             checkpointer=checkpointer,
         ),
-        agent_nodes=frozenset({"career-director", "productivity-assistant"}),
+        agent_nodes=frozenset(
+            {"career-director", "productivity-assistant", "career-consultant"}
+        ),
     )
     """career-director served as an agent the user talks to, with the agents it
     hands the conversation to"""

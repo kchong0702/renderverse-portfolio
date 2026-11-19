@@ -18,10 +18,14 @@ def parent_agent() -> str | None:
 
 
 async def _handoff(
-    name: str, runtime: ToolRuntime[None, AgentState], agent: str
+    name: str,
+    runtime: ToolRuntime[None, AgentState],
+    agent: str,
+    document_id: str | None = None,
 ) -> Command:
     """Moves the conversation to agent's node in the parent graph, passing on the
-    call that asked for it with its answer"""
+    call that asked for it with its answer, and the document the agent works on
+    when one is named"""
     call = next(
         m for m in reversed(runtime.state["messages"]) if isinstance(m, AIMessage)
     )
@@ -29,6 +33,7 @@ async def _handoff(
         goto=agent,
         update={
             "active_agent": agent,
+            **({"document_id": document_id} if document_id else {}),
             "messages": [
                 call,
                 ToolMessage(
@@ -60,6 +65,13 @@ def handoff_to_child_tool(children: Sequence[str]) -> BaseTool:
                 ),
             ),
             agent=(Literal[*children], Field(description="The child agent's name")),
+            document_id=(
+                str | None,
+                Field(
+                    default=None,
+                    description="The document the child works on, as find_documents returned it; only for career-consultant",
+                ),
+            ),
         ),
     )
 
