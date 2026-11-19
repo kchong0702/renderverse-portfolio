@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from langchain_core.tools import StructuredTool, ToolException
+from langchain_core.tools import BaseTool, StructuredTool, ToolException
 from langgraph.types import interrupt
 from pydantic import ConfigDict, Field, TypeAdapter, ValidationError, create_model
 from pydantic_core import to_json
@@ -56,22 +56,25 @@ def _find_events(days: int = 7) -> tuple[str, StepDetail]:
     ), {"step_detail": f"{count} events" if count != 1 else "1 event"}
 
 
-find_events = StructuredTool.from_function(
-    func=_find_events,
-    name="find_events",
-    args_schema=create_model(
-        "FindEventsArgs",
-        __config__=ConfigDict(extra="forbid"),
-        days=(
-            int,
-            Field(
-                default=7,
-                ge=1,
-                le=31,
-                description="How many days from the start of today to look in",
+def find_events_tool() -> BaseTool:
+    """find_events, which shows the agent the user's calendar events from the start
+    of today"""
+    return StructuredTool.from_function(
+        func=_find_events,
+        name="find_events",
+        args_schema=create_model(
+            "FindEventsArgs",
+            __config__=ConfigDict(extra="forbid"),
+            days=(
+                int,
+                Field(
+                    default=7,
+                    ge=1,
+                    le=31,
+                    description="How many days from the start of today to look in",
+                ),
             ),
         ),
-    ),
-    response_format="content_and_artifact",
-    handle_tool_error=True,
-)
+        response_format="content_and_artifact",
+        handle_tool_error=True,
+    )

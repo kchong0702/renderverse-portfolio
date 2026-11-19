@@ -2,7 +2,7 @@ from dependency_injector import containers, providers
 
 from src.agents import build_agent
 from src.agents.productivity_assistant.tools import (
-    find_events,
+    find_events_tool,
     read_free_slots_tool,
     read_thread_tool,
     search_threads_tool,
@@ -41,7 +41,7 @@ class ProductivityAssistantContainer(containers.DeclarativeContainer):
             providers.Callable(
                 read_free_slots_tool, settings.provided.email.max_free_slots
             ),
-            find_events,
+            providers.Callable(find_events_tool),
         ),
         state_schema=ProfileState,
     )
