@@ -122,6 +122,18 @@ async def test_each_run_carries_the_users_model_on_the_request(client, harness):
     assert "metadata" not in first["message"]
 
 
+async def test_each_run_carries_the_users_time_zone_on_the_request(client, harness):
+    await client.patch(
+        f"{PREFIX}/settings", json={"scheduling": {"timezone": "Asia/Kuala_Lumpur"}}
+    )
+    harness.outcomes = [_replied("Done.")]
+
+    await client.post(f"{CHAT}/messages", json={"text": "Search tomorrow at 9"})
+
+    [sent] = a2a_sent(harness)
+    assert sent["params"]["metadata"] == {"timezone": "Asia/Kuala_Lumpur"}
+
+
 async def test_each_chat_runs_in_a_context_of_its_own(client, harness):
     harness.outcomes = [_replied("One."), _replied("Two.")]
     me = (await client.get(f"{PREFIX}/me")).json()

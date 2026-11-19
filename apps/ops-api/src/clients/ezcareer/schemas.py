@@ -35,6 +35,9 @@ class RunMetadata(BaseModel):
     model: ModelChoice | None = Field(default=None, exclude_if=lambda v: v is None)
     """The model the user picked; None leaves it to ezcareer-harness"""
 
+    timezone: str | None = Field(default=None, exclude_if=lambda v: v is None)
+    """The user's IANA time zone; None until they choose one"""
+
 
 class Widget(BaseModel):
     label: str | None = None

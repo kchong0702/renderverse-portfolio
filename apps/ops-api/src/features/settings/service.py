@@ -172,7 +172,8 @@ class SettingsService:
         return settings.timezone if settings else None
 
     async def run_metadata(self, user_id: UUID) -> RunMetadata | None:
-        """The user's chosen model for a harness run; None when they chose none"""
+        """The user's chosen model and time zone for a harness run; None when they
+        chose neither"""
         settings = await self._repository.get(user_id)
         model = (
             ModelChoice(family=settings.ai_family, model=settings.ai_model)
@@ -181,9 +182,10 @@ class SettingsService:
             and settings.ai_model is not None
             else None
         )
-        if model is None:
+        timezone = settings.timezone if settings is not None else None
+        if model is None and timezone is None:
             return None
-        return RunMetadata(model=model)
+        return RunMetadata(model=model, timezone=timezone)
 
     async def _load(self, user_id: UUID) -> UserSettings:
         return await self._repository.get(user_id) or await self._repository.create(
