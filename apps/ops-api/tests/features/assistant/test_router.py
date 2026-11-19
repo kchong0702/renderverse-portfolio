@@ -122,16 +122,32 @@ async def test_each_run_carries_the_users_model_on_the_request(client, harness):
     assert "metadata" not in first["message"]
 
 
-async def test_each_run_carries_the_users_time_zone_on_the_request(client, harness):
+async def test_a_message_carries_the_browsers_time_zone_not_the_settings_one(
+    client, harness
+):
     await client.patch(
-        f"{PREFIX}/settings", json={"scheduling": {"timezone": "Asia/Kuala_Lumpur"}}
+        f"{PREFIX}/settings", json={"scheduling": {"timezone": "Europe/London"}}
     )
-    harness.outcomes = [_replied("Done.")]
+    harness.outcomes = [_replied("Done."), _replied("Done.")]
 
-    await client.post(f"{CHAT}/messages", json={"text": "Search tomorrow at 9"})
+    await client.post(
+        f"{CHAT}/messages",
+        json={"text": "Search tomorrow at 9", "timezone": "Asia/Kuala_Lumpur"},
+    )
+    await client.post(f"{CHAT}/messages", json={"text": "And the day after"})
 
-    [sent] = a2a_sent(harness)
-    assert sent["params"]["metadata"] == {"timezone": "Asia/Kuala_Lumpur"}
+    browser, without = (sent["params"] for sent in a2a_sent(harness))
+    assert browser["metadata"] == {"timezone": "Asia/Kuala_Lumpur"}
+    assert "metadata" not in without
+
+
+async def test_a_message_with_an_unknown_time_zone_is_refused(client, harness):
+    response = await client.post(
+        f"{CHAT}/messages", json={"text": "Hi", "timezone": "Mars/Base"}
+    )
+
+    assert response.status_code == 422
+    assert harness.received == []
 
 
 async def test_each_chat_runs_in_a_context_of_its_own(client, harness):

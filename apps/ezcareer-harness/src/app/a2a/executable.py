@@ -70,7 +70,8 @@ class RunMetadata(BaseModel):
     """The model the user picked for the run; None keeps each agent's own"""
 
     timezone: ZoneInfo = ZoneInfo("UTC")
-    """The user's time zone, which stamps their messages; UTC when they chose none"""
+    """The time zone of the user's browser, which stamps their messages; UTC when
+    it isn't sent"""
 
 
 class Step(BaseModel):
@@ -184,11 +185,6 @@ def _interrupt_part(interrupt: Interrupt) -> Part:
     return part
 
 
-def _stamped(text: str, zone: ZoneInfo) -> str:
-    """The text prefixed with the time it arrived, in the zone"""
-    return f"[{datetime.now(zone):%a %d %b %Y, %H:%M} {zone.key}] {text}"
-
-
 class Executable(BaseModel):
     model_config = ConfigDict(
         frozen=True, arbitrary_types_allowed=True, use_attribute_docstrings=True
@@ -221,6 +217,18 @@ class LanggraphExecutor(AgentExecutor):
         """Runs the executable's graph as one A2A task per run"""
         self.executable = executable
 
+    def _messages(self, text: str, metadata: RunMetadata) -> list[HumanMessage]:
+        """The run's user message, if the user wrote one; an agent's starts with when
+        it arrived, in the user's time zone"""
+        if not text:
+            return []
+        if self.executable.kind != "agent":
+            return [HumanMessage(text)]
+        now = datetime.now(metadata.timezone)
+        return [
+            HumanMessage(f"[{now:%a %d %b %Y, %H:%M} {metadata.timezone.key}] {text}")
+        ]
+
     @override
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         """Run or resume the graph, on the model the request metadata names, and
@@ -248,15 +256,7 @@ class LanggraphExecutor(AgentExecutor):
                 graph_input = self.executable.graph.get_input_schema().model_validate(
                     {
                         **(data[0] if data else {}),
-                        "messages": [
-                            HumanMessage(
-                                _stamped(text, metadata.timezone)
-                                if self.executable.kind == "agent"
-                                else text
-                            )
-                        ]
-                        if (text := context.get_user_input())
-                        else [],
+                        "messages": self._messages(context.get_user_input(), metadata),
                     }
                 )
                 if isinstance(graph_input, RootModel):

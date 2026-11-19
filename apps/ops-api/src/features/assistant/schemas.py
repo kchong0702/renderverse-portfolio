@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal
+from zoneinfo import available_timezones
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.features.profile.schemas import ImportedEntry, ProfileLink
 from src.features.profile.types import FieldValue
@@ -11,6 +12,17 @@ from src.features.profile.types import FieldValue
 class ChatMessage(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
     """What the user asks the assistant"""
+
+    timezone: str | None = Field(default=None, max_length=64)
+    """The IANA time zone of the user's browser; None when it didn't send one"""
+
+    @field_validator("timezone")
+    @classmethod
+    def _must_be_iana(cls, value: str | None) -> str | None:
+        """The time zone sent, refused unless it is an IANA name"""
+        if value is not None and value not in available_timezones():
+            raise ValueError(f"{value} is not an IANA time zone")
+        return value
 
 
 class AboutEdit(BaseModel):
