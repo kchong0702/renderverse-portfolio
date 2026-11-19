@@ -6,23 +6,26 @@ from functools import partial
 from uuid import UUID
 
 from document_schema import ChangesetStatus
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.clients.ezcareer import Answer, Completed, Published, RunEvent
+from src.clients.ezcareer import Answer, Published, RunEvent
 from src.core.agent_runner import AgentRunner
 from src.core.exceptions import Conflict
+from src.core.logging import get_logger
 from src.features.documents.models import Document
 from src.features.documents.schemas import (
+    ChangesetArtifact,
     EditDocumentInput,
-    EditDocumentOutput,
     TailoredDocument,
 )
 from src.features.documents.service import DocumentService
 from src.features.profile import ProfileService
 from src.features.settings import SettingsService
 
-_WORKFLOW = "edit-document"
+_AGENT = "career-consultant"
+
+logger = get_logger(__name__)
 
 
 def _thread(user_id: UUID, document_id: UUID) -> str:
@@ -39,7 +42,7 @@ class DocumentChat:
         settings: SettingsService,
         runner: AgentRunner,
     ):
-        """Run edit-document's turns on the user's documents through the runner,
+        """Run career-consultant's turns on the user's documents through the runner,
         committing the session before each so the run reads the document as it is"""
         self._session = session
         """The request's session, committed before each turn"""
@@ -60,21 +63,26 @@ class DocumentChat:
         self,
         user_id: UUID,
         document_id: UUID,
-        events: AsyncIterator[RunEvent[EditDocumentOutput]],
+        events: AsyncIterator[RunEvent[str]],
     ) -> AsyncIterator[BaseModel]:
-        """A turn's events as the browser gets them: a changeset the run proposes is
-        stored and announced before its reply, which ends the turn"""
+        """A turn's events as the browser gets them: a changeset career-consultant
+        publishes for the document is stored and announced, and other published
+        artifacts are not sent"""
         async for event in events:
-            if isinstance(event, Completed):
-                if event.reply.changeset and (
+            if not isinstance(event, Published):
+                yield event
+            elif event.name == "changeset":
+                try:
+                    artifact = ChangesetArtifact.model_validate(event.data)
+                except ValidationError as error:
+                    logger.warning("changeset_skipped", reason=str(error))
+                    continue
+                if artifact.document_id == document_id and (
                     proposed := await self._documents.propose_from_run(
-                        user_id, document_id, event.reply.changeset
+                        user_id, document_id, artifact.changeset
                     )
                 ):
                     yield proposed
-                yield Completed(reply=event.reply.reply)
-            elif not isinstance(event, Published):
-                yield event
 
     async def send(
         self, user_id: UUID, document_id: UUID, text: str
@@ -91,8 +99,8 @@ class DocumentChat:
         return await self._runner.start(
             user_id,
             _thread(user_id, document_id),
-            _WORKFLOW,
-            EditDocumentOutput,
+            _AGENT,
+            str,
             text=text,
             data=data,
             metadata=metadata,
@@ -110,8 +118,8 @@ class DocumentChat:
         return await self._runner.answer(
             user_id,
             _thread(user_id, document_id),
-            _WORKFLOW,
-            EditDocumentOutput,
+            _AGENT,
+            str,
             task_id=task_id,
             answer=answer,
             metadata=metadata,
@@ -127,7 +135,7 @@ class DocumentChat:
 
     async def cancel(self, user_id: UUID, document_id: UUID, task_id: str) -> None:
         """Stop the running turn of the document's chat"""
-        await self._runner.cancel(_WORKFLOW, task_id, _thread(user_id, document_id))
+        await self._runner.cancel(_AGENT, task_id, _thread(user_id, document_id))
 
     async def tailor(
         self, user_id: UUID, document: Document, text: str

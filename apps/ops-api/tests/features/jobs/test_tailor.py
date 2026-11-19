@@ -92,17 +92,26 @@ LETTER_EDITS = {
 WIDGET = {"label": "Did you use Kafka at work?", "submit_btn": "Send"}
 
 
-def _proposed(changeset: dict) -> list[dict]:
-    """edit-document's streamed turn replying with changeset"""
+def _tailored(document_id: str, changeset: dict) -> list[dict]:
+    """career-consultant's streamed turn publishing changeset for the document, then
+    replying"""
     return [
         stream_task(),
         stream_chunk(
-            "a-1",
-            "edit-document",
-            {"data": {"reply": "Tailored to the posting.", "changeset": changeset}},
+            "changeset-1",
+            "changeset",
+            {"data": {"document_id": document_id, "changeset": changeset}},
         ),
+        stream_chunk("a-1", "career-consultant", {"text": "Tailored to the posting."}),
         stream_status("COMPLETED"),
     ]
+
+
+def _proposed(changeset: dict):
+    """_tailored for the document the turn it answers was sent"""
+    return lambda sent: _tailored(
+        sent["params"]["message"]["parts"][1]["data"]["document_id"], changeset
+    )
 
 
 async def _follow(client, document_id: str) -> list[dict]:
@@ -310,7 +319,7 @@ async def test_a_question_is_answered_in_the_copys_chat(client, harness):
         "document_id"
     ]
     asked = await _follow(client, document_id)
-    harness.outcomes = [_proposed(RESUME_EDITS)]
+    harness.outcomes = [_tailored(document_id, RESUME_EDITS)]
 
     done = await client.post(
         f"{DOCUMENTS}/{document_id}/chat/tasks/task-1/answer",

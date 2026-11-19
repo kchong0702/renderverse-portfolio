@@ -50,7 +50,7 @@ async def _document(client) -> dict:
 
 
 def _loads(document_id: str) -> list[dict]:
-    """edit-document starting and pausing to load the document"""
+    """career-consultant starting and pausing to load the document"""
     return [
         stream_task(),
         stream_status(
@@ -60,13 +60,23 @@ def _loads(document_id: str) -> list[dict]:
     ]
 
 
-def _replies(reply: str, changeset: dict | None) -> list[dict]:
-    """edit-document thinking, then replying with any changeset it proposes"""
+def _replies(document_id: str, reply: str, changeset: dict | None) -> list[dict]:
+    """career-consultant thinking, publishing any changeset it proposes for the
+    document, then replying"""
     return [
         stream_chunk("thinking-1", "thinking", {"text": "Read the summary."}),
-        stream_chunk(
-            "a-1", "edit-document", {"data": {"reply": reply, "changeset": changeset}}
+        *(
+            [
+                stream_chunk(
+                    "changeset-1",
+                    "changeset",
+                    {"data": {"document_id": document_id, "changeset": changeset}},
+                )
+            ]
+            if changeset
+            else []
         ),
+        stream_chunk("a-1", "career-consultant", {"text": reply}),
         stream_status("COMPLETED"),
     ]
 
@@ -79,7 +89,7 @@ async def test_a_chat_turn_stores_the_edits_it_proposes_before_its_reply(
     facts = (await client.get(f"{PREFIX}/profile/agent")).json()["facts"]
     harness.outcomes = [
         _loads(document["id"]),
-        _replies("I added your years of experience.", TAILOR),
+        _replies(document["id"], "I added your years of experience.", TAILOR),
     ]
 
     response = await client.post(
@@ -101,7 +111,7 @@ async def test_a_chat_turn_stores_the_edits_it_proposes_before_its_reply(
         {"status": "completed", "reply": "I added your years of experience."},
     ]
     first, resumed = (sent["params"]["message"] for sent in a2a_sent(harness))
-    assert harness.received[0].url.path == "/ezcareer/a2a/edit-document"
+    assert harness.received[0].url.path == "/ezcareer/a2a/career-consultant"
     assert first["contextId"] == f"{me['id']}:document:{document['id']}"
     assert first["parts"] == [
         {"text": "Mention my years"},
@@ -118,9 +128,9 @@ async def test_a_second_turns_edits_join_the_pending_changeset(client, harness):
     chat = f"{DOCUMENTS}/{document['id']}/chat"
     harness.outcomes = [
         _loads(document["id"]),
-        _replies("I added your years.", TAILOR),
+        _replies(document["id"], "I added your years.", TAILOR),
         _loads(document["id"]),
-        _replies("I tightened it.", TAILOR),
+        _replies(document["id"], "I tightened it.", TAILOR),
     ]
 
     first = await client.post(f"{chat}/messages", json={"text": "Add my years"})
@@ -142,7 +152,7 @@ async def test_a_chat_turn_asks_back_and_the_answer_replies_without_edits(
     harness.outcomes = [
         _loads(document["id"]),
         [stream_status("INPUT_REQUIRED", [{"data": WIDGET}])],
-        _replies("Your summary already fits Northwind.", None),
+        _replies(document["id"], "Your summary already fits Northwind.", None),
     ]
 
     asked = await client.post(f"{chat}/messages", json={"text": "Tailor it"})
@@ -164,7 +174,10 @@ async def test_a_broken_chat_stream_resumes_after_the_last_event_it_got(
 ):
     document = await _document(client)
     chat = f"{DOCUMENTS}/{document['id']}/chat"
-    harness.outcomes = [_loads(document["id"]), _replies("Done.", TAILOR)]
+    harness.outcomes = [
+        _loads(document["id"]),
+        _replies(document["id"], "Done.", TAILOR),
+    ]
     first = await client.post(f"{chat}/messages", json={"text": "Tighten it"})
 
     resumed = await client.get(
@@ -179,7 +192,7 @@ async def test_a_chat_takes_no_new_message_while_its_turn_runs(app, client, harn
     document = await _document(client)
     me = (await client.get(f"{PREFIX}/me")).json()
     await app.state.container.store().create(
-        UUID(me["id"]), f"{me['id']}:document:{document['id']}", "edit-document"
+        UUID(me["id"]), f"{me['id']}:document:{document['id']}", "career-consultant"
     )
 
     response = await client.post(

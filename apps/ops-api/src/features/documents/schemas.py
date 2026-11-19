@@ -113,23 +113,15 @@ class ChangesetDecision(BaseModel):
 
 class DocumentMessage(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
-    """What the user asks edit-document about the document"""
+    """What the user asks career-consultant about the document"""
 
 
 class EditDocumentInput(BaseModel):
     document_id: UUID
-    """The document to edit, which edit-document fetches from ops-api"""
+    """The document to edit, which career-consultant loads from ops-api"""
 
     facts: list[ProfileFact]
     """The user's profile facts the edits may cite"""
-
-
-class EditDocumentOutput(BaseModel):
-    reply: str
-    """What career-consultant tells the user"""
-
-    changeset: Changeset | None
-    """The checked edits it proposes; None when it only answered"""
 
 
 class DocumentsAnswer(BaseModel):
@@ -150,7 +142,7 @@ class ChangesetArtifact(BaseModel):
     """The document the edits are for"""
 
     changeset: Changeset
-    """The edits career-director proposes"""
+    """The edits career-consultant proposes"""
 
 
 class ChangesetProposed(BaseModel):
@@ -193,7 +185,6 @@ __all__ = [
     "DocumentUpdate",
     "DocumentsAnswer",
     "EditDocumentInput",
-    "EditDocumentOutput",
     "LineRead",
     "TailoredDocument",
     "VersionCreate",
