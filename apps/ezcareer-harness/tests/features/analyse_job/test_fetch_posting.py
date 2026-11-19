@@ -5,6 +5,7 @@ import pytest
 import respx
 
 from src.features.analyse_job.nodes import fetch_posting
+from src.shared.jobs import posting_lines
 
 URL = "https://jobs.example.com/acme/senior-backend"
 POSTING = (Path(__file__).parent / "fixtures" / "posting.html").read_text()
@@ -52,3 +53,44 @@ async def test_raises_when_the_page_is_missing():
 
     with pytest.raises(httpx.HTTPStatusError):
         await fetch_posting(URL)
+
+
+GUEST = "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/4486649365"
+
+
+@pytest.mark.parametrize(
+    "link",
+    [
+        "https://www.linkedin.com/jobs/search-results/?currentJobId=4486649365&keywords=Senior%20Machine%20Learning%20Engineer&geoId=90010064",
+        "https://www.linkedin.com/jobs/collections/recommended/?currentJobId=4486649365",
+        "https://www.linkedin.com/jobs/view/4486649365/",
+        "https://my.linkedin.com/jobs/view/senior-ai-engineer-at-avenga-4486649365",
+    ],
+)
+@respx.mock
+async def test_a_linkedin_job_link_is_read_from_linkedins_guest_page(link):
+    respx.get(GUEST).respond(200, html=POSTING)
+
+    lines = await fetch_posting(link)
+
+    assert "Kubernetes" in [line.text for line in lines]
+
+
+@respx.mock
+async def test_a_linkedin_page_that_names_no_job_is_fetched_as_it_is():
+    link = "https://www.linkedin.com/company/acme/jobs/"
+    respx.get(link).respond(200, html=POSTING)
+
+    lines = await fetch_posting(link)
+
+    assert lines[0].text == "Senior Backend Engineer at Acme"
+
+
+def test_pasted_text_becomes_numbered_lines_without_blank_ones():
+    lines = posting_lines("  Senior AI Engineer \n\n Avenga\n   \nPython")
+
+    assert [(line.id, line.text) for line in lines] == [
+        (1, "Senior AI Engineer"),
+        (2, "Avenga"),
+        (3, "Python"),
+    ]

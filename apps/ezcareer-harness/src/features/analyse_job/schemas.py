@@ -106,8 +106,8 @@ class JobAnalysis(JobRequirements):
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    url: Url
-    """Where the posting was fetched from"""
+    url: Url | None = None
+    """Where the posting was fetched from; None for a pasted posting"""
 
     lines: list[PostingLine]
     """The posting's text, so citations can be shown"""

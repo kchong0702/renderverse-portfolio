@@ -129,6 +129,58 @@ async def test_a_missing_posting_fails_the_flow():
             )
 
 
+async def test_a_refused_fetch_asks_for_the_posting_text():
+    with respx.mock:
+        respx.get(URL).respond(429)
+        with pytest.raises(ExecuteError, match="Paste the posting's text instead"):
+            await build_graph(Container().job_analyst.agent(model=_scripted())).ainvoke(
+                INPUT
+            )
+
+
+async def test_a_pasted_posting_is_analysed_without_a_fetch():
+    text = "Senior Backend Engineer at Acme\n\n5+ years of Python in production"
+    model = _scripted(
+        _call(
+            "JobRequirements",
+            requirements=[
+                {
+                    "text": "5+ years of Python in production",
+                    "importance": "required",
+                    "line_ids": [2],
+                    "match": "met",
+                    "fact_ids": ["fact:acme"],
+                    "reason": "Python at Initech since 2018.",
+                }
+            ],
+        )
+    )
+
+    with respx.mock:
+        result = await build_graph(Container().job_analyst.agent(model=model)).ainvoke(
+            {**INPUT, "url": None, "posting_text": text}
+        )
+
+    analysis = result["analysis"]
+    assert analysis.url is None
+    assert [line.text for line in analysis.lines] == [
+        "Senior Backend Engineer at Acme",
+        "5+ years of Python in production",
+    ]
+
+
+@pytest.mark.parametrize(
+    "posting",
+    [{"url": None}, {"posting_text": "Senior Backend Engineer"}],
+    ids=["neither", "both"],
+)
+async def test_a_posting_needs_a_link_or_a_text_but_not_both(posting):
+    with pytest.raises(ValueError, match="url or its text"):
+        await build_graph(Container().job_analyst.agent(model=_scripted())).ainvoke(
+            INPUT | posting
+        )
+
+
 async def test_trace_records_the_agent_hash_check_rounds_and_tool_calls(
     posting, make_settings, span_exporters
 ):
