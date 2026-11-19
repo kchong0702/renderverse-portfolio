@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import suppress
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -16,7 +16,13 @@ from src.clients.google import (
 from src.core.config import GoogleSettings
 from src.core.exceptions import InvalidInput, NotFound
 from src.db.base import utcnow
-from src.features.calendar.schemas import CalendarEvent, EventCreate, FreeSlots, Slot
+from src.features.calendar.schemas import (
+    CalendarEvent,
+    EventCreate,
+    Events,
+    FreeSlots,
+    Slot,
+)
 from src.features.google import GoogleService
 from src.features.settings.schemas import Scheduling
 
@@ -34,6 +40,40 @@ def _event(event: GoogleEvent) -> CalendarEvent:
         location=event.location,
         url=event.html_link,
         interview=_INTERVIEW.items() <= event.extended_properties.private.items(),
+    )
+
+
+def _moment(value: datetime | date, zone: ZoneInfo) -> datetime:
+    """A time as it is, or the start of a day in the zone"""
+    return (
+        value
+        if isinstance(value, datetime)
+        else datetime.combine(value, time.min, zone)
+    )
+
+
+async def token_events(
+    client: GoogleClient, token: str, timezone: str | None, days: int
+) -> Events:
+    """The token's calendar's events from the start of today for days days, in the
+    time zone given or the calendar's own"""
+    now = utcnow()
+    found = await client.events(
+        token, now - timedelta(days=1), now + timedelta(days=days + 1)
+    )
+    zone = ZoneInfo(timezone or found.time_zone)
+    today = now.astimezone(zone).date()
+    start = datetime.combine(today, time.min, zone)
+    end = start + timedelta(days=days)
+    events = [_event(item) for item in found.items if item.status != "cancelled"]
+    return Events(
+        events=[
+            event
+            for event in events
+            if _moment(event.end, zone) > start and _moment(event.start, zone) < end
+        ],
+        timezone=zone.key,
+        today=today,
     )
 
 

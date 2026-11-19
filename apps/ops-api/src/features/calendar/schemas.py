@@ -56,6 +56,18 @@ class Slot(BaseModel):
     """When it ends"""
 
 
+class Events(BaseModel):
+    events: list[CalendarEvent]
+    """Events that overlap the days asked, earliest first"""
+
+    timezone: str
+    """The time zone the days are in: the user's, or the calendar's until they choose
+    one"""
+
+    today: date
+    """Today's date in that time zone"""
+
+
 class FreeSlots(BaseModel):
     free_slots: list[Slot]
     """Free time in work hours, earliest first"""
@@ -65,4 +77,4 @@ class FreeSlots(BaseModel):
     one"""
 
 
-__all__ = ["CalendarEvent", "EventCreate", "FreeSlots", "Slot"]
+__all__ = ["CalendarEvent", "EventCreate", "Events", "FreeSlots", "Slot"]

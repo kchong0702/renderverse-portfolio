@@ -6,6 +6,7 @@ from src.adapters.job_sources import JobSource
 from src.core.agent_runner import Tool, Tools
 from src.features.jobs.tools.job_run import JobRunRequest, job_run
 from src.features.jobs.tools.job_search import JobSearchRequest, job_search
+from src.features.jobs.tools.saved_jobs import SavedJobsRequest, saved_jobs
 
 
 def job_tools(
@@ -16,6 +17,7 @@ def job_tools(
     return {
         "job_run": Tool(JobRunRequest, partial(job_run, factory)),
         "job_search": Tool(JobSearchRequest, partial(job_search, factory, source)),
+        "saved_jobs": Tool(SavedJobsRequest, partial(saved_jobs, factory)),
     }
 
 

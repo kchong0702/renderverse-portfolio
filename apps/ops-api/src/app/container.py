@@ -10,7 +10,9 @@ from src.core.agent_runner import AgentRunner, ToolExecutor
 from src.core.config import get_settings
 from src.core.stores import InMemoryRunStore, PostgresRunStore, UsageLedger
 from src.db.session import create_engine, create_session_factory
+from src.features.applications import application_tools
 from src.features.assistant import profile_tools
+from src.features.calendar import calendar_tools
 from src.features.documents import document_tools
 from src.features.inbox import inbox_tools
 from src.features.jobs import job_tools
@@ -82,6 +84,13 @@ class Container(containers.DeclarativeContainer):
             ),
             providers.Callable(job_tools, session_factory, job_source),
             providers.Callable(profile_tools, session_factory),
+            providers.Callable(application_tools, session_factory),
+            providers.Callable(
+                calendar_tools,
+                session_factory,
+                google,
+                settings.provided.google,
+            ),
         ),
     )
 

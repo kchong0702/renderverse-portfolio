@@ -211,3 +211,82 @@ async def test_no_free_slots_says_the_user_has_none_to_offer():
     report = _report(result, "read_free_slots")
     assert report.text == "The user has no free times to offer."
     assert report.artifact == {"step_detail": "no free slots"}
+
+
+async def test_find_events_lists_the_days_events_in_the_users_zone_as_untrusted():
+    model = ScriptedChatModel(
+        replies=[_call("find_events", days=2), AIMessage("An interview at 10.")]
+    )
+
+    asked, result = await _run(
+        model,
+        "What's on my calendar tomorrow?",
+        {
+            "events": [
+                {
+                    "id": "e1",
+                    "title": "Harbor Health interview",
+                    "start": "2026-11-13T02:00:00Z",
+                    "end": "2026-11-13T03:00:00Z",
+                    "all_day": False,
+                    "location": "Google Meet",
+                    "url": "https://calendar.google.com/event?eid=e1",
+                    "interview": True,
+                },
+                {
+                    "id": "e2",
+                    "title": "Conference",
+                    "start": "2026-11-14",
+                    "end": "2026-11-16",
+                    "all_day": True,
+                    "location": "",
+                    "url": "",
+                    "interview": False,
+                },
+            ],
+            "timezone": "Asia/Kuala_Lumpur",
+            "today": "2026-11-13",
+        },
+    )
+
+    assert asked == [{"execute_tool": "events", "days": 2}]
+    report = _report(result, "find_events")
+    heading, tagged = report.text.split("\n", 1)
+    assert heading == (
+        "Today is Fri 13 Nov 2026, in Asia/Kuala_Lumpur. "
+        "The user's events in the next 2 days:"
+    )
+    assert tagged.startswith("<events untrusted>\n")
+    assert tagged.endswith("\n</events>")
+    assert json.loads(tagged.split("\n")[1]) == [
+        {
+            "when": "Fri 13 Nov 10:00 to 11:00",
+            "title": "Harbor Health interview",
+            "location": "Google Meet",
+            "interview": True,
+        },
+        {
+            "when": "Sat 14 Nov to Sun 15 Nov, all day",
+            "title": "Conference",
+            "location": "",
+            "interview": False,
+        },
+    ]
+    assert report.artifact == {"step_detail": "2 events"}
+
+
+async def test_find_events_says_why_the_calendar_could_not_be_read():
+    model = ScriptedChatModel(
+        replies=[_call("find_events"), AIMessage("Connect Google first.")]
+    )
+
+    asked, result = await _run(
+        model,
+        "What's on my calendar?",
+        {"error": "Connect a Google account in Settings first"},
+    )
+
+    assert asked == [{"execute_tool": "events", "days": 7}]
+    report = _report(result, "find_events")
+    assert report.status == "error"
+    assert "Connect a Google account" in report.text
