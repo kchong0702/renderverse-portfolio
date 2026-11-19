@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Self
 
 import httpx
 from langchain_core.messages import AnyMessage, HumanMessage
@@ -7,14 +7,14 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.agents import AgentOverride
 from src.core.config import get_settings
 from src.core.errors import ExecuteError
 from src.features.analyse_job.configurations import CHECKS, AnalyseJobConfigurations
 from src.features.analyse_job.filters import hard_filters
-from src.features.analyse_job.nodes import fetch_posting
+from src.features.analyse_job.nodes import fetch_posting, posting_lines
 from src.features.analyse_job.schemas import JobAnalysis, JobRequirements
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
 from src.shared.jobs import PostingLine
@@ -25,8 +25,11 @@ from src.shared.url import Url
 class AnalyseJobInput(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
-    url: Url
-    """The posting the user pasted"""
+    url: Url | None = None
+    """The link to the posting the user gave; None when they pasted its text"""
+
+    text: str | None = None
+    """The posting's text the user pasted instead of a link"""
 
     facts: list[ProfileFact]
     """The user's profile facts"""
@@ -36,6 +39,13 @@ class AnalyseJobInput(BaseModel):
 
     messages: Annotated[list[AnyMessage], add_messages] = Field(default_factory=list)
     """The user's note, if any, then the agent's conversation across check rounds"""
+
+    @model_validator(mode="after")
+    def _one_posting(self) -> Self:
+        """Refuse both a link and a text, or neither"""
+        if (self.url is None) == (self.text is None):
+            raise ValueError("Give the posting's url or its text, not both")
+        return self
 
 
 class AnalyseJobOutput(BaseModel):
@@ -59,14 +69,24 @@ class AnalyseJobState(AnalyseJobInput, AnalyseJobOutput):
 
 
 async def _fetch(state: AnalyseJobState) -> dict:
-    """Fetch the posting and hand the agent its lines as untrusted text"""
+    """Fetch the posting, or take the pasted text, and hand the agent its lines as
+    untrusted text"""
     require_facts(state.facts)
-    try:
-        lines = await fetch_posting(state.url)
-    except httpx.HTTPError as error:
-        raise ExecuteError(f"Couldn't fetch the posting: {error}") from error
-    if not lines:
-        raise ExecuteError("The posting page has no text")
+    if state.text is not None:
+        lines = posting_lines(state.text)
+        if not lines:
+            raise ExecuteError("The pasted posting has no text")
+    else:
+        try:
+            lines = await fetch_posting(state.url)
+        except httpx.HTTPError as error:
+            raise ExecuteError(
+                f"Couldn't fetch the posting: {error}. Paste the posting's text instead."
+            ) from error
+        if not lines:
+            raise ExecuteError(
+                "The posting page has no text. Paste the posting's text instead."
+            )
     posting = "\n".join(f"[{line.id}] {line.text}" for line in lines)
     return {
         "lines": lines,

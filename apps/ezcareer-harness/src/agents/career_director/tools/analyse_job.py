@@ -14,15 +14,17 @@ from src.shared.url import Url
 async def _analyse_job(
     graph: CompiledStateGraph,
     runtime: ToolRuntime[None, CareerDirectorState],
-    url: Url,
+    url: Url | None = None,
+    text: str | None = None,
 ) -> str:
-    """Shows how well the job posting at a URL fits the user's profile, with every
-    point cited"""
+    """Shows how well a job posting fits the user's profile, with every point cited;
+    give the posting's URL, or its text when the user pasted the posting itself"""
     try:
         output = await graph.ainvoke(
             graph.get_input_schema().model_validate(
                 {
                     "url": url,
+                    "text": text,
                     "facts": runtime.state["facts"],
                     "preferences": runtime.state["preferences"],
                 }
@@ -47,7 +49,14 @@ def analyse_job_tool(graph: CompiledStateGraph) -> BaseTool:
                     description="The agent's state, injected by the agent and never set by the model"
                 ),
             ),
-            url=(Url, Field(description="The job posting's URL")),
+            url=(Url | None, Field(default=None, description="The job posting's URL")),
+            text=(
+                str | None,
+                Field(
+                    default=None,
+                    description="The job posting's text, when the user pasted it instead of a link",
+                ),
+            ),
         ),
         handle_tool_error=True,
     )
