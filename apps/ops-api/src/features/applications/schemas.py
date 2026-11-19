@@ -146,12 +146,70 @@ class ApplicationRead(ApplicationWrite):
     """The due day of the open offer deadline step; None when there is none"""
 
 
+class StepSummary(BaseModel):
+    kind: StepKind
+    """An interview, a follow-up, a take-home or an offer deadline"""
+
+    title: str
+    """What it is, such as Technical interview; empty to go by its kind"""
+
+    starts_at: datetime | None
+    """When it starts, in UTC; None for a step that only has a due day"""
+
+    due_on: date | None
+    """The day it must be done by"""
+
+    format: NextStepFormat | None
+    """Whether it is a video call, a phone call or on site"""
+
+    location: str | None
+    """Where it happens, such as an address or a meeting link"""
+
+
+class ApplicationSummary(BaseModel):
+    company: str
+    """Employer applied to"""
+
+    role: str
+    """Job title applied for"""
+
+    stage: ApplicationStage
+    """Where it stands in the pipeline"""
+
+    applied_on: date | None
+    """The day it was sent"""
+
+    fit: int | None
+    """The job's fit score; None until the job is analysed"""
+
+    next_step: StepSummary | None
+    """The soonest open step still ahead; None when there is none"""
+
+    overdue: list[StepSummary]
+    """Open steps whose due day has passed, oldest first"""
+
+
+class ApplicationsAnswer(BaseModel):
+    by_stage: dict[ApplicationStage, int]
+    """How many applications of the company asked are at each stage, every stage
+    listed"""
+
+    applications: list[ApplicationSummary]
+    """The applications asked for, overdue first, then soonest next step first"""
+
+    timezone: str
+    """The user's time zone, UTC until they choose one"""
+
+
 __all__ = [
     "ApplicationRead",
+    "ApplicationSummary",
     "ApplicationUpdate",
     "ApplicationWrite",
+    "ApplicationsAnswer",
     "JobApplicationCreate",
     "ManualApplicationCreate",
     "StepRead",
+    "StepSummary",
     "StepWrite",
 ]

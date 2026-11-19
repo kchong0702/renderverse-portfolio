@@ -205,6 +205,40 @@ class FindJobsOutput(BaseModel):
     """Jobs that fit the profile and preferences, best first"""
 
 
+class SavedJob(BaseModel):
+    title: str
+    """The job title"""
+
+    company: str
+    """The employer"""
+
+    location: str
+    """Where the job is"""
+
+    salary: str
+    """The pay, as the posting gives it"""
+
+    url: str
+    """Where the posting is"""
+
+    posted_at: datetime | None
+    """When it was posted, if known"""
+
+    status: JobStatus
+    """Picked by the job agent, saved by the user, or dismissed"""
+
+    fit: int | None
+    """How well it fits the profile, out of 100; None until it is analysed"""
+
+
+class SavedJobsAnswer(BaseModel):
+    by_status: dict[JobStatus, int]
+    """How many jobs of the company asked have each status, every status listed"""
+
+    jobs: list[SavedJob]
+    """The jobs asked for, best fit first, unanalysed ones last"""
+
+
 class TailorRead(BaseModel):
     resume: TailoredDocument
     """The job's résumé, copied from the master résumé"""
@@ -232,5 +266,7 @@ __all__ = [
     "JobUpdate",
     "PostingLine",
     "Requirement",
+    "SavedJob",
+    "SavedJobsAnswer",
     "TailorRead",
 ]

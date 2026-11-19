@@ -82,6 +82,33 @@ def _to_read(
     )
 
 
+async def ordered_applications(
+    repository: ApplicationRepository, user_id: UUID, zone: ZoneInfo
+) -> list[ApplicationRead]:
+    """Every application: those with an overdue step first, oldest overdue first,
+    then soonest next step first, then newest first"""
+    applications = await repository.applications(user_id)
+    steps = await repository.steps(user_id, [a.id for a in applications])
+    reads = [
+        _to_read(
+            a,
+            JobRead.model_validate(a.job, from_attributes=True),
+            [s for s in steps if s.application_id == a.id],
+            zone,
+        )
+        for a in applications
+    ]
+    return sorted(
+        reads,
+        key=lambda read: (
+            read.overdue[0].due_on if read.overdue else date.max,
+            _at(read.next_step, zone)
+            if read.next_step
+            else datetime.max.replace(tzinfo=UTC),
+        ),
+    )
+
+
 class ApplicationService:
     def __init__(
         self,
@@ -119,28 +146,9 @@ class ApplicationService:
         return step
 
     async def applications(self, user_id: UUID) -> list[ApplicationRead]:
-        """Every application: those with an overdue step first, oldest overdue
-        first, then soonest next step first, then newest first"""
-        zone = await self._zone(user_id)
-        applications = await self._repository.applications(user_id)
-        steps = await self._repository.steps(user_id, [a.id for a in applications])
-        reads = [
-            _to_read(
-                a,
-                JobRead.model_validate(a.job, from_attributes=True),
-                [s for s in steps if s.application_id == a.id],
-                zone,
-            )
-            for a in applications
-        ]
-        return sorted(
-            reads,
-            key=lambda read: (
-                read.overdue[0].due_on if read.overdue else date.max,
-                _at(read.next_step, zone)
-                if read.next_step
-                else datetime.max.replace(tzinfo=UTC),
-            ),
+        """Every application, in ordered_applications' order"""
+        return await ordered_applications(
+            self._repository, user_id, await self._zone(user_id)
         )
 
     async def add(
@@ -283,4 +291,4 @@ class ApplicationService:
         )
 
 
-__all__ = ["ApplicationService"]
+__all__ = ["ApplicationService", "ordered_applications"]
