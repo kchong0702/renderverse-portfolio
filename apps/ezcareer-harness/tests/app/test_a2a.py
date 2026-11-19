@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime, tzinfo
 from typing import override
 
 import pytest
@@ -16,6 +17,7 @@ from langgraph.types import interrupt
 from pydantic import BaseModel
 
 from src.app.a2a import Executable, add_executable_routes
+from src.app.a2a import executable as a2a_executable
 from src.app.app import create_app
 from src.app.container import Container
 from src.core.config import AppSettings
@@ -284,8 +286,26 @@ def _agent_client(agent: CompiledStateGraph) -> TestClient:
     return TestClient(app)
 
 
+class _Thursday(datetime):
+    @classmethod
+    @override
+    def now(cls, tz: tzinfo | None = None) -> datetime:
+        """Thu 19 Nov 2026 13:05 UTC, in the zone asked"""
+        return datetime(2026, 11, 19, 13, 5, tzinfo=UTC).astimezone(tz)
+
+
+@pytest.fixture
+def thursday(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every message arrives on Thu 19 Nov 2026 at 13:05 UTC"""
+    monkeypatch.setattr(a2a_executable, "datetime", _Thursday)
+
+
 def _say(
-    client: TestClient, text: str, task: dict | None = None, context: str | None = None
+    client: TestClient,
+    text: str,
+    task: dict | None = None,
+    context: str | None = None,
+    metadata: dict | None = None,
 ) -> dict:
     message = {"messageId": f"m-{text}", "role": "ROLE_USER", "parts": [{"text": text}]}
     if task:
@@ -299,13 +319,14 @@ def _say(
             "jsonrpc": "2.0",
             "id": 1,
             "method": "SendMessage",
-            "params": {"message": message},
+            "params": {"message": message}
+            | ({"metadata": metadata} if metadata else {}),
         },
     )
     return response.json()["result"]["task"]
 
 
-def test_an_agent_takes_the_users_text_and_replies_in_text():
+def test_an_agent_takes_the_users_text_and_replies_in_text(thursday):
     model = ScriptedChatModel(replies=[AIMessage("Hello, Ada!")])
 
     task = _say(_agent_client(create_agent(model)), "Hi, I'm Ada")
@@ -313,10 +334,35 @@ def test_an_agent_takes_the_users_text_and_replies_in_text():
     assert task["status"]["state"] == "TASK_STATE_COMPLETED"
     [reply] = [a for a in task["artifacts"] if a["name"] == "greeter"]
     assert reply["parts"][0]["text"] == "Hello, Ada!"
-    assert model.requests[0][-1].text == "Hi, I'm Ada"
+    assert model.requests[0][-1].text == "[Thu 19 Nov 2026, 13:05 UTC] Hi, I'm Ada"
 
 
-def test_an_agent_remembers_earlier_turns_in_the_same_context():
+def test_an_agent_stamps_each_message_in_the_users_time_zone(thursday):
+    model = ScriptedChatModel(replies=[AIMessage("Tomorrow at 9.")])
+
+    _say(
+        _agent_client(create_agent(model)),
+        "Search tomorrow at 9",
+        metadata={"timezone": "Asia/Kuala_Lumpur"},
+    )
+
+    assert model.requests[0][-1].text == (
+        "[Thu 19 Nov 2026, 21:05 Asia/Kuala_Lumpur] Search tomorrow at 9"
+    )
+
+
+def test_an_unknown_time_zone_fails_the_run():
+    model = ScriptedChatModel(replies=[AIMessage("Hi.")])
+
+    task = _say(
+        _agent_client(create_agent(model)), "Hi", metadata={"timezone": "Mars/Base"}
+    )
+
+    assert task["status"]["state"] == "TASK_STATE_FAILED"
+    assert model.requests == []
+
+
+def test_an_agent_remembers_earlier_turns_in_the_same_context(thursday):
     model = ScriptedChatModel(
         replies=[AIMessage("Hello, Ada!"), AIMessage("Your name is Ada.")]
     )
@@ -327,9 +373,9 @@ def test_an_agent_remembers_earlier_turns_in_the_same_context():
 
     assert second["id"] != first["id"]
     assert [m.text for m in model.requests[1][-3:]] == [
-        "Hi, I'm Ada",
+        "[Thu 19 Nov 2026, 13:05 UTC] Hi, I'm Ada",
         "Hello, Ada!",
-        "What's my name?",
+        "[Thu 19 Nov 2026, 13:05 UTC] What's my name?",
     ]
 
 

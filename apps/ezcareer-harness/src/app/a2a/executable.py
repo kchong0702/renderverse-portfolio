@@ -1,4 +1,6 @@
+from datetime import datetime
 from typing import Literal, override
+from zoneinfo import ZoneInfo
 
 from a2a.helpers import (
     get_data_parts,
@@ -66,6 +68,9 @@ class RunMetadata(BaseModel):
 
     model: ModelChoice | None = None
     """The model the user picked for the run; None keeps each agent's own"""
+
+    timezone: ZoneInfo = ZoneInfo("UTC")
+    """The user's time zone, which stamps their messages; UTC when they chose none"""
 
 
 class Step(BaseModel):
@@ -179,6 +184,11 @@ def _interrupt_part(interrupt: Interrupt) -> Part:
     return part
 
 
+def _stamped(text: str, zone: ZoneInfo) -> str:
+    """The text prefixed with the time it arrived, in the zone"""
+    return f"[{datetime.now(zone):%a %d %b %Y, %H:%M} {zone.key}] {text}"
+
+
 class Executable(BaseModel):
     model_config = ConfigDict(
         frozen=True, arbitrary_types_allowed=True, use_attribute_docstrings=True
@@ -227,11 +237,7 @@ class LanggraphExecutor(AgentExecutor):
             await event_queue.enqueue_event(new_task_from_user_message(context.message))
         await updater.start_work()
         try:
-            metadata = (
-                RunMetadata.model_validate(context.metadata)
-                if context.metadata
-                else None
-            )
+            metadata = RunMetadata.model_validate(context.metadata or {})
             if context.current_task and ids:
                 graph_input = Command(resume=dict(zip(ids, data, strict=True)))
             elif context.current_task:
@@ -242,7 +248,13 @@ class LanggraphExecutor(AgentExecutor):
                 graph_input = self.executable.graph.get_input_schema().model_validate(
                     {
                         **(data[0] if data else {}),
-                        "messages": [HumanMessage(text)]
+                        "messages": [
+                            HumanMessage(
+                                _stamped(text, metadata.timezone)
+                                if self.executable.kind == "agent"
+                                else text
+                            )
+                        ]
                         if (text := context.get_user_input())
                         else [],
                     }
@@ -252,10 +264,8 @@ class LanggraphExecutor(AgentExecutor):
         except ValidationError as error:
             await updater.failed(_reason(updater, f"Invalid input: {error}"))
             return
-        if (
-            metadata
-            and metadata.model
-            and not get_settings().offers(metadata.model.family, metadata.model.model)
+        if metadata.model and not get_settings().offers(
+            metadata.model.family, metadata.model.model
         ):
             await updater.failed(
                 _reason(
@@ -291,10 +301,8 @@ class LanggraphExecutor(AgentExecutor):
                 },
                 context=RunContext(
                     model=llm_provider(metadata.model.family, metadata.model.model)
-                    if metadata.model
-                    else None,
                 )
-                if metadata
+                if metadata.model
                 else None,
                 stream_mode=["values", "messages", "tasks"],
                 output_keys=self.executable.graph.output_channels,
