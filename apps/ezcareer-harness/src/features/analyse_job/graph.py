@@ -14,10 +14,10 @@ from src.core.config import get_settings
 from src.core.errors import ExecuteError
 from src.features.analyse_job.configurations import CHECKS, AnalyseJobConfigurations
 from src.features.analyse_job.filters import hard_filters
-from src.features.analyse_job.nodes import fetch_posting, posting_lines
+from src.features.analyse_job.nodes import fetch_posting
 from src.features.analyse_job.schemas import JobAnalysis, JobRequirements
 from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
-from src.shared.jobs import PostingLine
+from src.shared.jobs import PostingLine, posting_lines
 from src.shared.profile import Preferences, Profile, ProfileFact, require_facts
 from src.shared.url import Url
 
@@ -28,7 +28,7 @@ class AnalyseJobInput(BaseModel):
     url: Url | None = None
     """The link to the posting the user gave; None when they pasted its text"""
 
-    text: str | None = None
+    posting_text: str | None = None
     """The posting's text the user pasted instead of a link"""
 
     facts: list[ProfileFact]
@@ -43,7 +43,7 @@ class AnalyseJobInput(BaseModel):
     @model_validator(mode="after")
     def _one_posting(self) -> Self:
         """Refuse both a link and a text, or neither"""
-        if (self.url is None) == (self.text is None):
+        if (self.url is None) == (self.posting_text is None):
             raise ValueError("Give the posting's url or its text, not both")
         return self
 
@@ -72,8 +72,8 @@ async def _fetch(state: AnalyseJobState) -> dict:
     """Fetch the posting, or take the pasted text, and hand the agent its lines as
     untrusted text"""
     require_facts(state.facts)
-    if state.text is not None:
-        lines = posting_lines(state.text)
+    if state.posting_text is not None:
+        lines = posting_lines(state.posting_text)
         if not lines:
             raise ExecuteError("The pasted posting has no text")
     else:

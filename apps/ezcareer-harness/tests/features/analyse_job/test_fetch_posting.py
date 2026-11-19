@@ -4,7 +4,8 @@ import httpx
 import pytest
 import respx
 
-from src.features.analyse_job.nodes import fetch_posting, posting_lines
+from src.features.analyse_job.nodes import fetch_posting
+from src.shared.jobs import posting_lines
 
 URL = "https://jobs.example.com/acme/senior-backend"
 POSTING = (Path(__file__).parent / "fixtures" / "posting.html").read_text()

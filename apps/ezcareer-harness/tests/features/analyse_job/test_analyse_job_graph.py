@@ -158,7 +158,7 @@ async def test_a_pasted_posting_is_analysed_without_a_fetch():
 
     with respx.mock:
         result = await build_graph(Container().job_analyst.agent(model=model)).ainvoke(
-            {**INPUT, "url": None, "text": text}
+            {**INPUT, "url": None, "posting_text": text}
         )
 
     analysis = result["analysis"]
@@ -171,7 +171,7 @@ async def test_a_pasted_posting_is_analysed_without_a_fetch():
 
 @pytest.mark.parametrize(
     "posting",
-    [{"url": None}, {"text": "Senior Backend Engineer"}],
+    [{"url": None}, {"posting_text": "Senior Backend Engineer"}],
     ids=["neither", "both"],
 )
 async def test_a_posting_needs_a_link_or_a_text_but_not_both(posting):
