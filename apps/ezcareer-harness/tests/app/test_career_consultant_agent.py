@@ -121,7 +121,7 @@ def _send(
 def _stream(
     client: TestClient,
     parts: list[dict[str, JsonValue]],
-    task: dict[str, JsonValue],
+    task: dict[str, JsonValue] | None,
 ) -> list[dict[str, JsonValue]]:
     """Every event SendStreamingMessage sends for one message"""
     with client.stream(
@@ -148,21 +148,16 @@ def _request() -> list[dict[str, JsonValue]]:
         {
             "data": {
                 "document_id": "doc-1",
+                **_loaded(),
                 "facts": to_jsonable_python(_state()["facts"]),
             }
         },
     ]
 
 
-def _edit(
-    client: TestClient, loaded: dict[str, JsonValue] | None = None
-) -> dict[str, JsonValue]:
-    """Sends REQUEST about doc-1 and answers the document tool; returns the task"""
-    asked = _send(client, _request())
-    assert [p["data"] for p in asked["status"]["message"]["parts"]] == [
-        {"execute_tool": "document", "id": "doc-1"}
-    ]
-    return _send(client, [{"data": loaded or _loaded()}], task=asked)
+def _edit(client: TestClient) -> dict[str, JsonValue]:
+    """Sends REQUEST with doc-1's content; returns the task"""
+    return _send(client, _request())
 
 
 def _changesets(task: dict[str, JsonValue]) -> list[dict[str, JsonValue]]:
@@ -190,7 +185,7 @@ def test_career_consultant_is_served_as_an_agent_with_the_containers_checkpointe
     assert container.career_consultant.agent().checkpointer is None
 
 
-def test_a_message_loads_its_document_then_the_proposal_is_a_changeset_artifact():
+def test_a_message_carries_its_document_and_the_proposal_is_a_changeset_artifact():
     model = _model(READ_SKILL, _propose(GOOD_EDIT), DONE)
 
     done = _edit(_client(model))
@@ -204,28 +199,26 @@ def test_a_message_loads_its_document_then_the_proposal_is_a_changeset_artifact(
     assert proposed["changeset"]["edits"] == [GOOD_EDIT.model_dump(mode="json")]
     [reply] = [a for a in done["artifacts"] if a["name"] == "career-consultant"]
     assert reply["parts"][0]["text"] == DONE.text
-    [system, asked] = model.requests[0]
-    assert _state()["document"].model_dump_json() in system.text
+    [system, document, asked] = model.requests[0]
+    assert _state()["document"].model_dump_json() not in system.text
+    assert _state()["document"].model_dump_json() in document.text
     assert asked.text == REQUEST
     assert "propose_changeset" not in model.offered_tools[0]
     assert "propose_changeset" in model.offered_tools[1]
 
 
-@pytest.mark.parametrize(
-    ("answer", "reason"),
-    [
-        ({"error": "No document doc-1"}, "No document doc-1"),
-        ({"document": "not a document"}, "The document didn't load"),
-    ],
-)
-def test_a_document_ops_cannot_load_fails_the_task_with_the_reason(
-    answer: dict[str, JsonValue], reason: str
-):
-    failed = _edit(_client(_model(DONE)), answer)
+def test_a_message_without_a_document_fails_the_task_with_the_reason():
+    model = _model(DONE)
+    [text, data] = _request()
+    del data["data"]["document"]
+
+    failed = _send(_client(model), [text, data])
 
     assert failed["status"]["state"] == "TASK_STATE_FAILED"
-    assert failed["status"]["message"]["parts"][0]["text"].startswith(reason)
-    assert "artifacts" not in failed
+    reason = failed["status"]["message"]["parts"][0]["text"]
+    assert reason.startswith("Invalid input:")
+    assert "document\n  Field required" in reason
+    assert model.requests == []
 
 
 def test_an_unclear_request_shows_the_user_a_widget_then_finishes():
@@ -328,22 +321,17 @@ def test_page_fit_spares_the_bullets_the_changeset_inserted(
     assert edits[1]["path"] == "blocks/experience/items/lumen/bullets/latency"
 
 
-def test_page_fit_prints_the_document_first_with_the_loaded_files():
+def test_page_fit_prints_the_document_it_was_sent_first():
     sent: list[httpx.Request] = []
 
     _edit(
         _client(
             _model(READ_SKILL, _propose(GOOD_EDIT), DONE), partial(_print, sent=sent)
-        ),
-        _loaded(assets={"a" * 64: "cGhvdG8="}),
+        )
     )
 
     assert len(sent) == 2
     assert json.loads(sent[0].content)["document"] == _loaded()["document"]
-    assert all(
-        json.loads(request.content)["assets"] == {"a" * 64: "cGhvdG8="}
-        for request in sent
-    )
 
 
 def test_a_failed_print_fails_the_task_with_the_reason():
@@ -368,8 +356,7 @@ def test_the_consultants_thinking_and_reply_stream_before_the_reply_artifact():
         )
     )
 
-    asked = _send(client, _request())
-    events = _stream(client, [{"data": _loaded()}], asked)
+    events = _stream(client, _request(), None)
 
     assert [
         (

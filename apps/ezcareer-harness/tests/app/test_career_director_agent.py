@@ -11,10 +11,11 @@ from pydantic_core import to_jsonable_python
 from src.app.app import create_app
 from src.app.container import Container
 from tests.agents.career_consultant import test_career_consultant as career_consultant
-from tests.agents.career_consultant.test_career_consultant import _loaded, _print
+from tests.agents.career_consultant.test_career_consultant import _print
 from tests.agents.career_director.test_career_director import (
     BACKEND,
     REQUEST,
+    _documents,
     _find,
     _model,
 )
@@ -230,24 +231,11 @@ def test_a_found_document_is_handed_to_career_consultant_whose_changeset_is_an_a
     client = TestClient(create_app(_container(_model(), consultant, director)))
 
     finding = _send(client, _director_request())
-    loading = _send(client, [{"data": {"documents": [BACKEND]}}], task=finding)
-    done = _send(client, [{"data": _loaded()}], task=loading)
+    done = _send(client, [{"data": _documents(BACKEND)}], task=finding)
 
-    assert [
-        (
-            task["status"]["state"],
-            [p["data"] for p in task["status"]["message"]["parts"]],
-        )
-        for task in (finding, loading)
-    ] == [
-        (
-            "TASK_STATE_INPUT_REQUIRED",
-            [{"execute_tool": "documents", "name": "backend résumé", "kind": "resume"}],
-        ),
-        (
-            "TASK_STATE_INPUT_REQUIRED",
-            [{"execute_tool": "document", "id": "doc-1"}],
-        ),
+    assert finding["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
+    assert [p["data"] for p in finding["status"]["message"]["parts"]] == [
+        {"execute_tool": "documents", "name": "backend résumé", "kind": "resume"}
     ]
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
     [changeset] = [a for a in done["artifacts"] if a["name"] == "changeset"]
@@ -301,12 +289,13 @@ def test_the_consultants_question_reaches_the_user_and_their_answer_finishes_the
         career_consultant.DONE,
     )
     director = _model(
-        _call("handoff_to_child", agent="career-consultant", document_id="doc-1")
+        _find(name="backend résumé"),
+        _call("handoff_to_child", agent="career-consultant", document_id="doc-1"),
     )
     client = TestClient(create_app(_container(_model(), consultant, director)))
 
-    loading = _send(client, _director_request())
-    asked = _send(client, [{"data": _loaded()}], task=loading)
+    finding = _send(client, _director_request())
+    asked = _send(client, [{"data": _documents(BACKEND)}], task=finding)
     done = _send(client, [{"data": {"input": "The queue one"}}], task=asked)
 
     assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
@@ -326,7 +315,7 @@ def test_the_consultants_question_reaches_the_user_and_their_answer_finishes_the
         if isinstance(m, ToolMessage) and m.name == "clarify"
     ]
     assert answer == "The queue one"
-    assert len(director.requests) == 1
+    assert len(director.requests) == 2
 
 
 def _steps(events: list[dict[str, JsonValue]]) -> list[dict[str, JsonValue]]:
@@ -424,12 +413,11 @@ def test_finished_steps_carry_what_their_tools_found_and_worked_on():
 
     finding = _stream(client, _director_request())
     task = finding[-1]["statusUpdate"]
-    loading = _stream(client, [{"data": {"documents": [BACKEND]}}], task=task)
-    done = _stream(client, [{"data": _loaded()}], task=task)
+    done = _stream(client, [{"data": _documents(BACKEND)}], task=task)
 
     details = [
         (s["name"], s["detail"])
-        for s in _steps(finding + loading + done)
+        for s in _steps(finding + done)
         if s["status"] == "done"
     ]
     assert details == [
@@ -441,6 +429,40 @@ def test_finished_steps_carry_what_their_tools_found_and_worked_on():
             "citing Ran production workloads on Kubernetes at Lumen Pay since 2022",
         ),
     ]
+
+
+def test_a_second_handoff_in_one_reply_fails_on_its_own_step():
+    director = _model(
+        _find(name="backend résumé", kind="resume"),
+        AIMessage(
+            "",
+            tool_calls=[
+                {
+                    "name": "handoff_to_child",
+                    "args": {"agent": "career-consultant", "document_id": "doc-1"},
+                    "id": "first",
+                },
+                {
+                    "name": "handoff_to_child",
+                    "args": {"agent": "career-consultant", "document_id": "doc-1"},
+                    "id": "second",
+                },
+            ],
+        ),
+    )
+    consultant = career_consultant._model(career_consultant.DONE)
+    client = TestClient(create_app(_container(_model(), consultant, director)))
+
+    finding = _stream(client, _director_request())
+    done = _stream(
+        client, [{"data": _documents(BACKEND)}], task=finding[-1]["statusUpdate"]
+    )
+
+    assert {
+        (s["id"], s["status"])
+        for s in _steps(done)
+        if s["name"] == "handoff_to_child" and s["status"] != "running"
+    } == {("first", "done"), ("second", "failed")}
 
 
 def test_email_is_handed_to_productivity_assistant_which_answers_and_keeps_the_next_turn():

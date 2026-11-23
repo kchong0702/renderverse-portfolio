@@ -47,11 +47,7 @@ async def _propose_changeset(
     if errors:
         return json.dumps([error.model_dump() for error in errors])
     changeset = await fit_pages(
-        runtime.state["document"],
-        runtime.state.get("assets", {}),
-        changeset,
-        artifact_service,
-        trims,
+        runtime.state["document"], changeset, artifact_service, trims
     )
     return Command(
         update={

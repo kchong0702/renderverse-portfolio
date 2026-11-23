@@ -65,10 +65,9 @@ document-analyst only structures what it is given: a résumé's lines or a profi
 - `citations`: each cited fact exists.
 - `form`: each field keeps to its cap in `configurations.yaml` (headline 220 characters, summary 2600, description 2000), and is plain text, with bullets as `•`.
 
-career-consultant edits one résumé, CV or cover letter, the one its state's `document_id` names. Ops' document chat calls it with that `document_id`, and career-director hands it the conversation with one (see [Agent graphs](#agent-graphs)). Its own pieces keep every edit checked and fitted:
+career-consultant edits one résumé, CV or cover letter, the one in its state's `document`, with its `document_id` and its PDF `lines`. Ops' document chat and job tailoring send all three in the run's input on every turn, and career-director hands them over with the conversation (see [Agent graphs](#agent-graphs)). `document` is required in its input, so a run served without one fails with `Invalid input`. ops-api sends no files, so the document prints without them. Its own pieces keep every edit checked and fitted:
 
-- `load_document`, a `before_agent` middleware, loads the document at the start of every run: it pauses for ops-api's `document` tool and puts the document, its PDF lines and its files in state. It fails the run with ops-api's reason when it can't, and does nothing when no `document_id` is set.
-- `document_prompt`, a `@dynamic_prompt`, adds the document to the system prompt only when the state has one, so the same agent writes job portal content with no document.
+- `document_message`, a `@wrap_model_call` middleware, adds the document, as untrusted data in `<document>` tags, as a user message just before the latest user message of each model call. It never saves the message to state and never changes the system prompt. Within a turn every model call starts with the same messages, so the prompt cache keeps them; on the next turn the cache keeps everything before the previous user message. It adds nothing when the state has no document, as when `write-networking` runs the same agent for job portal content, or when career-director hands the conversation over without a document.
 - `propose_changeset` runs the edit checks and returns their errors for the agent to fix. Once a changeset passes, it prints the document through artifact-service and deletes untouched bullets, from the entry with the most and never an entry's last, until the edited document prints on no more pages than before, at most `[documents] page_fit_trims` (5) of them. It publishes the fitted changeset as a `changeset` artifact with the `document_id`.
 
 ## Agent graphs
@@ -77,9 +76,10 @@ An agent graph is a LangGraph graph whose main node is an agent, with child agen
 
 - Each agent is a node named after it: the main agent `career-director`, and its children, `productivity-assistant` and `career-consultant`.
 - The state keeps `active_agent`, the agent the conversation is with. A turn starts at that agent, and at career-director when there is none yet. The served graph keeps checkpoints per A2A context, so a follow-up about email goes straight to productivity-assistant and makes no director model call. This is the "active agent" routing that issue #86 asks for.
-- career-director calls `handoff_to_child` with the child's name. Its choices are exactly the children joined to the graph. For career-consultant it also passes the `document_id` of the document `find_documents` found, which the handoff writes into the graph state, so career-consultant loads that document on every turn it answers.
+- career-director calls `handoff_to_child` with the child's name. Its choices are exactly the children joined to the graph. For career-consultant it also passes the `document_id` of a document `find_documents` found this turn. `find_documents` keeps the best match's document and PDF lines in career-director's `found_documents` state, out of the model's tool message, and the handoff copies its `document_id`, `document` and `lines` into the graph state, where career-consultant reads them on every turn it answers. A `document_id` that isn't a best match this turn gets a tool error asking the model to find it by its title first, and nothing is handed off. A handoff without a `document_id` clears all three, so career-consultant never works on an earlier document by mistake.
 - A child calls `handoff_to_parent` when a message isn't its to answer.
-- A handoff tool returns `Command(goto=..., graph=Command.PARENT)`. It sets `active_agent` and passes on only the AI message that called it and a ToolMessage answering it, so the next agent sees a complete tool call and none of the last agent's own steps.
+- A handoff tool returns `Command(goto=..., graph=Command.PARENT)`. It sets `active_agent` and passes on only the AI message that called it and a ToolMessage answering each of that message's tool calls, so the next agent sees complete tool calls and none of the last agent's own steps.
+- Only the first handoff in a reply runs, as LangGraph applies only the first `Command.PARENT` of a step. A later handoff call in the same reply returns a tool error saying it did not run. The first handoff answers that call with the same error, and any other tool call in the reply with an error saying its result was dropped.
 - An agent that answers without a tool call ends the turn.
 
 Only an agent that joins the graph as a child gets `handoff_to_parent`:
@@ -126,7 +126,7 @@ Called directly with its state in the A2A data part, an agent does its whole job
 
 The direction is one way: a workflow runs an agent, and an agent never runs a workflow built on itself. productivity-assistant drafts a reply with its own reads, and `draft-reply` wraps it for Ops' Inbox.
 
-So whatever an agent's model must see comes from the agent itself. career-consultant's `load_document` middleware loads the document its state names, and its `document_prompt` middleware adds it to the system prompt on every model call, whether Ops' document chat called it or career-director handed it the conversation.
+So whatever an agent's model must see comes from its state or the agent itself. career-consultant's state carries the document, whether Ops' document chat called it or career-director handed it the conversation, and its `document_message` middleware shows it to the model on every model call.
 
 ## Workflows own no tools
 
@@ -153,13 +153,12 @@ agent.with_config(
 The harness has no database and no third-party credentials. When a node or tool needs something that Ops owns, it pauses the run and asks ops-api to execute a tool:
 
 ```python
-interrupt({"execute_tool": "document", "id": document_id})
+interrupt({"execute_tool": "thread", "id": thread_id})
 ```
 
 The A2A task becomes `input-required`, and its message carries the request as a data part. The part's metadata holds the interrupt's id, `{"interrupt_id": ...}`. When the model calls several such tools at once, such as one search per country, the message has one part per call. ops-api executes every tool for the run's user, together, and resumes the task with one data part per result, each with the `interrupt_id` of the call it answers in its metadata. The harness resumes the graph with `Command(resume={interrupt_id: result})`, so each call gets its own result. A result is `{"error": ...}` when ops-api can't execute the tool. These tools exist today:
 
-- `{"execute_tool": "document", "id": ...}`, from career-consultant's `load_document` middleware.
-- `{"execute_tool": "documents", "name": ..., "kind": ...}`, from career-director's `find_documents` tool.
+- `{"execute_tool": "documents", "name": ..., "kind": ...}`, from career-director's `find_documents` tool. ops-api returns `{"documents": [...], "content": ...}`: the matches, best first, each with its `id`, `kind`, `title`, `master` and `updated_at`, and `content`, the best match's draft as `document` and its PDF `lines` (empty when it wasn't imported from a PDF), or `null` when nothing matches.
 - `{"execute_tool": "thread", "id": ...}`, from productivity-assistant's `read_thread` tool. ops-api returns `{"thread": ...}`, or `{"error": ...}` when it can't.
 - `{"execute_tool": "free_slots", "days": ...}`, from productivity-assistant's `read_free_slots` tool. ops-api returns `{"free_slots": [...], "timezone": ...}`, with no slots when the user offers none.
 - `{"execute_tool": "events", "days": ...}`, from productivity-assistant's `find_events` tool. ops-api returns `{"events": [...], "timezone": ..., "today": ...}`: the events, not cancelled, that overlap the `days` days from the start of today, earliest first, in the user's time zone or the calendar's until they choose one. It returns `{"error": ...}` when it can't read the calendar, for example when Google isn't connected.

@@ -110,14 +110,16 @@ def _steps(
         return []
     status: Literal["running", "done", "failed", "waiting"]
     if "input" in task:
-        status = "running"
-    elif task["error"] or any(
-        isinstance(m, ToolMessage) and m.status == "error"
-        for m in task["result"].get("messages", [])
-    ):
-        status = "failed"
+        status, failed = "running", set()
     else:
-        status = "waiting" if task["interrupts"] else "done"
+        status = (
+            "failed" if task["error"] else "waiting" if task["interrupts"] else "done"
+        )
+        failed = {
+            m.tool_call_id
+            for m in task["result"].get("messages", [])
+            if isinstance(m, ToolMessage) and m.status == "error"
+        }
     details = {} if "input" in task else _details(task)
     detail = [*details.values()][-1] if details else None
     if kind == "workflow":
@@ -129,14 +131,20 @@ def _steps(
                     id=task["id"],
                     parent=None,
                     name=task["name"],
-                    status=status,
+                    status="failed" if failed else status,
                     detail=detail,
                 )
             ]
         )
     if not namespace and task["name"] in agent_nodes and "result" in task:
         return [
-            Step(id=call_id, parent=None, name=name, status=status, detail=detail)
+            Step(
+                id=call_id,
+                parent=None,
+                name=name,
+                status="failed" if call_id in failed else status,
+                detail=detail,
+            )
             for tools in [*calls]
             for call_id, name in calls.pop(tools)
             if (detail := details.get(call_id))
@@ -149,7 +157,7 @@ def _steps(
                 id=call_id,
                 parent=None,
                 name=name,
-                status=status,
+                status="failed" if call_id in failed else status,
                 detail=details.get(call_id),
             )
             for call_id, name in (
@@ -164,7 +172,7 @@ def _steps(
                 id=task["id"],
                 parent=parent[0][0],
                 name=task["name"],
-                status=status,
+                status="failed" if failed else status,
                 detail=detail,
             )
         ]

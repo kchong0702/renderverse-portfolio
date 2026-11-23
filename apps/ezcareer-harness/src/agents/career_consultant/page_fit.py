@@ -10,7 +10,6 @@ from document_schema import (
     Delete,
     Education,
     Experience,
-    FileHash,
     InsertBlock,
     InsertItem,
     Move,
@@ -26,7 +25,6 @@ from src.core.errors import ExecuteError
 
 async def fit_pages(
     document: AnyDocument,
-    assets: dict[FileHash, bytes],
     changeset: Changeset,
     artifact_service: ArtifactServiceClient,
     trims: int,
@@ -45,10 +43,10 @@ async def fit_pages(
         + [f"blocks/{edit.block.id}" for edit in edits if isinstance(edit, InsertBlock)]
     )
     try:
-        pages = (await artifact_service.render(document, assets)).report.pages
+        pages = (await artifact_service.render(document)).report.pages
         for _ in range(trims):
             edited = apply_edits(document, edits)
-            if (await artifact_service.render(edited, assets)).report.pages <= pages:
+            if (await artifact_service.render(edited)).report.pages <= pages:
                 break
             free = [
                 (path, len(entry.bullets))

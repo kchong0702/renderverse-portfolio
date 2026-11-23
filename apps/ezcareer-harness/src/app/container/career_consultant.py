@@ -2,7 +2,7 @@ from dependency_injector import containers, providers
 
 from src.agents import build_agent
 from src.agents.career_consultant import CareerConsultantState
-from src.agents.career_consultant.middlewares import document_prompt, load_document
+from src.agents.career_consultant.middlewares import document_message
 from src.agents.career_consultant.tools import (
     list_design_options_tool,
     propose_changeset_tool,
@@ -42,7 +42,7 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
             ),
             providers.Callable(list_design_options_tool, artifact_service),
         ),
-        middleware=(load_document, document_prompt),
+        middleware=(document_message,),
         state_schema=CareerConsultantState,
     )
     """The career-consultant agent, built once"""
@@ -51,7 +51,7 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
         Executable,
         kind="agent",
         name="career-consultant",
-        description="Talk to career-consultant about one of the user's résumés, CVs or cover letters, by its document_id, which it loads and proposes checked edits to",
+        description="Talk to career-consultant about one of the user's résumés, CVs or cover letters, sent as the run's document with its document_id and PDF lines; it proposes checked edits to it",
         graph=agent.provided.copy.call(
             update=providers.Dict(checkpointer=checkpointer)
         ).provided.with_config.call(

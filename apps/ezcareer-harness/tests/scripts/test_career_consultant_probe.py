@@ -15,10 +15,12 @@ from tests.agents.career_consultant.test_career_consultant import (
     _propose,
     _state,
 )
+from tests.agents.test_builder import _call
 
 TASK = {
     "messages": [{"type": "human", "content": "Mention my Kubernetes work"}],
     "document_id": "doc-1",
+    **_loaded(),
     "facts": to_jsonable_python(_state()["facts"]),
 }
 
@@ -39,7 +41,7 @@ async def test_a_probe_runs_the_containers_consultant_and_records_each_check_rou
 
     result = await probe.probe(
         probe.WORKFLOWS["career-consultant"],
-        TASK | {"tool_results": {"document": _loaded()}},
+        TASK,
     )
 
     assert result["error"] is None
@@ -53,12 +55,12 @@ async def test_a_probe_runs_the_containers_consultant_and_records_each_check_rou
 
 
 async def test_a_task_without_the_tool_result_fails_with_the_request():
-    _container(DONE)
+    _container(_call("clarify", question="Which job?"), DONE)
 
     result = await probe.probe(probe.WORKFLOWS["career-consultant"], TASK)
 
     assert result["output"] is None
     assert result["error"] == (
-        "ValueError: The task has no tool result for "
-        "{'execute_tool': 'document', 'id': 'doc-1'}"
+        "ValueError: The task has no tool result for {'label': 'Which job?', "
+        "'input_placeholder': 'Type your answer here...', 'submit_btn': 'Send'}"
     )
