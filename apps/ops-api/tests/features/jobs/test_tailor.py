@@ -91,6 +91,16 @@ LETTER_EDITS = {
 
 WIDGET = {"label": "Did you use Kafka at work?", "submit_btn": "Send"}
 
+LINE = {
+    "id": "p1.s1",
+    "text": "Kelvin Chong",
+    "page": 1,
+    "x0": 72.0,
+    "top": 60.5,
+    "x1": 180.25,
+    "bottom": 74.0,
+}
+
 
 def _tailored(document_id: str, changeset: dict) -> list[dict]:
     """career-consultant's streamed turn publishing changeset for the document, then
@@ -155,17 +165,7 @@ async def test_a_copy_shows_the_lines_of_its_masters_import(app, client, harness
                             "pages": 1,
                             "last_page_fill": 0.4,
                         },
-                        "lines": [
-                            {
-                                "id": "p1.s1",
-                                "text": "Kelvin Chong",
-                                "page": 1,
-                                "x0": 72.0,
-                                "top": 60.5,
-                                "x1": 180.25,
-                                "bottom": 74.0,
-                            }
-                        ],
+                        "lines": [LINE],
                         "suggestion": {"template": "serif", "columns": 1, "traits": []},
                     }
                 }
@@ -187,6 +187,8 @@ async def test_a_copy_shows_the_lines_of_its_masters_import(app, client, harness
     copy = (await client.get(f"{DOCUMENTS}/{tailored['resume']['document_id']}")).json()
     assert copy["lines"] == [{"id": "p1.s1", "text": "Kelvin Chong"}]
     await _follow(client, copy["id"])
+    [*_, turn] = (sent["params"]["message"] for sent in a2a_sent(harness))
+    assert turn["parts"][1]["data"]["lines"] == [LINE]
 
 
 async def test_tailoring_copies_each_master_and_starts_its_chat_turn(client, harness):
@@ -239,6 +241,8 @@ async def test_tailoring_copies_each_master_and_starts_its_chat_turn(client, har
         "- Kubernetes in production (partly)."
     )
     assert first["parts"][1]["data"]["document_id"] == copy_id
+    assert first["parts"][1]["data"]["document"] == resume["body"]
+    assert first["parts"][1]["data"]["lines"] == []
     second = sent[f"{me['id']}:document:{letter_id}"]
     assert second["parts"][0]["text"].startswith("Tailor this cover letter to")
 

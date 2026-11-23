@@ -40,6 +40,7 @@ from src.features.documents.schemas import (
     VersionCreate,
     VersionRead,
 )
+from src.features.imports import SourceLine
 
 logger = get_logger(__name__)
 
@@ -154,6 +155,13 @@ class DocumentService:
     async def get(self, user_id: UUID, document_id: UUID) -> DocumentRead:
         """One document with its current draft"""
         return await self._read(await _load(self._repository, user_id, document_id))
+
+    async def content(
+        self, user_id: UUID, document_id: UUID
+    ) -> tuple[AnyDocument, list[SourceLine]]:
+        """The user's document's draft and imported lines, or NotFound"""
+        document = await _load(self._repository, user_id, document_id)
+        return document.body, await self._repository.lines(document)
 
     async def require(self, user_id: UUID, document_id: UUID) -> None:
         """NotFound unless the user has the document"""

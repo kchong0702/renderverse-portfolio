@@ -42,8 +42,8 @@ class DocumentChat:
         settings: SettingsService,
         runner: AgentRunner,
     ):
-        """Run career-consultant's turns on the user's documents through the runner,
-        committing the session before each so the run reads the document as it is"""
+        """Run career-consultant's turns on the user's documents, committing the session
+        first so the changesets a run stores on another session see its writes"""
         self._session = session
         """The request's session, committed before each turn"""
 
@@ -87,11 +87,13 @@ class DocumentChat:
     async def send(
         self, user_id: UUID, document_id: UUID, text: str
     ) -> AsyncIterator[str]:
-        """Start a turn of the document's chat and return its events as they come;
-        Conflict while a turn runs"""
-        await self._documents.require(user_id, document_id)
+        """Start a turn of the document's chat on its current draft and lines and return
+        its events as they come; Conflict while a turn runs"""
+        document, lines = await self._documents.content(user_id, document_id)
         data = EditDocumentInput(
             document_id=document_id,
+            document=document,
+            lines=lines,
             facts=(await self._profile.agent_profile(user_id)).facts,
         )
         metadata = await self._settings.run_metadata(user_id)
