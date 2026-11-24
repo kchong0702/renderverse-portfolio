@@ -6,6 +6,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
+from src.agents.middlewares.parent_handoff import DECLINE, HAND_BACK
 from src.app.container import Container
 from src.core.errors import ExecuteError
 from src.shared.profile import ProfileFact
@@ -137,6 +138,8 @@ async def test_on_its_own_productivity_assistant_is_never_offered_handoff_to_par
         model.offered_tools[0]
     )
     assert "handoff_to_parent" not in model.offered_tools[0]
+    assert model.requests[0][0].text.endswith(DECLINE)
+    assert HAND_BACK not in model.requests[0][0].text
 
 
 async def test_read_thread_shows_a_long_threads_latest_messages_cut_to_length():

@@ -2,6 +2,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
+from src.agents.middlewares.parent_handoff import DECLINE, HAND_BACK
 from src.app.container import Container
 from tests.agents.career_consultant import test_career_consultant as career_consultant
 from tests.agents.test_builder import _call
@@ -118,3 +119,7 @@ async def test_only_the_child_agents_in_the_graph_are_offered_handoff_to_parent(
     )
     assert "handoff_to_parent" in assistant.offered_tools[0]
     assert "draft_reply" not in assistant.offered_tools[0]
+    assert assistant.requests[0][0].text.endswith(HAND_BACK)
+    assert DECLINE not in assistant.requests[0][0].text
+    assert HAND_BACK not in director.requests[0][0].text
+    assert DECLINE not in director.requests[0][0].text

@@ -84,7 +84,7 @@ An agent graph is a LangGraph graph whose main node is an agent, with child agen
 
 Only an agent that joins the graph as a child gets `handoff_to_parent`:
 
-- `build_agent` gives every agent `ParentHandoffMiddleware`. It registers the tool through `AgentMiddleware.tools`, and its `wrap_model_call` removes the tool from each model call with `request.override(tools=...)`, unless the run is a child node of an agent graph.
+- The agents that can be handed a conversation, career-consultant and productivity-assistant, get `ParentHandoffMiddleware` from their container. It registers the tool through `AgentMiddleware.tools`. On each model call its `wrap_model_call` adds one instruction to the system prompt: as a child node of an agent graph, hand a message outside the agent's scope back with `handoff_to_parent`; served on its own, say plainly it can't help there, with the tool removed through `request.override(tools=...)`. Each agent's `system.md` says only what its scope is.
 - The graph builder joins each child with `child.with_config(configurable={"parent_agent": ...})`. The tool hands back to that agent.
 - So the same productivity-assistant instance that runs inside `triage-email` and `draft-reply`, or on its own, is never offered the tool, nor is career-consultant in `write-networking` or Ops' document chat.
 

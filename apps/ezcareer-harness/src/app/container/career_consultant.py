@@ -8,6 +8,7 @@ from src.agents.career_consultant.tools import (
     propose_changeset_tool,
     read_pdf_lines,
 )
+from src.agents.middlewares import ParentHandoffMiddleware
 from src.app.a2a import Executable
 from src.clients.artifact_service import ArtifactServiceClient
 from src.core.config import Settings
@@ -42,7 +43,7 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
             ),
             providers.Callable(list_design_options_tool, artifact_service),
         ),
-        middleware=(inject_document_context,),
+        middleware=(inject_document_context, ParentHandoffMiddleware()),
         state_schema=CareerConsultantState,
     )
     """The career-consultant agent, built once"""
