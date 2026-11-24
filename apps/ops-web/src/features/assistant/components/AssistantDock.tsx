@@ -6,6 +6,7 @@ import {
   FileCheck,
   FileText,
   LoaderCircle,
+  RotateCcw,
   Sparkle,
   X,
   createLucideIcon,
@@ -20,28 +21,28 @@ import { buttonClass } from "@/shared/components/button";
 import { cn } from "@/shared/lib/cn";
 import {
   MAX_RECONNECTS,
+  sendRefused,
+  type Chat,
   type DocumentKind,
   type Outcome,
   type Widget,
 } from "../api/assistant";
 import {
   useAnswerTask,
-  useChat,
+  useClearConversation,
+  useConversation,
   useDecide,
   useDocuments,
-  useResumeTurns,
+  useOlderMessages,
   useSendMessage,
   useStop,
 } from "../hooks/useAssistant";
 import {
-  openTurn,
   useAssistantStore,
   type AssistantTurn,
   type ChatEntry,
   type Part,
 } from "../state/assistantStore";
-
-const NO_ENTRIES: ChatEntry[] = [];
 
 const StopSquare = createLucideIcon("StopSquare", [
   [
@@ -165,18 +166,19 @@ function DocumentChoices({
 }
 
 function ChatWidget({
+  chat,
   taskId,
   widget,
   live,
   answer,
 }: {
+  chat: Chat;
   taskId: string;
   widget: Widget;
   live: boolean;
   answer: ReturnType<typeof useAnswerTask>;
 }) {
   const { t } = useTranslation();
-  const chat = useChat();
   const typed =
     widget.input_placeholder !== null || widget.choose === "document";
 
@@ -262,6 +264,7 @@ function approvalState(entries: ChatEntry[], index: number): ApprovalState {
 }
 
 function ApprovalCard({
+  chat,
   taskId,
   source,
   rows,
@@ -269,6 +272,7 @@ function ApprovalCard({
   live,
   decide,
 }: {
+  chat: Chat;
   taskId: string;
   source: string;
   rows: Extract<Outcome, { status: "profile_approval" }>["rows"];
@@ -277,7 +281,6 @@ function ApprovalCard({
   decide: ReturnType<typeof useDecide>;
 }) {
   const { t, i18n } = useTranslation();
-  const chat = useChat();
   const month = (value: string) =>
     value === "present"
       ? t("data.period.now")
@@ -481,6 +484,7 @@ type Activity = Extract<Part, { kind: "thinking" | "step" }>;
 type Labels = Partial<Record<string, string>>;
 
 function duration({ startedAt, endedAt }: AssistantTurn) {
+  if (startedAt === null) return null;
   const seconds = Math.max(
     1,
     Math.round(((endedAt ?? startedAt) - startedAt) / 1000),
@@ -590,13 +594,31 @@ function Working({
   return (
     <div className="flex flex-col gap-2.5">
       <p role="status" className="m-0 flex items-center gap-2 text-sm">
-        <LoaderCircle size={14} className="text-ink-3 animate-spin" />
+        <LoaderCircle
+          size={14}
+          className={cn(
+            "animate-spin",
+            turn.connection.status === "connected" ? "text-ink-3" : "text-warn",
+          )}
+        />
         <span className="shimmer font-medium">
-          {current
-            ? (steps[current.step.name] ?? t("assistant.anyStep"))
-            : t("assistant.thinking")}
+          {turn.connection.status === "retrying"
+            ? t("assistant.retrying", { attempt: turn.connection.attempt })
+            : turn.connection.status === "reconnecting"
+              ? t("assistant.reconnecting", {
+                  attempt: turn.connection.attempt,
+                  max: MAX_RECONNECTS,
+                })
+              : current
+                ? (steps[current.step.name] ?? t("assistant.anyStep"))
+                : t("assistant.thinking")}
         </span>
       </p>
+      {turn.connection.status === "reconnecting" && (
+        <span className="text-ink-3 text-[13px]">
+          {t("assistant.keepsRunning")}
+        </span>
+      )}
       {(rows.length > 0 || currentSubsteps.length > 0) && (
         <div className="border-hair text-ink-3 ml-1.5 flex flex-col gap-[7px] border-l pl-[15px] text-[13px]">
           {rows.map(({ step }) => {
@@ -644,6 +666,7 @@ function Working({
 }
 
 function Turn({
+  chat,
   turn,
   last,
   answer,
@@ -651,6 +674,7 @@ function Turn({
   approval,
   onRetry,
 }: {
+  chat: Chat;
   turn: AssistantTurn;
   last: boolean;
   answer: ReturnType<typeof useAnswerTask>;
@@ -659,7 +683,9 @@ function Turn({
   onRetry?: () => void;
 }) {
   const { t } = useTranslation();
+  const documents = useDocuments();
   const [open, setOpen] = useState(false);
+  const took = duration(turn);
   const steps: Labels = t("assistant.steps", { returnObjects: true });
   const substeps: Partial<Record<string, Labels>> = t("assistant.substeps", {
     returnObjects: true,
@@ -689,46 +715,48 @@ function Turn({
 
   return (
     <div className="flex flex-col gap-3.5">
-      {running
-        ? (turn.reconnecting === 0 || turn.parts.length > 0) && (
-            <Working
-              turn={turn}
-              steps={steps}
-              substeps={substeps}
-              done={done}
-              doneSubsteps={doneSubsteps}
-            />
-          )
-        : activity.length > 0 && (
-            <>
-              <button
-                type="button"
-                aria-expanded={open}
-                aria-controls={timelineId}
-                onClick={() => setOpen(!open)}
-                className="text-ink-3 flex cursor-pointer items-center gap-1.5 self-start border-0 bg-transparent px-0 py-1 text-[13px] font-medium"
-              >
-                {t("assistant.thoughtFor", { duration: duration(turn) })}
-                <ChevronRight
-                  size={14}
-                  strokeWidth={2}
-                  className={
-                    open
-                      ? "rotate-90 transition-transform"
-                      : "transition-transform"
-                  }
-                />
-              </button>
-              {open && (
-                <Timeline
-                  id={timelineId}
-                  activity={activity}
-                  done={done}
-                  doneSubsteps={doneSubsteps}
-                />
-              )}
-            </>
-          )}
+      {running ? (
+        <Working
+          turn={turn}
+          steps={steps}
+          substeps={substeps}
+          done={done}
+          doneSubsteps={doneSubsteps}
+        />
+      ) : (
+        activity.length > 0 && (
+          <>
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={timelineId}
+              onClick={() => setOpen(!open)}
+              className="text-ink-3 flex cursor-pointer items-center gap-1.5 self-start border-0 bg-transparent px-0 py-1 text-[13px] font-medium"
+            >
+              {took
+                ? t("assistant.thoughtFor", { duration: took })
+                : t("assistant.whatItDid")}
+              <ChevronRight
+                size={14}
+                strokeWidth={2}
+                className={
+                  open
+                    ? "rotate-90 transition-transform"
+                    : "transition-transform"
+                }
+              />
+            </button>
+            {open && (
+              <Timeline
+                id={timelineId}
+                activity={activity}
+                done={done}
+                doneSubsteps={doneSubsteps}
+              />
+            )}
+          </>
+        )
+      )}
       {turn.parts.map(
         (part, index) =>
           part.kind === "text" && (
@@ -764,20 +792,37 @@ function Turn({
             </div>
           ),
       )}
-      {running && turn.reconnecting > 0 && (
-        <div role="status" className="flex flex-col gap-3.5 text-[13px]">
-          <span className="text-ink-2 flex items-center gap-2">
-            <LoaderCircle size={14} className="text-warn animate-spin" />
-            {t("assistant.reconnecting", {
-              attempt: turn.reconnecting,
-              max: MAX_RECONNECTS,
-            })}
-          </span>
-          <span className="text-ink-3">{t("assistant.keepsRunning")}</span>
-        </div>
+      {turn.parts.map(
+        (part) =>
+          part.kind === "proposed" && (
+            <div
+              key={part.changesetId}
+              className="border-hair bg-well flex items-center gap-2.5 rounded-xl border px-3 py-2.5"
+            >
+              <FileCheck size={16} className="text-amber shrink-0" />
+              <span className="flex flex-1 flex-col leading-tight">
+                <span className="text-ink text-sm font-semibold">
+                  {t("assistant.proposedEdits")}
+                </span>
+                <span className="text-ink-3 text-xs">
+                  {
+                    documents.data?.find(({ id }) => id === part.documentId)
+                      ?.title
+                  }
+                </span>
+              </span>
+              <Link
+                to={`/documents?doc=${part.documentId}&panel=changes`}
+                className="bg-primary text-on-primary flex min-h-9 items-center rounded-full px-3.5 text-[13px] font-semibold no-underline"
+              >
+                {t("assistant.review")}
+              </Link>
+            </div>
+          ),
       )}
       {turn.outcome?.status === "input_required" ? (
         <ChatWidget
+          chat={chat}
           taskId={turn.outcome.task_id}
           widget={turn.outcome.widget}
           live={last}
@@ -785,6 +830,7 @@ function Turn({
         />
       ) : turn.outcome?.status === "profile_approval" ? (
         <ApprovalCard
+          chat={chat}
           taskId={turn.outcome.task_id}
           source={turn.outcome.source}
           rows={turn.outcome.rows}
@@ -838,10 +884,11 @@ export default function AssistantDock({
   const open = useAssistantStore((state) => state.open);
   const setOpen = useAssistantStore((state) => state.setOpen);
   const document = useAssistantStore((state) => state.document);
-  const chat = useChat();
-  const entries = useAssistantStore(
-    (state) => state.chats[chat.kind][chat.id] ?? NO_ENTRIES,
-  );
+  const { chat, entries, running, history, error } = useConversation({
+    agent: "career-director",
+  });
+  const older = useOlderMessages(history);
+  const clear = useClearConversation();
   const documentKind = useDocuments().data?.find(
     ({ id }) => id === document?.id,
   )?.kind;
@@ -849,12 +896,10 @@ export default function AssistantDock({
   const answer = useAnswerTask();
   const decide = useDecide();
   const stop = useStop();
-  useResumeTurns();
   const current = entries.at(-1);
   const asked = entries.at(-2);
   const retryable =
     asked?.role === "user" && !asked.answered ? asked : undefined;
-  const running = openTurn(entries);
   const outcome = current?.role === "assistant" ? current.outcome : null;
   const asking =
     outcome?.status === "input_required" &&
@@ -893,7 +938,15 @@ export default function AssistantDock({
   };
 
   const submit = (text: string) => {
-    if (!text.trim() || running || answer.isPending || decide.isPending) return;
+    if (
+      !text.trim() ||
+      !chat ||
+      !history.isSuccess ||
+      running ||
+      answer.isPending ||
+      decide.isPending
+    )
+      return;
     pinned.current = true;
     if (approving)
       decide.mutate({
@@ -908,7 +961,11 @@ export default function AssistantDock({
         answer: { input: text.trim(), accept: true },
         shown: text.trim(),
       });
-    else send.mutate({ chat, text: text.trim() });
+    else
+      send.mutate(
+        { chat, text: text.trim() },
+        { onError: (error) => sendRefused(error) && setDraft(text) },
+      );
     setDraft("");
   };
 
@@ -955,7 +1012,31 @@ export default function AssistantDock({
               <span className="text-ink-3 text-xs">
                 {document?.title ?? topic}
               </span>
+              <button
+                type="button"
+                aria-label={t("assistant.clear")}
+                title={t("assistant.clear")}
+                disabled={clear.isPending || running !== undefined}
+                onClick={() =>
+                  window.confirm(t("assistant.confirmClear")) &&
+                  clear.mutate({ agent: "career-director" })
+                }
+                className="text-ink-3 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent disabled:cursor-default disabled:opacity-40"
+              >
+                <RotateCcw size={15} />
+              </button>
             </header>
+          )}
+          {(error || clear.error) && (
+            <p
+              role="alert"
+              className="text-crit border-hair-soft m-0 border-b px-4 py-3 text-[13px]"
+            >
+              {error
+                ? t("assistant.historyFailed", { reason: error.message })
+                : clear.error &&
+                  t("assistant.clearFailed", { reason: clear.error.message })}
+            </p>
           )}
           {empty ? (
             <div className="flex flex-col gap-2 px-[18px] py-4">
@@ -988,40 +1069,53 @@ export default function AssistantDock({
               }}
               className="m-0 flex min-h-0 flex-1 list-none flex-col gap-3.5 overflow-y-auto px-4 py-[18px]"
             >
-              {entries.map((entry, index) =>
-                entry.role === "user" &&
-                entry.decision &&
-                !entry.text ? null : (
-                  <Fragment key={index}>
-                    {entry.role === "user" && index > 0 && !entry.answered && (
-                      <li
-                        role="presentation"
-                        className="bg-hair-soft my-1 h-px shrink-0"
-                      />
-                    )}
-                    <li className="flex flex-col">
-                      {entry.role === "user" ? (
-                        <p className="bg-bubble text-ink m-0 max-w-[85%] self-end rounded-2xl rounded-br-[4px] px-[13px] py-[9px] text-sm whitespace-pre-wrap">
-                          {entry.text}
-                        </p>
-                      ) : (
-                        <Turn
-                          turn={entry}
-                          last={entry === current}
-                          answer={answer}
-                          decide={decide}
-                          approval={approvalState(entries, index)}
-                          onRetry={
-                            entry === current && retryable?.role === "user"
-                              ? () => submit(retryable.text)
-                              : undefined
-                          }
-                        />
-                      )}
-                    </li>
-                  </Fragment>
-                ),
+              {history.hasNextPage && (
+                <li
+                  ref={older}
+                  role="status"
+                  className="text-ink-3 min-h-px text-center text-[13px]"
+                >
+                  {history.isFetchingNextPage && t("assistant.loadingOlder")}
+                </li>
               )}
+              {chat &&
+                entries.map((entry, index) =>
+                  entry.role === "user" &&
+                  entry.decision &&
+                  !entry.text ? null : (
+                    <Fragment key={entry.id}>
+                      {entry.role === "user" &&
+                        index > 0 &&
+                        !entry.answered && (
+                          <li
+                            role="presentation"
+                            className="bg-hair-soft my-1 h-px shrink-0"
+                          />
+                        )}
+                      <li className="flex flex-col">
+                        {entry.role === "user" ? (
+                          <p className="bg-bubble text-ink m-0 max-w-[85%] self-end rounded-2xl rounded-br-[4px] px-[13px] py-[9px] text-sm whitespace-pre-wrap">
+                            {entry.text}
+                          </p>
+                        ) : (
+                          <Turn
+                            chat={chat}
+                            turn={entry}
+                            last={entry === current}
+                            answer={answer}
+                            decide={decide}
+                            approval={approvalState(entries, index)}
+                            onRetry={
+                              entry === current && retryable?.role === "user"
+                                ? () => submit(retryable.text)
+                                : undefined
+                            }
+                          />
+                        )}
+                      </li>
+                    </Fragment>
+                  ),
+                )}
             </ol>
           )}
           <form
@@ -1057,7 +1151,7 @@ export default function AssistantDock({
                 }
               />
             </label>
-            {running ? (
+            {running && chat ? (
               <button
                 type="button"
                 aria-label={t("assistant.stop")}
@@ -1074,7 +1168,7 @@ export default function AssistantDock({
             ) : empty ? (
               <button
                 type="submit"
-                disabled={!draft.trim()}
+                disabled={!draft.trim() || !history.isSuccess}
                 className={buttonClass("primary")}
               >
                 {t("assistant.send")}
@@ -1091,6 +1185,11 @@ export default function AssistantDock({
               </button>
             )}
           </form>
+          {sendRefused(send.error) && (
+            <p role="alert" className="text-crit m-0 px-4 pb-3 text-[13px]">
+              {t("assistant.notSent", { reason: send.error.message })}
+            </p>
+          )}
         </section>
       )}
       <button

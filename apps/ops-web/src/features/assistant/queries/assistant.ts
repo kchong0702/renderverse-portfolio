@@ -1,4 +1,8 @@
-import { mutationOptions, queryOptions } from "@tanstack/react-query";
+import {
+  infiniteQueryOptions,
+  mutationOptions,
+  queryOptions,
+} from "@tanstack/react-query";
 import i18n from "@/i18n";
 import { ApiError } from "@/shared/api/http";
 import { queryClient } from "@/shared/api/queryClient";
@@ -7,15 +11,20 @@ import {
   cancelTask,
   decideTask,
   fetchDocuments,
-  resumeTurn,
+  fetchSession,
+  fetchThreadMessages,
+  followTurn,
   sendMessage,
+  sendRefused,
+  startThread,
+  type AgentSession,
   type Chat,
   type ChatMessage,
+  type Conversation,
   type RunEvent,
   type Task,
   type TaskAnswer,
   type TaskDecision,
-  type TurnCursor,
 } from "../api/assistant";
 import { useAssistantStore } from "../state/assistantStore";
 
@@ -24,53 +33,112 @@ export const documentsQueryOptions = queryOptions({
   queryFn: ({ signal }) => fetchDocuments(signal),
 });
 
+export const sessionQueryOptions = (conversation: Conversation) =>
+  queryOptions({
+    queryKey: ["agent", "sessions", conversation],
+    queryFn: ({ signal }) => fetchSession(conversation, signal),
+    staleTime: Infinity,
+  });
+
+export const threadMessagesQueryOptions = ({
+  threadId,
+}: Pick<Chat, "threadId">) =>
+  infiniteQueryOptions({
+    queryKey: ["agent", "threads", threadId, "messages"],
+    queryFn: async ({ pageParam, signal }) => {
+      const covers =
+        pageParam === null
+          ? (useAssistantStore.getState().live[threadId] ?? []).filter(
+              (entry) => entry.role === "user" || entry.outcome,
+            )
+          : [];
+      return {
+        ...(await fetchThreadMessages({ threadId, before: pageParam }, signal)),
+        covers,
+      };
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) =>
+      page.has_more ? page.messages[0]?.id : undefined,
+    gcTime: Infinity,
+    refetchOnWindowFocus: "always",
+  });
+
 const { add, apply, reconnect, restore } = useAssistantStore.getState();
 
 const streamControllers = new Map<string, AbortController>();
 
-const newStreamSignal = (chat: Chat) => {
-  const controller = new AbortController();
-  streamControllers.set(chat.id, controller);
-  return controller.signal;
-};
-
-const startTurn = (chat: Chat) => {
-  add(chat, {
+const startTurn = ({ threadId }: Chat) => {
+  add(threadId, {
     role: "assistant",
+    id: crypto.randomUUID(),
     taskId: null,
-    lastEventId: null,
     parts: [],
     outcome: null,
     startedAt: Date.now(),
     endedAt: null,
-    reconnecting: 0,
+    connection: { status: "connected" },
   });
-  return newStreamSignal(chat);
+  const controller = new AbortController();
+  streamControllers.set(threadId, controller);
+  return controller.signal;
 };
 
-const receive = (chat: Chat) => (event: RunEvent, id?: string) => {
-  apply(chat, event, id);
-  if (event.status === "profile_saved") {
+const receive =
+  ({ threadId }: Chat) =>
+  (event: RunEvent) => {
+    apply(threadId, event);
+    if (
+      event.status === "step" &&
+      event.step.status === "done" &&
+      ["edit_documents", "tailor_documents"].includes(event.step.name)
+    ) {
+      void Promise.all(
+        queryClient
+          .getQueriesData<AgentSession>({
+            queryKey: ["agent", "sessions", { agent: "career-consultant" }],
+          })
+          .map(
+            ([, session]) =>
+              session &&
+              queryClient.invalidateQueries({
+                queryKey: threadMessagesQueryOptions({
+                  threadId: session.thread_id,
+                }).queryKey,
+              }),
+          ),
+      );
+      return;
+    }
+    if (event.status === "profile_saved") {
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["profile"] }),
+        queryClient.invalidateQueries({ queryKey: ["portfolio"] }),
+      ]);
+      return;
+    }
+    if (event.status !== "changeset") return;
+    const document = [...documentsQueryOptions.queryKey, event.document_id];
     void Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["profile"] }),
-      queryClient.invalidateQueries({ queryKey: ["portfolio"] }),
+      queryClient.invalidateQueries({ queryKey: [...document, "changesets"] }),
+      queryClient.invalidateQueries({ queryKey: document, exact: true }),
+      queryClient.invalidateQueries({
+        queryKey: documentsQueryOptions.queryKey,
+        exact: true,
+      }),
     ]);
-    return;
-  }
-  if (event.status !== "changeset") return;
-  const document = [...documentsQueryOptions.queryKey, event.document_id];
-  void Promise.all([
-    queryClient.invalidateQueries({ queryKey: [...document, "changesets"] }),
-    queryClient.invalidateQueries({ queryKey: document, exact: true }),
-    queryClient.invalidateQueries({
-      queryKey: documentsQueryOptions.queryKey,
-      exact: true,
-    }),
-  ]);
-};
+  };
+
+const onReconnect =
+  ({ threadId }: Chat) =>
+  (attempt: number) =>
+    reconnect(threadId, attempt);
 
 const failTurn = (error: Error, { chat }: { chat: Chat }) =>
-  apply(chat, { status: "failed", reason: error.message });
+  apply(chat.threadId, { status: "failed", reason: error.message });
+
+const liveEntries = ({ threadId }: Chat) =>
+  useAssistantStore.getState().live[threadId] ?? [];
 
 export const sendMessageMutationOptions = mutationOptions({
   mutationKey: ["assistant", "send"],
@@ -79,10 +147,27 @@ export const sendMessageMutationOptions = mutationOptions({
       message,
       startTurn(message.chat),
       receive(message.chat),
-      (attempt) => reconnect(message.chat, attempt),
+      onReconnect(message.chat),
     ),
-  onMutate: ({ chat, text }) => add(chat, { role: "user", text }),
-  onError: failTurn,
+  onMutate: ({ chat, text }) => {
+    const previous = liveEntries(chat);
+    add(chat.threadId, {
+      role: "user",
+      id: crypto.randomUUID(),
+      text,
+    });
+    return { previous };
+  },
+  onError: (error, message, result) => {
+    if (!sendRefused(error) || !result) return failTurn(error, message);
+    restore(message.chat.threadId, result.previous);
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["agent", "sessions"] }),
+      queryClient.invalidateQueries({
+        queryKey: threadMessagesQueryOptions(message.chat).queryKey,
+      }),
+    ]);
+  },
 });
 
 export const answerTaskMutationOptions = mutationOptions({
@@ -92,31 +177,38 @@ export const answerTaskMutationOptions = mutationOptions({
       answer,
       startTurn(answer.chat),
       receive(answer.chat),
-      (attempt) => reconnect(answer.chat, attempt),
+      onReconnect(answer.chat),
     ),
   onMutate: ({ chat, shown }) => {
-    const previous =
-      useAssistantStore.getState().chats[chat.kind][chat.id] ?? [];
-    add(chat, { role: "user", text: shown, answered: true });
+    const previous = liveEntries(chat);
+    add(chat.threadId, {
+      role: "user",
+      id: crypto.randomUUID(),
+      text: shown,
+      answered: true,
+    });
     return { previous };
   },
   onError: (error, answer, result) =>
     error instanceof ApiError && result
-      ? restore(answer.chat, result.previous)
+      ? restore(answer.chat.threadId, result.previous)
       : failTurn(error, answer),
 });
 
 export const decideMutationOptions = mutationOptions({
   mutationKey: ["assistant", "decide"],
   mutationFn: (task: TaskDecision) =>
-    decideTask(task, startTurn(task.chat), receive(task.chat), (attempt) =>
-      reconnect(task.chat, attempt),
+    decideTask(
+      task,
+      startTurn(task.chat),
+      receive(task.chat),
+      onReconnect(task.chat),
     ),
   onMutate: ({ chat, decision }) => {
-    const previous =
-      useAssistantStore.getState().chats[chat.kind][chat.id] ?? [];
-    add(chat, {
+    const previous = liveEntries(chat);
+    add(chat.threadId, {
       role: "user",
+      id: crypto.randomUUID(),
       text: decision.message ?? "",
       answered: true,
       decision: decision.approve ? "approve" : "reject",
@@ -125,45 +217,55 @@ export const decideMutationOptions = mutationOptions({
   },
   onError: (error, task, result) =>
     error instanceof ApiError && result
-      ? restore(task.chat, result.previous)
+      ? restore(task.chat.threadId, result.previous)
       : failTurn(error, task),
 });
 
+const follow = (chat: Chat) =>
+  followTurn(chat, startTurn(chat), receive(chat), onReconnect(chat)).catch(
+    (error: Error) =>
+      error instanceof ApiError && error.status === 404
+        ? apply(chat.threadId, {
+            status: "failed",
+            reason: i18n.t("assistant.ended"),
+          })
+        : failTurn(error, { chat }),
+  );
+
 export const followTurnMutationOptions = mutationOptions({
   mutationKey: ["assistant", "follow"],
-  mutationFn: (chat: Chat) =>
-    resumeTurn(
-      { chat, lastEventId: null },
-      startTurn(chat),
-      receive(chat),
-      (attempt) => reconnect(chat, attempt),
-    ),
-  onError: (error, chat) => failTurn(error, { chat }),
+  mutationFn: follow,
 });
 
-export const resumeTurnMutationOptions = mutationOptions({
-  mutationKey: ["assistant", "resume"],
-  mutationFn: (turn: TurnCursor) =>
-    resumeTurn(
-      turn,
-      newStreamSignal(turn.chat),
-      receive(turn.chat),
-      (attempt) => reconnect(turn.chat, attempt),
-    ),
-  onError: (error, turn) =>
-    error instanceof ApiError && error.status === 404
-      ? apply(turn.chat, {
-          status: "failed",
-          reason: i18n.t("assistant.ended"),
-        })
-      : failTurn(error, turn),
+export const followDocumentMutationOptions = mutationOptions({
+  mutationKey: ["assistant", "follow-document"],
+  mutationFn: async (documentId: string) => {
+    const { thread_id: threadId } = await queryClient.fetchQuery(
+      sessionQueryOptions({ agent: "career-consultant", documentId }),
+    );
+    const history = await queryClient.fetchInfiniteQuery(
+      threadMessagesQueryOptions({ threadId }),
+    );
+    if (history.pages[0]?.messages.at(-1)?.role === "user")
+      await follow({ threadId });
+  },
 });
 
 export const stopMutationOptions = mutationOptions({
   mutationKey: ["assistant", "stop"],
   mutationFn: (task: Task) => cancelTask(task),
   onSuccess: (_stopped, { chat }) => {
-    apply(chat, { status: "cancelled" });
-    streamControllers.get(chat.id)?.abort();
+    apply(chat.threadId, { status: "cancelled" });
+    streamControllers.get(chat.threadId)?.abort();
   },
+});
+
+export const clearConversationMutationOptions = mutationOptions({
+  mutationKey: ["agent", "clear"],
+  mutationFn: startThread,
+  onSuccess: (session, conversation) =>
+    queryClient.setQueryData(
+      sessionQueryOptions(conversation).queryKey,
+      session,
+    ),
 });

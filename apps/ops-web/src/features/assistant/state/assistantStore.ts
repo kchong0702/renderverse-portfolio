@@ -1,11 +1,10 @@
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 import type {
   Changeset,
-  Chat,
   Outcome,
   RunEvent,
   Step,
+  ThreadMessage,
 } from "../api/assistant";
 
 export type Part =
@@ -13,22 +12,29 @@ export type Part =
   | { kind: "text"; turn: string; text: string }
   | { kind: "step"; step: Step; substeps: Step[] }
   | { kind: "changeset"; changeset: Changeset }
+  | { kind: "proposed"; documentId: string; changesetId: string }
   | { kind: "saved"; saved: number };
+
+export type Connection =
+  | { status: "connected" }
+  | { status: "reconnecting"; attempt: number }
+  | { status: "retrying"; attempt: number };
 
 export interface AssistantTurn {
   role: "assistant";
+  id: string;
   taskId: string | null;
-  lastEventId: string | null;
   parts: Part[];
   outcome: Outcome | null;
-  startedAt: number;
+  startedAt: number | null;
   endedAt: number | null;
-  reconnecting: number;
+  connection: Connection;
 }
 
 export type ChatEntry =
   | {
       role: "user";
+      id: string;
       text: string;
       answered?: boolean;
       decision?: "approve" | "reject";
@@ -98,6 +104,13 @@ function applyEvent(turn: AssistantTurn, event: RunEvent): AssistantTurn {
         ...turn,
         parts: [...turn.parts, { kind: "saved", saved: event.saved }],
       };
+    case "reconnecting":
+      return {
+        ...turn,
+        connection: { status: "retrying", attempt: event.attempt },
+      };
+    case "reconnected":
+      return { ...turn, connection: { status: "connected" } };
     case "completed": {
       const written = turn.parts.filter((part) => part.kind === "text").at(-1);
       return {
@@ -120,95 +133,114 @@ function applyEvent(turn: AssistantTurn, event: RunEvent): AssistantTurn {
   }
 }
 
+export function historyEntry(message: ThreadMessage): ChatEntry {
+  if (message.role === "user")
+    return {
+      role: "user",
+      id: message.id,
+      text: message.text,
+    };
+  const events: RunEvent[] = [
+    ...(message.steps ?? []).map((step) => ({ status: "step" as const, step })),
+    ...(message.failure === null
+      ? [{ status: "completed" as const, reply: message.text }]
+      : [
+          ...(message.text
+            ? [{ status: "text" as const, turn: "reply", text: message.text }]
+            : []),
+          { status: "failed" as const, reason: message.failure },
+        ]),
+  ];
+  const turn = events.reduce<AssistantTurn>(applyEvent, {
+    role: "assistant",
+    id: message.id,
+    taskId: null,
+    parts: [],
+    outcome: null,
+    startedAt: null,
+    endedAt: null,
+    connection: { status: "connected" },
+  });
+  return message.changeset_id && message.document_id
+    ? {
+        ...turn,
+        parts: [
+          ...turn.parts,
+          {
+            kind: "proposed",
+            documentId: message.document_id,
+            changesetId: message.changeset_id,
+          },
+        ],
+      }
+    : turn;
+}
+
 export interface ShownDocument {
   id: string;
   title: string;
 }
 
-type Chats = Record<Chat["kind"], Partial<Record<string, ChatEntry[]>>>;
+type Live = Partial<Record<string, ChatEntry[]>>;
 
 interface AssistantState {
   open: boolean;
   setOpen: (open: boolean) => void;
-  chatId: string;
   document: ShownDocument | null;
   setDocument: (document: ShownDocument | null) => void;
-  chats: Chats;
-  add: (chat: Chat, entry: ChatEntry) => void;
-  apply: (chat: Chat, event: RunEvent, id?: string) => void;
-  reconnect: (chat: Chat, attempt: number) => void;
-  restore: (chat: Chat, entries: ChatEntry[]) => void;
-  reset: () => void;
+  live: Live;
+  add: (threadId: string, entry: ChatEntry) => void;
+  apply: (threadId: string, event: RunEvent) => void;
+  reconnect: (threadId: string, attempt: number) => void;
+  restore: (threadId: string, entries: ChatEntry[]) => void;
 }
 
 const withEntries = (
-  chats: Chats,
-  { kind, id }: Chat,
+  live: Live,
+  threadId: string,
   update: (entries: ChatEntry[]) => ChatEntry[],
-): Chats => ({
-  ...chats,
-  [kind]: { ...chats[kind], [id]: update(chats[kind][id] ?? []) },
-});
+): Live => ({ ...live, [threadId]: update(live[threadId] ?? []) });
 
 export const openTurn = (entries: ChatEntry[]) => {
   const last = entries.at(-1);
   return last?.role === "assistant" && !last.outcome ? last : undefined;
 };
 
-export const useAssistantStore = create<AssistantState>()(
-  persist(
-    (set) => ({
-      open: false,
-      setOpen: (open) => set({ open }),
-      chatId: crypto.randomUUID(),
-      document: null,
-      setDocument: (document) => set({ document }),
-      chats: { assistant: {}, document: {} },
-      add: (chat, entry) =>
-        set(({ chats }) => ({
-          chats: withEntries(chats, chat, (entries) => [...entries, entry]),
-        })),
-      apply: (chat, event, id) =>
-        set(({ chats }) => ({
-          chats: withEntries(chats, chat, (entries) => {
-            const last = openTurn(entries);
-            return last
-              ? [
-                  ...entries.slice(0, -1),
-                  {
-                    ...applyEvent(last, event),
-                    lastEventId: id ?? last.lastEventId,
-                    reconnecting: 0,
-                  },
-                ]
-              : entries;
-          }),
-        })),
-      reconnect: (chat, attempt) =>
-        set(({ chats }) => ({
-          chats: withEntries(chats, chat, (entries) => {
-            const last = openTurn(entries);
-            return last
-              ? [...entries.slice(0, -1), { ...last, reconnecting: attempt }]
-              : entries;
-          }),
-        })),
-      restore: (chat, entries) =>
-        set(({ chats }) => ({
-          chats: withEntries(chats, chat, () => entries),
-        })),
-      reset: () =>
-        set({
-          open: false,
-          chatId: crypto.randomUUID(),
-          document: null,
-          chats: { assistant: {}, document: {} },
-        }),
-    }),
-    {
-      name: "ops:assistant",
-      storage: createJSONStorage(() => sessionStorage),
-      partialize: ({ chatId, chats }) => ({ chatId, chats }),
-    },
-  ),
-);
+const withOpenTurn = (
+  live: Live,
+  threadId: string,
+  update: (turn: AssistantTurn) => AssistantTurn,
+): Live =>
+  withEntries(live, threadId, (entries) => {
+    const last = openTurn(entries);
+    return last ? [...entries.slice(0, -1), update(last)] : entries;
+  });
+
+export const useAssistantStore = create<AssistantState>()((set) => ({
+  open: false,
+  setOpen: (open) => set({ open }),
+  document: null,
+  setDocument: (document) => set({ document }),
+  live: {},
+  add: (threadId, entry) =>
+    set(({ live }) => ({
+      live: withEntries(live, threadId, (entries) => [...entries, entry]),
+    })),
+  apply: (threadId, event) =>
+    set(({ live }) => ({
+      live: withOpenTurn(live, threadId, (turn) =>
+        applyEvent({ ...turn, connection: { status: "connected" } }, event),
+      ),
+    })),
+  reconnect: (threadId, attempt) =>
+    set(({ live }) => ({
+      live: withOpenTurn(live, threadId, (turn) => ({
+        ...turn,
+        connection: { status: "reconnecting", attempt },
+      })),
+    })),
+  restore: (threadId, entries) =>
+    set(({ live }) => ({
+      live: withEntries(live, threadId, () => entries),
+    })),
+}));
