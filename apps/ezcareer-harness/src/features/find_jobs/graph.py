@@ -134,7 +134,9 @@ def build_graph(
                 for error in check(
                     state.structured_response,
                     postings,
-                    Profile(facts=state.profile_facts, preferences=state.preferences),
+                    Profile(
+                        profile_facts=state.profile_facts, preferences=state.preferences
+                    ),
                 )
             ]
         )

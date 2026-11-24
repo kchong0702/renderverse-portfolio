@@ -24,11 +24,11 @@ Import rules:
 
 ## Prompts
 
-Prompts are plain Markdown files, so a developer finds them beside the agent they belong to, and Harness² can rewrite them:
+System prompts and middleware prompts are plain Markdown files, never text in Python, so a developer finds them beside the agent they belong to, and Harness² can rewrite them. A tool's description and error messages, and a failure reason the user sees, stay in the code they belong to.
 
 - An agent's system prompt is `src/agents/<agent>/prompts/system.md`. When an active `prompts/system.<provider>.md` exists for the agent's LangChain provider, such as `system.anthropic.md` or `system.openai.md`, the agent uses it instead. The provider follows the model family the agent's `[[agents]]` entry in `config.toml` names, not a model picked for one run. glm models run on the `openai` provider, so a glm agent and an openai agent share `system.openai.md`. An archived variant is skipped, and the agent uses `system.md`.
-- Each middleware's prompt is its own file in `src/agents/prompts/middleware/`, named after the middleware's module: `parent_handoff.md` holds `ParentHandoffMiddleware`'s hand-back instruction, and `inject_document_context.md` the message that shows career-consultant its document, with `{document}` where the document's JSON goes. The `middleware_prompts` setting names the folder, so a candidate harness can point it at its own copies.
-- Each prompt file starts with YAML front matter: `version`, `description`, `author`, `date` and `status` (`active` or `archived`). `read_prompt` validates it and returns only the text after it. A file without valid front matter, or an archived one, fails the agent's build.
+- Each middleware's prompt is its own file in `src/agents/prompts/middleware/`, named after the middleware's module: `parent_handoff.md` holds `ParentHandoffMiddleware`'s hand-back instruction, and `inject_document_context.md` the message that shows career-consultant its document, with `$document` where the document's JSON goes. A middleware fills its prompt with `string.Template`, so braces in the prompt stay literal. The `middleware_prompts` setting names the folder, so a candidate harness can point it at its own copies.
+- Each prompt file starts with YAML front matter: `version`, `description`, `author`, `date` and `status` (`active` or `archived`). `version` is a quoted string, such as `"1.10"`. An unquoted number is refused, because YAML would read `1.10` as 1.1. `read_prompt` validates the front matter and returns only the text after it. A file without valid front matter, or an archived one, fails the agent's build.
 
 `Agent.hash` covers the agent's folder and the middleware prompts folder, so the trace's `agent_hash` changes when either changes. `scripts/probe.py`'s harness hash covers both too.
 

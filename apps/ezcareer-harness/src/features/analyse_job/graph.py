@@ -87,7 +87,9 @@ def _output(state: AnalyseJobState) -> dict:
             posting_lines=state.posting_lines,
             filters=hard_filters(
                 state.structured_response.terms,
-                Profile(facts=state.profile_facts, preferences=state.preferences),
+                Profile(
+                    profile_facts=state.profile_facts, preferences=state.preferences
+                ),
                 datetime.now(UTC).date(),
             ),
         )

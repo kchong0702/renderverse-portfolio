@@ -1,4 +1,5 @@
 from pathlib import Path
+from string import Template
 
 import pytest
 
@@ -25,10 +26,23 @@ def test_a_prompt_is_the_text_after_its_front_matter(tmp_path: Path):
     assert read_prompt(path) == "You greet people."
 
 
-def test_an_unquoted_version_is_read_as_text(tmp_path: Path):
-    text = HEADER.format(status="active").replace('"1.0"', "1.0") + "Hi."
+@pytest.mark.parametrize("version", ["1.10", "2"])
+def test_an_unquoted_version_is_refused(tmp_path: Path, version: str):
+    text = HEADER.format(status="active").replace('"1.0"', version) + "Hi."
 
-    assert read_prompt(_prompt(tmp_path, text)) == "Hi."
+    with pytest.raises(ValueError, match="quote the version"):
+        read_prompt(_prompt(tmp_path, text))
+
+
+def test_a_prompt_with_crlf_line_endings_is_read(tmp_path: Path):
+    path = tmp_path / "system.md"
+    path.write_bytes(
+        (HEADER.format(status="active") + "You greet\npeople.\n")
+        .replace("\n", "\r\n")
+        .encode()
+    )
+
+    assert read_prompt(path) == "You greet\npeople."
 
 
 def test_front_matter_that_ends_the_file_is_an_empty_prompt(tmp_path: Path):
@@ -67,3 +81,14 @@ def test_parent_handoff_middleware_reads_its_prompt_from_the_middleware_prompts_
     monkeypatch.setattr(middlewares.parent_handoff, "get_settings", lambda: settings)
 
     assert ParentHandoffMiddleware().hand_back == "Hand it back."
+
+
+@pytest.mark.parametrize(
+    "path",
+    sorted(get_settings().middleware_prompts.glob("*.md")),
+    ids=lambda path: path.name,
+)
+def test_each_middleware_prompt_loads_and_fills(path: Path):
+    template = Template(read_prompt(path))
+
+    template.substitute({name: "x" for name in template.get_identifiers()})

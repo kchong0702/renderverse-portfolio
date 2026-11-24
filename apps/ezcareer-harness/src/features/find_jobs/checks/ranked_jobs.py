@@ -46,7 +46,7 @@ def check_ranked_jobs(
             for error in check_citations(
                 JobRequirements(requirements=job.requirements),
                 found[job.job_id].posting_lines,
-                profile.facts,
+                profile.profile_facts,
             )
         )
     return errors

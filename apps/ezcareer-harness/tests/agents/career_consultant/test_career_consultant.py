@@ -250,7 +250,7 @@ async def test_the_document_message_is_read_from_its_middleware_prompt(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     (tmp_path / "inject_document_context.md").write_text(
-        HEADER.format(status="active") + "Your document: {document}\n"
+        HEADER.format(status="active") + "Your document {}: $document\n"
     )
     settings = get_settings().model_copy(update={"middleware_prompts": tmp_path})
     monkeypatch.setattr(
@@ -266,7 +266,7 @@ async def test_the_document_message_is_read_from_its_middleware_prompt(
     await _agent(model).ainvoke(state)
 
     assert model.requests[0][1].text == (
-        f"Your document: {state['document'].model_dump_json()}"
+        f"Your document {{}}: {state['document'].model_dump_json()}"
     )
 
 

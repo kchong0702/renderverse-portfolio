@@ -4,14 +4,14 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic_core import PydanticCustomError
 
 
 class PromptHeader(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         frozen=True,
-        coerce_numbers_to_str=True,
         use_attribute_docstrings=True,
     )
 
@@ -29,6 +29,16 @@ class PromptHeader(BaseModel):
 
     status: Literal["active", "archived"]
     """active is in use; archived is kept for its history and refused"""
+
+    @field_validator("version", mode="before")
+    @classmethod
+    def _quoted(cls, version: object) -> str:
+        """Refuses a version YAML read as a number, which turns 1.10 into 1.1"""
+        if not isinstance(version, str):
+            raise PydanticCustomError(
+                "unquoted_version", 'quote the version, as in version: "1.0"'
+            )
+        return version
 
 
 def _split(path: Path) -> tuple[PromptHeader, str]:
