@@ -187,6 +187,15 @@ async def _apply(
     return rows
 
 
+async def save_edits(
+    session: AsyncSession, user_id: UUID, edits: list[ProfileEdit]
+) -> ProfileUpdated:
+    """Make the approved changes on the session, which commits them all or none;
+    NotFound, InvalidInput, Conflict or ValidationError for one it can't take"""
+    await _apply(ProfileService(session), user_id, edits)
+    return ProfileUpdated(saved=len(edits))
+
+
 class ProfileEdits:
     def __init__(self, factory: async_sessionmaker[AsyncSession]):
         """Preview and make career-director's changes to the profile on sessions of
@@ -231,13 +240,6 @@ class ProfileEdits:
             await session.rollback()
         return ProfileSyncPreview(edits=_synced(before, after, pending))
 
-    async def save(self, user_id: UUID, edits: list[ProfileEdit]) -> ProfileUpdated:
-        """Save the approved changes all or none; NotFound, InvalidInput, Conflict or
-        ValidationError for an edit the profile can't take"""
-        async with self._factory() as session, session.begin():
-            await _apply(ProfileService(session), user_id, edits)
-        return ProfileUpdated(saved=len(edits))
-
     async def approval(
         self, user_id: UUID, task_id: str, args: UpdateProfileArgs
     ) -> ProfileApproval:
@@ -250,4 +252,4 @@ class ProfileEdits:
         return ProfileApproval(task_id=task_id, source=args.source, rows=rows)
 
 
-__all__ = ["ProfileEdits"]
+__all__ = ["ProfileEdits", "save_edits"]

@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: aec020b6b471
+Revision ID: 538216513e60
 Revises:
-Create Date: 2026-11-13 13:23:49.754462
+Create Date: 2026-11-22 06:26:28.788020
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "aec020b6b471"
+revision: str = "538216513e60"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -126,7 +126,8 @@ def upgrade() -> None:
         sa.Column("agent", sa.String(length=100), nullable=False),
         sa.Column("task_id", sa.String(length=100), nullable=True),
         sa.Column("status", sa.String(), nullable=False),
-        sa.Column("active_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("owner", sa.Text(), nullable=True),
+        sa.Column("heartbeat_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column(
@@ -156,10 +157,113 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("pk_agent_runs")),
     )
     op.create_index(
+        "ix_agent_runs_heartbeat_at",
+        "agent_runs",
+        ["heartbeat_at"],
+        unique=False,
+        postgresql_where=sa.text("status = 'running'"),
+        sqlite_where=sa.text("status = 'running'"),
+    )
+    op.create_index(
         op.f("ix_agent_runs_thread_id"), "agent_runs", ["thread_id"], unique=False
     )
     op.create_index(
         op.f("ix_agent_runs_user_id"), "agent_runs", ["user_id"], unique=False
+    )
+    op.create_table(
+        "agent_sessions",
+        sa.Column("agent", sa.String(), nullable=False),
+        sa.Column("active_thread_id", sa.Uuid(), nullable=True),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "created_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "updated_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.CheckConstraint(
+            "agent in ('career-director', 'career-consultant')",
+            name=op.f("ck_agent_sessions_agent"),
+        ),
+        sa.CheckConstraint(
+            "(agent = 'career-director') = (active_thread_id IS NOT NULL)",
+            name=op.f("ck_agent_sessions_active_thread"),
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_agent_sessions_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_agent_sessions")),
+        sa.UniqueConstraint("user_id", "agent", name=op.f("uq_agent_sessions_user_id")),
+    )
+    op.create_index(
+        op.f("ix_agent_sessions_user_id"), "agent_sessions", ["user_id"], unique=False
+    )
+    op.create_table(
+        "agent_tool_results",
+        sa.Column("interrupt_id", sa.Text(), nullable=False),
+        sa.Column("task_id", sa.String(length=100), nullable=False),
+        sa.Column("tool", sa.String(length=100), nullable=False),
+        sa.Column(
+            "result",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=False,
+        ),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "created_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "updated_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_agent_tool_results_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("interrupt_id", name=op.f("pk_agent_tool_results")),
+    )
+    op.create_index(
+        op.f("ix_agent_tool_results_task_id"),
+        "agent_tool_results",
+        ["task_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_agent_tool_results_user_id"),
+        "agent_tool_results",
+        ["user_id"],
+        unique=False,
     )
     op.create_table(
         "assets",
@@ -214,10 +318,6 @@ def upgrade() -> None:
             "(provider = 'password') = (subject is null)",
             name=op.f("ck_auth_identities_subject"),
         ),
-        sa.CheckConstraint(
-            "provider in ('password', 'google', 'github')",
-            name=op.f("ck_auth_identities_provider"),
-        ),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["users.id"],
@@ -239,6 +339,7 @@ def upgrade() -> None:
         "auth_sessions",
         sa.Column("token_hash", sa.String(length=64), nullable=False),
         sa.Column("user_agent", sa.String(length=255), nullable=False),
+        sa.Column("timezone", sa.String(length=64), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("last_seen_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
@@ -480,7 +581,7 @@ def upgrade() -> None:
     )
     op.create_table(
         "jobs",
-        sa.Column("external_id", sa.String(length=200), nullable=True),
+        sa.Column("external_id", sa.String(length=1000), nullable=True),
         sa.Column("source", sa.String(length=50), nullable=False),
         sa.Column("title", sa.String(length=200), nullable=False),
         sa.Column("company", sa.String(length=200), nullable=False),
@@ -717,6 +818,12 @@ def upgrade() -> None:
     )
     op.create_index(
         op.f("ix_profile_skills_user_id"), "profile_skills", ["user_id"], unique=False
+    )
+    op.create_index(
+        "uq_profile_skills_name",
+        "profile_skills",
+        ["user_id", sa.literal_column("lower(name)")],
+        unique=True,
     )
     op.create_table(
         "profiles",
@@ -958,6 +1065,77 @@ def upgrade() -> None:
         unique=True,
         postgresql_where=sa.text("master"),
         sqlite_where=sa.text("master"),
+    )
+    op.create_table(
+        "agent_threads",
+        sa.Column("session_id", sa.Uuid(), nullable=False),
+        sa.Column("document_id", sa.Uuid(), nullable=True),
+        sa.Column("cleared_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "created_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "updated_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["document_id"],
+            ["documents.id"],
+            name=op.f("fk_agent_threads_document_id_documents"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["session_id"],
+            ["agent_sessions.id"],
+            name=op.f("fk_agent_threads_session_id_agent_sessions"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_agent_threads_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_agent_threads")),
+    )
+    op.create_index(
+        op.f("ix_agent_threads_session_id"),
+        "agent_threads",
+        ["session_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_agent_threads_user_id"), "agent_threads", ["user_id"], unique=False
+    )
+    op.create_index(
+        "uq_agent_threads_document",
+        "agent_threads",
+        ["session_id", "document_id"],
+        unique=True,
+        postgresql_where=sa.text("cleared_at IS NULL"),
+        sqlite_where=sa.text("cleared_at IS NULL"),
+    )
+    op.create_foreign_key(
+        op.f("fk_agent_sessions_active_thread_id_agent_threads"),
+        "agent_sessions",
+        "agent_threads",
+        ["active_thread_id"],
+        ["id"],
+        deferrable=True,
+        initially="DEFERRED",
     )
     op.create_table(
         "profile_projects",
@@ -1419,10 +1597,99 @@ def upgrade() -> None:
     op.create_index(
         op.f("ix_profile_changes_user_id"), "profile_changes", ["user_id"], unique=False
     )
+    op.create_table(
+        "thread_messages",
+        sa.Column("id", sa.Text(), nullable=False),
+        sa.Column("thread_id", sa.Uuid(), nullable=False),
+        sa.Column("role", sa.String(), nullable=False),
+        sa.Column("text", sa.Text(), nullable=False),
+        sa.Column("timezone", sa.String(length=64), nullable=True),
+        sa.Column("document_id", sa.Uuid(), nullable=True),
+        sa.Column("agent", sa.String(length=100), nullable=True),
+        sa.Column("changeset_id", sa.Uuid(), nullable=True),
+        sa.Column(
+            "steps",
+            sa.JSON().with_variant(
+                postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+            nullable=True,
+        ),
+        sa.Column("failure", sa.Text(), nullable=True),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "created_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "updated_by", sa.String(length=100), server_default="system", nullable=False
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.CheckConstraint(
+            "role <> 'agent' or agent is not null",
+            name=op.f("ck_thread_messages_agent"),
+        ),
+        sa.CheckConstraint(
+            "role <> 'user' or timezone is not null",
+            name=op.f("ck_thread_messages_timezone"),
+        ),
+        sa.CheckConstraint(
+            "role in ('user', 'agent')", name=op.f("ck_thread_messages_role")
+        ),
+        sa.ForeignKeyConstraint(
+            ["changeset_id"],
+            ["document_changesets.id"],
+            name=op.f("fk_thread_messages_changeset_id_document_changesets"),
+            ondelete="SET NULL",
+        ),
+        sa.ForeignKeyConstraint(
+            ["document_id"],
+            ["documents.id"],
+            name=op.f("fk_thread_messages_document_id_documents"),
+            ondelete="SET NULL",
+        ),
+        sa.ForeignKeyConstraint(
+            ["thread_id"],
+            ["agent_threads.id"],
+            name=op.f("fk_thread_messages_thread_id_agent_threads"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_thread_messages_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_thread_messages")),
+    )
+    op.create_index(
+        "ix_thread_messages_thread_id_created_at",
+        "thread_messages",
+        [
+            "thread_id",
+            sa.literal_column("created_at DESC"),
+            sa.literal_column("id DESC"),
+        ],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_thread_messages_user_id"), "thread_messages", ["user_id"], unique=False
+    )
     op.enable_rls("auth_sign_in_attempts")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("users")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("agent_model_calls")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("agent_runs")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("agent_sessions")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("agent_tool_results")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("assets")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("auth_identities")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("auth_sessions")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1438,6 +1705,7 @@ def upgrade() -> None:
     op.enable_rls("profiles")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("user_settings")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("agent_events")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("agent_threads")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("applications")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("documents")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("profile_projects")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1447,6 +1715,7 @@ def upgrade() -> None:
     op.enable_rls("imports")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("application_steps")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("profile_changes")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("thread_messages")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("alembic_version")  # pyright: ignore[reportAttributeAccessIssue]
     # ### end Alembic commands ###
 
@@ -1454,7 +1723,13 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_constraint(
+        op.f("fk_agent_sessions_active_thread_id_agent_threads"),
+        "agent_sessions",
+        type_="foreignkey",
+    )
     op.disable_rls("alembic_version")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("thread_messages")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("profile_changes")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("application_steps")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("imports")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1464,6 +1739,7 @@ def downgrade() -> None:
     op.disable_rls("profile_projects")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("documents")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("applications")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("agent_threads")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("agent_events")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("user_settings")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("profiles")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1479,10 +1755,17 @@ def downgrade() -> None:
     op.disable_rls("auth_sessions")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("auth_identities")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("assets")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("agent_tool_results")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("agent_sessions")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("agent_runs")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("agent_model_calls")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("users")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("auth_sign_in_attempts")  # pyright: ignore[reportAttributeAccessIssue]
+    op.drop_index(op.f("ix_thread_messages_user_id"), table_name="thread_messages")
+    op.drop_index(
+        "ix_thread_messages_thread_id_created_at", table_name="thread_messages"
+    )
+    op.drop_table("thread_messages")
     op.drop_index(op.f("ix_profile_changes_user_id"), table_name="profile_changes")
     op.drop_table("profile_changes")
     op.drop_index(op.f("ix_application_steps_user_id"), table_name="application_steps")
@@ -1533,6 +1816,15 @@ def downgrade() -> None:
     op.drop_table("document_changesets")
     op.drop_table("profile_projects")
     op.drop_index(
+        "uq_agent_threads_document",
+        table_name="agent_threads",
+        postgresql_where=sa.text("cleared_at IS NULL"),
+        sqlite_where=sa.text("cleared_at IS NULL"),
+    )
+    op.drop_index(op.f("ix_agent_threads_user_id"), table_name="agent_threads")
+    op.drop_index(op.f("ix_agent_threads_session_id"), table_name="agent_threads")
+    op.drop_table("agent_threads")
+    op.drop_index(
         "uq_documents_master",
         table_name="documents",
         postgresql_where=sa.text("master"),
@@ -1546,6 +1838,7 @@ def downgrade() -> None:
     op.drop_table("agent_events")
     op.drop_table("user_settings")
     op.drop_table("profiles")
+    op.drop_index("uq_profile_skills_name", table_name="profile_skills")
     op.drop_index(op.f("ix_profile_skills_user_id"), table_name="profile_skills")
     op.drop_table("profile_skills")
     op.drop_index(op.f("ix_profile_entries_user_id"), table_name="profile_entries")
@@ -1593,8 +1886,23 @@ def downgrade() -> None:
     op.drop_table("auth_identities")
     op.drop_index(op.f("ix_assets_user_id"), table_name="assets")
     op.drop_table("assets")
+    op.drop_index(
+        op.f("ix_agent_tool_results_user_id"), table_name="agent_tool_results"
+    )
+    op.drop_index(
+        op.f("ix_agent_tool_results_task_id"), table_name="agent_tool_results"
+    )
+    op.drop_table("agent_tool_results")
+    op.drop_index(op.f("ix_agent_sessions_user_id"), table_name="agent_sessions")
+    op.drop_table("agent_sessions")
     op.drop_index(op.f("ix_agent_runs_user_id"), table_name="agent_runs")
     op.drop_index(op.f("ix_agent_runs_thread_id"), table_name="agent_runs")
+    op.drop_index(
+        "ix_agent_runs_heartbeat_at",
+        table_name="agent_runs",
+        postgresql_where=sa.text("status = 'running'"),
+        sqlite_where=sa.text("status = 'running'"),
+    )
     op.drop_table("agent_runs")
     op.drop_index(
         "ix_agent_model_calls_user_id_created_at", table_name="agent_model_calls"

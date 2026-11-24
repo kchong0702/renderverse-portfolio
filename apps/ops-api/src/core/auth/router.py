@@ -19,6 +19,7 @@ from src.core.auth.dependencies import (
 from src.core.auth.enums import Role
 from src.core.auth.models import PASSWORD
 from src.core.auth.service import AuthService
+from src.core.auth.types import Timezone
 from src.core.config import AuthSettings, get_settings
 from src.core.exceptions import (
     Conflict,
@@ -59,6 +60,8 @@ class SignInMethods(BaseModel):
 class PasswordSignIn(BaseModel):
     email: str = Field(max_length=320)
     password: str = Field(max_length=1024)
+    timezone: Timezone
+    """The IANA time zone of the browser signing in"""
 
 
 class IdentityRead(BaseModel):
@@ -183,7 +186,9 @@ async def sign_in_with_password(
     user = await service.sign_in_with_password(
         body.email, body.password, request.client.host if request.client else ""
     )
-    token = await service.create_session(user, request.headers.get("user-agent", ""))
+    token = await service.create_session(
+        user, body.timezone, request.headers.get("user-agent", "")
+    )
     _set_session_cookie(response, token, service.settings)
 
 
@@ -192,11 +197,14 @@ async def start_oauth(
     provider: str,
     request: Request,
     providers: OAuthProvidersDep,
+    timezone: Annotated[Timezone, Query()],
     next_path: Annotated[str, Query(alias="next")] = "/",
 ) -> Response:
-    """Send the user to the provider to approve the sign-in"""
+    """Send the user to the provider to approve the sign-in from a browser in
+    timezone"""
     client = _provider(providers, provider)
     request.session.pop("link_user", None)
+    request.session["timezone"] = timezone
     return await _authorize(client, request, provider, next_path)
 
 
@@ -241,7 +249,11 @@ async def finish_oauth(
     except Forbidden:
         return _sign_in_page(service.settings, "not_allowed")
 
-    token = await service.create_session(user, request.headers.get("user-agent", ""))
+    token = await service.create_session(
+        user,
+        request.session.pop("timezone", service.settings.dev_timezone),
+        request.headers.get("user-agent", ""),
+    )
     response = RedirectResponse(
         f"{service.settings.web_url}{next_path}", status.HTTP_303_SEE_OTHER
     )

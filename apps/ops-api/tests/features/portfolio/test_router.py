@@ -238,7 +238,8 @@ async def test_only_an_admin_can_use_a_portfolio_route(
         await session.execute(update(User).values(role=role))
         await session.commit()
     await auth_client.post(
-        f"{PREFIX}/auth/password", json={"email": OWNER, "password": "p" * 12}
+        f"{PREFIX}/auth/password",
+        json={"email": OWNER, "password": "p" * 12, "timezone": "Asia/Kuala_Lumpur"},
     )
     values = {"sha256": "0" * 64, "slot": "image"}
     routes = [

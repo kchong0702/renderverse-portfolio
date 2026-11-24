@@ -5,9 +5,11 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.auth import CurrentUserDep
+from src.core.auth.dependencies import current_timezone
 from src.core.exceptions import InvalidInput
 from src.db.session import SessionDep
-from src.features.documents import document_chat, document_service
+from src.features.conversations.router import conversation_service
+from src.features.documents import document_service
 from src.features.jobs.enums import RunTrigger
 from src.features.jobs.schemas import (
     FitAnalysis,
@@ -38,7 +40,7 @@ def job_service(session: AsyncSession, container: "Container") -> JobService:
         ProfileService(session),
         settings_service(session, container),
         document_service(session, container),
-        document_chat(session, container),
+        conversation_service(session, container),
         container.runner(),
     )
 
@@ -132,8 +134,11 @@ async def analyse_job(
 
 @router.post("/{job_id}/tailor")
 async def tailor_documents(
-    job_id: UUID, user: CurrentUserDep, service: JobServiceDep
+    job_id: UUID,
+    user: CurrentUserDep,
+    timezone: Annotated[str, Depends(current_timezone)],
+    service: JobServiceDep,
 ) -> TailorRead:
     """Tailor the master résumé and cover letter to the job: each is copied once
     and career-consultant's changeset waits for review in Documents"""
-    return await service.tailor(user.id, job_id)
+    return await service.tailor(user.id, job_id, timezone)

@@ -10,7 +10,10 @@ from src.core.agent_runner import AgentRunner
 from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.core.logging import get_logger
 from src.db.base import utcnow
-from src.features.documents import DocumentChat, DocumentService
+from src.features.conversations.schemas import StartedTurn, StartedTurns
+from src.features.conversations.service import ConversationService, started_turns
+from src.features.documents import DocumentService, TailoredDocument
+from src.features.documents.models import Document
 from src.features.jobs.enums import JobStatus, Match, RunStatus, RunTrigger
 from src.features.jobs.models import Job, JobRun
 from src.features.jobs.repository import JobRepository
@@ -65,18 +68,18 @@ class JobService:
         profile: ProfileService,
         settings: SettingsService,
         documents: DocumentService,
-        chat: DocumentChat,
+        conversations: ConversationService,
         runner: AgentRunner,
     ):
         """Hold the session, a repository and the preferences on it, the profile,
-        settings and documents services, the document chat and the runner"""
+        settings, documents and conversation services and the runner"""
         self._session = session
         self._repository = JobRepository(session)
         self._preferences = PreferencesService(session)
         self._profile = profile
         self._settings = settings
         self._documents = documents
-        self._chat = chat
+        self._conversations = conversations
         self._runner = runner
 
     async def jobs(self, user_id: UUID) -> JobList:
@@ -250,9 +253,9 @@ class JobService:
         )
         return await self.analyse(user_id, job_id, reply.analysis)
 
-    async def tailor(self, user_id: UUID, job_id: UUID) -> TailorRead:
-        """Copy the master résumé, and the master cover letter when there is one, for
-        the job, then start each copy's chat turn tailoring it; Conflict without one"""
+    async def _copies(self, user_id: UUID, job_id: UUID) -> list[tuple[Document, str]]:
+        """The job's copies of the master résumé and any master cover letter, each with
+        the request tailoring it; Conflict without a master résumé"""
         job = await self.job(user_id, job_id)
         name = job.company or job.title
         resume = await self._documents.copy_for_job(
@@ -265,15 +268,40 @@ class JobService:
         letter = await self._documents.copy_for_job(
             user_id, job_id, DocumentKind.COVER_LETTER, f"Cover letter for {name}"[:200]
         )
-        return TailorRead(
-            resume=await self._chat.tailor(
-                user_id, resume, _tailor_request(job, "résumé")
-            ),
-            cover_letter=await self._chat.tailor(
-                user_id, letter, _tailor_request(job, "cover letter")
+        return [
+            (document, _tailor_request(job, kind))
+            for document, kind in [(resume, "résumé"), (letter, "cover letter")]
+            if document
+        ]
+
+    async def tailor(self, user_id: UUID, job_id: UUID, timezone: str) -> TailorRead:
+        """Start a turn tailoring each of the job's copies on its own thread, saying of
+        each whether one now tailors it; the error that stops one starting"""
+        resume, *letter = [
+            TailoredDocument(
+                document_id=document.id,
+                tailoring=isinstance(
+                    await self._conversations.edit(
+                        user_id, document, request, timezone
+                    ),
+                    StartedTurn,
+                ),
             )
-            if letter
-            else None,
+            for document, request in await self._copies(user_id, job_id)
+        ]
+        return TailorRead(resume=resume, cover_letter=letter[0] if letter else None)
+
+    async def tailor_documents(self, user_id: UUID, job_id: UUID) -> StartedTurns:
+        """Tailor the job's copies as tailor does, in the zone the user last wrote
+        from, saying which turns started and why others did not"""
+        timezone = await self._conversations.timezone(user_id)
+        return started_turns(
+            [
+                await self._conversations.edit_or_skip(
+                    user_id, document, request, timezone
+                )
+                for document, request in await self._copies(user_id, job_id)
+            ]
         )
 
 

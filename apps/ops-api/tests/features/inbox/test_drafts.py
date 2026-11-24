@@ -22,13 +22,12 @@ from tests.conftest import (
     _client,
     a2a_sent,
     a2a_task,
+    ask,
     connect_google,
     idle_in_transaction,
-    interrupt_part,
+    sent_messages,
     sse_events,
-    stream_chunk,
-    stream_status,
-    stream_task,
+    tool_pause,
 )
 from tests.core.conftest import DATABASE_URL
 
@@ -284,20 +283,11 @@ async def test_a_follow_up_for_an_unknown_application_is_not_found(
 
 async def _executed(client, harness, request: dict) -> dict:
     """What ops-api resumed career-director's draft_reply with after it paused on this tool"""
-    harness.outcomes = [
-        [stream_task(), stream_status("INPUT_REQUIRED", [interrupt_part(request)])],
-        [
-            stream_chunk("a-1", "career-director", {"text": "Drafted."}),
-            stream_status("COMPLETED"),
-        ],
-    ]
-    response = await client.post(
-        f"{PREFIX}/assistant/chats/9b2d6f3e-1c4a-4e8b-9f0d-2a7c5e1b3d4f/messages",
-        json={"text": "Draft a reply to t-1"},
+    response = await ask(
+        client, harness, "Draft a reply to t-1", *tool_pause(request, "Drafted.")
     )
     assert sse_events(response)[-1] == {"status": "completed", "reply": "Drafted."}
-    [part] = a2a_sent(harness)[-1]["params"]["message"]["parts"]
-    return part["data"]
+    return sent_messages(harness)[-1]["message"]["parts"][0]["data"]
 
 
 async def test_career_director_reads_the_thread_it_drafts_a_reply_to(

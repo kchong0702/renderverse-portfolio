@@ -206,6 +206,9 @@ class FindJobsOutput(BaseModel):
 
 
 class SavedJob(BaseModel):
+    id: UUID
+    """The job's id, which tailor_documents takes as its job_id"""
+
     title: str
     """The job title"""
 

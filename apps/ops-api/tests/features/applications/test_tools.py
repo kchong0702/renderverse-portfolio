@@ -1,33 +1,25 @@
 from tests.conftest import (
     PREFIX,
-    a2a_sent,
-    interrupt_part,
+    ask,
+    sent_messages,
     sse_events,
-    stream_chunk,
-    stream_status,
-    stream_task,
+    tool_pause,
 )
 
 APPLICATIONS = f"{PREFIX}/applications"
-CHAT = f"{PREFIX}/assistant/chats/9b2d6f3e-1c4a-4e8b-9f0d-2a7c5e1b3d4f"
 STAGES = ["draft", "applied", "replied", "interview", "offer", "closed"]
 
 
 async def _answer(client, harness, request: dict) -> dict:
     """What ops-api resumed career-director with after it paused on this tool"""
-    harness.outcomes = [
-        [stream_task(), stream_status("INPUT_REQUIRED", [interrupt_part(request)])],
-        [
-            stream_chunk("a-1", "career-director", {"text": "Found them."}),
-            stream_status("COMPLETED"),
-        ],
-    ]
-    response = await client.post(
-        f"{CHAT}/messages", json={"text": "How many applications do I have?"}
+    response = await ask(
+        client,
+        harness,
+        "How many applications do I have?",
+        *tool_pause(request, "Found them."),
     )
     assert sse_events(response)[-1] == {"status": "completed", "reply": "Found them."}
-    [part] = a2a_sent(harness)[-1]["params"]["message"]["parts"]
-    return part["data"]
+    return sent_messages(harness)[-1]["message"]["parts"][0]["data"]
 
 
 async def _apply(client, company: str, stage: str) -> dict:

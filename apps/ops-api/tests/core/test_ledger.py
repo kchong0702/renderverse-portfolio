@@ -1,20 +1,16 @@
 import logging
-from collections.abc import AsyncIterator
 from datetime import date
 from decimal import Decimal
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.clients.ezcareer import Usage
 from src.core.auth.models import User
 from src.core.config import EzcareerSettings, ModelPrice
 from src.core.stores import AgentModelCall, UsageLedger
-from src.db import models  # noqa: F401
-from src.db.base import Base
-from src.db.session import create_session_factory
 
 
 def _price(effective_from: date, input: str) -> ModelPrice:
@@ -44,15 +40,6 @@ def _usage(model: str) -> Usage:
         stop_reason="end_turn",
         request_id="msg_1",
     )
-
-
-@pytest.fixture
-async def factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
-    engine = create_async_engine("sqlite+aiosqlite://")
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all)
-    yield create_session_factory(engine)
-    await engine.dispose()
 
 
 async def test_a_call_costs_its_tokens_at_the_latest_price_already_in_force(

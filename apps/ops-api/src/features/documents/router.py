@@ -2,22 +2,18 @@ from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
 from document_schema import Changeset, DocumentKind, TemplateSpec
-from fastapi import APIRouter, Depends, Header, Request, UploadFile, status
-from fastapi.sse import EventSourceResponse
+from fastapi import APIRouter, Depends, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.artifact import Render
-from src.clients.ezcareer import Answer
 from src.core.auth import CurrentUserDep
 from src.core.config import get_settings
 from src.db.session import SessionDep
-from src.features.documents.chat import DocumentChat
 from src.features.documents.schemas import (
     ChangesetDecision,
     ChangesetRead,
     DocumentCreate,
     DocumentEdits,
-    DocumentMessage,
     DocumentRead,
     DocumentSummary,
     DocumentUpdate,
@@ -26,8 +22,6 @@ from src.features.documents.schemas import (
 )
 from src.features.documents.service import DocumentService
 from src.features.imports import ImportRead, ImportServiceDep, ImportSource
-from src.features.profile import ProfileService
-from src.features.settings import settings_service
 
 if TYPE_CHECKING:
     from src.app.container import Container
@@ -40,20 +34,8 @@ def document_service(session: AsyncSession, container: "Container") -> DocumentS
     """The documents service on the session, its clients from the container"""
     return DocumentService(
         session,
-        container.session_factory(),
         container.artifact(),
         get_settings().documents,
-    )
-
-
-def document_chat(session: AsyncSession, container: "Container") -> DocumentChat:
-    """The document chat on the session, running on the container's runner"""
-    return DocumentChat(
-        session,
-        document_service(session, container),
-        ProfileService(session),
-        settings_service(session, container),
-        container.runner(),
     )
 
 
@@ -62,14 +44,7 @@ def get_document_service(session: SessionDep, request: Request) -> DocumentServi
     return document_service(session, request.app.state.container)
 
 
-def get_document_chat(session: SessionDep, request: Request) -> DocumentChat:
-    """The document chat on the request's database session"""
-    return document_chat(session, request.app.state.container)
-
-
 DocumentServiceDep = Annotated[DocumentService, Depends(get_document_service)]
-
-DocumentChatDep = Annotated[DocumentChat, Depends(get_document_chat)]
 
 
 @router.get("")
@@ -253,49 +228,3 @@ async def decide_changeset(
 ) -> ChangesetRead:
     """Accept every edit of the changeset into the draft, or reject it"""
     return await service.decide(user.id, document_id, changeset_id, decision)
-
-
-@router.post("/{document_id}/chat/messages")
-async def chat(
-    document_id: UUID,
-    message: DocumentMessage,
-    user: CurrentUserDep,
-    chat: DocumentChatDep,
-) -> EventSourceResponse:
-    """Ask career-consultant about the document and stream the turn, with any changeset it
-    stored for review, until it replies, asks back, fails or is stopped"""
-    return EventSourceResponse(await chat.send(user.id, document_id, message.text))
-
-
-@router.post("/{document_id}/chat/tasks/{task_id}/answer")
-async def answer_chat(
-    document_id: UUID,
-    task_id: str,
-    answer: Answer,
-    user: CurrentUserDep,
-    chat: DocumentChatDep,
-) -> EventSourceResponse:
-    """Answer the widget a paused chat turn asked, and stream the rest of it"""
-    return EventSourceResponse(await chat.answer(user.id, document_id, task_id, answer))
-
-
-@router.get("/{document_id}/chat/stream")
-async def resume_chat(
-    document_id: UUID,
-    user: CurrentUserDep,
-    chat: DocumentChatDep,
-    last_event_id: Annotated[str | None, Header()] = None,
-) -> EventSourceResponse:
-    """Resume the chat's turn after the Last-Event-ID the client last saw"""
-    return EventSourceResponse(await chat.resume(user.id, document_id, last_event_id))
-
-
-@router.post(
-    "/{document_id}/chat/tasks/{task_id}/cancel",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def cancel_chat(
-    document_id: UUID, task_id: str, user: CurrentUserDep, chat: DocumentChatDep
-) -> None:
-    """Stop the chat's running turn; the user's Stop button"""
-    await chat.cancel(user.id, document_id, task_id)

@@ -2,34 +2,21 @@ from datetime import UTC, datetime
 
 from src.features.calendar import service as calendar_service
 from tests.conftest import (
-    PREFIX,
-    a2a_sent,
+    ask,
     connect_google,
-    interrupt_part,
+    sent_messages,
     sse_events,
-    stream_chunk,
-    stream_status,
-    stream_task,
+    tool_pause,
 )
-
-CHAT = f"{PREFIX}/assistant/chats/9b2d6f3e-1c4a-4e8b-9f0d-2a7c5e1b3d4f"
 
 
 async def _answer(client, harness, request: dict) -> dict:
     """What ops-api resumed the assistant with after it paused on this tool"""
-    harness.outcomes = [
-        [stream_task(), stream_status("INPUT_REQUIRED", [interrupt_part(request)])],
-        [
-            stream_chunk("a-1", "career-director", {"text": "Found them."}),
-            stream_status("COMPLETED"),
-        ],
-    ]
-    response = await client.post(
-        f"{CHAT}/messages", json={"text": "What's on my calendar?"}
+    response = await ask(
+        client, harness, "What's on my calendar?", *tool_pause(request, "Found them.")
     )
     assert sse_events(response)[-1] == {"status": "completed", "reply": "Found them."}
-    [part] = a2a_sent(harness)[-1]["params"]["message"]["parts"]
-    return part["data"]
+    return sent_messages(harness)[-1]["message"]["parts"][0]["data"]
 
 
 async def test_events_are_those_from_the_start_of_today_for_the_days_asked(

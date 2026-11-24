@@ -9,6 +9,7 @@ import pytest
 from src.core.config import EzcareerSettings
 from src.core.exceptions import Conflict, NotFound
 from src.core.stores import AgentRunStatus, InMemoryRunStore, RunStore
+from src.db.base import utcnow
 from tests.core.conftest import needs_postgres, postgres_store
 
 SETTINGS = EzcareerSettings(replay_ttl_seconds=60)
@@ -90,3 +91,25 @@ async def test_the_latest_run_counts_its_events_and_reads_on_from_any_point(
     assert await _read(store, run_id, 2) == [{"n": 3}]
     with pytest.raises(NotFound):
         await store.latest("chat-2")
+
+
+async def test_a_run_given_up_on_names_its_task_and_start_until_the_next_run(
+    store: RunStore, user_id: UUID
+):
+    failed = await store.create(user_id, "chat-1", "agent")
+    await store.finish(failed, AgentRunStatus.FAILED, "task-0")
+    plain = await store.abandoned("chat-1")
+    before = utcnow()
+    given_up = await store.create(user_id, "chat-1", "agent")
+    await store.finish(given_up, AgentRunStatus.ABANDONED, "task-1")
+    named = await store.abandoned("chat-1")
+    unnamed = await store.create(user_id, "chat-1", "agent")
+    await store.finish(unnamed, AgentRunStatus.ABANDONED, None)
+    nameless = await store.abandoned("chat-1")
+    await store.create(user_id, "chat-1", "agent")
+
+    assert plain is None
+    assert named is not None and named[:2] == (given_up, "task-1")
+    assert before <= named[2] <= utcnow()
+    assert nameless is not None and nameless[:2] == (unnamed, None)
+    assert await store.abandoned("chat-1") is None

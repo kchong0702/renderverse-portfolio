@@ -16,4 +16,8 @@ class AgentRunFailed(ServiceException):
         """Where the user adds what the run lacked; None when nothing would help"""
 
 
-__all__ = ["AgentRunFailed"]
+class HarnessUnreachable(Exception):
+    pass
+
+
+__all__ = ["AgentRunFailed", "HarnessUnreachable"]

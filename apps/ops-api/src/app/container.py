@@ -13,12 +13,15 @@ from src.db.session import create_engine, create_session_factory
 from src.features.applications import application_tools
 from src.features.assistant import profile_tools
 from src.features.calendar import calendar_tools
+from src.features.conversations.tools import conversation_tools
 from src.features.documents import document_tools
 from src.features.inbox import inbox_tools
 from src.features.jobs import job_tools
 
 
 class Container(containers.DeclarativeContainer):
+    __self__ = providers.Self()
+
     settings = providers.Singleton(get_settings)
 
     artifact = providers.Singleton(ArtifactClient, settings=settings.provided.artifact)
@@ -82,7 +85,7 @@ class Container(containers.DeclarativeContainer):
             providers.Callable(
                 document_tools, session_factory, settings.provided.documents
             ),
-            providers.Callable(job_tools, session_factory, job_source),
+            providers.Callable(job_tools, session_factory, job_source, __self__),
             providers.Callable(profile_tools, session_factory),
             providers.Callable(application_tools, session_factory),
             providers.Callable(
@@ -91,7 +94,9 @@ class Container(containers.DeclarativeContainer):
                 google,
                 settings.provided.google,
             ),
+            providers.Callable(conversation_tools, __self__),
         ),
+        factory=session_factory,
     )
 
     runner = providers.Singleton(
@@ -99,5 +104,5 @@ class Container(containers.DeclarativeContainer):
         ezcareer=ezcareer,
         tools=tools,
         store=store,
-        retry_ms=settings.provided.ezcareer.stream_retry_ms,
+        settings=settings.provided.ezcareer,
     )

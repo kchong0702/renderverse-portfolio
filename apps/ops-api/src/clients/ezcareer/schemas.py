@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -34,6 +35,14 @@ class ModelChoice(BaseModel):
 class RunMetadata(BaseModel):
     model: ModelChoice | None = Field(default=None, exclude_if=lambda v: v is None)
     """The model the user picked; None leaves it to ezcareer-harness"""
+
+
+class MessageMetadata(BaseModel):
+    created_at: datetime
+    """When the user wrote the message, in UTC"""
+
+    timezone: str
+    """The IANA time zone the user wrote it from"""
 
 
 class Widget(BaseModel):
@@ -149,9 +158,20 @@ class ToolRequest(BaseModel):
     are its arguments"""
 
 
-type ExecuteTool = Callable[[ToolRequest], Awaitable[BaseModel]]
-"""Executes the tool a run paused on, for the user the run is for, and returns
-the tool result the run resumes with"""
+type ExecuteTool = Callable[[str, str, ToolRequest], Awaitable[BaseModel]]
+"""Executes the tool a run's task paused on, given the task and interrupt ids, and
+returns the tool result the run resumes with"""
+
+
+class ToolsRequested(BaseModel):
+    status: Literal["tools_requested"] = "tools_requested"
+    """The task paused for ops-api to execute tools; never sent to the browser"""
+
+    task_id: str
+    """The paused task"""
+
+    requests: list[tuple[str, ToolRequest]]
+    """Each tool to execute, under the interrupt id its result goes back under"""
 
 
 class Started(BaseModel):
@@ -226,6 +246,48 @@ class Cancelled(BaseModel):
     """The user stopped the run"""
 
 
+class Replied(BaseModel):
+    status: Literal["replied"] = "replied"
+    """The message ending the turn, sent right before how it ended; never sent to
+    the browser"""
+
+    message_id: str
+    """The harness's id for the message, the same after any reconnect"""
+
+    agent: str | None
+    """The agent that answered, which may be one the turn's agent handed to"""
+
+    document_id: UUID | None
+    """The document the answer is about, if any"""
+
+
+class Reconnecting(BaseModel):
+    status: Literal["reconnecting"] = "reconnecting"
+    """ops-api lost the harness mid-run and is reaching it again"""
+
+    attempt: int
+    """Which try this is, from 1"""
+
+    retry_at: datetime
+    """When the try is made"""
+
+
+class Reconnected(BaseModel):
+    status: Literal["reconnected"] = "reconnected"
+    """ops-api reached the harness again and follows the run on"""
+
+
+class ThreadSummary(BaseModel):
+    summary: str | None
+    """What the agent remembers of the thread's earlier messages; None until it
+    summarised any"""
+
+
+class SummaryUpdate(BaseModel):
+    summary: str = Field(max_length=20000)
+    """The summary the user edited"""
+
+
 class Usage(BaseModel):
     provider: str
     """The model's family, such as claude"""
@@ -277,6 +339,9 @@ type RunEvent[R] = (
     | Completed[R]
     | InputRequired
     | ReviewRequired
+    | Replied
+    | Reconnecting
+    | Reconnected
     | Failed
     | Cancelled
 )
@@ -294,11 +359,15 @@ __all__ = [
     "Failed",
     "FamilyModels",
     "InputRequired",
+    "MessageMetadata",
     "ModelCatalog",
     "ModelChoice",
     "NextScreen",
     "Published",
+    "Reconnected",
+    "Reconnecting",
     "RecordUsage",
+    "Replied",
     "ReviewRequired",
     "Run",
     "RunEvent",
@@ -306,9 +375,12 @@ __all__ = [
     "Started",
     "Step",
     "StepUpdate",
+    "SummaryUpdate",
     "Text",
     "Thinking",
+    "ThreadSummary",
     "ToolRequest",
+    "ToolsRequested",
     "Usage",
     "Widget",
 ]

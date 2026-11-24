@@ -1,7 +1,12 @@
 from src.core.auth.models import AuthIdentity, AuthSession, SignInAttempts, User
-from src.core.stores import AgentEvent, AgentRun
+from src.core.stores import AgentEvent, AgentModelCall, AgentRun, AgentToolResult
 from src.features.applications.models import Application, ApplicationStep
 from src.features.connections.models import Connection
+from src.features.conversations.models import (
+    AgentSession,
+    AgentThread,
+    ThreadMessage,
+)
 from src.features.documents.models import (
     Document,
     DocumentChangeset,
@@ -23,7 +28,11 @@ from src.features.settings.models import UserSettings
 
 __all__ = [
     "AgentEvent",
+    "AgentModelCall",
     "AgentRun",
+    "AgentSession",
+    "AgentThread",
+    "AgentToolResult",
     "Application",
     "ApplicationStep",
     "Asset",
@@ -46,6 +55,7 @@ __all__ = [
     "ProfileEntry",
     "ProfileSkill",
     "SignInAttempts",
+    "ThreadMessage",
     "User",
     "UserSettings",
 ]

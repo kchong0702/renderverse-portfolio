@@ -40,6 +40,10 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ["OPS_API_AUTH__ENABLED"] = "false"
     os.environ["OPS_API_EZCAREER__URL"] = "http://harness.test/ezcareer"
     os.environ["OPS_API_EZCAREER__STORES"] = "memory"
+    os.environ["OPS_API_EZCAREER__RECONNECT_SECONDS"] = "0.2"
+    os.environ["OPS_API_EZCAREER__RECONNECT_INITIAL_WAIT_SECONDS"] = "0.01"
+    os.environ["OPS_API_EZCAREER__RECONNECT_MAX_WAIT_SECONDS"] = "0.02"
+    os.environ["OPS_API_EZCAREER__STOP_WAIT_SECONDS"] = "0.2"
     os.environ["OPS_API_ARTIFACT__URL"] = "http://artifact.test/artifact-service"
     os.environ["OPS_API_JSEARCH__ENCRYPTION_KEY"] = JSEARCH_ENCRYPTION_KEY
     os.environ["OPS_API_JSEARCH__RETRY_MAX_WAIT_SECONDS"] = "0"
@@ -81,21 +85,37 @@ class FakeHarness:
         }
         self.down = False
         self.failing = False
-        self.outcomes: list[dict | list[dict] | Callable[[dict], dict]] = []
+        self.outcomes: list[dict | list[dict] | Callable[[dict], dict] | Exception] = []
         self.received: list[httpx2.Request] = []
+        self.summaries: dict[str, dict] = {}
+        self.busy: set[str] = set()
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
-        """Serve the model catalog and answer each A2A POST with the next outcome, a
-        list streaming as SSE and a function of the request computing it, or refuse
-        to connect when down"""
+        """Serve models and summaries, and answer each A2A POST with the next outcome:
+        a list streams as SSE, a function computes it, an exception is raised"""
         if self.down:
             raise httpx2.ConnectError("connection refused", request=request)
         if request.method == "GET" and request.url.path == "/ezcareer/models":
             return httpx2.Response(200, json=self.catalog)
+        if request.url.path.endswith("/summary"):
+            self.received.append(request)
+            key = request.url.path.split("/")[-2]
+            if request.method == "PUT":
+                if key in self.busy:
+                    return httpx2.Response(409)
+                if key not in self.summaries:
+                    return httpx2.Response(404)
+                self.summaries[key]["summary"] = json.loads(request.content)["summary"]
+            return httpx2.Response(
+                200,
+                json=self.summaries.get(key, {"summary": None}),
+            )
         if request.method == "POST" and request.url.path.startswith("/ezcareer/a2a/"):
             self.received.append(request)
             rpc_id = json.loads(request.content)["id"]
             outcome = self.outcomes.pop(0)
+            if isinstance(outcome, Exception):
+                raise outcome
             if callable(outcome):
                 outcome = outcome(json.loads(request.content))
             if isinstance(outcome, list):
@@ -146,24 +166,60 @@ def a2a_sent(harness: FakeHarness) -> list[dict]:
     return [json.loads(request.content) for request in harness.received]
 
 
-def stream_task() -> dict:
-    """The task SendStreamingMessage sends first"""
+def stream_task(state: str = "WORKING") -> dict:
+    """The snapshot of task-1 SubscribeToTask sends first"""
     return {
         "result": {
             "task": {
                 "id": "task-1",
                 "contextId": "context-1",
-                "status": {"state": "TASK_STATE_SUBMITTED"},
+                "status": {"state": f"TASK_STATE_{state}"},
             }
         }
     }
 
 
-def stream_status(state: str, parts: list[dict] | None = None) -> dict:
+def a2a_accepted(task_id: str = "task-1") -> dict:
+    """SendMessage's answer when the harness answers as soon as the task exists"""
+    return {
+        "result": {
+            "task": {
+                "id": task_id,
+                "contextId": "context-1",
+                "status": {"state": "TASK_STATE_WORKING"},
+            }
+        }
+    }
+
+
+def a2a_turn(*events: dict) -> list:
+    """The harness's outcomes for one SendMessage and its SubscribeToTask stream"""
+    return [a2a_accepted(), [stream_task(), *events]]
+
+
+def a2a_replied(
+    text: str, message_id: str = "reply-1", agent: str = "career-director"
+) -> list:
+    """A turn that only replies with text"""
+    return a2a_turn(
+        stream_status("COMPLETED", [{"text": text}], message_id, {"agent": agent})
+    )
+
+
+def stream_status(
+    state: str,
+    parts: list[dict] | None = None,
+    message_id: str = "m",
+    metadata: dict | None = None,
+) -> dict:
     """A status update of task-1, with a message when parts are given"""
     status: dict = {"state": f"TASK_STATE_{state}"}
     if parts is not None:
-        status["message"] = {"messageId": "m", "role": "ROLE_AGENT", "parts": parts}
+        status["message"] = {
+            "messageId": message_id,
+            "role": "ROLE_AGENT",
+            "parts": parts,
+        } | ({"metadata": metadata} if metadata else {})
     return {
         "result": {
             "statusUpdate": {
@@ -186,6 +242,54 @@ def stream_chunk(artifact_id: str, name: str, part: dict) -> dict:
             }
         }
     }
+
+
+def sent_messages(harness: FakeHarness) -> list[dict]:
+    """The params of each SendMessage the harness received, in order"""
+    return [
+        sent["params"] for sent in a2a_sent(harness) if sent["method"] == "SendMessage"
+    ]
+
+
+def tool_pause(request: dict, reply: str) -> list:
+    """The outcomes of a turn that pauses on one tool request, then replies"""
+    return [
+        *a2a_turn(stream_status("INPUT_REQUIRED", [interrupt_part(request)])),
+        *a2a_replied(reply),
+    ]
+
+
+async def thread_of(
+    client: httpx2.AsyncClient,
+    agent: str = "career-director",
+    document_id: str | None = None,
+) -> str:
+    """The signed-in user's active thread with the agent, career-consultant's on the
+    document"""
+    return (
+        await client.get(
+            f"{PREFIX}/agent/sessions/{agent}",
+            params={"document_id": document_id} if document_id else None,
+        )
+    ).json()["thread_id"]
+
+
+async def ask(
+    client: httpx2.AsyncClient,
+    harness: FakeHarness,
+    text: str,
+    *outcomes: dict | list,
+    agent: str = "career-director",
+    document_id: str | None = None,
+):
+    """Send the agent's active thread, career-consultant's on the document, a message
+    on the harness's outcomes; the response streaming the turn"""
+    harness.outcomes = list(outcomes)
+    return await client.post(
+        f"{PREFIX}/agent/threads/{await thread_of(client, agent, document_id)}"
+        "/messages",
+        json={"text": text},
+    )
 
 
 def sse_events(response) -> list[dict]:
@@ -561,6 +665,7 @@ async def _app(
     )
 
     yield create_app(container)
+    await container.runner().aclose()
     await engine.dispose()
     directory.cleanup()
 

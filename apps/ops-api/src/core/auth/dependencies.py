@@ -50,6 +50,19 @@ async def current_user(
 CurrentUserDep = Annotated[User, Depends(current_user)]
 
 
+async def current_timezone(
+    service: Annotated[AuthService, Depends(get_auth_service)],
+    token: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None,
+) -> str:
+    """The IANA time zone the caller's browser signed in from; auth.dev_timezone
+    while auth is disabled"""
+    if not service.settings.enabled:
+        return service.settings.dev_timezone
+    if not token:
+        raise Unauthorized("Sign in to continue")
+    return await service.session_timezone(token)
+
+
 async def admin_user(user: CurrentUserDep) -> User:
     """The signed-in caller, who must be an admin"""
     if user.role is not Role.ADMIN:
@@ -66,6 +79,7 @@ __all__ = [
     "CurrentUserDep",
     "OAuthProvidersDep",
     "admin_user",
+    "current_timezone",
     "current_user",
     "get_auth_service",
     "get_oauth_providers",

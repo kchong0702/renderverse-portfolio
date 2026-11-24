@@ -4,18 +4,15 @@ from src.core.auth.models import User
 from src.features.documents.models import Document
 from tests.conftest import (
     PREFIX,
-    a2a_sent,
     a2a_task,
-    interrupt_part,
+    ask,
+    sent_messages,
     sse_events,
-    stream_chunk,
-    stream_status,
-    stream_task,
+    tool_pause,
     work,
 )
 
 DOCUMENTS = f"{PREFIX}/documents"
-CHAT = f"{PREFIX}/assistant/chats/9b2d6f3e-1c4a-4e8b-9f0d-2a7c5e1b3d4f"
 
 LINE = {
     "id": "p1.s1",
@@ -47,17 +44,11 @@ async def _create(client, title: str, kind: str = "resume") -> dict:
 
 async def _answer(client, harness, request: dict) -> dict:
     """What ops-api resumed career-director with after it paused on this tool"""
-    harness.outcomes = [
-        [stream_task(), stream_status("INPUT_REQUIRED", [interrupt_part(request)])],
-        [
-            stream_chunk("a-1", "career-director", {"text": "Found it."}),
-            stream_status("COMPLETED"),
-        ],
-    ]
-    response = await client.post(f"{CHAT}/messages", json={"text": "Edit my résumé"})
+    response = await ask(
+        client, harness, "Edit my résumé", *tool_pause(request, "Found it.")
+    )
     assert sse_events(response)[-1] == {"status": "completed", "reply": "Found it."}
-    [part] = a2a_sent(harness)[-1]["params"]["message"]["parts"]
-    return part["data"]
+    return sent_messages(harness)[-1]["message"]["parts"][0]["data"]
 
 
 async def test_documents_are_found_by_a_misspelled_name_best_first(client, harness):

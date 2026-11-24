@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, SerializeAsAny
 from pydantic.alias_generators import to_camel
 
-from src.clients.ezcareer.schemas import RunMetadata, Step, Usage
+from src.clients.ezcareer.schemas import MessageMetadata, RunMetadata, Step, Usage
 
 
 class TextPart(BaseModel):
@@ -43,13 +44,32 @@ class Message(BaseModel):
     parts: list[TextPart | DataPart]
     """The text part becomes the run's messages; the data part its input"""
 
+    metadata: MessageMetadata | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    """When and where the user wrote a new message; None on an answer or results"""
+
+
+class SendMessageConfiguration(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel, validate_by_name=True, serialize_by_alias=True
+    )
+
+    return_immediately: bool
+    """True answers with the task as soon as it exists, leaving it running"""
+
 
 class SendMessageParams(BaseModel):
     message: Message
     """The message to send"""
 
     metadata: RunMetadata | None = Field(default=None, exclude_if=lambda v: v is None)
-    """The user's model"""
+    """The user's model, and the user an agent's turn is for"""
+
+    configuration: SendMessageConfiguration | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    """How the harness answers; None waits for the task to pause or end"""
 
 
 class SendMessageRequest(BaseModel):
@@ -59,9 +79,9 @@ class SendMessageRequest(BaseModel):
     id: str
     """Request id the response echoes"""
 
-    method: Literal["SendMessage", "SendStreamingMessage"] = "SendMessage"
-    """SendMessage answers once the task ends or pauses; SendStreamingMessage streams
-    each event"""
+    method: Literal["SendMessage"] = "SendMessage"
+    """Send the message; the answer comes once the task pauses or ends, or as soon
+    as it exists with return_immediately"""
 
     params: SendMessageParams
     """The message"""
@@ -79,13 +99,19 @@ class Part(BaseModel):
 
 
 class StatusMessage(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True)
+
+    message_id: str = ""
+    """The message's id, the same in every response that returns it"""
+
     parts: list[Part] = Field(min_length=1)
-    """A failure's reason as text, or a pause's interrupts as data"""
+    """A reply's text, a failure's reason, or a pause's interrupts as data"""
+
+    metadata: dict[str, JsonValue] | None = None
+    """On the message ending a turn, the agent that answered and its document_id"""
 
 
 class HistoryMessage(StatusMessage):
-    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True)
-
     message_id: str
     """The message's id, the same in every response that returns it"""
 
@@ -194,7 +220,7 @@ class StreamResult(BaseModel):
 
 class StreamSuccess(BaseModel):
     result: StreamResult
-    """One event of a SendStreamingMessage stream"""
+    """One event of a SubscribeToTask stream"""
 
 
 class TaskIdParams(BaseModel):
@@ -209,8 +235,8 @@ class TaskRequest(BaseModel):
     id: str
     """Request id, echoed in the response"""
 
-    method: Literal["GetTask", "CancelTask"]
-    """Read the task, or cancel it"""
+    method: Literal["GetTask", "CancelTask", "SubscribeToTask"]
+    """Read the task, cancel it, or stream its events from where it stands"""
 
     params: TaskIdParams
     """The task"""
@@ -219,6 +245,45 @@ class TaskRequest(BaseModel):
 class TaskSuccess(BaseModel):
     result: Task
     """The task as it stands"""
+
+
+class ListTasksParams(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel, validate_by_name=True, serialize_by_alias=True
+    )
+
+    context_id: str
+    """The context whose tasks to list"""
+
+    status_timestamp_after: datetime
+    """Only tasks whose status changed after this"""
+
+    include_artifacts: bool = True
+    """Return each task's artifacts, which hold a completed task's reply"""
+
+
+class ListTasksRequest(BaseModel):
+    jsonrpc: Literal["2.0"] = "2.0"
+    """JSON-RPC version"""
+
+    id: str
+    """Request id, echoed in the response"""
+
+    method: Literal["ListTasks"] = "ListTasks"
+    """List a context's tasks"""
+
+    params: ListTasksParams
+    """Which tasks"""
+
+
+class TaskList(BaseModel):
+    tasks: list[Task] = []
+    """The tasks found"""
+
+
+class ListTasksSuccess(BaseModel):
+    result: TaskList
+    """The context's tasks"""
 
 
 class RpcError(BaseModel):
@@ -235,16 +300,24 @@ class SendMessageError(BaseModel):
 
 
 __all__ = [
+    "Artifact",
     "DataPart",
+    "ListTasksParams",
+    "ListTasksRequest",
+    "ListTasksSuccess",
     "Message",
+    "SendMessageConfiguration",
     "SendMessageError",
     "SendMessageParams",
     "SendMessageRequest",
     "SendMessageSuccess",
+    "StatusMessage",
     "StepData",
     "StreamSuccess",
+    "Task",
     "TaskIdParams",
     "TaskRequest",
+    "TaskStatus",
     "TaskSuccess",
     "TextPart",
     "UsageData",

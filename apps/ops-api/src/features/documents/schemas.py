@@ -14,7 +14,6 @@ from document_schema import (
 from pydantic import BaseModel, Field
 
 from src.features.imports import SourceLine
-from src.features.profile import ProfileFact
 
 
 class DocumentCreate(BaseModel):
@@ -111,25 +110,6 @@ class ChangesetDecision(BaseModel):
     """Accepted applies every edit to the document; rejected drops them all"""
 
 
-class DocumentMessage(BaseModel):
-    text: str = Field(min_length=1, max_length=4000)
-    """What the user asks career-consultant about the document"""
-
-
-class EditDocumentInput(BaseModel):
-    document_id: UUID
-    """The document to edit"""
-
-    document: AnyDocument
-    """Its current draft; its assets' bytes are not sent, as ops-api keeps none"""
-
-    pdf_lines: list[SourceLine]
-    """The imported file's lines; empty for a document not imported"""
-
-    profile_facts: list[ProfileFact]
-    """The user's profile facts the edits may cite"""
-
-
 class DocumentContent(BaseModel):
     document: AnyDocument
     """The current draft; its assets' bytes are not sent, as ops-api keeps none"""
@@ -146,12 +126,28 @@ class DocumentsAnswer(BaseModel):
     """The best match's draft and lines; None when nothing matches"""
 
 
-class ChangesetArtifact(BaseModel):
+class ProposeChangesetRequest(BaseModel):
+    execute_tool: Literal["propose_changeset"]
+    """A paused run asks to store an agent's edits for the user to review"""
+
     document_id: UUID
     """The document the edits are for"""
 
     changeset: Changeset
-    """The edits career-consultant proposes"""
+    """The edits the agent proposes"""
+
+
+class ChangesetStored(BaseModel):
+    changeset_id: UUID
+    """The pending changeset now holding the edits"""
+
+
+class ChangesetArtifact(BaseModel):
+    document_id: UUID
+    """The document the edits are for"""
+
+    changeset_id: UUID
+    """The stored changeset propose_changeset answered with"""
 
 
 class ChangesetProposed(BaseModel):
@@ -184,17 +180,17 @@ __all__ = [
     "ChangesetDecision",
     "ChangesetProposed",
     "ChangesetRead",
+    "ChangesetStored",
     "DocumentContent",
     "DocumentCreate",
     "DocumentEdits",
     "DocumentMatch",
-    "DocumentMessage",
     "DocumentRead",
     "DocumentSummary",
     "DocumentUpdate",
     "DocumentsAnswer",
-    "EditDocumentInput",
     "LineRead",
+    "ProposeChangesetRequest",
     "TailoredDocument",
     "VersionCreate",
     "VersionRead",
