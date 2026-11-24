@@ -37,7 +37,7 @@ def find_documents(
     return Command(
         update={
             **(
-                {"found_documents": {found.documents[0].id: found.content}}
+                {"document_contents": {found.documents[0].id: found.content}}
                 if found.content and found.documents
                 else {}
             ),

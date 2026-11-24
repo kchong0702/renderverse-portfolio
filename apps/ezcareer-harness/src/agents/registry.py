@@ -7,8 +7,9 @@ import yaml
 from deepagents import HarnessProfileConfig, register_harness_profile
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from src.agents.prompt import is_active
 from src.clients.llm_providers import PROVIDERS
-from src.core.config import _ROOT_PATH, AgentSettings, Family
+from src.core.config import _ROOT_PATH, AgentSettings, Family, get_settings
 
 
 class AgentProfile(BaseModel):
@@ -16,16 +17,13 @@ class AgentProfile(BaseModel):
         extra="forbid", frozen=True, use_attribute_docstrings=True
     )
 
-    system_prompt: Path | None = None
-    """The agent's system prompt, from the app folder; None reads system.md beside profile.yaml"""
-
     skills: Path | None = None
     """The agent's skills folder, from the app folder; None reads skills/ beside profile.yaml"""
 
     tool_description_overrides: dict[str, str] = Field(default_factory=dict)
     """Descriptions that replace a tool's own, by tool name"""
 
-    @field_validator("system_prompt", "skills")
+    @field_validator("skills")
     @classmethod
     def _from_app_folder(cls, path: Path | None) -> Path | None:
         """Reads a relative path from the app folder"""
@@ -44,7 +42,7 @@ class Agent(BaseModel):
     """Agent name, such as career-consultant"""
 
     folder: Path
-    """Holds profile.yaml, system.md and the agent's own skills/"""
+    """Holds profile.yaml, prompts/ and the agent's own skills/"""
 
     family: Family
     """Model family the model belongs to, such as glm"""
@@ -57,8 +55,12 @@ class Agent(BaseModel):
 
     @property
     def system_prompt(self) -> Path:
-        """The agent's system prompt file"""
-        return self.profile.system_prompt or self.folder / "system.md"
+        """The agent's system prompt file: prompts/system.<provider>.md when there is
+        an active one for its provider, else prompts/system.md"""
+        variant = self.folder / "prompts" / f"system.{self.provider}.md"
+        if variant.is_file() and is_active(variant):
+            return variant
+        return self.folder / "prompts" / "system.md"
 
     @property
     def skills(self) -> Path:
@@ -72,12 +74,14 @@ class Agent(BaseModel):
 
     @property
     def hash(self) -> str:
-        """Sha256 of every file in the agent's folder, with its path"""
+        """Sha256 of every file in the agent's folder and in the middleware prompts
+        folder, each with its path from that folder"""
         digest = sha256()
-        for path in sorted(self.folder.rglob("*")):
-            if path.is_file():
-                digest.update(str(path.relative_to(self.folder)).encode() + b"\0")
-                digest.update(path.read_bytes() + b"\0")
+        for folder in (self.folder, get_settings().middleware_prompts):
+            for path in sorted(folder.rglob("*")):
+                if path.is_file():
+                    digest.update(str(path.relative_to(folder)).encode() + b"\0")
+                    digest.update(path.read_bytes() + b"\0")
         return digest.hexdigest()
 
     @classmethod

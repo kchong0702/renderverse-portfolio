@@ -39,7 +39,7 @@ class DocumentContent(BaseModel):
     document: AnyDocument
     """The document as it is now, which career-consultant is handed"""
 
-    lines: list[Line]
+    pdf_lines: list[Line]
     """The uploaded PDF's lines, which the document cites as p<page>.s<n>"""
 
 
@@ -50,7 +50,7 @@ class FoundDocuments(BaseModel):
     """The documents that match, best match first"""
 
     content: DocumentContent | None
-    """The best match's document and lines; None when nothing matches"""
+    """The best match's document and PDF lines; None when nothing matches"""
 
 
 class AboutEdit(BaseModel):

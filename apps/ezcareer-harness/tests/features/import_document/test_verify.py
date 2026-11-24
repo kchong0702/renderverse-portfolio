@@ -87,7 +87,7 @@ def check(
     return verify(
         {
             "structured_response": ImportedResume.model_validate(draft),
-            "lines": lines,
+            "pdf_lines": lines,
             "suggestion": SUGGESTION,
         },
         configurations,
@@ -100,7 +100,7 @@ def test_a_faithful_reply_passes_and_becomes_the_draft_in_the_suggested_template
     result = verify(
         {
             "structured_response": ImportedResume.model_validate(reply()),
-            "lines": LINES,
+            "pdf_lines": LINES,
             "suggestion": SUGGESTION,
         },
         configurations,

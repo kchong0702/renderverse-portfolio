@@ -1,7 +1,9 @@
 import json
+from importlib import import_module
 from pathlib import Path
 
 import httpx
+import pytest
 from document_schema import (
     AnyDocument,
     AnyEdit,
@@ -34,6 +36,7 @@ from src.shared.profile import ProfileFact
 from src.shared.widget import Answer, WidgetSetting
 from src.tools import clarify, read_profile_facts
 from tests.agents.test_builder import _call
+from tests.agents.test_prompt import HEADER
 from tests.conftest import ScriptedChatModel
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -153,11 +156,11 @@ def _state() -> CareerConsultantState:
             (FIXTURES / "resume.json").read_text()
         ),
         "report": None,
-        "lines": [
+        "pdf_lines": [
             Line(id=line["id"], text=line["text"], page=1, x0=0, top=0, x1=1, bottom=1)
             for line in json.loads((FIXTURES / "lines.json").read_text())
         ],
-        "facts": TypeAdapter(list[ProfileFact]).validate_json(
+        "profile_facts": TypeAdapter(list[ProfileFact]).validate_json(
             (FIXTURES / "facts.json").read_text()
         ),
     }
@@ -167,7 +170,7 @@ def _loaded(**update: object) -> dict[str, JsonValue]:
     """The document and its PDF lines, as ops-api sends them"""
     state = _state()
     return to_jsonable_python(
-        {"document": state["document"], "lines": state["lines"]} | update
+        {"document": state["document"], "pdf_lines": state["pdf_lines"]} | update
     )
 
 
@@ -241,6 +244,30 @@ async def test_the_document_goes_before_the_latest_user_message_and_is_never_sav
         ["Tighten my summary", "Done.", document, REQUEST]
     ] * 2
     assert all("<document>" not in m.text for m in result["messages"])
+
+
+async def test_the_document_message_is_read_from_its_middleware_prompt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    (tmp_path / "inject_document_context.md").write_text(
+        HEADER.format(status="active") + "Your document: {document}\n"
+    )
+    settings = get_settings().model_copy(update={"middleware_prompts": tmp_path})
+    monkeypatch.setattr(
+        import_module(
+            "src.agents.career_consultant.middlewares.inject_document_context"
+        ),
+        "get_settings",
+        lambda: settings,
+    )
+    state = _state()
+    model = _model(DONE)
+
+    await _agent(model).ainvoke(state)
+
+    assert model.requests[0][1].text == (
+        f"Your document: {state['document'].model_dump_json()}"
+    )
 
 
 async def _asked(

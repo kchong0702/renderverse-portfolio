@@ -59,5 +59,5 @@ class ImportResult(BaseModel):
     report: Report
     """How the draft's pages came out"""
 
-    lines: list[Line]
+    pdf_lines: list[Line]
     """The upload's text lines, which the draft's values cite"""

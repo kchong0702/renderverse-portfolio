@@ -23,7 +23,7 @@ async def _analyse_job(
             graph.get_input_schema().model_validate(
                 {
                     "url": url,
-                    "facts": runtime.state["facts"],
+                    "profile_facts": runtime.state["profile_facts"],
                     "preferences": runtime.state["preferences"],
                 }
             )

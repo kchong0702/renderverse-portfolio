@@ -14,13 +14,13 @@ class CareerDirectorState(ProfileState):
     preferences: Preferences
     """What the user wants from a job"""
 
-    found_documents: NotRequired[Annotated[dict[str, DocumentContent], or_]]
+    document_contents: NotRequired[Annotated[dict[str, DocumentContent], or_]]
     """The content of each best match find_documents found this turn, by id, which
     handoff_to_child hands to career-consultant"""
 
 
 class CareerDirectorHandoffState(AgentState):
-    facts: list[ProfileFact]
+    profile_facts: list[ProfileFact]
     """The user's profile facts, which every agent reads"""
 
     preferences: Preferences
@@ -29,12 +29,11 @@ class CareerDirectorHandoffState(AgentState):
     active_agent: NotRequired[str]
     """The agent the conversation is with; a new turn goes to it"""
 
-    document_id: NotRequired[str | None]
-    """The document career-consultant works on, set by each handoff; None when the
-    handoff named none"""
+    document_id: NotRequired[str]
+    """The document career-consultant works on, set when a handoff names one"""
 
-    document: NotRequired[AnyDocument | None]
+    document: NotRequired[AnyDocument]
     """That document as it was when it was handed to career-consultant"""
 
-    lines: NotRequired[list[Line] | None]
+    pdf_lines: NotRequired[list[Line]]
     """That document's uploaded PDF lines"""

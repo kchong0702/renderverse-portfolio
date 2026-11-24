@@ -47,8 +47,8 @@ class JobPosting(BaseModel):
     apply_url: str
     """Where to apply"""
 
-    lines: list[PostingLine]
-    """The description, numbered from 1; untrusted"""
+    posting_lines: list[PostingLine]
+    """The description's lines, numbered from 1; untrusted"""
 
 
 class FoundJobs(BaseModel):

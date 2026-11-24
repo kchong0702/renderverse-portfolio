@@ -71,7 +71,7 @@ async def _run(
     result = await graph.ainvoke(
         {
             "messages": [HumanMessage(REQUEST)],
-            "facts": career_consultant._state()["facts"],
+            "profile_facts": career_consultant._state()["profile_facts"],
             "preferences": Preferences(),
         },
         thread,
@@ -140,8 +140,8 @@ async def test_a_single_match_is_handed_to_career_consultant_with_its_content():
         result["active_agent"],
         result["document_id"],
         result["document"],
-        result["lines"],
-    ) == ("career-consultant", "doc-1", state["document"], state["lines"])
+        result["pdf_lines"],
+    ) == ("career-consultant", "doc-1", state["document"], state["pdf_lines"])
     [proposed] = _reports(result, "propose_changeset")
     assert proposed.artifact["name"] == "changeset"
     assert proposed.artifact["data"]["document_id"] == "doc-1"
@@ -258,6 +258,20 @@ async def test_a_document_find_documents_did_not_return_is_not_handed_off():
     assert result["messages"][-1].text == "Which document do you mean?"
 
 
+async def test_career_consultant_is_never_handed_the_conversation_without_a_document():
+    director = _model(
+        _call("handoff_to_child", agent="career-consultant"),
+        AIMessage("Which document do you mean?"),
+    )
+
+    _, result = await _run(_director(director))
+
+    [refused] = _reports(result, "handoff_to_child")
+    assert refused.status == "error"
+    assert "document_id" in refused.text
+    assert "active_agent" not in result
+
+
 async def test_only_the_best_match_can_be_handed_off():
     director = _model(
         _find(kind="resume"), _handoff("doc-2"), AIMessage("Which résumé do you mean?")
@@ -269,31 +283,6 @@ async def test_only_the_best_match_can_be_handed_off():
     assert refused.status == "error"
     assert "best match" in refused.text
     assert "active_agent" not in result
-
-
-async def test_a_handoff_without_a_document_clears_the_one_handed_before():
-    consultant = career_consultant._model(
-        career_consultant.DONE,
-        _call("handoff_to_parent"),
-        AIMessage("Try: Backend engineer scaling payments."),
-    )
-    director = _model(
-        _find(name="backend résumé"),
-        _handoff("doc-1"),
-        _call("handoff_to_child", agent="career-consultant"),
-    )
-    graph = _director(director, consultant)
-
-    await _turn(graph, REQUEST, _documents(BACKEND))
-    _, result = await _turn(graph, "Write me a LinkedIn headline")
-
-    assert (result["document_id"], result["document"], result["lines"]) == (
-        None,
-        None,
-        None,
-    )
-    assert not any(DOCUMENT in m.text for m in consultant.requests[-1])
-    assert result["messages"][-1].text == "Try: Backend engineer scaling payments."
 
 
 async def test_only_the_first_of_several_handoffs_in_a_reply_runs():

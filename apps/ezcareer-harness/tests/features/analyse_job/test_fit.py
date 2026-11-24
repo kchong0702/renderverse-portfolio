@@ -18,7 +18,7 @@ def _requirement(importance: str, match: str) -> Requirement:
 def _fit(*requirements: Requirement) -> int:
     analysis = JobAnalysis(
         url="https://jobs.example.com/1",
-        lines=[PostingLine(id=1, text="Kubernetes")],
+        posting_lines=[PostingLine(id=1, text="Kubernetes")],
         filters=[],
         requirements=list(requirements),
     )

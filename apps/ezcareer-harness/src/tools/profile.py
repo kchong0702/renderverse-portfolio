@@ -12,5 +12,5 @@ def read_profile_facts(runtime: ToolRuntime[None, ProfileState]) -> str:
         f"fact:{fact.id}  ({fact.start} to {fact.end or fact.start}) {fact.text}"
         if fact.start
         else f"fact:{fact.id}  {fact.text}"
-        for fact in runtime.state["facts"]
+        for fact in runtime.state["profile_facts"]
     )

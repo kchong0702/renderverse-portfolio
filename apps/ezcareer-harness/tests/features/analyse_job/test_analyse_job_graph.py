@@ -19,7 +19,7 @@ URL = "https://jobs.example.com/acme/senior-backend"
 POSTING = (Path(__file__).parent / "fixtures" / "posting.html").read_text()
 INPUT = {
     "url": URL,
-    "facts": [
+    "profile_facts": [
         {
             "id": "acme",
             "text": "Backend engineer at Initech, Python and Django",

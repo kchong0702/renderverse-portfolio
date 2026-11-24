@@ -25,9 +25,10 @@ async def _handoff(
     runtime: ToolRuntime[None, AgentState],
     agent: str,
     document_id: str | None = None,
+    document_children: frozenset[str] = frozenset(),
 ) -> Command | ToolMessage:
     """Moves the conversation to agent's node in the parent graph with the named found
-    document, answering each of the reply's tool calls; only the first handoff runs"""
+    document, which document_children require; only the first handoff runs"""
     call = next(
         m for m in reversed(runtime.state["messages"]) if isinstance(m, AIMessage)
     )
@@ -38,7 +39,14 @@ async def _handoff(
         return ToolMessage(
             ONE_AT_A_TIME, name=name, tool_call_id=runtime.tool_call_id, status="error"
         )
-    found = runtime.state.get("found_documents", {}).get(document_id)
+    if agent in document_children and not document_id:
+        return ToolMessage(
+            f"{agent} works on a document. Find it with find_documents, then hand it off with its document_id",
+            name=name,
+            tool_call_id=runtime.tool_call_id,
+            status="error",
+        )
+    found = runtime.state.get("document_contents", {}).get(document_id)
     if document_id and not found:
         return ToolMessage(
             f"Document {document_id} is not the best match of find_documents this turn. Find it by its title, then hand it off",
@@ -50,9 +58,15 @@ async def _handoff(
         goto=agent,
         update={
             "active_agent": agent,
-            "document_id": document_id if found else None,
-            "document": found.document if found else None,
-            "lines": found.lines if found else None,
+            **(
+                {
+                    "document_id": document_id,
+                    "document": found.document,
+                    "pdf_lines": found.pdf_lines,
+                }
+                if found
+                else {}
+            ),
             "messages": [
                 call,
                 *(
@@ -79,11 +93,20 @@ async def _handoff(
     )
 
 
-def handoff_to_child_tool(children: Sequence[str]) -> BaseTool:
-    """handoff_to_child, which hands the conversation to one of the child agents
-    named in children"""
+def handoff_to_child_tool(
+    children: Sequence[str], document_children: Sequence[str] = ()
+) -> BaseTool:
+    """handoff_to_child, which hands the conversation to one of children, always with a
+    document to those in document_children"""
     return StructuredTool.from_function(
-        coroutine=update_wrapper(partial(_handoff, "handoff_to_child"), _handoff),
+        coroutine=update_wrapper(
+            partial(
+                _handoff,
+                "handoff_to_child",
+                document_children=frozenset(document_children),
+            ),
+            _handoff,
+        ),
         name="handoff_to_child",
         description="Hands the conversation to the child agent that owns the user's request; it answers the user from then on. Call it once per reply, with at most one document",
         args_schema=create_model(

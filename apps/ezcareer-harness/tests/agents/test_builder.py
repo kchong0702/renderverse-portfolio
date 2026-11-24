@@ -14,8 +14,8 @@ from langgraph.graph import START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
-from src.agents import Agent, AgentOverride, build_agent, load_agents
-from src.core.config import AgentSettings, Settings
+from src.agents import Agent, AgentOverride, build_agent, load_agents, registry
+from src.core.config import AgentSettings, Settings, get_settings
 from src.infrastructure.observability import tracing
 from src.infrastructure.observability.instrumentation import instrument
 from src.shared.run_context import RunContext
@@ -71,7 +71,7 @@ def test_the_registry_loads_every_agent_the_settings_list():
 
     assert list(agents) == ["greeter"]
     assert agents["greeter"].family == "glm"
-    assert agents["greeter"].system_prompt == FIXTURES / "greeter/system.md"
+    assert agents["greeter"].system_prompt == FIXTURES / "greeter/prompts/system.md"
 
 
 def test_the_registry_reads_each_list_of_agents_once():
@@ -337,9 +337,24 @@ def test_agent_hash_is_the_hash_of_its_folder(tmp_path: Path):
     before = Agent.load(copy).hash
 
     assert Agent.load(GREETER).hash == before
-    for changed in ("system.md", "profile.yaml", "skills/greet/SKILL.md"):
+    for changed in ("prompts/system.md", "profile.yaml", "skills/greet/SKILL.md"):
         (tmp_path / changed).write_text((tmp_path / changed).read_text() + "\n")
         assert Agent.load(copy).hash != before
+
+
+def test_agent_hash_changes_with_a_middleware_prompt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    shutil.copytree(get_settings().middleware_prompts, tmp_path, dirs_exist_ok=True)
+    settings = get_settings().model_copy(update={"middleware_prompts": tmp_path})
+    monkeypatch.setattr(registry, "get_settings", lambda: settings)
+    hashes = [Agent.load(GREETER).hash]
+
+    for path in sorted(tmp_path.glob("*.md")):
+        path.write_text(path.read_text() + "\n")
+        hashes.append(Agent.load(GREETER).hash)
+
+    assert len(set(hashes)) == len(hashes) > 1
 
 
 async def test_trace_records_the_agent_hash_and_the_tool_calls(

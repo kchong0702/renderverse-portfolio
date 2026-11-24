@@ -14,8 +14,8 @@ class ImportState(TypedDict, total=False):
     file: bytes
     """The uploaded PDF or Word file"""
 
-    lines: list[Line]
-    """The file's text lines"""
+    pdf_lines: list[Line]
+    """The uploaded file's text lines, cited as p<page>.s<n>"""
 
     suggestion: LookSuggestion
     """The look the file's layout suggests"""

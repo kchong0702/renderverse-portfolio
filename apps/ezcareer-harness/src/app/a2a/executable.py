@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Literal, override
 
 from a2a.helpers import (
@@ -68,6 +69,20 @@ class RunMetadata(BaseModel):
     """The model the user picked for the run; None keeps each agent's own"""
 
 
+StepStatus = Literal["running", "done", "failed", "waiting"]
+"""Where a step is"""
+
+STEP_STATUSES: tuple[
+    tuple[StepStatus, Callable[[TaskPayload | TaskResultPayload], bool]], ...
+] = (
+    ("running", lambda task: "input" in task),
+    ("failed", lambda task: bool(task["error"])),
+    ("waiting", lambda task: bool(task["interrupts"])),
+)
+"""Each status a graph task gives its steps, checked in order, with when it applies;
+a task none applies to is done"""
+
+
 class Step(BaseModel):
     model_config = ConfigDict(frozen=True, use_attribute_docstrings=True)
 
@@ -80,7 +95,7 @@ class Step(BaseModel):
     name: str
     """The tool or graph node, such as analyse_job or fetch"""
 
-    status: Literal["running", "done", "failed", "waiting"]
+    status: StepStatus
     """Where the step is"""
 
     detail: str | None = None
@@ -108,18 +123,18 @@ def _steps(
     the workflows they run, or a workflow's own nodes, with the details tools set"""
     if "." in task["name"]:
         return []
-    status: Literal["running", "done", "failed", "waiting"]
-    if "input" in task:
-        status, failed = "running", set()
-    else:
-        status = (
-            "failed" if task["error"] else "waiting" if task["interrupts"] else "done"
-        )
-        failed = {
+    tool_errors = (
+        set()
+        if "input" in task
+        else {
             m.tool_call_id
             for m in task["result"].get("messages", [])
             if isinstance(m, ToolMessage) and m.status == "error"
         }
+    )
+    status = next(
+        (status for status, applies in STEP_STATUSES if applies(task)), "done"
+    )
     details = {} if "input" in task else _details(task)
     detail = [*details.values()][-1] if details else None
     if kind == "workflow":
@@ -131,7 +146,7 @@ def _steps(
                     id=task["id"],
                     parent=None,
                     name=task["name"],
-                    status="failed" if failed else status,
+                    status="failed" if tool_errors else status,
                     detail=detail,
                 )
             ]
@@ -142,7 +157,7 @@ def _steps(
                 id=call_id,
                 parent=None,
                 name=name,
-                status="failed" if call_id in failed else status,
+                status="failed" if call_id in tool_errors else status,
                 detail=detail,
             )
             for tools in [*calls]
@@ -157,7 +172,7 @@ def _steps(
                 id=call_id,
                 parent=None,
                 name=name,
-                status="failed" if call_id in failed else status,
+                status="failed" if call_id in tool_errors else status,
                 detail=details.get(call_id),
             )
             for call_id, name in (
@@ -172,7 +187,7 @@ def _steps(
                 id=task["id"],
                 parent=parent[0][0],
                 name=task["name"],
-                status="failed" if failed else status,
+                status="failed" if tool_errors else status,
                 detail=detail,
             )
         ]

@@ -13,10 +13,10 @@ class CareerConsultantState(ProfileState):
     document: AnyDocument
     """The résumé or letter as it is now"""
 
-    report: NotRequired[Report | None]
-    """How the document last printed; None before its first render"""
+    report: NotRequired[Report]
+    """How the document last printed; absent before its first render"""
 
-    lines: NotRequired[list[Line]]
+    pdf_lines: NotRequired[list[Line]]
     """The uploaded PDF's lines, which the document cites as p<page>.s<n>"""
 
     changeset: NotRequired[Changeset]

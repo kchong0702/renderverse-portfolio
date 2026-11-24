@@ -6,12 +6,14 @@ from src.shared.profile import ProfileFact
 
 
 def check_citations(
-    output: JobRequirements, lines: list[PostingLine], facts: list[ProfileFact]
+    output: JobRequirements,
+    posting_lines: list[PostingLine],
+    profile_facts: list[ProfileFact],
 ) -> list[CheckError]:
     """Errors for cited lines or facts that don't exist, and for requirement
     text that isn't word for word in the lines it cites"""
-    texts = {line.id: line.text for line in lines}
-    fact_ids = {f"fact:{fact.id}" for fact in facts}
+    texts = {line.id: line.text for line in posting_lines}
+    fact_ids = {f"fact:{fact.id}" for fact in profile_facts}
     errors: list[CheckError] = []
     for index, requirement in enumerate(output.requirements):
         at = f"requirements[{index}]"

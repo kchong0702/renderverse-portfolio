@@ -17,7 +17,7 @@ def _posting(job_id: str, *lines: str, remote: bool = True) -> JobPosting:
         remote=remote,
         posted_at=datetime(2026, 11, 6, tzinfo=UTC),
         apply_url=f"https://jobs.example.com/{job_id}",
-        lines=[PostingLine(id=n, text=t) for n, t in enumerate(lines, start=1)],
+        posting_lines=[PostingLine(id=n, text=t) for n, t in enumerate(lines, start=1)],
     )
 
 

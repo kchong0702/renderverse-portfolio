@@ -9,13 +9,13 @@ def check_citations(
     configurations: WriteNetworkingConfigurations,
 ) -> list[CheckError]:
     """Errors for each field asked for that cites a fact that doesn't exist"""
-    ids = {fact.id for fact in request.facts}
+    ids = {fact.id for fact in request.profile_facts}
     fields = request.fields()
     errors: list[CheckError] = []
     for field, passage in copy.written().items():
         if field not in fields:
             continue
-        if unknown := [fact for fact in passage.facts if fact not in ids]:
+        if unknown := [fact for fact in passage.fact_ids if fact not in ids]:
             errors.append(
                 CheckError(
                     rule=CheckRule.UNKNOWN_FACT,

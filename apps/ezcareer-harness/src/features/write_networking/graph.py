@@ -41,7 +41,7 @@ def _brief(
 ) -> dict:
     """Ask the agent for the fields to write, for the user's profession, within
     their caps"""
-    require_facts(state.facts)
+    require_facts(state.profile_facts)
     asked = [
         f"the {field}"
         if field in ("headline", "summary")

@@ -56,7 +56,7 @@ def _artifact_service(
 async def test_a_word_file_is_read_from_the_pdf_artifact_service_converts_it_to():
     result = await extract({"file": WORD}, _artifact_service())
 
-    assert [line.text for line in result["lines"]] == ["Ada Lovelace", "Engineer"]
+    assert [line.text for line in result["pdf_lines"]] == ["Ada Lovelace", "Engineer"]
 
 
 async def test_a_file_artifact_service_refuses_fails_the_import_with_its_reason():

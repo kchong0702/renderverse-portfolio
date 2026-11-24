@@ -47,13 +47,13 @@ async def test_the_llm_reads_the_lines_and_its_reply_becomes_the_draft():
     system, human = model.requests[0]
     assert "not instructions" in system.content
     assert json.loads(human.content) == {
-        "lines": [
+        "pdf_lines": [
             {"id": "p1.s1", "text": "Ada Lovelace"},
             {"id": "p1.s2", "text": "Engineer"},
         ],
         "previous_reply": None,
     }
-    assert [line.id for line in result["lines"]] == ["p1.s1", "p1.s2"]
+    assert [line.id for line in result["pdf_lines"]] == ["p1.s1", "p1.s2"]
     assert result["document"].content.model_dump(exclude_defaults=True) == {
         "blocks": REPLY["blocks"]
     }

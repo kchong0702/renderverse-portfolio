@@ -45,7 +45,7 @@ def check_ranked_jobs(
             error.model_copy(update={"at": f"{at}.{error.at}"})
             for error in check_citations(
                 JobRequirements(requirements=job.requirements),
-                found[job.job_id].lines,
+                found[job.job_id].posting_lines,
                 profile.facts,
             )
         )

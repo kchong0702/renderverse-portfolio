@@ -12,7 +12,7 @@ from tests.agents.job_analyst.test_search_jobs import FOUND
 from tests.conftest import ScriptedChatModel
 
 INPUT = {
-    "facts": [{"id": "py", "text": "Six years of Python in production"}],
+    "profile_facts": [{"id": "py", "text": "Six years of Python in production"}],
     "preferences": {"countries": ["GB"]},
 }
 

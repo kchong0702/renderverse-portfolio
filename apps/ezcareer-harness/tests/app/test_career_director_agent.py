@@ -129,7 +129,7 @@ def test_career_director_analyses_the_posting_at_a_url_through_analyse_job():
             {"text": f"How well do I fit {analyse_job.URL}?"},
             {
                 "data": {
-                    "facts": analyse_job.INPUT["facts"],
+                    "profile_facts": analyse_job.INPUT["profile_facts"],
                     "preferences": analyse_job.INPUT["preferences"],
                 }
             },
@@ -160,7 +160,7 @@ def test_career_director_finds_jobs_for_the_users_preferences_through_find_jobs(
             {"text": "Find me remote jobs"},
             {
                 "data": {
-                    "facts": analyse_job.INPUT["facts"],
+                    "profile_facts": analyse_job.INPUT["profile_facts"],
                     "preferences": {"work_modes": ["remote"]},
                 }
             },
@@ -196,7 +196,12 @@ def test_career_director_hears_why_find_jobs_could_not_search():
         client,
         [
             {"text": "Find me jobs"},
-            {"data": {"facts": analyse_job.INPUT["facts"], "preferences": {}}},
+            {
+                "data": {
+                    "profile_facts": analyse_job.INPUT["profile_facts"],
+                    "preferences": {},
+                }
+            },
         ],
     )
     done = _send(client, [{"data": {"error": reason}}], task=asked)
@@ -211,7 +216,9 @@ def _director_request() -> list[dict[str, JsonValue]]:
         {"text": REQUEST},
         {
             "data": {
-                "facts": to_jsonable_python(career_consultant._state()["facts"]),
+                "profile_facts": to_jsonable_python(
+                    career_consultant._state()["profile_facts"]
+                ),
                 "preferences": {},
             }
         },
@@ -354,7 +361,12 @@ def test_career_director_streams_its_thinking_steps_and_reply():
         TestClient(create_app(container)),
         [
             {"text": f"How well do I fit {analyse_job.URL}?"},
-            {"data": {"facts": analyse_job.INPUT["facts"], "preferences": {}}},
+            {
+                "data": {
+                    "profile_facts": analyse_job.INPUT["profile_facts"],
+                    "preferences": {},
+                }
+            },
         ],
     )
 
@@ -485,7 +497,7 @@ def test_email_is_handed_to_productivity_assistant_which_answers_and_keeps_the_n
         client,
         [
             {"text": "Anything else from Acme?"},
-            {"data": {"facts": [], "preferences": {}}},
+            {"data": {"profile_facts": [], "preferences": {}}},
         ],
         context=task["contextId"],
     )

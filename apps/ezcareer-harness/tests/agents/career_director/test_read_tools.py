@@ -53,7 +53,11 @@ async def _run(model: ScriptedChatModel, text: str, answer: object) -> tuple:
     ).copy(update={"checkpointer": InMemorySaver()})
     thread = {"configurable": {"thread_id": "t1"}}
     result = await graph.ainvoke(
-        {"messages": [HumanMessage(text)], "facts": [], "preferences": Preferences()},
+        {
+            "messages": [HumanMessage(text)],
+            "profile_facts": [],
+            "preferences": Preferences(),
+        },
         thread,
     )
     [asked] = [i.value for i in result["__interrupt__"]]

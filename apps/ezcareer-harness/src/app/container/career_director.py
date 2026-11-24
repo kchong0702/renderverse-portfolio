@@ -44,7 +44,9 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
                 find_jobs_tool, job_analyst.find_jobs_executable.provided.graph
             ),
             providers.Callable(
-                handoff_to_child_tool, ["productivity-assistant", "career-consultant"]
+                handoff_to_child_tool,
+                ["productivity-assistant", "career-consultant"],
+                ["career-consultant"],
             ),
             find_documents,
             find_applications,

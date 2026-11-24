@@ -2,13 +2,16 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
-from src.agents.middlewares.parent_handoff import DECLINE, HAND_BACK
+from src.agents.prompt import read_prompt
 from src.app.container import Container
+from src.core.config import get_settings
 from tests.agents.career_consultant import test_career_consultant as career_consultant
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.draft_reply import test_draft_reply_graph as draft_test
 from tests.features.triage_email import test_triage_email_graph as triage_test
+
+HAND_BACK = read_prompt(get_settings().middleware_prompts / "parent_handoff.md")
 
 ACME = {
     "id": "t-1",
@@ -36,7 +39,7 @@ async def _turn(
     result = await graph.ainvoke(
         {
             "messages": [HumanMessage(text)],
-            "facts": career_consultant._state()["facts"],
+            "profile_facts": career_consultant._state()["profile_facts"],
             "preferences": {},
         },
         thread,
@@ -120,6 +123,4 @@ async def test_only_the_child_agents_in_the_graph_are_offered_handoff_to_parent(
     assert "handoff_to_parent" in assistant.offered_tools[0]
     assert "draft_reply" not in assistant.offered_tools[0]
     assert assistant.requests[0][0].text.endswith(HAND_BACK)
-    assert DECLINE not in assistant.requests[0][0].text
     assert HAND_BACK not in director.requests[0][0].text
-    assert DECLINE not in director.requests[0][0].text

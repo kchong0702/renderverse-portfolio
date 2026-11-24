@@ -48,6 +48,13 @@ Read [the architecture overview](../architecture/overview.md) for the three kind
 - Take settings such as URLs, limits and model names from config. Never hardcode them.
 - A service calls another feature's service, not its repository.
 
+## Prompts
+
+- Never hardcode prompt text in Python. That includes a system prompt and an instruction a middleware adds.
+- Put an agent's system prompt in `src/agents/<agent>/prompts/system.md`. Add `prompts/system.<provider>.md` only when one provider needs different wording.
+- Put each middleware's prompt in its own file in `src/agents/prompts/middleware/`, named after the middleware's module, such as `parent_handoff.md`. Read it with `read_prompt` from the folder the `middleware_prompts` setting names. Mark where run data goes with a `{name}` placeholder and fill it with `str.format`.
+- Start each prompt file with the front matter `read_prompt` validates: `version`, `description`, `author`, `date` and `status`. Raise `version` and set `date` when you change the text.
+
 ## Types
 
 - Use the real type. Don't use `Any` or a bare `dict`.

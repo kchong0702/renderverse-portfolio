@@ -67,7 +67,7 @@ async def _propose_changeset(
                             changeset,
                             {
                                 f"fact:{fact.id}": fact.text
-                                for fact in runtime.state["facts"]
+                                for fact in runtime.state["profile_facts"]
                             },
                         ),
                     },

@@ -74,7 +74,7 @@ async def test_the_passing_draft_is_printed_in_the_suggested_template():
     assert result["suggestion"].template == "classic"
     assert result["pdf"] == "JVBERg=="
     assert result["report"].pages == 1
-    assert [line.id for line in result["lines"]] == ["p1.s1", "p1.s2"]
+    assert [line.id for line in result["pdf_lines"]] == ["p1.s1", "p1.s2"]
 
 
 async def test_the_run_contexts_model_reads_the_resume_instead_of_its_own():

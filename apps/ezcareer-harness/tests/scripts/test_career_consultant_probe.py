@@ -21,7 +21,7 @@ TASK = {
     "messages": [{"type": "human", "content": "Mention my Kubernetes work"}],
     "document_id": "doc-1",
     **_loaded(),
-    "facts": to_jsonable_python(_state()["facts"]),
+    "profile_facts": to_jsonable_python(_state()["profile_facts"]),
 }
 
 

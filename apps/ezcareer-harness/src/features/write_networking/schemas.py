@@ -16,7 +16,7 @@ class Passage(BaseModel):
     text: str
     """Plain text ready to paste, a line per paragraph or • bullet"""
 
-    facts: list[Id] = Field(min_length=1)
+    fact_ids: list[Id] = Field(min_length=1)
     """Ids of the profile facts it rests on, such as role-1"""
 
 
@@ -31,7 +31,7 @@ class Description(BaseModel):
     text: str
     """Plain text ready to paste, a scope line then • bullets"""
 
-    facts: list[Id] = Field(default_factory=list)
+    fact_ids: list[Id] = Field(default_factory=list)
     """Ids of any other profile facts it rests on, such as skill-2; the described
     fact always counts"""
 
@@ -41,8 +41,10 @@ class Description(BaseModel):
         """Puts the described fact first among the facts it rests on"""
         if not isinstance(data, dict) or "fact" not in data:
             return data
-        facts = [fact for fact in data.get("facts") or [] if fact != data["fact"]]
-        return {**data, "facts": [data["fact"], *facts]}
+        others = [
+            fact_id for fact_id in data.get("fact_ids") or [] if fact_id != data["fact"]
+        ]
+        return {**data, "fact_ids": [data["fact"], *others]}
 
 
 class NetworkingCopy(BaseModel):
@@ -74,7 +76,7 @@ class WriteNetworkingInput(BaseModel):
     profession: str = ""
     """The profession the user wants to be found for, such as Senior Backend Engineer"""
 
-    facts: list[ProfileFact]
+    profile_facts: list[ProfileFact]
     """Every profile fact, those switched off for the assistant included"""
 
     only: Literal["headline", "summary"] | Id | None = None
@@ -96,7 +98,9 @@ class WriteNetworkingInput(BaseModel):
     def describable(self) -> list[Id]:
         """Ids of the role and project facts"""
         return [
-            fact.id for fact in self.facts if fact.id.startswith(("role-", "project-"))
+            fact.id
+            for fact in self.profile_facts
+            if fact.id.startswith(("role-", "project-"))
         ]
 
     def fields(self) -> list[str]:

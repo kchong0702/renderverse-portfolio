@@ -11,7 +11,7 @@ from tests.conftest import ScriptedChatModel
 
 REQUEST: dict[str, JsonValue] = {
     "profession": "Staff backend engineer",
-    "facts": [
+    "profile_facts": [
         {
             "id": "role-acme",
             "text": "Senior Engineer at Acme, Kuala Lumpur\nLed the payments team.\n"
@@ -31,12 +31,12 @@ REQUEST: dict[str, JsonValue] = {
 ROLE = {
     "fact": "role-acme",
     "text": "Led the payments team at Acme.\n• Cut checkout latency by 40%.",
-    "facts": ["role-acme"],
+    "fact_ids": ["role-acme"],
 }
 PROJECT = {
     "fact": "project-ledger",
     "text": "• An open-source double-entry ledger in Go.",
-    "facts": ["project-ledger"],
+    "fact_ids": ["project-ledger"],
 }
 
 
@@ -46,10 +46,10 @@ def _answer(
 ) -> AIMessage:
     return _call(
         "NetworkingCopy",
-        headline={"text": headline, "facts": ["role-acme", "skill-go"]},
+        headline={"text": headline, "fact_ids": ["role-acme", "skill-go"]},
         summary={
             "text": "I lead payments engineering at Acme.",
-            "facts": ["role-acme"],
+            "fact_ids": ["role-acme"],
         },
         descriptions=[ROLE, PROJECT] if descriptions is None else descriptions,
     )
@@ -80,7 +80,7 @@ async def test_the_copy_comes_back_with_its_citations():
 
     assert result["headline"].model_dump() == {
         "text": "Backend engineer for payments | Go",
-        "facts": ["role-acme", "skill-go"],
+        "fact_ids": ["role-acme", "skill-go"],
     }
     assert result["summary"].text == "I lead payments engineering at Acme."
     assert [d.model_dump() for d in result["descriptions"]] == [ROLE, PROJECT]
@@ -105,7 +105,7 @@ async def test_a_description_rests_on_the_fact_it_describes_without_citing_it():
         _answer(
             descriptions=[
                 {"fact": ROLE["fact"], "text": ROLE["text"]},
-                {**PROJECT, "facts": ["skill-go"]},
+                {**PROJECT, "fact_ids": ["skill-go"]},
             ]
         )
     )
@@ -114,7 +114,7 @@ async def test_a_description_rests_on_the_fact_it_describes_without_citing_it():
 
     assert [d.model_dump() for d in result["descriptions"]] == [
         ROLE,
-        {**PROJECT, "facts": ["project-ledger", "skill-go"]},
+        {**PROJECT, "fact_ids": ["project-ledger", "skill-go"]},
     ]
     assert len(model.requests) == 3
 
@@ -125,7 +125,7 @@ async def test_missing_entries_unknown_facts_caps_and_markdown_go_back():
             headline="Backend engineer " + "x" * 210,
             descriptions=[
                 {**ROLE, "text": "Led it.\n- Led the **payments** team."},
-                {**PROJECT, "facts": ["project-zeta"]},
+                {**PROJECT, "fact_ids": ["project-zeta"]},
                 {**PROJECT, "fact": "education-um"},
             ],
         ),
@@ -172,7 +172,7 @@ async def test_an_agent_that_never_fixes_its_copy_hits_the_recursion_limit():
 
 async def test_a_profile_without_facts_fails_the_flow():
     with pytest.raises(ExecuteError, match="No profile facts"):
-        await _graph(_scripted()).ainvoke({"facts": []})
+        await _graph(_scripted()).ainvoke({"profile_facts": []})
 
 
 @pytest.mark.parametrize("only", ["skill-go", "education-um", "role-zeta"])

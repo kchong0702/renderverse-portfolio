@@ -19,6 +19,7 @@ from src.agents.middlewares import (
     ToolAllowlistMiddleware,
     dynamic_model_call,
 )
+from src.agents.prompt import read_prompt
 from src.agents.registry import Agent
 from src.clients.llm_providers import llm_provider
 
@@ -59,7 +60,7 @@ def build_agent(
     built = create_deep_agent(
         model=model or llm_provider(agent.family, agent.model),
         tools=[_described(tool, descriptions) for tool in tools],
-        system_prompt=agent.system_prompt.read_text(),
+        system_prompt=read_prompt(agent.system_prompt),
         middleware=[
             FilesystemMiddleware(
                 backend=backend, tools=["ls", "read_file", "glob", "grep"]
