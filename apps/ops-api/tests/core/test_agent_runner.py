@@ -457,6 +457,26 @@ async def test_closing_hands_each_running_turn_over_and_leaves_its_task_alone(
         await _start(runner)
 
 
+async def test_closing_waits_for_a_run_still_saving_its_end(factory):
+    class _SlowFinish(_Finishes):
+        async def finish(
+            self, run_id: str, status: AgentRunStatus, task_id: str | None
+        ) -> None:
+            await InMemoryRunStore.finish(self, run_id, status, task_id)
+            await asyncio.sleep(0.2)
+            self.finished.append((status, task_id))
+
+    harness = _Harness()
+    harness.follows = [[Completed(reply="Done.")]]
+    store = _SlowFinish()
+    runner = _runner(harness, factory, store)
+    [e async for e in await _start(runner)]
+
+    await runner.aclose()
+
+    assert store.finished == [(AgentRunStatus.COMPLETED, "task-1")]
+
+
 async def test_a_run_another_process_took_over_stops_here_without_finishing(factory):
     harness = _Hangs()
     store = _Finishes()

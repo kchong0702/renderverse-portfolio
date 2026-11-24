@@ -246,6 +246,9 @@ class AgentRunner:
         self._writing: dict[str, asyncio.Task[None]] = {}
         """Each run this process writes, by run id, until it starts finishing"""
 
+        self._finishing: set[asyncio.Task[None]] = set()
+        """Writers saving their run's end, which shutdown waits for"""
+
         self._loops: list[asyncio.Task[None]] = []
         """The heartbeat and sweep loops, once recover started them"""
 
@@ -454,12 +457,16 @@ class AgentRunner:
             stopped = True
             logger.warning("run_lost", run_id=run_id)
         finally:
-            if not stopped:
+            if not stopped and (finishing := asyncio.current_task()):
                 self._writing.pop(run_id, None)
-                with suppress(RunLost):
-                    await self._store.finish(run_id, status, task_id)
-                    if task_id:
-                        await self._tools.forget(task_id)
+                self._finishing.add(finishing)
+                try:
+                    with suppress(RunLost):
+                        await self._store.finish(run_id, status, task_id)
+                        if task_id:
+                            await self._tools.forget(task_id)
+                finally:
+                    self._finishing.discard(finishing)
 
     def _spawn(
         self,
@@ -706,12 +713,12 @@ class AgentRunner:
         return await self._ezcareer.update_summary(thread_id, agent, update)
 
     async def aclose(self) -> None:
-        """Stop writing every run and let the next process take each over at once,
-        leaving its task running on the harness"""
+        """Stop writing every run, wait for those saving their end, and let the next
+        process take the rest over at once, leaving their tasks on the harness"""
         tasks = [*self._loops, *self._writing.values()]
         for task in tasks:
             task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
+        await asyncio.gather(*tasks, *self._finishing, return_exceptions=True)
         await self._store.release()
 
 
