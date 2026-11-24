@@ -26,7 +26,7 @@ def _request(request: ModelRequest) -> ModelRequest:
     )
 
 
-class HandoffToParentMiddleware(AgentMiddleware):
+class ParentHandoffMiddleware(AgentMiddleware):
     def __init__(self) -> None:
         """Registers handoff_to_parent, the tool a child agent hands back with"""
         super().__init__()

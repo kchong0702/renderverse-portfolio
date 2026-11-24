@@ -1,3 +1,5 @@
-from src.agents.career_consultant.middlewares.document_message import document_message
+from src.agents.career_consultant.middlewares.inject_document_context import (
+    inject_document_context,
+)
 
-__all__ = ["document_message"]
+__all__ = ["inject_document_context"]

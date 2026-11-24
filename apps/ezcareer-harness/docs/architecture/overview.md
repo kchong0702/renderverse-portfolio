@@ -67,7 +67,7 @@ document-analyst only structures what it is given: a résumé's lines or a profi
 
 career-consultant edits one résumé, CV or cover letter, the one in its state's `document`, with its `document_id` and its PDF `lines`. Ops' document chat and job tailoring send all three in the run's input on every turn, and career-director hands them over with the conversation (see [Agent graphs](#agent-graphs)). `document` is required in its input, so a run served without one fails with `Invalid input`. ops-api sends no files, so the document prints without them. Its own pieces keep every edit checked and fitted:
 
-- `document_message`, a `@wrap_model_call` middleware, adds the document, as untrusted data in `<document>` tags, as a user message just before the latest user message of each model call. It never saves the message to state and never changes the system prompt. Within a turn every model call starts with the same messages, so the prompt cache keeps them; on the next turn the cache keeps everything before the previous user message. It adds nothing when the state has no document, as when `write-networking` runs the same agent for job portal content, or when career-director hands the conversation over without a document.
+- `inject_document_context`, a `@wrap_model_call` middleware, adds the document, as untrusted data in `<document>` tags, as a user message just before the latest user message of each model call. It never saves the message to state and never changes the system prompt. Within a turn every model call starts with the same messages, so the prompt cache keeps them; on the next turn the cache keeps everything before the previous user message. It adds nothing when the state has no document, as when `write-networking` runs the same agent for job portal content, or when career-director hands the conversation over without a document.
 - `propose_changeset` runs the edit checks and returns their errors for the agent to fix. Once a changeset passes, it prints the document through artifact-service and deletes untouched bullets, from the entry with the most and never an entry's last, until the edited document prints on no more pages than before, at most `[documents] page_fit_trims` (5) of them. It publishes the fitted changeset as a `changeset` artifact with the `document_id`.
 
 ## Agent graphs
@@ -84,7 +84,7 @@ An agent graph is a LangGraph graph whose main node is an agent, with child agen
 
 Only an agent that joins the graph as a child gets `handoff_to_parent`:
 
-- `build_agent` gives every agent `HandoffToParentMiddleware`. It registers the tool through `AgentMiddleware.tools`, and its `wrap_model_call` removes the tool from each model call with `request.override(tools=...)`, unless the run is a child node of an agent graph.
+- `build_agent` gives every agent `ParentHandoffMiddleware`. It registers the tool through `AgentMiddleware.tools`, and its `wrap_model_call` removes the tool from each model call with `request.override(tools=...)`, unless the run is a child node of an agent graph.
 - The graph builder joins each child with `child.with_config(configurable={"parent_agent": ...})`. The tool hands back to that agent.
 - So the same productivity-assistant instance that runs inside `triage-email` and `draft-reply`, or on its own, is never offered the tool, nor is career-consultant in `write-networking` or Ops' document chat.
 
@@ -126,7 +126,7 @@ Called directly with its state in the A2A data part, an agent does its whole job
 
 The direction is one way: a workflow runs an agent, and an agent never runs a workflow built on itself. productivity-assistant drafts a reply with its own reads, and `draft-reply` wraps it for Ops' Inbox.
 
-So whatever an agent's model must see comes from its state or the agent itself. career-consultant's state carries the document, whether Ops' document chat called it or career-director handed it the conversation, and its `document_message` middleware shows it to the model on every model call.
+So whatever an agent's model must see comes from its state or the agent itself. career-consultant's state carries the document, whether Ops' document chat called it or career-director handed it the conversation, and its `inject_document_context` middleware shows it to the model on every model call.
 
 ## Workflows own no tools
 
@@ -146,7 +146,7 @@ agent.with_config(
 - `response_format` is the structured reply the workflow wants. It must be one of the agent's `response_formats`.
 - `tools` is a whitelist of the agent's own tools, by name. `None`, the default, allows them all. The whitelist covers both always-on tools and skill tools. A name that the agent doesn't have fails the run.
 
-`AllowedToolsMiddleware` applies the whitelist to always-on tools with LangChain's `wrap_model_call` and `request.override(tools=...)`. The resolver that `build_agent` gives `SkillsMiddleware` applies it to skill tools. The deepagents file tools that read skills are never whitelisted out.
+`ToolAllowlistMiddleware` applies the whitelist to always-on tools with LangChain's `wrap_model_call` and `request.override(tools=...)`. The resolver that `build_agent` gives `SkillsMiddleware` applies it to skill tools. The deepagents file tools that read skills are never whitelisted out.
 
 ## Tools ops-api executes
 

@@ -15,9 +15,9 @@ from pydantic import BaseModel
 
 from src.agents.agent_override import tool_allowed
 from src.agents.middlewares import (
-    AllowedToolsMiddleware,
-    HandoffToParentMiddleware,
+    ParentHandoffMiddleware,
     ResponseFormatMiddleware,
+    ToolAllowlistMiddleware,
     dynamic_model_call,
 )
 from src.agents.registry import Agent
@@ -66,8 +66,8 @@ def build_agent(
                 backend=backend, tools=["ls", "read_file", "glob", "grep"]
             ),
             *middleware,
-            AllowedToolsMiddleware({tool.name for tool in (*tools, *skill_tools)}),
-            HandoffToParentMiddleware(),
+            ToolAllowlistMiddleware({tool.name for tool in (*tools, *skill_tools)}),
+            ParentHandoffMiddleware(),
             ResponseFormatMiddleware(),
             dynamic_model_call,
             *(

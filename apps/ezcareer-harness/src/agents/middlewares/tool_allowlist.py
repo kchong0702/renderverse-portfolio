@@ -11,7 +11,7 @@ from langchain.agents.middleware import (
 from src.agents.agent_override import current_override
 
 
-class AllowedToolsMiddleware(AgentMiddleware):
+class ToolAllowlistMiddleware(AgentMiddleware):
     def __init__(self, own: set[str]) -> None:
         """Offers only the agent's own tools the run's override allows"""
         super().__init__()

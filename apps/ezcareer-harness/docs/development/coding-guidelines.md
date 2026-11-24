@@ -25,7 +25,7 @@ If the library's convention doesn't fit, say why in the PR description before yo
 Read [the architecture overview](../architecture/overview.md) for the three kinds of graph. When you write one:
 
 - An agent never runs a workflow built on itself. Give it tools that do the work, and wrap it in a workflow only to make a run deterministic.
-- To add a child to an agent graph, join its agent in the graph builder and add its name to the main agent's `handoff_to_child` choices. Don't add `handoff_to_parent` to its tools: `HandoffToParentMiddleware` offers it only inside the graph.
+- To add a child to an agent graph, join its agent in the graph builder and add its name to the main agent's `handoff_to_child` choices. Don't add `handoff_to_parent` to its tools: `ParentHandoffMiddleware` offers it only inside the graph.
 - Build each agent once. Change what it is offered per run with config and middleware, not with a second instance.
 
 ## Simplicity
@@ -57,6 +57,7 @@ Read [the architecture overview](../architecture/overview.md) for the three kind
 ## Names
 
 - A name says exactly what the thing is or does. Rename a misleading name.
+- A class-based middleware (an `AgentMiddleware` subclass) is named for what it provides, as a noun phrase ending in `Middleware`, such as `ToolAllowlistMiddleware` or `ParentHandoffMiddleware`. A function-based middleware (one made with a decorator such as `@wrap_model_call` or `@before_agent`) is named for what it does, starting with a verb, such as `inject_document_context`. Its module has the same name, in snake case.
 
 ## Docstrings and comments
 

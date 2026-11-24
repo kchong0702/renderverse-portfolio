@@ -19,7 +19,7 @@ from pydantic_core import to_jsonable_python
 
 from src.agents import build_agent, load_agents
 from src.agents.career_consultant import CareerConsultantState
-from src.agents.career_consultant.middlewares import document_message
+from src.agents.career_consultant.middlewares import inject_document_context
 from src.agents.career_consultant.tools import (
     list_design_options_tool,
     propose_changeset_tool,
@@ -201,7 +201,7 @@ def _agent(model: ScriptedChatModel) -> CompiledStateGraph:
             list_design_options_tool(artifact_service),
             clarify,
         ),
-        middleware=(document_message,),
+        middleware=(inject_document_context,),
         state_schema=CareerConsultantState,
         model=model,
     )

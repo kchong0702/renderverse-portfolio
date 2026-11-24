@@ -11,7 +11,7 @@ from pydantic_core import to_json
 
 
 @wrap_model_call
-async def document_message(
+async def inject_document_context(
     request: ModelRequest,
     handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
 ) -> ModelCallResult:
