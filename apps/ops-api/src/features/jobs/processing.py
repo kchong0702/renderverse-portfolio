@@ -109,7 +109,9 @@ async def process_job_run(
             "find-jobs",
             FindJobsOutput,
             data=FindJobsInput(
-                facts=profile.facts, preferences=profile.preferences, search=row.search
+                profile_facts=profile.profile_facts,
+                preferences=profile.preferences,
+                search=row.search,
             ),
             metadata=metadata,
         )

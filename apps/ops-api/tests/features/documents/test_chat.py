@@ -75,7 +75,7 @@ async def test_a_chat_turn_stores_the_edits_it_proposes_before_its_reply(
 ):
     document = await _document(client)
     me = (await client.get(f"{PREFIX}/me")).json()
-    facts = (await client.get(f"{PREFIX}/profile/agent")).json()["facts"]
+    facts = (await client.get(f"{PREFIX}/profile/agent")).json()["profile_facts"]
     harness.outcomes = [
         _replies(document["id"], "I added your years of experience.", TAILOR)
     ]
@@ -107,8 +107,8 @@ async def test_a_chat_turn_stores_the_edits_it_proposes_before_its_reply(
             "data": {
                 "document_id": document["id"],
                 "document": document["body"],
-                "lines": [],
-                "facts": facts,
+                "pdf_lines": [],
+                "profile_facts": facts,
             }
         },
     ]

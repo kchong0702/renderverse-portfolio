@@ -61,7 +61,7 @@ ACME = {
     "remote": False,
     "posted_at": None,
     "apply_url": "https://jobs.example.com/1",
-    "lines": [],
+    "posting_lines": [],
 }
 
 

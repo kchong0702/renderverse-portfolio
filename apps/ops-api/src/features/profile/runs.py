@@ -51,7 +51,7 @@ class ProfileRunService:
             "write-networking",
             NetworkingCopy,
             data=WriteNetworkingInput(
-                profession=request.profession, facts=facts, only=request.only
+                profession=request.profession, profile_facts=facts, only=request.only
             ),
             metadata=metadata,
         )

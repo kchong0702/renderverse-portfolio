@@ -93,8 +93,8 @@ class DocumentChat:
         data = EditDocumentInput(
             document_id=document_id,
             document=document,
-            lines=lines,
-            facts=(await self._profile.agent_profile(user_id)).facts,
+            pdf_lines=lines,
+            profile_facts=(await self._profile.agent_profile(user_id)).profile_facts,
         )
         metadata = await self._settings.run_metadata(user_id)
         await self._session.commit()

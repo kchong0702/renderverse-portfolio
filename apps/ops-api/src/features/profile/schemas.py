@@ -4,6 +4,7 @@ from typing import Annotated, Literal, Self
 from uuid import UUID
 
 from pydantic import (
+    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
@@ -197,7 +198,7 @@ class ProfileFact(BaseModel):
 class AgentProfile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    facts: list[ProfileFact]
+    profile_facts: list[ProfileFact]
     """What the user has done and knows, without archived items"""
 
     preferences: Preferences
@@ -373,8 +374,8 @@ class NetworkingText(BaseModel):
     text: str
     """Copy to paste into a job portal"""
 
-    facts: list[FactId]
-    """The facts it was written from"""
+    facts: list[FactId] = Field(validation_alias=AliasChoices("fact_ids", "facts"))
+    """The facts it was written from; write-networking sends them as fact_ids"""
 
 
 class NetworkingDescription(NetworkingText):
@@ -411,7 +412,7 @@ class WriteNetworkingInput(BaseModel):
     profession: str
     """The profession the copy is written for"""
 
-    facts: list[ProfileFact]
+    profile_facts: list[ProfileFact]
     """Every fact, archived ones included"""
 
     only: str | None

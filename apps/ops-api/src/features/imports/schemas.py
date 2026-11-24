@@ -103,7 +103,7 @@ class ImportResumeOutput(BaseModel):
     document: ResumeDocument
     """The draft import-resume made; its pdf and report are not kept"""
 
-    lines: list[SourceLine]
+    pdf_lines: list[SourceLine]
     """The file's lines, which the draft's values cite"""
 
     suggestion: LookSuggestion

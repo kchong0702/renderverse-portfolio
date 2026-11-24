@@ -242,7 +242,9 @@ class JobService:
             "analyse-job",
             AnalyseJobOutput,
             data=AnalyseJobInput(
-                url=job.url, facts=profile.facts, preferences=profile.preferences
+                url=job.url,
+                profile_facts=profile.profile_facts,
+                preferences=profile.preferences,
             ),
             metadata=metadata,
         )

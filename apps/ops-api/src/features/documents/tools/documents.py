@@ -61,7 +61,7 @@ async def documents(
                 DocumentMatch.model_validate(d, from_attributes=True) for d in found
             ],
             content=DocumentContent(
-                document=found[0].body, lines=await repository.lines(found[0])
+                document=found[0].body, pdf_lines=await repository.lines(found[0])
             )
             if found
             else None,

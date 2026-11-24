@@ -9,7 +9,7 @@
       "remote": true,
       "posted_at": "2026-11-07T00:00:00Z",
       "apply_url": "https://www.linkedin.com/jobs/view/2",
-      "lines": [
+      "posting_lines": [
         {
           "id": 1,
           "text": "Run our Kubernetes platform."
@@ -33,7 +33,7 @@
       "remote": false,
       "posted_at": "2026-11-06T00:00:00Z",
       "apply_url": "https://careers.acme.example/jobs/42",
-      "lines": [
+      "posting_lines": [
         {
           "id": 1,
           "text": "Acme builds payment tools."
@@ -65,7 +65,7 @@
       "remote": false,
       "posted_at": null,
       "apply_url": "https://www.glassdoor.co.uk/job/3",
-      "lines": [
+      "posting_lines": [
         {
           "id": 1,
           "text": "Django and PostgreSQL."

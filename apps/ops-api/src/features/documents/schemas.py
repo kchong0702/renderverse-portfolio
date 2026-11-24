@@ -123,10 +123,10 @@ class EditDocumentInput(BaseModel):
     document: AnyDocument
     """Its current draft; its assets' bytes are not sent, as ops-api keeps none"""
 
-    lines: list[SourceLine]
+    pdf_lines: list[SourceLine]
     """The imported file's lines; empty for a document not imported"""
 
-    facts: list[ProfileFact]
+    profile_facts: list[ProfileFact]
     """The user's profile facts the edits may cite"""
 
 
@@ -134,7 +134,7 @@ class DocumentContent(BaseModel):
     document: AnyDocument
     """The current draft; its assets' bytes are not sent, as ops-api keeps none"""
 
-    lines: list[SourceLine]
+    pdf_lines: list[SourceLine]
     """The imported file's lines; empty for a document not imported"""
 
 

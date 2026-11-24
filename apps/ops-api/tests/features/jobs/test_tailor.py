@@ -165,7 +165,7 @@ async def test_a_copy_shows_the_lines_of_its_masters_import(app, client, harness
                             "pages": 1,
                             "last_page_fill": 0.4,
                         },
-                        "lines": [LINE],
+                        "pdf_lines": [LINE],
                         "suggestion": {"template": "serif", "columns": 1, "traits": []},
                     }
                 }
@@ -188,7 +188,7 @@ async def test_a_copy_shows_the_lines_of_its_masters_import(app, client, harness
     assert copy["lines"] == [{"id": "p1.s1", "text": "Kelvin Chong"}]
     await _follow(client, copy["id"])
     [*_, turn] = (sent["params"]["message"] for sent in a2a_sent(harness))
-    assert turn["parts"][1]["data"]["lines"] == [LINE]
+    assert turn["parts"][1]["data"]["pdf_lines"] == [LINE]
 
 
 async def test_tailoring_copies_each_master_and_starts_its_chat_turn(client, harness):
@@ -242,7 +242,7 @@ async def test_tailoring_copies_each_master_and_starts_its_chat_turn(client, har
     )
     assert first["parts"][1]["data"]["document_id"] == copy_id
     assert first["parts"][1]["data"]["document"] == resume["body"]
-    assert first["parts"][1]["data"]["lines"] == []
+    assert first["parts"][1]["data"]["pdf_lines"] == []
     second = sent[f"{me['id']}:document:{letter_id}"]
     assert second["parts"][0]["text"].startswith("Tailor this cover letter to")
 

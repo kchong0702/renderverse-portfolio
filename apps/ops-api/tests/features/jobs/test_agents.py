@@ -45,7 +45,7 @@ MATCHED = {
         "remote": True,
         "posted_at": "2026-11-07T09:00:00Z",
         "apply_url": "https://jobs.example.com/1",
-        "lines": [{"id": 4, "text": "5+ years building backend services"}],
+        "posting_lines": [{"id": 4, "text": "5+ years building backend services"}],
     },
     "requirements": REQUIREMENTS,
     "fit": 67,
@@ -55,7 +55,7 @@ ANALYSIS = {
     "requirements": REQUIREMENTS,
     "terms": {},
     "url": "https://jobs.example.com/2",
-    "lines": [{"id": 4, "text": "5+ years building backend services"}],
+    "posting_lines": [{"id": 4, "text": "5+ years building backend services"}],
     "filters": [],
     "fit": 67,
 }

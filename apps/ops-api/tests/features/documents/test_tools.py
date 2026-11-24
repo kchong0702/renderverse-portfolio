@@ -76,7 +76,7 @@ async def test_documents_are_found_by_a_misspelled_name_best_first(client, harne
         {"id": d["id"], "kind": d["kind"], "title": d["title"], "master": False}
         for d in (northwind, northwind_cv)
     ]
-    assert answer["content"] == {"document": northwind["body"], "lines": []}
+    assert answer["content"] == {"document": northwind["body"], "pdf_lines": []}
 
 
 async def test_no_match_comes_with_no_content(client, harness):
@@ -141,7 +141,7 @@ async def test_an_imported_best_match_comes_with_its_lines(app, client, harness)
                             "pages": 1,
                             "last_page_fill": 0.4,
                         },
-                        "lines": [LINE],
+                        "pdf_lines": [LINE],
                         "suggestion": {"template": "serif", "columns": 1, "traits": []},
                     }
                 }
@@ -158,7 +158,7 @@ async def test_an_imported_best_match_comes_with_its_lines(app, client, harness)
     answer = await _answer(client, harness, {"execute_tool": "documents"})
 
     assert [d["id"] for d in answer["documents"]] == [imported["id"]]
-    assert answer["content"]["lines"] == [LINE]
+    assert answer["content"]["pdf_lines"] == [LINE]
 
 
 async def test_another_users_documents_are_not_found(app, client, harness):

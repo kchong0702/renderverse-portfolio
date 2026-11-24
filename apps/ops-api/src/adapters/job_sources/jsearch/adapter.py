@@ -51,7 +51,7 @@ def _posting(job: JSearchJob) -> JobPosting:
         remote=job.job_is_remote,
         posted_at=job.job_posted_at_datetime_utc,
         apply_url=job.job_apply_link,
-        lines=[
+        posting_lines=[
             PostingLine(id=number, text=text)
             for number, text in enumerate(
                 filter(None, map(str.strip, job.job_description.splitlines())),

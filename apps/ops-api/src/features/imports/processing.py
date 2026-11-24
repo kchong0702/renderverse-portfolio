@@ -124,7 +124,7 @@ async def _store(
                 outcome.document,
             )
             row.document_id = draft.id
-            row.lines = outcome.lines
+            row.lines = outcome.pdf_lines
             row.suggestion = outcome.suggestion
     else:
         imported = outcome
