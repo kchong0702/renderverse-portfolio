@@ -41,7 +41,7 @@ async def test_a_probe_runs_the_containers_consultant_and_records_each_check_rou
 
     result = await probe.probe(
         probe.WORKFLOWS["career-consultant"],
-        TASK,
+        TASK | {"tool_results": {"propose_changeset": {"changeset_id": "cs-saved"}}},
     )
 
     assert result["error"] is None

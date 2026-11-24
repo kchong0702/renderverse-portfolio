@@ -118,10 +118,21 @@ async def test_a_single_match_is_handed_to_career_consultant_with_its_content():
     )
     director = _model(_find(name="backend résumé", kind="resume"), _handoff("doc-1"))
 
-    asked, result = await _run(_director(director, consultant), _documents(BACKEND))
+    asked, result = await _run(
+        _director(director, consultant),
+        _documents(BACKEND),
+        {"changeset_id": "cs-saved"},
+    )
 
-    assert asked == [
+    assert asked[:1] == [
         {"execute_tool": "documents", "name": "backend résumé", "kind": "resume"}
+    ]
+    assert (asked[1]["execute_tool"], asked[1]["document_id"]) == (
+        "propose_changeset",
+        "doc-1",
+    )
+    assert asked[1]["changeset"]["edits"] == [
+        career_consultant.GOOD_EDIT.model_dump(mode="json")
     ]
     [found] = [
         m
@@ -131,7 +142,10 @@ async def test_a_single_match_is_handed_to_career_consultant_with_its_content():
     assert json.loads(found.text) == [BACKEND]
     assert found.artifact == {"step_detail": "1 résumé"}
     [handoff] = _reports(result, "handoff_document")
-    assert handoff.artifact == {"step_detail": "career-consultant"}
+    assert handoff.artifact == {
+        "step_detail": "career-consultant",
+        "handed_by": "career-director",
+    }
     state = career_consultant._state()
     assert (
         result["active_agent"],
@@ -141,10 +155,10 @@ async def test_a_single_match_is_handed_to_career_consultant_with_its_content():
     ) == ("career-consultant", "doc-1", state["document"], state["pdf_lines"])
     [proposed] = _reports(result, "propose_changeset")
     assert proposed.artifact["name"] == "changeset"
-    assert proposed.artifact["data"]["document_id"] == "doc-1"
-    assert proposed.artifact["data"]["changeset"]["edits"] == [
-        career_consultant.GOOD_EDIT.model_dump(mode="json")
-    ]
+    assert proposed.artifact["data"] == {
+        "document_id": "doc-1",
+        "changeset_id": "cs-saved",
+    }
     texts = [m.text for m in consultant.requests[0]]
     assert DOCUMENT in texts[texts.index(REQUEST) - 1]
     assert sum(DOCUMENT in text for text in texts) == 1
@@ -205,6 +219,7 @@ async def test_the_consultants_question_pauses_the_turn_after_the_handoff():
         _director(director, consultant),
         _documents(BACKEND),
         Answer(input="The queue one").model_dump(),
+        {"changeset_id": "cs-saved"},
     )
 
     assert asked[1] == WidgetSetting(
@@ -219,7 +234,7 @@ async def test_the_consultants_question_pauses_the_turn_after_the_handoff():
     ]
     assert answer == "The queue one"
     [proposed] = _reports(result, "propose_changeset")
-    assert proposed.artifact["data"]["changeset"]["edits"]
+    assert proposed.artifact["data"]["changeset_id"] == "cs-saved"
     assert len(director.requests) == 2
 
 
@@ -280,6 +295,82 @@ async def test_only_the_best_match_can_be_handed_off():
     assert refused.status == "error"
     assert "best match" in refused.text
     assert "active_agent" not in result
+
+
+async def test_a_message_the_consultant_handed_back_is_not_handed_to_it_again():
+    consultant = career_consultant._model(
+        career_consultant.DONE, _call("handoff_to_parent")
+    )
+    director = _model(
+        _find(name="backend résumé"),
+        _handoff("doc-1"),
+        _find(name="backend résumé"),
+        _handoff("doc-1"),
+        AIMessage("You track 3 applications."),
+    )
+    graph = _director(director, consultant)
+
+    await _turn(graph, REQUEST, _documents(BACKEND))
+    _, result = await _turn(
+        graph, "How many applications do I have?", _documents(BACKEND)
+    )
+
+    [back] = _reports(result, "handoff_to_parent")
+    [_, refused] = _reports(result, "handoff_document")
+    assert back.artifact["handed_by"] == "career-consultant"
+    assert refused.status == "error"
+    assert refused.text.startswith("career-consultant handed this message to you")
+    assert result["active_agent"] == "career-director"
+    assert result["messages"][-1].text == "You track 3 applications."
+    assert len(consultant.requests) == 2
+
+
+async def test_the_consultant_is_handed_another_document_after_it_handed_back():
+    consultant = career_consultant._model(
+        career_consultant.DONE,
+        _call("handoff_to_parent"),
+        AIMessage("The frontend résumé's queue bullet now names Kubernetes."),
+    )
+    director = _model(
+        _find(name="backend résumé"),
+        _handoff("doc-1"),
+        _find(name="frontend résumé"),
+        _handoff("doc-2"),
+    )
+    graph = _director(director, consultant)
+
+    await _turn(graph, REQUEST, _documents(BACKEND))
+    _, result = await _turn(
+        graph, "Do the same on my frontend résumé", _documents(FRONTEND)
+    )
+
+    assert [m.status for m in _reports(result, "handoff_document")] == [
+        "success",
+        "success",
+    ]
+    assert (result["active_agent"], result["document_id"]) == (
+        "career-consultant",
+        "doc-2",
+    )
+    assert result["messages"][-1].text == (
+        "The frontend résumé's queue bullet now names Kubernetes."
+    )
+
+
+async def test_the_consultant_cannot_hand_back_a_message_just_handed_to_it():
+    consultant = career_consultant._model(
+        _call("handoff_to_parent"), AIMessage("I can only help with this résumé.")
+    )
+    director = _model(_find(name="backend résumé"), _handoff("doc-1"))
+
+    _, result = await _run(_director(director, consultant), _documents(BACKEND))
+
+    [refused] = _reports(result, "handoff_to_parent")
+    assert refused.status == "error"
+    assert refused.text.startswith("career-director handed this message to you")
+    assert result["active_agent"] == "career-consultant"
+    assert result["messages"][-1].text == "I can only help with this résumé."
+    assert len(director.requests) == 2
 
 
 async def test_only_the_first_of_several_handoffs_in_a_reply_runs():

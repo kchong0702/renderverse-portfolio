@@ -156,6 +156,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = parser.parse_args(argv)
     if args.config:
         os.environ["EZCAREER_HARNESS_CONFIG"] = str(args.config.resolve())
+    os.environ["EZCAREER_HARNESS_STORES"] = "memory"
     reload_settings()
     result = asyncio.run(
         probe(WORKFLOWS[args.workflow], json.loads(args.task.read_text()))

@@ -1,5 +1,6 @@
 import json
 from functools import partial
+from typing import Any
 
 import httpx
 import respx
@@ -23,8 +24,12 @@ from tests.agents.career_director.test_handoffs import ACME
 from tests.agents.career_director.test_update_profile import HEADLINE, READ_SKILL
 from tests.agents.job_analyst.test_search_jobs import FOUND
 from tests.agents.test_builder import _call
+from tests.app import ops_api
 from tests.conftest import ScriptedChatModel
 from tests.features.analyse_job import test_analyse_job_graph as analyse_job
+
+PATH = "/ezcareer/a2a/career-director"
+SAVED = {"changeset_id": "cs-saved"}
 
 
 def _send(
@@ -32,50 +37,25 @@ def _send(
     parts: list[dict[str, JsonValue]],
     task: dict[str, JsonValue] | None = None,
     context: str | None = None,
+    **kwargs: Any,
 ) -> dict[str, JsonValue]:
-    message = {"messageId": f"m-{id(parts)}", "role": "ROLE_USER", "parts": parts}
-    if task:
-        message |= {"taskId": task["id"], "contextId": task["contextId"]}
-    if context:
-        message |= {"contextId": context}
-    response = client.post(
-        "/ezcareer/a2a/career-director",
-        headers={"A2A-Version": "1.0"},
-        json={
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "SendMessage",
-            "params": {"message": message},
-        },
-    )
-    return response.json()["result"]["task"]
+    return ops_api.send(client, PATH, parts, task=task, context=context, **kwargs)
 
 
 def _stream(
     client: TestClient,
     parts: list[dict[str, JsonValue]],
     task: dict[str, JsonValue] | None = None,
+    **kwargs: Any,
 ) -> list[dict[str, JsonValue]]:
-    """Every event SendStreamingMessage sends for one message"""
-    message = {"messageId": f"m-{id(parts)}", "role": "ROLE_USER", "parts": parts}
-    if task:
-        message |= {"taskId": task["taskId"], "contextId": task["contextId"]}
-    with client.stream(
-        "POST",
-        "/ezcareer/a2a/career-director",
-        headers={"A2A-Version": "1.0"},
-        json={
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "SendStreamingMessage",
-            "params": {"message": message},
-        },
-    ) as response:
-        return [
-            json.loads(line.removeprefix("data: "))["result"]
-            for line in response.iter_lines()
-            if line.startswith("data: ")
-        ]
+    """Every event SendStreamingMessage sends for one message and the history answer"""
+    return ops_api.stream(
+        client,
+        PATH,
+        parts,
+        task={"id": task["taskId"], "contextId": task["contextId"]} if task else None,
+        **kwargs,
+    )
 
 
 def _container(
@@ -236,9 +216,16 @@ def test_a_found_document_is_handed_to_career_consultant_whose_changeset_is_an_a
         _call("handoff_document", agent="career-consultant", document_id="doc-1"),
     )
     client = TestClient(create_app(_container(_model(), consultant, director)))
+    asked: list[JsonValue] = []
 
-    finding = _send(client, _director_request())
-    done = _send(client, [{"data": _documents(BACKEND)}], task=finding)
+    finding = _send(client, _director_request(), asked=asked)
+    done = _send(
+        client,
+        [{"data": _documents(BACKEND)}],
+        task=finding,
+        answers={"propose_changeset": SAVED},
+        asked=asked,
+    )
 
     assert finding["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
     assert [p["data"] for p in finding["status"]["message"]["parts"]] == [
@@ -246,13 +233,75 @@ def test_a_found_document_is_handed_to_career_consultant_whose_changeset_is_an_a
     ]
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
     [changeset] = [a for a in done["artifacts"] if a["name"] == "changeset"]
-    [part] = changeset["parts"]
-    assert part["data"]["document_id"] == "doc-1"
-    assert part["data"]["changeset"]["edits"] == [
-        career_consultant.GOOD_EDIT.model_dump(mode="json")
+    assert changeset["parts"] == [
+        {"data": {"document_id": "doc-1", "changeset_id": "cs-saved"}}
     ]
     [reply] = [a for a in done["artifacts"] if a["name"] == "career-director"]
     assert reply["parts"][0]["text"] == career_consultant.DONE.text
+    assert done["status"]["message"]["metadata"] == {
+        "agent": "career-consultant",
+        "document_id": "doc-1",
+    }
+    assert [request["execute_tool"] for request in asked] == ["propose_changeset"]
+    assert sum(REQUEST in m.text for m in consultant.requests[0]) == 1
+
+
+def test_the_changeset_career_consultant_keeps_is_the_one_ops_api_saved():
+    consultant = career_consultant._model(
+        career_consultant.READ_SKILL,
+        career_consultant._propose(career_consultant.GOOD_EDIT),
+        career_consultant.DONE,
+    )
+    director = _model(
+        _find(name="backend résumé", kind="resume"),
+        _call("handoff_document", agent="career-consultant", document_id="doc-1"),
+    )
+    container = _container(_model(), consultant, director)
+    client = TestClient(create_app(container))
+    asked: list[JsonValue] = []
+
+    finding = _send(client, _director_request())
+    _send(
+        client,
+        [{"data": _documents(BACKEND)}],
+        task=finding,
+        answers={"propose_changeset": SAVED},
+        asked=asked,
+    )
+
+    [request] = asked
+    kept = [
+        saved.checkpoint["channel_values"]["changeset"].model_dump(mode="json")
+        for saved in container.checkpointer().list(None)
+        if "changeset" in saved.checkpoint["channel_values"]
+    ]
+    assert kept
+    assert all(changeset == request["changeset"] for changeset in kept)
+
+
+def test_a_reply_after_career_consultant_hands_back_names_no_document():
+    consultant = career_consultant._model(
+        career_consultant.DONE, _call("handoff_to_parent")
+    )
+    director = _model(
+        _find(name="backend résumé", kind="resume"),
+        _call("handoff_document", agent="career-consultant", document_id="doc-1"),
+        AIMessage("Here are some jobs."),
+    )
+    client = TestClient(create_app(_container(_model(), consultant, director)))
+
+    finding = _send(client, _director_request())
+    edited = _send(client, [{"data": _documents(BACKEND)}], task=finding)
+    answered = _send(client, _director_request(), context=edited["contextId"])
+
+    assert edited["status"]["message"]["metadata"] == {
+        "agent": "career-consultant",
+        "document_id": "doc-1",
+    }
+    assert answered["status"]["message"]["metadata"] == {
+        "agent": "career-director",
+        "document_id": None,
+    }
 
 
 def test_a_documents_answer_ops_api_cannot_read_fails_the_turn():
@@ -288,6 +337,38 @@ def test_an_unclear_document_shows_the_user_a_document_picker():
     ]
 
 
+def test_a_picked_document_is_not_replayed_into_a_later_request_of_the_turn():
+    director = _model(
+        _call("choose_document", question="Which résumé?", kind="resume"),
+        _find(name="Backend résumé", kind="resume"),
+        AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "find_documents",
+                    "args": {"name": "Frontend résumé"},
+                    "id": "call-find-again",
+                }
+            ],
+        ),
+    )
+    client = TestClient(create_app(_container(_model(), _model(), director)))
+
+    asked = _send(client, _director_request())
+    finding = _send(client, [{"data": {"input": "Backend résumé"}}], task=asked)
+    [request] = finding["status"]["message"]["parts"]
+    again = _send(
+        client,
+        [{"data": _documents(BACKEND), "metadata": request["metadata"]}],
+        task=finding,
+    )
+
+    assert again["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
+    assert [p["data"] for p in again["status"]["message"]["parts"]] == [
+        {"execute_tool": "documents", "name": "Frontend résumé", "kind": None}
+    ]
+
+
 def test_the_consultants_question_reaches_the_user_and_their_answer_finishes_the_turn():
     consultant = career_consultant._model(
         _call("clarify", question="Which bullet?"),
@@ -303,7 +384,12 @@ def test_the_consultants_question_reaches_the_user_and_their_answer_finishes_the
 
     finding = _send(client, _director_request())
     asked = _send(client, [{"data": _documents(BACKEND)}], task=finding)
-    done = _send(client, [{"data": {"input": "The queue one"}}], task=asked)
+    done = _send(
+        client,
+        [{"data": {"input": "The queue one"}}],
+        task=asked,
+        answers={"propose_changeset": SAVED},
+    )
 
     assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
     assert asked["status"]["message"]["parts"][0]["data"] == {
@@ -425,7 +511,12 @@ def test_finished_steps_carry_what_their_tools_found_and_worked_on():
 
     finding = _stream(client, _director_request())
     task = finding[-1]["statusUpdate"]
-    done = _stream(client, [{"data": _documents(BACKEND)}], task=task)
+    done = _stream(
+        client,
+        [{"data": _documents(BACKEND)}],
+        task=task,
+        answers={"propose_changeset": SAVED},
+    )
 
     details = [
         (s["name"], s["detail"])
@@ -497,7 +588,13 @@ def test_email_is_handed_to_productivity_assistant_which_answers_and_keeps_the_n
         client,
         [
             {"text": "Anything else from Acme?"},
-            {"data": {"profile_facts": [], "preferences": {}}},
+            {
+                "data": {
+                    "profile_facts": [],
+                    "preferences": {},
+                    "active_agent": "productivity-assistant",
+                }
+            },
         ],
         context=task["contextId"],
     )
@@ -526,6 +623,13 @@ def test_email_is_handed_to_productivity_assistant_which_answers_and_keeps_the_n
     ]
     [reply] = [a for a in again["artifacts"] if a["name"] == "career-director"]
     assert reply["parts"][0]["text"] == "Nothing else from Acme."
+    assert again["status"]["message"]["metadata"]["agent"] == "productivity-assistant"
+    texts = [m.text for m in assistant.requests[-1]]
+    assert texts[1] == f"[Fri 20 Nov 2026, 09:30 Europe/London] {REQUEST}"
+    assert texts[-2:] == [
+        "Priya from Acme wrote.",
+        "[Fri 20 Nov 2026, 09:30 Europe/London] Anything else from Acme?",
+    ]
     assert len(director.requests) == 1
 
 

@@ -18,7 +18,7 @@ class DocumentSummary(BaseModel):
 
     id: str
     """The document_id handoff_document takes to hand the document to
-    career-consultant"""
+    career-consultant, and one of the document_ids edit_documents takes"""
 
     title: str
     """The name the user gave the document"""
@@ -258,6 +258,9 @@ class FoundApplications(BaseModel):
 class SavedJob(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
+    id: str
+    """The job's id, which tailor_documents takes"""
+
     title: str
     """The job title"""
 
@@ -291,3 +294,33 @@ class FoundSavedJobs(BaseModel):
 
     jobs: list[SavedJob]
     """The jobs asked for, best fit first, unanalysed ones last"""
+
+
+class StartedDocument(BaseModel):
+    model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
+
+    document_id: str
+    """The document career-consultant now edits in the background"""
+
+    title: str
+    """The name the user gave the document"""
+
+
+class SkippedDocument(BaseModel):
+    model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
+
+    document_id: str
+    """The document no edit started on"""
+
+    reason: str
+    """Why, such as a turn already running on it or a change waiting for review"""
+
+
+class DocumentsStarted(BaseModel):
+    model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
+
+    started: list[StartedDocument]
+    """The documents a background career-consultant turn started on"""
+
+    skipped: list[SkippedDocument]
+    """The documents left as they are, each with why"""

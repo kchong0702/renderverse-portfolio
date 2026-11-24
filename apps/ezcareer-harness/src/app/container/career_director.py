@@ -5,6 +5,7 @@ from src.agents.career_director import CareerDirectorState, build_graph
 from src.agents.career_director.tools import (
     analyse_job_tool,
     choose_document,
+    edit_documents,
     find_applications,
     find_documents,
     find_jobs_tool,
@@ -12,6 +13,7 @@ from src.agents.career_director.tools import (
     handoff_document,
     preview_profile_sync,
     schedule_job_run,
+    tailor_documents,
     update_profile,
 )
 from src.app.a2a import Executable
@@ -50,6 +52,8 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
             find_applications,
             find_saved_jobs,
             choose_document,
+            edit_documents,
+            tailor_documents,
             schedule_job_run,
             read_profile_facts,
         ),
@@ -64,7 +68,7 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
         Executable,
         kind="agent",
         name="career-director",
-        description="Talk to career-director from any page; it analyses and finds jobs through workflows, reads the user's applications and saved jobs, queues background job runs, updates the profile once the user approves, hands email and the calendar to productivity-assistant, and hands a document to edit to career-consultant",
+        description="Talk to career-director from any page; it analyses and finds jobs through workflows, reads the user's applications and saved jobs, queues background job runs, updates the profile once the user approves, hands email and the calendar to productivity-assistant, hands a document to talk through to career-consultant, and starts background edits or tailoring of several documents",
         graph=providers.Singleton(
             build_graph,
             director=agent,

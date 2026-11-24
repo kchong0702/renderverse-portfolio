@@ -1,10 +1,11 @@
 from collections.abc import Mapping, Sequence
 from functools import partial, update_wrapper
+from itertools import takewhile
 from typing import Literal
 
 from langchain.agents import AgentState
 from langchain.tools import ToolRuntime
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import BaseTool, StructuredTool, tool
 from langgraph.config import get_config
 from langgraph.types import Command
@@ -22,9 +23,10 @@ async def hand_off(
     runtime: ToolRuntime[None, AgentState],
     agent: str,
     update: Mapping[str, object] = {},
+    new_work: bool = False,
 ) -> Command | ToolMessage:
-    """Moves the conversation to agent's node in the parent graph with update added
-    to its state; only a reply's first call to a handoff tool runs"""
+    """Moves the conversation to agent's node in the parent graph with update added to its state; only a reply's first
+    call to a handoff tool runs, and never back to an agent that handed you the message this turn, unless with new_work"""
     call = next(
         m for m in reversed(runtime.state["messages"]) if isinstance(m, AIMessage)
     )
@@ -34,6 +36,21 @@ async def hand_off(
     ):
         return ToolMessage(
             "Hand off one at a time; this handoff did not run",
+            name=name,
+            tool_call_id=runtime.tool_call_id,
+            status="error",
+        )
+    if not new_work and any(
+        isinstance(m, ToolMessage)
+        and isinstance(m.artifact, dict)
+        and m.artifact.get("handed_by") == agent
+        for m in takewhile(
+            lambda m: not isinstance(m, HumanMessage),
+            reversed(runtime.state["messages"]),
+        )
+    ):
+        return ToolMessage(
+            f"{agent} handed this message to you earlier in this turn, so it is yours to answer. Answer the user yourself",
             name=name,
             tool_call_id=runtime.tool_call_id,
             status="error",
@@ -49,7 +66,7 @@ async def hand_off(
                     f"Handed the conversation to {agent}",
                     name=name,
                     tool_call_id=runtime.tool_call_id,
-                    artifact={"step_detail": agent},
+                    artifact={"step_detail": agent, "handed_by": call.name},
                 ),
                 *(
                     ToolMessage(
@@ -93,8 +110,8 @@ def handoff_to_child_tool(children: Sequence[str]) -> BaseTool:
 async def handoff_to_parent(
     runtime: ToolRuntime[None, AgentState],
 ) -> Command | ToolMessage:
-    """Hands the conversation back to the agent that handed it to you, when the
-    user's message is not yours to answer"""
+    """Hands the conversation back to the agent that handed it to you, which answers the user's message instead;
+    call it whenever the message is not yours to answer, instead of saying you can't help"""
     return await hand_off(
         "handoff_to_parent", runtime, runtime.config["configurable"]["parent_agent"]
     )

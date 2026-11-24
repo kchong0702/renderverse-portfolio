@@ -357,9 +357,11 @@ async def test_trace_records_each_check_round_and_the_agent_hash(
         )
     )
 
-    await _agent(_model(_propose(BAD_EDIT), _propose(GOOD_EDIT), DONE)).ainvoke(
-        _state()
+    agent = _agent(_model(_propose(BAD_EDIT), _propose(GOOD_EDIT), DONE)).copy(
+        update={"checkpointer": InMemorySaver()}
     )
+    thread = {"configurable": {"thread_id": "t1"}}
+    proposing = await agent.ainvoke(_state() | {"document_id": "doc-1"}, thread)
     tracing.shutdown_tracing()
 
     [exporter] = span_exporters
@@ -372,6 +374,7 @@ async def test_trace_records_each_check_round_and_the_agent_hash(
         ["unknown_source"],
         [],
     ]
+    assert proposing["__interrupt__"][0].value["execute_tool"] == "propose_changeset"
     hashes = {
         json.loads(span.attributes["metadata"]).get("agent_hash")
         for span in exporter.spans

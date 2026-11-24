@@ -1,8 +1,16 @@
+import sys
+from enum import Enum
+
+from a2a.server.cluster import DatabaseTaskEventStream, VersionedDatabaseTaskStore
 from a2a.server.tasks import InMemoryTaskStore
 from dependency_injector import containers, providers
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+from pydantic import BaseModel
 
 from src.agents import load_agents
+from src.app.a2a.ownership import Ownership
 from src.app.container.career_consultant import CareerConsultantContainer
 from src.app.container.career_director import CareerDirectorContainer
 from src.app.container.clients import ClientsContainer
@@ -10,6 +18,12 @@ from src.app.container.import_document import ImportDocumentContainer
 from src.app.container.job_analyst import JobAnalystContainer
 from src.app.container.productivity_assistant import ProductivityAssistantContainer
 from src.core.config import get_settings
+from src.infrastructure.persistence import (
+    MemoryTaskOwners,
+    PostgresTaskOwners,
+    create_engine,
+    create_pool,
+)
 
 
 class Container(containers.DeclarativeContainer):
@@ -19,12 +33,63 @@ class Container(containers.DeclarativeContainer):
     registry = providers.Singleton(load_agents, settings.provided.agents)
     """Every registered agent, by name"""
 
-    task_store = providers.Singleton(InMemoryTaskStore)
-    """Where the A2A server keeps every task; swap in a database store here"""
+    engine = providers.Singleton(create_engine, settings.provided.database)
+    """The SQLAlchemy engine the postgres task store, event stream and task owners
+    use"""
 
-    checkpointer = providers.Singleton(InMemorySaver)
-    """Where graphs keep checkpoints so interrupted runs resume; pass it to
-    each executable's graph, and swap in a database saver here"""
+    pool = providers.Singleton(create_pool, settings.provided.database)
+    """The psycopg pool the postgres checkpointer uses"""
+
+    task_store = providers.Selector(
+        settings.provided.stores,
+        memory=providers.Singleton(InMemoryTaskStore),
+        postgres=providers.Singleton(VersionedDatabaseTaskStore, engine),
+    )
+    """Where the A2A server keeps every task, versioned in postgres so replicas
+    never overwrite each other's writes"""
+
+    event_stream = providers.Selector(
+        settings.provided.stores,
+        memory=providers.Object(None),
+        postgres=providers.Singleton(DatabaseTaskEventStream, engine),
+    )
+    """The task events every replica reads, so any replica serves SubscribeToTask
+    for a task another runs; None in memory, which is one process"""
+
+    task_owners = providers.Selector(
+        settings.provided.stores,
+        memory=providers.Singleton(MemoryTaskOwners),
+        postgres=providers.Singleton(PostgresTaskOwners, engine),
+    )
+    """Which process runs each running task"""
+
+    serde = providers.Singleton(
+        JsonPlusSerializer,
+        allowed_msgpack_modules=providers.Callable(
+            lambda: [
+                value
+                for name, module in [*sys.modules.items()]
+                if name.partition(".")[0] in {"src", "document_schema"}
+                for value in vars(module).values()
+                if isinstance(value, type)
+                and issubclass(value, BaseModel | Enum)
+                and value.__module__ == name
+            ]
+        ),
+    )
+    """How checkpoints are written and read, rebuilding only LangGraph's safe types
+    and the models and enums of the harness and document_schema"""
+
+    checkpointer = providers.Selector(
+        settings.provided.stores,
+        memory=providers.Singleton(InMemorySaver, serde=serde),
+        postgres=providers.Singleton(AsyncPostgresSaver, pool, serde=serde),
+    )
+    """Where graphs keep checkpoints, one thread per A2A context for an agent and
+    per A2A task for a workflow; pass it to each executable's graph"""
+
+    ownership = providers.Singleton(Ownership, task_owners, settings.provided.tasks)
+    """Owns this process's running tasks and takes over those of dead processes"""
 
     clients = providers.Container(ClientsContainer, settings=settings)
     """Clients of the services the agents and workflows call"""

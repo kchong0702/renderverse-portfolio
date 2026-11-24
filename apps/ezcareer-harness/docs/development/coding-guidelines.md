@@ -8,15 +8,19 @@ Before you build a mechanism, check whether LangChain, LangGraph, deepagents or 
 
 Examples in this codebase:
 
-| Need                                       | Convention used                                                                                                                   |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| Offer a tool only after a skill is read    | deepagents `metadata.include_tools` with `SkillsMiddleware(tools=...)`                                                            |
-| Change the tools or the model for one call | LangChain `wrap_model_call` with `request.override(...)`                                                                          |
-| Pause a run for input                      | LangGraph `interrupt` and `Command(resume=...)`                                                                                   |
-| Hand the conversation to another agent     | LangChain handoffs: agents as graph nodes, a tool returning `Command(goto=..., graph=Command.PARENT)` and `active_agent` in state |
-| Offer a tool only in some runs             | A LangChain middleware that registers it in `AgentMiddleware.tools` and filters it in `wrap_model_call`                           |
-| Stream a run                               | LangGraph `astream` with `stream_mode` and `subgraphs=True`                                                                       |
-| Wire singletons and dependencies           | `dependency-injector` containers                                                                                                  |
+| Need                                        | Convention used                                                                                                                   |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Offer a tool only after a skill is read     | deepagents `metadata.include_tools` with `SkillsMiddleware(tools=...)`                                                            |
+| Change the tools or the model for one call  | LangChain `wrap_model_call` with `request.override(...)`                                                                          |
+| Pause a run for input                       | LangGraph `interrupt` and `Command(resume=...)`                                                                                   |
+| Hand the conversation to another agent      | LangChain handoffs: agents as graph nodes, a tool returning `Command(goto=..., graph=Command.PARENT)` and `active_agent` in state |
+| Offer a tool only in some runs              | A LangChain middleware that registers it in `AgentMiddleware.tools` and filters it in `wrap_model_call`                           |
+| Stream a run                                | LangGraph `astream` with `stream_mode` and `subgraphs=True`                                                                       |
+| Wire singletons and dependencies            | `dependency-injector` containers                                                                                                  |
+| Pass per-run data such as the model         | LangGraph runtime context (`RunContext`), read from `runtime.context`                                                             |
+| Keep a conversation across turns            | A LangGraph checkpoint thread per A2A context, as LangGraph's Agent Server does                                                   |
+| Summarise a long conversation               | deepagents' summarisation, which keeps its summary in the agent's state and retries a call that overflows                         |
+| Keep a side effect from rerunning on resume | A LangGraph `@task` inside the node or tool, which a nested graph runs again on resume                                            |
 
 If the library's convention doesn't fit, say why in the PR description before you write your own.
 

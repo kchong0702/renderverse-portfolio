@@ -1,8 +1,11 @@
-import json
-from typing import override
+import asyncio
+from typing import Any, TypedDict, override
 
 import pytest
+from a2a.server.context import ServerCallContext
 from a2a.server.tasks import InMemoryTaskStore
+from a2a.types import Task, TaskState, TaskStatus
+from deepagents.middleware.patch_tool_calls import PatchToolCallsMiddleware
 from dependency_injector import providers
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -15,13 +18,15 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
 from pydantic import BaseModel
 
-from src.app.a2a import Executable, add_executable_routes
+from src.app.a2a import Executable, Ownership, add_executable_routes
 from src.app.app import create_app
 from src.app.container import Container
-from src.core.config import AppSettings
+from src.core.config import AppSettings, TaskSettings
 from src.core.enums import Screen
 from src.core.errors import ExecuteError
 from src.core.types import NextStep
+from src.infrastructure.persistence import MemoryTaskOwners
+from tests.app import ops_api
 from tests.conftest import ScriptedChatModel
 
 PATH = "/ezcareer/a2a/greet"
@@ -72,6 +77,8 @@ def client() -> TestClient:
         app,
         [_executable()],
         InMemoryTaskStore(),
+        None,
+        Ownership(MemoryTaskOwners(), TaskSettings()),
         AppSettings(public_url="https://box.example.ts.net"),
     )
     return TestClient(app)
@@ -196,6 +203,8 @@ def test_two_interrupts_at_once_resume_each_with_the_answer_under_its_id():
             )
         ],
         InMemoryTaskStore(),
+        None,
+        Ownership(MemoryTaskOwners(), TaskSettings()),
         AppSettings(public_url="https://box.example.ts.net"),
     )
     client = TestClient(app)
@@ -235,6 +244,106 @@ def test_two_interrupts_at_once_resume_each_with_the_answer_under_its_id():
     }
 
 
+def _served(graph: CompiledStateGraph, store: InMemoryTaskStore) -> TestClient:
+    """A client of graph served as the greet workflow over store"""
+    app = FastAPI()
+    add_executable_routes(
+        app,
+        [Executable(name="greet", description="Greets a person", graph=graph)],
+        store,
+        None,
+        Ownership(MemoryTaskOwners(), TaskSettings()),
+        AppSettings(public_url="https://box.example.ts.net"),
+    )
+    return TestClient(app)
+
+
+def test_a_bare_answer_with_no_question_waiting_fails_the_task():
+    graph = _graph()
+    graph.invoke(
+        {"name": "Ada"},
+        {"configurable": {"thread_id": "task-1"}, "metadata": {"task_id": "task-1"}},
+    )
+    store = InMemoryTaskStore()
+    paused = Task(
+        id="task-1",
+        context_id="context-1",
+        status=TaskStatus(state=TaskState.TASK_STATE_INPUT_REQUIRED),
+    )
+    paused.metadata.update({"executable": "greet", "run": {}})
+    asyncio.run(store.save(paused, ServerCallContext()))
+
+    answered = _send(
+        _served(graph, store), "Prof", task={"id": "task-1", "contextId": "context-1"}
+    )
+
+    assert answered["status"]["state"] == "TASK_STATE_FAILED"
+    assert _status_text(answered) == "There is no question waiting for an answer"
+
+
+class Handoff(TypedDict):
+    active_agent: str
+    document_id: str
+
+
+def test_an_answer_that_fails_before_running_names_the_checkpoints_agent():
+    builder = StateGraph(Handoff)
+    builder.add_node("hand_off", lambda state: state)
+    builder.add_edge(START, "hand_off")
+    graph = builder.compile(checkpointer=InMemorySaver())
+    graph.invoke(
+        {"active_agent": "career-consultant", "document_id": "doc-1"},
+        {"configurable": {"thread_id": "task-1"}, "metadata": {"task_id": "task-1"}},
+    )
+    store = InMemoryTaskStore()
+    paused = Task(
+        id="task-1",
+        context_id="context-1",
+        status=TaskStatus(state=TaskState.TASK_STATE_INPUT_REQUIRED),
+    )
+    paused.metadata.update({"executable": "greet", "run": {}})
+    asyncio.run(store.save(paused, ServerCallContext()))
+
+    answered = _send(
+        _served(graph, store), "Prof", task={"id": "task-1", "contextId": "context-1"}
+    )
+
+    assert _status_text(answered) == "There is no question waiting for an answer"
+    assert answered["status"]["message"]["metadata"] == {
+        "agent": "career-consultant",
+        "document_id": "doc-1",
+    }
+
+
+class Found(BaseModel):
+    documents: str = ""
+    title: str = ""
+
+
+def test_a_mixed_pause_lists_the_users_question_first_and_a_bare_answer_goes_to_it():
+    graph = StateGraph(Found)
+    graph.add_node(
+        "data_request",
+        lambda _: {"documents": interrupt({"execute_tool": "documents"})},
+    )
+    graph.add_node("question", lambda _: {"title": interrupt({"ask": "title"})})
+    graph.add_edge(START, "data_request")
+    graph.add_edge(START, "question")
+    client = _served(graph.compile(checkpointer=InMemorySaver()), InMemoryTaskStore())
+
+    asked = _send(client, {})
+    answered = _send(client, "Dr", task=asked)
+
+    assert [part["data"] for part in asked["status"]["message"]["parts"]] == [
+        {"ask": "title"},
+        {"execute_tool": "documents"},
+    ]
+    assert answered["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
+    assert [part["data"] for part in answered["status"]["message"]["parts"]] == [
+        {"execute_tool": "documents"}
+    ]
+
+
 def test_the_app_serves_the_containers_executables():
     container = Container()
     container.executables.override(providers.List(providers.Object(_executable())))
@@ -266,6 +375,15 @@ class Title(BaseModel):
     title: str
 
 
+AGENT = "/ezcareer/a2a/greeter"
+STAMPED = "[Fri 20 Nov 2026, 09:30 Europe/London] Hi, I'm Ada"
+
+
+def _agent(model: ScriptedChatModel, **kwargs: Any) -> CompiledStateGraph:
+    """A plain agent on model that keeps its threads in memory"""
+    return create_agent(model, checkpointer=InMemorySaver(), **kwargs)
+
+
 def _agent_client(agent: CompiledStateGraph) -> TestClient:
     app = FastAPI()
     add_executable_routes(
@@ -279,21 +397,48 @@ def _agent_client(agent: CompiledStateGraph) -> TestClient:
             )
         ],
         InMemoryTaskStore(),
+        None,
+        Ownership(MemoryTaskOwners(), TaskSettings()),
         AppSettings(),
     )
     return TestClient(app)
 
 
-def _say(
-    client: TestClient, text: str, task: dict | None = None, context: str | None = None
-) -> dict:
-    message = {"messageId": f"m-{text}", "role": "ROLE_USER", "parts": [{"text": text}]}
-    if task:
-        message |= {"taskId": task["id"], "contextId": task["contextId"]}
-    if context:
-        message |= {"contextId": context}
-    response = client.post(
-        "/ezcareer/a2a/greeter",
+def _rpc(client: TestClient, method: str, task_id: str) -> dict:
+    """The task GetTask or CancelTask returns"""
+    return client.post(
+        AGENT,
+        headers={"A2A-Version": "1.0"},
+        json={"jsonrpc": "2.0", "id": 1, "method": method, "params": {"id": task_id}},
+    ).json()["result"]
+
+
+def test_an_agent_takes_the_users_text_and_replies_in_text():
+    model = ScriptedChatModel(replies=[AIMessage("Hello, Ada!")])
+
+    task = ops_api.send(_agent_client(_agent(model)), AGENT, [{"text": "Hi, I'm Ada"}])
+
+    assert task["status"]["state"] == "TASK_STATE_COMPLETED"
+    [reply] = [a for a in task["artifacts"] if a["name"] == "greeter"]
+    assert reply["parts"][0]["text"] == "Hello, Ada!"
+    assert [m.text for m in model.requests[0]] == [STAMPED]
+
+
+def test_the_users_message_is_stamped_in_their_zone_under_its_a2a_id():
+    agent = _agent(ScriptedChatModel(replies=[AIMessage("Hello, Ada!")]))
+    message = {
+        "messageId": "m-ada",
+        "role": "ROLE_USER",
+        "contextId": "thread-1",
+        "parts": [{"text": "Hi, I'm Ada"}],
+        "metadata": {
+            "created_at": "2026-11-21T01:05:00Z",
+            "timezone": "Asia/Singapore",
+        },
+    }
+
+    _agent_client(agent).post(
+        AGENT,
         headers={"A2A-Version": "1.0"},
         json={
             "jsonrpc": "2.0",
@@ -302,35 +447,84 @@ def _say(
             "params": {"message": message},
         },
     )
-    return response.json()["result"]["task"]
+
+    [sent, _] = agent.get_state({"configurable": {"thread_id": "thread-1"}}).values[
+        "messages"
+    ]
+    assert sent.id == "m-ada"
+    assert sent.text == "[Sat 21 Nov 2026, 09:05 Asia/Singapore] Hi, I'm Ada"
 
 
-def test_an_agent_takes_the_users_text_and_replies_in_text():
-    model = ScriptedChatModel(replies=[AIMessage("Hello, Ada!")])
+def test_a_users_message_without_when_it_was_sent_fails():
+    client = _agent_client(_agent(ScriptedChatModel(replies=[])))
 
-    task = _say(_agent_client(create_agent(model)), "Hi, I'm Ada")
+    task = client.post(
+        AGENT,
+        headers={"A2A-Version": "1.0"},
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "SendMessage",
+            "params": {
+                "message": {
+                    "messageId": "m-1",
+                    "role": "ROLE_USER",
+                    "parts": [{"text": "Hi"}],
+                }
+            },
+        },
+    ).json()["result"]["task"]
 
-    assert task["status"]["state"] == "TASK_STATE_COMPLETED"
-    [reply] = [a for a in task["artifacts"] if a["name"] == "greeter"]
-    assert reply["parts"][0]["text"] == "Hello, Ada!"
-    assert model.requests[0][-1].text == "Hi, I'm Ada"
+    assert task["status"]["state"] == "TASK_STATE_FAILED"
+    assert task["status"]["message"]["parts"][0]["text"].startswith("Invalid input:")
+    assert task["status"]["message"]["metadata"] == {
+        "agent": "greeter",
+        "document_id": None,
+    }
 
 
-def test_an_agent_remembers_earlier_turns_in_the_same_context():
+def test_an_agent_keeps_its_threads_state_across_turns_under_the_context_id():
     model = ScriptedChatModel(
         replies=[AIMessage("Hello, Ada!"), AIMessage("Your name is Ada.")]
     )
-    client = _agent_client(create_agent(model, checkpointer=InMemorySaver()))
+    agent = _agent(model)
+    client = _agent_client(agent)
 
-    first = _say(client, "Hi, I'm Ada")
-    second = _say(client, "What's my name?", context=first["contextId"])
+    first = ops_api.send(client, AGENT, [{"text": "Hi, I'm Ada"}], context="thread-1")
+    second = ops_api.send(
+        client, AGENT, [{"text": "What's my name?"}], context="thread-1"
+    )
 
     assert second["id"] != first["id"]
-    assert [m.text for m in model.requests[1][-3:]] == [
-        "Hi, I'm Ada",
+    assert [m.text for m in model.requests[1]] == [
+        STAMPED,
         "Hello, Ada!",
-        "What's my name?",
+        "[Fri 20 Nov 2026, 09:30 Europe/London] What's my name?",
     ]
+    assert (
+        agent.get_state({"configurable": {"thread_id": "thread-1"}})
+        .values["messages"][-1]
+        .text
+        == "Your name is Ada."
+    )
+
+
+def test_each_turn_ends_with_the_agents_message_by_its_id_in_the_thread():
+    agent = _agent(ScriptedChatModel(replies=[AIMessage("Hello, Ada!")]))
+    client = _agent_client(agent)
+
+    task = ops_api.send(client, AGENT, [{"text": "Hi, I'm Ada"}], context="thread-1")
+    again = _rpc(client, "GetTask", task["id"])
+
+    message = task["status"]["message"]
+    [_, reply] = agent.get_state({"configurable": {"thread_id": "thread-1"}}).values[
+        "messages"
+    ]
+    assert message["role"] == "ROLE_AGENT"
+    assert message["parts"] == [{"text": "Hello, Ada!"}]
+    assert message["metadata"] == {"agent": "greeter", "document_id": None}
+    assert message["messageId"] == reply.id
+    assert again["status"]["message"]["messageId"] == message["messageId"]
 
 
 def test_an_agent_that_answers_with_a_structure_replies_in_data():
@@ -343,9 +537,25 @@ def test_an_agent_that_answers_with_a_structure_replies_in_data():
         ]
     )
 
-    task = _say(_agent_client(create_agent(model, response_format=Title)), "Title?")
+    task = ops_api.send(
+        _agent_client(_agent(model, response_format=Title)),
+        AGENT,
+        [{"text": "Title?"}],
+    )
 
     assert task["artifacts"][0]["parts"][0]["data"] == {"title": "Dr"}
+
+
+def test_an_agent_turn_that_ends_without_reply_text_fails():
+    model = ScriptedChatModel(
+        replies=[AIMessage([{"type": "text", "text": "", "phase": "final_answer"}])]
+    )
+
+    task = ops_api.send(_agent_client(_agent(model)), AGENT, [{"text": "Hi"}])
+
+    assert task["status"]["state"] == "TASK_STATE_FAILED"
+    assert _status_text(task) == "The assistant stopped without replying"
+    assert not [a for a in task.get("artifacts", []) if a["name"] == "greeter"]
 
 
 @tool
@@ -370,21 +580,53 @@ def test_a_served_agent_asks_the_user_and_resumes_on_the_same_task():
             AIMessage("Hello, Dr Ada!"),
         ]
     )
-    client = _agent_client(
-        create_agent(model, tools=[ask_user], checkpointer=InMemorySaver())
-    )
+    client = _agent_client(_agent(model, tools=[ask_user]))
 
-    asked = _say(client, "Greet me")
+    asked = ops_api.send(client, AGENT, [{"text": "Greet me"}])
 
     assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
     assert asked["status"]["message"]["parts"][0]["data"] == "Which title?"
 
-    resumed = _say(client, "Dr", task=asked)
+    resumed = ops_api.send(client, AGENT, [{"text": "Dr"}], task=asked)
 
     assert resumed["status"]["state"] == "TASK_STATE_COMPLETED"
     [reply] = [a for a in resumed["artifacts"] if a["name"] == "greeter"]
     assert reply["parts"][0]["text"] == "Hello, Dr Ada!"
     assert model.requests[-1][-1].text == "Dr"
+
+
+def test_the_next_message_after_a_cancelled_pause_drops_the_paused_step_and_runs():
+    model = ScriptedChatModel(
+        replies=[
+            AIMessage(
+                "",
+                tool_calls=[
+                    {
+                        "name": "ask_user",
+                        "args": {"question": "Which title?"},
+                        "id": "c1",
+                    }
+                ],
+            ),
+            AIMessage("Hello, Ada!"),
+        ]
+    )
+    agent = _agent(model, tools=[ask_user], middleware=[PatchToolCallsMiddleware()])
+    client = _agent_client(agent)
+    thread = {"configurable": {"thread_id": "thread-1"}}
+
+    asked = ops_api.send(client, AGENT, [{"text": "Greet me"}], context="thread-1")
+    cancelled = _rpc(client, "CancelTask", asked["id"])
+    paused = agent.get_state(thread)
+    done = ops_api.send(client, AGENT, [{"text": "Hi, I'm Ada"}], context="thread-1")
+
+    assert cancelled["status"]["state"] == "TASK_STATE_CANCELED"
+    assert paused.next == ("tools",)
+    assert done["status"]["state"] == "TASK_STATE_COMPLETED"
+    assert agent.get_state(thread).next == ()
+    [*_, call, patched, sent] = model.requests[-1]
+    assert call.tool_calls[0]["id"] == patched.tool_call_id == "c1"
+    assert sent.text == STAMPED
 
 
 @tool
@@ -456,45 +698,66 @@ USAGES = [
 
 
 def test_a_streamed_run_reports_each_model_calls_usage_as_it_ends():
-    client = _agent_client(create_agent(_usage_model(), [title_of], name="job-analyst"))
+    model = _usage_model()
+    client = _agent_client(_agent(model, tools=[title_of], name="job-analyst"))
 
-    with client.stream(
-        "POST",
-        "/ezcareer/a2a/greeter",
-        headers={"A2A-Version": "1.0"},
-        json={
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "SendStreamingMessage",
-            "params": {
-                "message": {
-                    "messageId": "m-1",
-                    "role": "ROLE_USER",
-                    "parts": [{"text": "Greet Ada"}],
-                }
-            },
-        },
-    ) as response:
-        events = [
-            json.loads(line.removeprefix("data: "))["result"]
-            for line in response.iter_lines()
-            if line.startswith("data: ")
-        ]
+    events = ops_api.stream(client, AGENT, [{"text": "Greet Ada"}])
 
     working = [
         e["statusUpdate"]["status"]
         for e in events
-        if "message" in e.get("statusUpdate", {}).get("status", {})
+        if e.get("statusUpdate", {}).get("status", {}).get("state")
+        == "TASK_STATE_WORKING"
+        and "message" in e["statusUpdate"]["status"]
     ]
-    assert {status["state"] for status in working} == {"TASK_STATE_WORKING"}
     assert _usages([status["message"] for status in working]) == USAGES
 
 
 def test_a_blocking_runs_history_keeps_each_model_calls_usage():
     model = _usage_model()
 
-    task = _say(_agent_client(create_agent(model, [title_of])), "Greet Ada")
+    task = ops_api.send(
+        _agent_client(_agent(model, tools=[title_of])),
+        AGENT,
+        [{"text": "Greet Ada"}],
+    )
 
     agent_messages = [m for m in task["history"] if m["role"] == "ROLE_AGENT"]
     assert len({m["messageId"] for m in agent_messages}) == len(agent_messages)
     assert _usages(agent_messages) == [usage | {"agent": "greeter"} for usage in USAGES]
+
+
+@pytest.mark.parametrize("by_id", [False, True])
+def test_answering_a_question_a_newer_message_replaced_fails_the_task(by_id: bool):
+    model = ScriptedChatModel(
+        replies=[
+            AIMessage(
+                "",
+                tool_calls=[
+                    {
+                        "name": "ask_user",
+                        "args": {"question": "Which title?"},
+                        "id": "c1",
+                    }
+                ],
+            ),
+            AIMessage("Hello, Ada!"),
+        ]
+    )
+    agent = _agent(model, tools=[ask_user], middleware=[PatchToolCallsMiddleware()])
+    client = _agent_client(agent)
+    asked = ops_api.send(client, AGENT, [{"text": "Greet me"}], context="thread-1")
+    [question] = asked["status"]["message"]["parts"]
+    newer = ops_api.send(client, AGENT, [{"text": "Hi, I'm Ada"}], context="thread-1")
+
+    answered = ops_api.send(
+        client,
+        AGENT,
+        [{"data": "Dr", "metadata": question["metadata"]} if by_id else {"text": "Dr"}],
+        task=asked,
+    )
+
+    assert newer["status"]["state"] == "TASK_STATE_COMPLETED"
+    assert answered["status"]["state"] == "TASK_STATE_FAILED"
+    assert _status_text(answered) == "This question was replaced by a newer message"
+    assert len(model.requests) == 2

@@ -1,21 +1,25 @@
 import json
 from functools import partial, update_wrapper
-from uuid import uuid4
+from uuid import NAMESPACE_OID, uuid5
 
 from document_schema import Changeset
 from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import BaseTool, StructuredTool
-from langgraph.types import Command
-from pydantic import ConfigDict, Field, create_model
+from langgraph.func import task
+from langgraph.types import Command, interrupt
+from pydantic import ConfigDict, Field, TypeAdapter, ValidationError, create_model
 
 from src.agents.career_consultant import CareerConsultantState
 from src.agents.career_consultant.checks import check_changeset, cited_values, sources
 from src.agents.career_consultant.page_fit import fit_pages
+from src.agents.career_consultant.types import ChangesetProposed
 from src.clients.artifact_service import ArtifactServiceClient
 from src.core.config import PageCountPreservationSettings
+from src.core.errors import ExecuteError
 from src.shared.checks import check_round
 from src.shared.tool_artifact import StepDetail
+from src.shared.tool_error import ToolError
 
 
 def _citing(changeset: Changeset, facts: dict[str, str]) -> StepDetail:
@@ -35,6 +39,30 @@ def _citing(changeset: Changeset, facts: dict[str, str]) -> StepDetail:
     return {"step_detail": f"citing {facts[cited[0]]}{more}"}
 
 
+@task
+async def _fit(
+    artifact_service: ArtifactServiceClient,
+    page_count_preservation: PageCountPreservationSettings,
+    changeset: Changeset,
+    state: CareerConsultantState,
+) -> str | Changeset:
+    """The changeset's check errors as JSON, or once it passes, the changeset fitted
+    to the page count when enabled; a task, so a resume can reuse it"""
+    errors = check_round(check_changeset(state["document"], changeset, sources(state)))[
+        "errors"
+    ]
+    if errors:
+        return json.dumps([error.model_dump() for error in errors])
+    if not page_count_preservation.enabled:
+        return changeset
+    return await fit_pages(
+        state["document"],
+        changeset,
+        artifact_service,
+        page_count_preservation.max_bullet_trims,
+    )
+
+
 async def _propose_changeset(
     artifact_service: ArtifactServiceClient,
     page_count_preservation: PageCountPreservationSettings,
@@ -43,21 +71,34 @@ async def _propose_changeset(
 ) -> Command | str:
     """Proposes a changeset to the user. Returns "proposed", or a JSON list of errors,
     each with its rule, edit path and what to fix; fix every one and propose again."""
-    errors = check_round(
-        check_changeset(runtime.state["document"], changeset, sources(runtime.state))
-    )["errors"]
-    if errors:
-        return json.dumps([error.model_dump() for error in errors])
-    changeset = changeset.model_copy(
-        update={"id": uuid4().hex, "agent": "career-consultant"}
+    fitted = await _fit(
+        artifact_service,
+        page_count_preservation,
+        changeset.model_copy(
+            update={
+                "id": uuid5(NAMESPACE_OID, runtime.tool_call_id).hex,
+                "agent": "career-consultant",
+            }
+        ),
+        runtime.state,
     )
-    if page_count_preservation.enabled:
-        changeset = await fit_pages(
-            runtime.state["document"],
-            changeset,
-            artifact_service,
-            page_count_preservation.max_bullet_trims,
+    if isinstance(fitted, str):
+        return fitted
+    changeset = fitted
+    try:
+        proposed = TypeAdapter(ChangesetProposed | ToolError).validate_python(
+            interrupt(
+                {
+                    "execute_tool": "propose_changeset",
+                    "document_id": runtime.state["document_id"],
+                    "changeset": changeset.model_dump(mode="json"),
+                }
+            )
         )
+    except ValidationError as error:
+        raise ExecuteError(f"The changeset wasn't proposed: {error}") from error
+    if isinstance(proposed, ToolError):
+        return json.dumps([proposed.model_dump()])
     return Command(
         update={
             "changeset": changeset,
@@ -69,8 +110,8 @@ async def _propose_changeset(
                     artifact={
                         "name": "changeset",
                         "data": {
-                            "document_id": runtime.state.get("document_id"),
-                            "changeset": changeset.model_dump(mode="json"),
+                            "document_id": runtime.state["document_id"],
+                            "changeset_id": proposed.changeset_id,
                         },
                         **_citing(
                             changeset,
@@ -90,8 +131,8 @@ def propose_changeset_tool(
     artifact_service: ArtifactServiceClient,
     page_count_preservation: PageCountPreservationSettings,
 ) -> BaseTool:
-    """propose_changeset, which checks a changeset and, once it passes, prints it
-    through artifact_service and trims bullets to keep the page count when enabled"""
+    """propose_changeset: checks a changeset, fits it to the page count when enabled,
+    and asks ops-api to save it"""
     return StructuredTool.from_function(
         coroutine=update_wrapper(
             partial(_propose_changeset, artifact_service, page_count_preservation),

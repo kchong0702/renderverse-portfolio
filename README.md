@@ -67,7 +67,7 @@ pnpm run dev:ops-web          # Ops UI only (http://localhost:5174)
 pnpm run dev:ops-api          # Ops API on the host (http://localhost:8100/ops-api/docs), starts Postgres and ops-worker first
 pnpm nx run ops-api:worker    # ops-worker alone, which processes uploaded files and runs the job agent
 pnpm run dev:ops              # the Ops UI, API and worker, in one terminal
-pnpm run migrate              # apply ops-api's database migrations
+pnpm run migrate              # apply ops-api's and ezcareer-harness's database migrations
 pnpm nx run ezcareer-harness:dev  # career agents (http://localhost:8200/ezcareer/docs)
 pnpm nx run artifact-service:dev  # PDFs and Word conversion (http://localhost:8210/artifact-service/docs), builds document-renderer first
 
