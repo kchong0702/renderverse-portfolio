@@ -4,7 +4,6 @@ from typing import Annotated, Literal, Self
 from uuid import UUID
 
 from pydantic import (
-    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
@@ -374,8 +373,8 @@ class NetworkingText(BaseModel):
     text: str
     """Copy to paste into a job portal"""
 
-    facts: list[FactId] = Field(validation_alias=AliasChoices("fact_ids", "facts"))
-    """The facts it was written from; write-networking sends them as fact_ids"""
+    fact_ids: list[FactId]
+    """The facts it was written from"""
 
 
 class NetworkingDescription(NetworkingText):

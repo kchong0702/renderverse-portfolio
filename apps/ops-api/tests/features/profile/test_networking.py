@@ -54,15 +54,7 @@ async def test_the_copy_is_written_from_every_fact_and_kept(client, harness):
     )
 
     assert written.status_code == 200
-    assert written.json() == {
-        "profession": PROFESSION,
-        "headline": {"text": "Backend engineer for payments", "facts": [used]},
-        "summary": {"text": "I build payment systems.", "facts": [used, archived]},
-        "descriptions": [
-            {"fact": used, "text": "Led payments.", "facts": [used]},
-            {"fact": archived, "text": "Built ledgers.", "facts": [archived]},
-        ],
-    }
+    assert written.json() == {"profession": PROFESSION, **copy}
     assert (await client.get(f"{PROFILE}/networking")).json() == written.json()
     [request] = harness.received
     assert request.url.path == "/ezcareer/a2a/write-networking"
@@ -102,9 +94,9 @@ async def test_one_part_is_rewritten_alone(client, harness):
 
     assert rewritten.json() == {
         "profession": "Payments roles",
-        "headline": {"text": "Payments engineer", "facts": [used]},
-        "summary": {"text": "I build things.", "facts": [used]},
-        "descriptions": [{"fact": used, "text": "Led payments.", "facts": [used]}],
+        "headline": {"text": "Payments engineer", "fact_ids": [used]},
+        "summary": {"text": "I build things.", "fact_ids": [used]},
+        "descriptions": [{"fact": used, "text": "Led payments.", "fact_ids": [used]}],
     }
     assert [
         sent["params"]["message"]["parts"][0]["data"]["only"]
