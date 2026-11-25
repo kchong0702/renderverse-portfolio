@@ -25,8 +25,9 @@ async def hand_off(
     update: Mapping[str, object] = {},
     new_work: bool = False,
 ) -> Command | ToolMessage:
-    """Moves the conversation to agent's node in the parent graph with update added to its state; only a reply's first
-    call to a handoff tool runs, and never back to an agent that handed you the message this turn, unless with new_work"""
+    """Moves the conversation to agent's node in the parent graph with update added to
+    its state; only a reply's first call to a handoff tool runs, and never back to an
+    agent that handed you the message this turn, unless with new_work"""
     call = next(
         m for m in reversed(runtime.state["messages"]) if isinstance(m, AIMessage)
     )
@@ -110,8 +111,9 @@ def handoff_to_child_tool(children: Sequence[str]) -> BaseTool:
 async def handoff_to_parent(
     runtime: ToolRuntime[None, AgentState],
 ) -> Command | ToolMessage:
-    """Hands the conversation back to the agent that handed it to you, which answers the user's message instead;
-    call it whenever the message is not yours to answer, instead of saying you can't help"""
+    """Hands the conversation back to the agent that handed it to you, which answers the
+    user's message instead; call it whenever the message is not yours to answer, instead
+    of saying you can't help"""
     return await hand_off(
         "handoff_to_parent", runtime, runtime.config["configurable"]["parent_agent"]
     )

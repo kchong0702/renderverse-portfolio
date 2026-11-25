@@ -11,8 +11,10 @@ from src.shared.tool_error import ToolError
 
 @tool(response_format="content_and_artifact")
 def tailor_documents(job_id: str) -> tuple[str, StepDetail]:
-    """Copies the user's master résumé, and master cover letter when there is one, for a job on their Jobs page, by the
-    id find_saved_jobs returned, and starts career-consultant tailoring each copy in the background; returns those started and skipped"""
+    """Copies the user's master résumé, and master cover letter when there is one, for a
+    job on their Jobs page, by the id find_saved_jobs returned, and starts
+    career-consultant tailoring each copy in the background; returns those started
+    and skipped"""
     try:
         started = TypeAdapter(DocumentsStarted | ToolError).validate_python(
             interrupt({"execute_tool": "tailor_documents", "job_id": job_id})

@@ -15,8 +15,9 @@ async def handoff_document(
     agent: Literal["career-consultant"],
     document_id: str,
 ) -> Command | ToolMessage:
-    """Hands the conversation to agent with the document document_id, as find_documents returned it this turn; agent
-    answers the user about it from then on, and a document other than the graph's is new work"""
+    """Hands the conversation to agent with the document document_id, as find_documents
+    returned it this turn; agent answers the user about it from then on, and a document
+    other than the graph's is new work"""
     found = runtime.state.get("document_contents", {}).get(document_id)
     if not found:
         return ToolMessage(
