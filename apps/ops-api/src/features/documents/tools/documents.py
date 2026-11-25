@@ -38,10 +38,9 @@ async def documents(
     """The user's documents of the kind asked, the best match for a name first with
     its draft and lines, on a session of its own"""
     async for session in session_scope(factory):
-        repository = DocumentRepository(session)
         found = [
             d
-            for d in await repository.documents(user_id)
+            for d in await DocumentRepository(session).documents(user_id)
             if request.kind is None or d.kind is request.kind
         ]
         if request.name:
@@ -61,7 +60,8 @@ async def documents(
                 DocumentMatch.model_validate(d, from_attributes=True) for d in found
             ],
             content=DocumentContent(
-                document=found[0].body, pdf_lines=await repository.lines(found[0])
+                document=found[0].body,
+                pdf_lines=await DocumentRepository(session).lines(found[0]),
             )
             if found
             else None,
