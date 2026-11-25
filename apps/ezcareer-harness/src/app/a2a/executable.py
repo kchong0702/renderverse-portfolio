@@ -1,5 +1,5 @@
-from collections.abc import Awaitable, Callable
-from typing import Any, ClassVar, Literal, override
+from collections.abc import Callable
+from typing import Any, Literal, override
 
 from a2a.helpers import (
     get_data_parts,
@@ -235,7 +235,7 @@ class EventRelay:
         self.calls: dict[str, list[tuple[str, str]]] = {}
         """Each running tools task's calls, as (call id, tool name)"""
 
-    def _without_handoff_agent(self, namespace: tuple[str, ...]) -> tuple[str, ...]:
+    def _resolve_namespace(self, namespace: tuple[str, ...]) -> tuple[str, ...]:
         """The namespace without its handoff agent's node, so whichever agent runs
         streams as the conversation's own"""
         if namespace and (
@@ -244,21 +244,20 @@ class EventRelay:
             return namespace[1:]
         return namespace
 
-    async def _values(self, namespace: tuple[str, ...], data: dict) -> None:
+    async def _save_latest_state(self, namespace: tuple[str, ...], data: dict) -> None:
         """Keeps the top-level graph's values and the pauses they carry"""
         if namespace:
             return
         self.interrupts += data.get("__interrupt__", [])
         self.result = data
 
-    async def _messages(
+    async def _stream_reply(
         self, namespace: tuple[str, ...], data: tuple[Any, dict]
     ) -> None:
         """Streams the replying model's thinking and text, one artifact per model
         turn"""
         if tuple(
-            segment.partition(":")[0]
-            for segment in self._without_handoff_agent(namespace)
+            segment.partition(":")[0] for segment in self._resolve_namespace(namespace)
         ) != ((self.executable.reply_node,) if self.executable.reply_node else ()):
             return
         chunk, meta = data
@@ -282,12 +281,12 @@ class EventRelay:
             )
             self.opened.add(artifact_id)
 
-    async def _tasks(
+    async def _report_steps(
         self, namespace: tuple[str, ...], data: TaskPayload | TaskResultPayload
     ) -> None:
         """Reports the steps a graph task starts or ends, then publishes the
         artifacts a top-level tools task's tools returned"""
-        namespace = self._without_handoff_agent(namespace)
+        namespace = self._resolve_namespace(namespace)
         for step in _steps(
             self.executable.kind,
             namespace,
@@ -312,16 +311,15 @@ class EventRelay:
                         append=False,
                     )
 
-    HANDLERS: ClassVar[dict[str, Callable[..., Awaitable[None]]]] = {
-        "values": _values,
-        "messages": _messages,
-        "tasks": _tasks,
-    }
-    """Each stream mode's handler"""
-
     async def handle(self, namespace: tuple[str, ...], mode: str, data: Any) -> None:
         """Relays one streamed chunk with its stream mode's handler"""
-        await self.HANDLERS[mode](self, namespace, data)
+        match mode:
+            case "values":
+                await self._save_latest_state(namespace, data)
+            case "messages":
+                await self._stream_reply(namespace, data)
+            case "tasks":
+                await self._report_steps(namespace, data)
 
 
 class LanggraphExecutor(AgentExecutor):
