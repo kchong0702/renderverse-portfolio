@@ -69,20 +69,23 @@ class DocumentChat:
         publishes for the document is stored and announced, and other published
         artifacts are not sent"""
         async for event in events:
-            if not isinstance(event, Published):
-                yield event
-            elif event.name == "changeset":
-                try:
-                    artifact = ChangesetArtifact.model_validate(event.data)
-                except ValidationError as error:
-                    logger.warning("changeset_skipped", reason=str(error))
-                    continue
-                if artifact.document_id == document_id and (
-                    proposed := await self._documents.propose_from_run(
-                        user_id, document_id, artifact.changeset
-                    )
-                ):
-                    yield proposed
+            match event:
+                case Published(name="changeset"):
+                    try:
+                        artifact = ChangesetArtifact.model_validate(event.data)
+                    except ValidationError as error:
+                        logger.warning("changeset_skipped", reason=str(error))
+                        continue
+                    if artifact.document_id == document_id and (
+                        proposed := await self._documents.propose_from_run(
+                            user_id, document_id, artifact.changeset
+                        )
+                    ):
+                        yield proposed
+                case Published():
+                    pass
+                case _:
+                    yield event
 
     async def send(
         self, user_id: UUID, document_id: UUID, text: str
