@@ -25,7 +25,7 @@ If the library's convention doesn't fit, say why in the PR description before yo
 Read [the architecture overview](../architecture/overview.md) for the three kinds of graph. When you write one:
 
 - An agent never runs a workflow built on itself. Give it tools that do the work, and wrap it in a workflow only to make a run deterministic.
-- To add a child to an agent graph, join its agent in the graph builder and add its name to the main agent's `handoff_to_child` choices. Don't add `handoff_to_parent` to its tools: `ParentHandoffMiddleware` offers it only inside the graph.
+- To add a child to an agent graph, join its agent in the graph builder and add its name to the main agent's `handoff_to_child` choices, or to `handoff_document`'s when it works on a document. Don't add `handoff_to_parent` to its tools: `ParentHandoffMiddleware` offers it only inside the graph.
 - Build each agent once. Change what it is offered per run with config and middleware, not with a second instance.
 
 ## Simplicity

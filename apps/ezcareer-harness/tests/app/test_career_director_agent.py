@@ -233,7 +233,7 @@ def test_a_found_document_is_handed_to_career_consultant_whose_changeset_is_an_a
     )
     director = _model(
         _find(name="backend résumé", kind="resume"),
-        _call("handoff_to_child", agent="career-consultant", document_id="doc-1"),
+        _call("handoff_document", agent="career-consultant", document_id="doc-1"),
     )
     client = TestClient(create_app(_container(_model(), consultant, director)))
 
@@ -297,7 +297,7 @@ def test_the_consultants_question_reaches_the_user_and_their_answer_finishes_the
     )
     director = _model(
         _find(name="backend résumé"),
-        _call("handoff_to_child", agent="career-consultant", document_id="doc-1"),
+        _call("handoff_document", agent="career-consultant", document_id="doc-1"),
     )
     client = TestClient(create_app(_container(_model(), consultant, director)))
 
@@ -419,7 +419,7 @@ def test_finished_steps_carry_what_their_tools_found_and_worked_on():
     )
     director = _model(
         _find(name="backend résumé", kind="resume"),
-        _call("handoff_to_child", agent="career-consultant", document_id="doc-1"),
+        _call("handoff_document", agent="career-consultant", document_id="doc-1"),
     )
     client = TestClient(create_app(_container(_model(), consultant, director)))
 
@@ -434,7 +434,7 @@ def test_finished_steps_carry_what_their_tools_found_and_worked_on():
     ]
     assert details == [
         ("find_documents", "1 résumé"),
-        ("handoff_to_child", "career-consultant"),
+        ("handoff_document", "career-consultant"),
         ("read_file", None),
         (
             "propose_changeset",
@@ -450,12 +450,12 @@ def test_a_second_handoff_in_one_reply_fails_on_its_own_step():
             "",
             tool_calls=[
                 {
-                    "name": "handoff_to_child",
+                    "name": "handoff_document",
                     "args": {"agent": "career-consultant", "document_id": "doc-1"},
                     "id": "first",
                 },
                 {
-                    "name": "handoff_to_child",
+                    "name": "handoff_document",
                     "args": {"agent": "career-consultant", "document_id": "doc-1"},
                     "id": "second",
                 },
@@ -473,7 +473,7 @@ def test_a_second_handoff_in_one_reply_fails_on_its_own_step():
     assert {
         (s["id"], s["status"])
         for s in _steps(done)
-        if s["name"] == "handoff_to_child" and s["status"] != "running"
+        if s["name"] == "handoff_document" and s["status"] != "running"
     } == {("first", "done"), ("second", "failed")}
 
 

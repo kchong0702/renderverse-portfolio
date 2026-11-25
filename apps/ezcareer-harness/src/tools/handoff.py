@@ -10,9 +10,6 @@ from langgraph.config import get_config
 from langgraph.types import Command
 from pydantic import ConfigDict, Field, create_model
 
-ONE_AT_A_TIME = "Hand off one at a time; this handoff did not run"
-"""What a handoff call after the first in the same reply returns"""
-
 
 def parent_agent() -> str | None:
     """The agent the current run hands back to, set only when the run is a child
@@ -27,16 +24,19 @@ async def hand_off(
     update: Mapping[str, object] = {},
 ) -> Command | ToolMessage:
     """Moves the conversation to agent's node in the parent graph with update added
-    to its state; only the first handoff in a reply runs"""
+    to its state; only a reply's first call to a handoff tool runs"""
     call = next(
         m for m in reversed(runtime.state["messages"]) if isinstance(m, AIMessage)
     )
-    handoffs = ("handoff_to_child", "handoff_to_parent")
+    handoffs = {t.name for t in runtime.tools if (t.metadata or {}).get("handoff")}
     if runtime.tool_call_id != next(
         c["id"] for c in call.tool_calls if c["name"] in handoffs
     ):
         return ToolMessage(
-            ONE_AT_A_TIME, name=name, tool_call_id=runtime.tool_call_id, status="error"
+            "Hand off one at a time; this handoff did not run",
+            name=name,
+            tool_call_id=runtime.tool_call_id,
+            status="error",
         )
     return Command(
         goto=agent,
@@ -45,23 +45,21 @@ async def hand_off(
             **update,
             "messages": [
                 call,
+                ToolMessage(
+                    f"Handed the conversation to {agent}",
+                    name=name,
+                    tool_call_id=runtime.tool_call_id,
+                    artifact={"step_detail": agent},
+                ),
                 *(
                     ToolMessage(
-                        f"Handed the conversation to {agent}",
-                        name=name,
-                        tool_call_id=c["id"],
-                        artifact={"step_detail": agent},
-                    )
-                    if c["id"] == runtime.tool_call_id
-                    else ToolMessage(
-                        ONE_AT_A_TIME
-                        if c["name"] in handoffs
-                        else f"Its result was dropped, as the conversation was handed to {agent}",
+                        f"Its result was dropped, as the conversation was handed to {agent}",
                         name=c["name"],
                         tool_call_id=c["id"],
                         status="error",
                     )
                     for c in call.tool_calls
+                    if c["id"] != runtime.tool_call_id
                 ),
             ],
         },
@@ -87,6 +85,7 @@ def handoff_to_child_tool(children: Sequence[str]) -> BaseTool:
             ),
             agent=(Literal[*children], Field(description="The child agent's name")),
         ),
+        metadata={"handoff": True},
     )
 
 
@@ -99,3 +98,6 @@ async def handoff_to_parent(
     return await hand_off(
         "handoff_to_parent", runtime, runtime.config["configurable"]["parent_agent"]
     )
+
+
+handoff_to_parent.metadata = {"handoff": True}

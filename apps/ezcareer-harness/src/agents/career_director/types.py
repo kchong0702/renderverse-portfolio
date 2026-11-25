@@ -17,7 +17,7 @@ class DocumentSummary(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
     id: str
-    """The document_id handoff_to_child takes to hand the document to
+    """The document_id handoff_document takes to hand the document to
     career-consultant"""
 
     title: str

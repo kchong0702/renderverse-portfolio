@@ -9,13 +9,13 @@ from src.agents.career_director.tools import (
     find_documents,
     find_jobs_tool,
     find_saved_jobs,
-    handoff_to_child_tool,
+    handoff_document,
     preview_profile_sync,
     schedule_job_run,
     update_profile,
 )
 from src.app.a2a import Executable
-from src.tools import read_profile_facts
+from src.tools import handoff_to_child_tool, read_profile_facts
 
 
 class CareerDirectorContainer(containers.DeclarativeContainer):
@@ -44,11 +44,8 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
             providers.Callable(
                 find_jobs_tool, job_analyst.find_jobs_executable.provided.graph
             ),
-            providers.Callable(
-                handoff_to_child_tool,
-                ["productivity-assistant", "career-consultant"],
-                ["career-consultant"],
-            ),
+            providers.Callable(handoff_to_child_tool, ["productivity-assistant"]),
+            handoff_document,
             find_documents,
             find_applications,
             find_saved_jobs,

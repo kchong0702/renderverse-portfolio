@@ -11,7 +11,6 @@ from src.agents.career_director import CareerDirectorState
 from src.app.container import Container
 from src.shared.profile import Preferences
 from src.shared.widget import Answer, WidgetSetting
-from src.tools.handoff import ONE_AT_A_TIME
 from tests.agents.career_consultant import test_career_consultant as career_consultant
 from tests.agents.career_consultant.test_career_consultant import _loaded, _print
 from tests.agents.career_director.test_handoffs import _graph, _turn
@@ -88,7 +87,7 @@ def _reports(result: CareerDirectorState, tool: str) -> list[ToolMessage]:
 
 
 def _handoff(document_id: str) -> AIMessage:
-    return _call("handoff_to_child", agent="career-consultant", document_id=document_id)
+    return _call("handoff_document", agent="career-consultant", document_id=document_id)
 
 
 def _documents(*summaries: dict[str, object]) -> dict[str, object]:
@@ -131,7 +130,7 @@ async def test_a_single_match_is_handed_to_career_consultant_with_its_content():
     ]
     assert json.loads(found.text) == [BACKEND]
     assert found.artifact == {"step_detail": "1 résumé"}
-    [handoff] = _reports(result, "handoff_to_child")
+    [handoff] = _reports(result, "handoff_document")
     assert handoff.artifact == {"step_detail": "career-consultant"}
     state = career_consultant._state()
     assert (
@@ -249,7 +248,7 @@ async def test_a_document_find_documents_did_not_return_is_not_handed_off():
 
     _, result = await _run(_director(director))
 
-    [refused] = _reports(result, "handoff_to_child")
+    [refused] = _reports(result, "handoff_document")
     assert refused.status == "error"
     assert "find_documents" in refused.text
     assert "active_agent" not in result
@@ -258,13 +257,13 @@ async def test_a_document_find_documents_did_not_return_is_not_handed_off():
 
 async def test_career_consultant_is_never_handed_the_conversation_without_a_document():
     director = _model(
-        _call("handoff_to_child", agent="career-consultant"),
+        _call("handoff_document", agent="career-consultant"),
         AIMessage("Which document do you mean?"),
     )
 
     _, result = await _run(_director(director))
 
-    [refused] = _reports(result, "handoff_to_child")
+    [refused] = _reports(result, "handoff_document")
     assert refused.status == "error"
     assert "document_id" in refused.text
     assert "active_agent" not in result
@@ -277,7 +276,7 @@ async def test_only_the_best_match_can_be_handed_off():
 
     _, result = await _run(_director(director), _documents(BACKEND, FRONTEND))
 
-    [refused] = _reports(result, "handoff_to_child")
+    [refused] = _reports(result, "handoff_document")
     assert refused.status == "error"
     assert "best match" in refused.text
     assert "active_agent" not in result
@@ -290,13 +289,13 @@ async def test_only_the_first_of_several_handoffs_in_a_reply_runs():
             content="",
             tool_calls=[
                 {
-                    "name": "handoff_to_child",
+                    "name": "handoff_document",
                     "args": {"agent": "career-consultant", "document_id": "doc-1"},
                     "id": "call-first",
                 },
                 {
                     "name": "handoff_to_child",
-                    "args": {"agent": "career-consultant", "document_id": "doc-2"},
+                    "args": {"agent": "productivity-assistant"},
                     "id": "call-second",
                 },
                 {"name": "read_profile_facts", "args": {}, "id": "call-facts"},
@@ -321,7 +320,10 @@ async def test_only_the_first_of_several_handoffs_in_a_reply_runs():
         for m in answers[call]
     ] == [
         ("success", "Handed the conversation to career-consultant"),
-        ("error", ONE_AT_A_TIME),
+        (
+            "error",
+            "Its result was dropped, as the conversation was handed to career-consultant",
+        ),
         (
             "error",
             "Its result was dropped, as the conversation was handed to career-consultant",
@@ -336,7 +338,12 @@ async def test_the_director_offers_its_document_tools_but_no_task_or_write_tools
     await _run(_director(model))
 
     offered = model.offered_tools[0]
-    assert {"handoff_to_child", "find_documents", "choose_document"} <= offered
+    assert {
+        "handoff_to_child",
+        "handoff_document",
+        "find_documents",
+        "choose_document",
+    } <= offered
     assert {"edit_document", "task", "write_file", "edit_file", "execute"}.isdisjoint(
         offered
     )

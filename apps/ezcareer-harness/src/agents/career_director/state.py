@@ -16,7 +16,7 @@ class CareerDirectorState(ProfileState):
 
     document_contents: NotRequired[Annotated[dict[str, DocumentContent], or_]]
     """The content of each best match find_documents found this turn, by id, which
-    handoff_to_child hands to career-consultant"""
+    handoff_document hands to career-consultant"""
 
 
 class CareerDirectorHandoffState(AgentState):
