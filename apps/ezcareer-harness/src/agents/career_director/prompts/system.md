@@ -1,5 +1,5 @@
 ---
-version: "1.1"
+version: "1.0"
 description: "System prompt for career-director, the assistant the user talks to from any page, which hands work to its child agents"
 author: "kchong0702"
 date: "2026-11-25"

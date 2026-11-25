@@ -11,8 +11,8 @@ from src.shared.tool_error import ToolError
 
 @tool(response_format="content_and_artifact")
 def edit_documents(document_ids: list[str], instruction: str) -> tuple[str, StepDetail]:
-    """Starts career-consultant editing each document, by the ids find_documents returned, in the background, sending
-    instruction unchanged as the user's message to each, so it must ask for one document's change on its own; returns those started and skipped"""
+    """Starts career-consultant editing each document, by the ids find_documents returned, in the background, sending instruction
+    unchanged as the user's message to each, so it must ask for one document's change on its own; returns those started and skipped"""
     try:
         started = TypeAdapter(DocumentsStarted | ToolError).validate_python(
             interrupt(

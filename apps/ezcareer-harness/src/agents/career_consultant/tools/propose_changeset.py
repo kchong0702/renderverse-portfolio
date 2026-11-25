@@ -40,7 +40,7 @@ def _citing(changeset: Changeset, facts: dict[str, str]) -> StepDetail:
 
 
 @task
-async def _fit(
+async def _run_fit_pages(
     artifact_service: ArtifactServiceClient,
     page_count_preservation: PageCountPreservationSettings,
     changeset: Changeset,
@@ -71,7 +71,7 @@ async def _propose_changeset(
 ) -> Command | str:
     """Proposes a changeset to the user. Returns "proposed", or a JSON list of errors,
     each with its rule, edit path and what to fix; fix every one and propose again."""
-    fitted = await _fit(
+    changeset = await _run_fit_pages(
         artifact_service,
         page_count_preservation,
         changeset.model_copy(
@@ -82,11 +82,10 @@ async def _propose_changeset(
         ),
         runtime.state,
     )
-    if isinstance(fitted, str):
-        return fitted
-    changeset = fitted
+    if isinstance(changeset, str):
+        return changeset
     try:
-        proposed = TypeAdapter(ChangesetProposed | ToolError).validate_python(
+        proposed_changeset = TypeAdapter(ChangesetProposed | ToolError).validate_python(
             interrupt(
                 {
                     "execute_tool": "propose_changeset",
@@ -97,8 +96,8 @@ async def _propose_changeset(
         )
     except ValidationError as error:
         raise ExecuteError(f"The changeset wasn't proposed: {error}") from error
-    if isinstance(proposed, ToolError):
-        return json.dumps([proposed.model_dump()])
+    if isinstance(proposed_changeset, ToolError):
+        return json.dumps([proposed_changeset.model_dump()])
     return Command(
         update={
             "changeset": changeset,
@@ -111,7 +110,7 @@ async def _propose_changeset(
                         "name": "changeset",
                         "data": {
                             "document_id": runtime.state["document_id"],
-                            "changeset_id": proposed.changeset_id,
+                            "changeset_id": proposed_changeset.changeset_id,
                         },
                         **_citing(
                             changeset,
