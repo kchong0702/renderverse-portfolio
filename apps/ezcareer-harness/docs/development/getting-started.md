@@ -1,4 +1,4 @@
-# Running the harness
+# Getting started
 
 ezcareer-harness keeps its tasks and checkpoints, including each conversation's thread, in Postgres by default (`stores = "postgres"` in `config.toml`). Read [the architecture overview](../architecture/overview.md#persistence-and-restarts) for what each store holds.
 
