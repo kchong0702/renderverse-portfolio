@@ -49,7 +49,7 @@ class AnalyseJobState(AnalyseJobInput, AnalyseJobOutput):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
     posting_lines: list[PostingLine] = Field(default_factory=list)
-    """The fetched posting's numbered lines, which requirements cite by id"""
+    """The posting's numbered lines"""
 
     structured_response: JobRequirements | None = None
     """The agent's latest answer"""

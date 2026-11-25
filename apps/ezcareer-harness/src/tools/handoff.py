@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from functools import partial, update_wrapper
 from typing import Literal
 
@@ -20,15 +20,14 @@ def parent_agent() -> str | None:
     return get_config().get("configurable", {}).get("parent_agent")
 
 
-async def _handoff(
+async def hand_off(
     name: str,
     runtime: ToolRuntime[None, AgentState],
     agent: str,
-    document_id: str | None = None,
-    document_children: frozenset[str] = frozenset(),
+    update: Mapping[str, object] = {},
 ) -> Command | ToolMessage:
-    """Moves the conversation to agent's node in the parent graph with the named found
-    document, which document_children require; only the first handoff runs"""
+    """Moves the conversation to agent's node in the parent graph with update added
+    to its state; only the first handoff in a reply runs"""
     call = next(
         m for m in reversed(runtime.state["messages"]) if isinstance(m, AIMessage)
     )
@@ -39,34 +38,11 @@ async def _handoff(
         return ToolMessage(
             ONE_AT_A_TIME, name=name, tool_call_id=runtime.tool_call_id, status="error"
         )
-    if agent in document_children and not document_id:
-        return ToolMessage(
-            f"{agent} works on a document. Find it with find_documents, then hand it off with its document_id",
-            name=name,
-            tool_call_id=runtime.tool_call_id,
-            status="error",
-        )
-    found = runtime.state.get("document_contents", {}).get(document_id)
-    if document_id and not found:
-        return ToolMessage(
-            f"Document {document_id} is not the best match of find_documents this turn. Find it by its title, then hand it off",
-            name=name,
-            tool_call_id=runtime.tool_call_id,
-            status="error",
-        )
     return Command(
         goto=agent,
         update={
             "active_agent": agent,
-            **(
-                {
-                    "document_id": document_id,
-                    "document": found.document,
-                    "pdf_lines": found.pdf_lines,
-                }
-                if found
-                else {}
-            ),
+            **update,
             "messages": [
                 call,
                 *(
@@ -93,22 +69,13 @@ async def _handoff(
     )
 
 
-def handoff_to_child_tool(
-    children: Sequence[str], document_children: Sequence[str] = ()
-) -> BaseTool:
-    """handoff_to_child, which hands the conversation to one of children, always with a
-    document to those in document_children"""
+def handoff_to_child_tool(children: Sequence[str]) -> BaseTool:
+    """handoff_to_child, which hands the conversation to one of the child agents
+    named in children"""
     return StructuredTool.from_function(
-        coroutine=update_wrapper(
-            partial(
-                _handoff,
-                "handoff_to_child",
-                document_children=frozenset(document_children),
-            ),
-            _handoff,
-        ),
+        coroutine=update_wrapper(partial(hand_off, "handoff_to_child"), hand_off),
         name="handoff_to_child",
-        description="Hands the conversation to the child agent that owns the user's request; it answers the user from then on. Call it once per reply, with at most one document",
+        description="Hands the conversation to the child agent that owns the user's request; it answers the user from then on. Call it once per reply",
         args_schema=create_model(
             "HandoffToChildArgs",
             __config__=ConfigDict(extra="forbid", arbitrary_types_allowed=True),
@@ -119,13 +86,6 @@ def handoff_to_child_tool(
                 ),
             ),
             agent=(Literal[*children], Field(description="The child agent's name")),
-            document_id=(
-                str | None,
-                Field(
-                    default=None,
-                    description="The id of the one document the child works on, as find_documents returned it this turn; only for career-consultant",
-                ),
-            ),
         ),
     )
 
@@ -136,6 +96,6 @@ async def handoff_to_parent(
 ) -> Command | ToolMessage:
     """Hands the conversation back to the agent that handed it to you, when the
     user's message is not yours to answer"""
-    return await _handoff(
+    return await hand_off(
         "handoff_to_parent", runtime, runtime.config["configurable"]["parent_agent"]
     )

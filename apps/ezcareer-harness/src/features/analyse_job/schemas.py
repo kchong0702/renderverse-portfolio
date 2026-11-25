@@ -110,7 +110,7 @@ class JobAnalysis(JobRequirements):
     """Where the posting was fetched from"""
 
     posting_lines: list[PostingLine]
-    """The posting's numbered lines, so citations can be shown"""
+    """The posting's text, so citations can be shown"""
 
     filters: list[HardFilter]
     """Hard filters computed in code, one per stated term"""

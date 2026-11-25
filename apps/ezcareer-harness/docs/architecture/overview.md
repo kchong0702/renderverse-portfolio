@@ -100,7 +100,11 @@ Only an agent that joins the graph as a child gets `handoff_to_parent`:
 - The graph builder joins each child with `child.with_config(configurable={"parent_agent": ...})`. The tool hands back to that agent.
 - So the same productivity-assistant instance that runs inside `triage-email` and `draft-reply`, or on its own, is never offered the tool, nor is career-consultant in `write-networking` or Ops' document chat.
 
-Both handoff tools live in `src/tools/handoff.py`.
+The shared handoff tools live in `src/tools/handoff.py` and know nothing about documents:
+
+- `hand_off` holds the handoff mechanics every handoff tool shares: the one-handoff-per-reply check, the `Command.PARENT` to the agent's node, `active_agent`, the passed-on AI message with a result for each of its tool calls, and an `update` mapping a caller adds to the graph state.
+- `handoff_to_child_tool(children)` builds `handoff_to_child` with only the `agent` argument, and `handoff_to_parent` hands back to `parent_agent`. Both call `hand_off`.
+- career-director extends `handoff_to_child` in its own package, `src/agents/career_director/tools/handoff_to_child.py`. Its args schema adds `document_id` to the shared one, and the tool runs the document checks and passes the found document as `update`, then calls `hand_off`. The model sees the same tool name, so prompts and ops-api need no change.
 
 ## Agents own their tools and skills
 

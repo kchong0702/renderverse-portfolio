@@ -41,10 +41,8 @@ class Description(BaseModel):
         """Puts the described fact first among the facts it rests on"""
         if not isinstance(data, dict) or "fact" not in data:
             return data
-        others = [
-            fact_id for fact_id in data.get("fact_ids") or [] if fact_id != data["fact"]
-        ]
-        return {**data, "fact_ids": [data["fact"], *others]}
+        facts = [fact for fact in data.get("fact_ids") or [] if fact != data["fact"]]
+        return {**data, "fact_ids": [data["fact"], *facts]}
 
 
 class NetworkingCopy(BaseModel):
