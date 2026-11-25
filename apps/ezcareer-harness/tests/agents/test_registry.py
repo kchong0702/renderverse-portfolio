@@ -4,27 +4,14 @@ from pathlib import Path
 import pytest
 
 from src.agents import Agent
-from src.agents.registry import AgentProfile
 from src.core.config import _ROOT_PATH, AgentSettings
 
 PROFILE = Path(__file__).parent / "fixtures" / "greeter" / "profile.yaml"
 
 
-class GreeterProfile(AgentProfile):
-    greeting: str = "Hello"
-    """What the greeter says first"""
-
-
-def _load(
-    path: Path = PROFILE,
-    family: str = "claude",
-    profile_type: type[AgentProfile] = AgentProfile,
-) -> Agent:
+def _load(path: Path = PROFILE, family: str = "claude") -> Agent:
     return Agent.load(
-        AgentSettings(
-            name="greeter", path=path, family=family, model="claude-opus-5-5"
-        ),
-        profile_type,
+        AgentSettings(name="greeter", path=path, family=family, model="claude-opus-5-5")
     )
 
 
@@ -51,17 +38,6 @@ def test_a_profile_reads_its_step_limit(tmp_path: Path):
 
     assert _load(profile).profile.recursion_limit == 7
     assert _load().profile.recursion_limit is None
-
-
-def test_an_agent_reads_its_own_settings_with_its_profile_type(tmp_path: Path):
-    profile = tmp_path / "profile.yaml"
-    profile.write_text("recursion_limit: 7\ngreeting: Hi\n")
-
-    agent = _load(profile, profile_type=GreeterProfile)
-
-    assert agent.profile == GreeterProfile(recursion_limit=7, greeting="Hi")
-    with pytest.raises(ValueError, match="greeting"):
-        _load(profile)
 
 
 def test_a_profile_that_names_no_skills_reads_them_beside_it():

@@ -11,11 +11,9 @@ from pydantic import ConfigDict, Field, create_model
 
 from src.agents.career_consultant import CareerConsultantState
 from src.agents.career_consultant.checks import check_changeset, cited_values, sources
-from src.agents.career_consultant.page_fit import (
-    PageCountPreservationConfig,
-    fit_pages,
-)
+from src.agents.career_consultant.page_fit import fit_pages
 from src.clients.artifact_service import ArtifactServiceClient
+from src.core.config import PageCountPreservationConfig
 from src.shared.checks import check_round
 from src.shared.tool_artifact import StepDetail
 

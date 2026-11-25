@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from functools import cache
 from hashlib import sha256
 from pathlib import Path
 from typing import Self
@@ -89,32 +89,23 @@ class Agent(BaseModel):
         return digest.hexdigest()
 
     @classmethod
-    def load(
-        cls, settings: AgentSettings, profile_type: type[AgentProfile] = AgentProfile
-    ) -> Self:
-        """Reads an agent's profile.yaml as profile_type, for the model and family its
-        settings name"""
+    def load(cls, settings: AgentSettings) -> Self:
+        """Reads an agent's profile.yaml for the model and family its settings name"""
         return cls(
             name=settings.name,
             folder=settings.path.parent,
             family=settings.family,
             model=settings.model,
-            profile=profile_type.model_validate(
+            profile=AgentProfile.model_validate(
                 yaml.safe_load(settings.path.read_text())
             ),
         )
 
 
-def load_agents(
-    agents: tuple[AgentSettings, ...],
-    profiles: Mapping[str, type[AgentProfile]] = {},
-) -> dict[str, Agent]:
-    """Every agent the settings list, by name, each profile read as its type in
-    profiles, else as AgentProfile"""
-    return {
-        settings.name: Agent.load(settings, profiles.get(settings.name, AgentProfile))
-        for settings in agents
-    }
+@cache
+def load_agents(agents: tuple[AgentSettings, ...]) -> dict[str, Agent]:
+    """Every agent the settings list, by name, read once per list"""
+    return {settings.name: Agent.load(settings) for settings in agents}
 
 
 def register_harness_profiles(path: Path) -> None:

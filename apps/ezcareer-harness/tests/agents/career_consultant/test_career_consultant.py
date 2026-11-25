@@ -200,7 +200,7 @@ def _agent(model: ScriptedChatModel) -> CompiledStateGraph:
             read_pdf_lines,
             read_profile_facts,
             propose_changeset_tool(
-                artifact_service, AGENT.profile.page_count_preservation
+                artifact_service, get_settings().page_count_preservation
             ),
             list_design_options_tool(artifact_service),
             clarify,

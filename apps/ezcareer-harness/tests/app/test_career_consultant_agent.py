@@ -18,9 +18,9 @@ from langchain_core.messages import AIMessage, ToolMessage
 from pydantic import JsonValue
 from pydantic_core import to_jsonable_python
 
-from src.agents.career_consultant.page_fit import PageCountPreservationConfig
 from src.app.app import create_app
 from src.app.container import Container
+from src.core.config import PageCountPreservationConfig, get_settings
 from tests.agents.career_consultant.test_career_consultant import (
     BAD_EDIT,
     DONE,
@@ -74,11 +74,20 @@ PLATFORM_JOB = {
 def _container(
     model: ScriptedChatModel,
     prints: Callable[[httpx.Request], httpx.Response] | None = None,
+    page_count_preservation: PageCountPreservationConfig | None = None,
     **profile: object,
 ) -> Container:
-    """A container whose career-consultant runs on model, prints with prints and has
-    profile's fields in its profile.yaml"""
+    """A container whose career-consultant runs on model, prints with prints, uses any
+    page_count_preservation given and has profile's fields in its profile.yaml"""
     container = Container()
+    if page_count_preservation:
+        container.settings.override(
+            providers.Object(
+                get_settings().model_copy(
+                    update={"page_count_preservation": page_count_preservation}
+                )
+            )
+        )
     agent = container.registry()["career-consultant"]
     container.registry.override(
         providers.Object(
@@ -103,9 +112,12 @@ def _container(
 def _client(
     model: ScriptedChatModel,
     prints: Callable[[httpx.Request], httpx.Response] | None = None,
+    page_count_preservation: PageCountPreservationConfig | None = None,
     **profile: object,
 ) -> TestClient:
-    return TestClient(create_app(_container(model, prints, **profile)))
+    return TestClient(
+        create_app(_container(model, prints, page_count_preservation, **profile))
+    )
 
 
 def _message(
@@ -401,7 +413,7 @@ def test_the_consultants_thinking_and_reply_stream_before_the_reply_artifact():
     assert events[-1]["statusUpdate"]["status"]["state"] == "TASK_STATE_COMPLETED"
 
 
-def test_page_fit_deletes_at_most_the_profiles_max_bullet_trims():
+def test_page_fit_deletes_at_most_max_bullet_trims():
     done = _edit(
         _client(
             _model(READ_SKILL, _propose(NEW_BULLET), DONE),

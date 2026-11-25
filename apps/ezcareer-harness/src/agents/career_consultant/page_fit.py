@@ -16,22 +16,9 @@ from document_schema import (
     UpdateField,
     apply_edits,
 )
-from pydantic import BaseModel, ConfigDict, Field
 
 from src.clients.artifact_service import ArtifactServiceClient
 from src.core.errors import ExecuteError
-
-
-class PageCountPreservationConfig(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid", frozen=True, use_attribute_docstrings=True
-    )
-
-    enabled: bool = True
-    """Whether propose_changeset trims bullets to keep a document's page count"""
-
-    max_bullet_trims: int = Field(default=5, ge=0)
-    """Most bullets propose_changeset deletes to keep a document's page count"""
 
 
 async def fit_pages(

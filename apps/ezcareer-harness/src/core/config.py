@@ -271,6 +271,16 @@ class EmailSettings(BaseModel):
     """Most free slots read_free_slots shows the agent, the earliest first"""
 
 
+class PageCountPreservationConfig(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    enabled: bool = True
+    """Whether propose_changeset trims bullets to keep a document's page count"""
+
+    max_bullet_trims: int = Field(default=5, ge=0)
+    """Most bullets propose_changeset deletes to keep a document's page count"""
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EZCAREER_HARNESS_",
@@ -336,6 +346,11 @@ class Settings(BaseSettings):
     email: EmailSettings = Field(default_factory=EmailSettings)
     """Limits on the email agents read"""
 
+    page_count_preservation: PageCountPreservationConfig = Field(
+        default_factory=PageCountPreservationConfig
+    )
+    """How propose_changeset keeps a document's page count"""
+
     @classmethod
     @override
     def settings_customise_sources(
@@ -398,6 +413,7 @@ __all__ = [
     "GraphProfile",
     "Instrumentation",
     "ObservabilitySettings",
+    "PageCountPreservationConfig",
     "Settings",
     "TraceRedactionSettings",
     "get_settings",

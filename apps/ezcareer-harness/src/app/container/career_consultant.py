@@ -11,11 +11,15 @@ from src.agents.career_consultant.tools import (
 from src.agents.middlewares import ParentHandoffMiddleware
 from src.app.a2a import Executable
 from src.clients.artifact_service import ArtifactServiceClient
+from src.core.config import Settings
 from src.features import write_networking
 from src.tools import clarify, read_profile_facts
 
 
 class CareerConsultantContainer(containers.DeclarativeContainer):
+    settings = providers.Dependency(instance_of=Settings)
+    """The app's settings"""
+
     registry = providers.Dependency(instance_of=dict)
     """Every registered agent, by name"""
 
@@ -38,7 +42,7 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
             providers.Callable(
                 propose_changeset_tool,
                 artifact_service,
-                profile.provided.page_count_preservation,
+                settings.provided.page_count_preservation,
             ),
             providers.Callable(list_design_options_tool, artifact_service),
         ),

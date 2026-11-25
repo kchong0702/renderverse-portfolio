@@ -27,6 +27,10 @@ instrumentations = ["langchain"]
 hide_inputs = false
 hide_outputs = false
 
+[page_count_preservation]
+enabled = true
+max_bullet_trims = 5
+
 [email]
 max_threads = 20
 max_thread_messages = 6
