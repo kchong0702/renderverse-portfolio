@@ -7,10 +7,8 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
-from src.agents import load_agents
 from src.agents.career_director import CareerDirectorState
 from src.app.container import Container
-from src.core.config import get_settings
 from src.shared.profile import Preferences
 from src.shared.widget import Answer, WidgetSetting
 from src.tools.handoff import ONE_AT_A_TIME
@@ -20,7 +18,7 @@ from tests.agents.career_director.test_handoffs import _graph, _turn
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 
-AGENTS = load_agents(get_settings().agents)
+AGENTS = Container().registry()
 AGENT = AGENTS["career-director"]
 REQUEST = "Mention my Kubernetes work in the queue bullet"
 BACKEND = {

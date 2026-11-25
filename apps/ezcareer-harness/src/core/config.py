@@ -271,16 +271,6 @@ class EmailSettings(BaseModel):
     """Most free slots read_free_slots shows the agent, the earliest first"""
 
 
-class DocumentSettings(BaseModel):
-    model_config = {"extra": "forbid", "frozen": True}
-
-    page_fit_trims: int = Field(default=5, ge=0)
-    """Most bullets propose_changeset deletes to keep a document's page count"""
-
-    recursion_limit: int = Field(default=40, gt=0)
-    """Most steps one turn of the served career-consultant may take"""
-
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EZCAREER_HARNESS_",
@@ -346,9 +336,6 @@ class Settings(BaseSettings):
     email: EmailSettings = Field(default_factory=EmailSettings)
     """Limits on the email agents read"""
 
-    documents: DocumentSettings = Field(default_factory=DocumentSettings)
-    """Limits on how career-consultant edits documents"""
-
     @classmethod
     @override
     def settings_customise_sources(
@@ -406,7 +393,6 @@ __all__ = [
     "AgentSettings",
     "AppSettings",
     "ArtifactServiceSettings",
-    "DocumentSettings",
     "EmailSettings",
     "Family",
     "GraphProfile",

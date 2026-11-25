@@ -1,5 +1,3 @@
-from uuid import uuid4
-
 import httpx
 from document_schema import (
     AnyDocument,
@@ -18,16 +16,29 @@ from document_schema import (
     UpdateField,
     apply_edits,
 )
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.clients.artifact_service import ArtifactServiceClient
 from src.core.errors import ExecuteError
+
+
+class PageCountPreservationConfig(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, use_attribute_docstrings=True
+    )
+
+    enabled: bool = True
+    """Whether propose_changeset trims bullets to keep a document's page count"""
+
+    max_bullet_trims: int = Field(default=5, ge=0)
+    """Most bullets propose_changeset deletes to keep a document's page count"""
 
 
 async def fit_pages(
     document: AnyDocument,
     changeset: Changeset,
     artifact_service: ArtifactServiceClient,
-    trims: int,
+    max_bullet_trims: int,
 ) -> Changeset:
     """The changeset with bullet deletes added until it prints on no more pages than
     before, from the entry with the most, never an entry's last bullet or one the
@@ -44,7 +55,7 @@ async def fit_pages(
     )
     try:
         pages = (await artifact_service.render(document)).report.pages
-        for _ in range(trims):
+        for _ in range(max_bullet_trims):
             edited = apply_edits(document, edits)
             if (await artifact_service.render(edited)).report.pages <= pages:
                 break
@@ -78,6 +89,4 @@ async def fit_pages(
             )
     except httpx.HTTPError as error:
         raise ExecuteError(f"Couldn't print the edited document: {error}") from error
-    return changeset.model_copy(
-        update={"id": uuid4().hex, "agent": "career-consultant", "edits": edits}
-    )
+    return changeset.model_copy(update={"edits": edits})

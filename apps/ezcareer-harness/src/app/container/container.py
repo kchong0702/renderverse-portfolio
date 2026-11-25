@@ -3,6 +3,7 @@ from dependency_injector import containers, providers
 from langgraph.checkpoint.memory import InMemorySaver
 
 from src.agents import load_agents
+from src.agents.career_consultant import CareerConsultantProfile
 from src.app.container.career_consultant import CareerConsultantContainer
 from src.app.container.career_director import CareerDirectorContainer
 from src.app.container.clients import ClientsContainer
@@ -16,8 +17,12 @@ class Container(containers.DeclarativeContainer):
     settings = providers.Singleton(get_settings)
     """The app's settings"""
 
-    registry = providers.Singleton(load_agents, settings.provided.agents)
-    """Every registered agent, by name"""
+    registry = providers.Singleton(
+        load_agents,
+        settings.provided.agents,
+        profiles=providers.Dict({"career-consultant": CareerConsultantProfile}),
+    )
+    """Every registered agent, by name, each with its own profile type"""
 
     task_store = providers.Singleton(InMemoryTaskStore)
     """Where the A2A server keeps every task; swap in a database store here"""
@@ -38,7 +43,6 @@ class Container(containers.DeclarativeContainer):
 
     career_consultant = providers.Container(
         CareerConsultantContainer,
-        settings=settings,
         registry=registry,
         checkpointer=checkpointer,
         artifact_service=clients.artifact_service,

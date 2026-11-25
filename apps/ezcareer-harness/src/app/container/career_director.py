@@ -75,7 +75,7 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
             ),
             checkpointer=checkpointer,
         ),
-        agent_nodes=frozenset(
+        handoff_agents=frozenset(
             {"career-director", "productivity-assistant", "career-consultant"}
         ),
     )

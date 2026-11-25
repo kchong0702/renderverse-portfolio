@@ -11,15 +11,11 @@ from src.agents.career_consultant.tools import (
 from src.agents.middlewares import ParentHandoffMiddleware
 from src.app.a2a import Executable
 from src.clients.artifact_service import ArtifactServiceClient
-from src.core.config import Settings
 from src.features import write_networking
 from src.tools import clarify, read_profile_facts
 
 
 class CareerConsultantContainer(containers.DeclarativeContainer):
-    settings = providers.Dependency(instance_of=Settings)
-    """The app's settings"""
-
     registry = providers.Dependency(instance_of=dict)
     """Every registered agent, by name"""
 
@@ -28,6 +24,9 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
 
     artifact_service = providers.Dependency(instance_of=ArtifactServiceClient)
     """Lists templates and prints documents"""
+
+    profile = registry.provided["career-consultant"].profile
+    """career-consultant's own settings, from its profile.yaml"""
 
     agent = providers.Singleton(
         build_agent,
@@ -39,7 +38,7 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
             providers.Callable(
                 propose_changeset_tool,
                 artifact_service,
-                settings.provided.documents.page_fit_trims,
+                profile.provided.page_count_preservation,
             ),
             providers.Callable(list_design_options_tool, artifact_service),
         ),
@@ -55,12 +54,10 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
         description="Talk to career-consultant about one of the user's résumés, CVs or cover letters, sent as the run's document with its document_id and PDF lines; it proposes checked edits to it",
         graph=agent.provided.copy.call(
             update=providers.Dict(checkpointer=checkpointer)
-        ).provided.with_config.call(
-            recursion_limit=settings.provided.documents.recursion_limit
-        ),
+        ).provided.with_config.call(recursion_limit=profile.provided.recursion_limit),
     )
     """career-consultant served as an agent the user talks to, each turn stopped
-    after [documents] recursion_limit steps"""
+    after its profile's recursion_limit steps"""
 
     write_networking_executable = providers.Singleton(
         Executable,

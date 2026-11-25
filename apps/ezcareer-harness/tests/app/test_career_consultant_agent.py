@@ -4,6 +4,7 @@ from functools import partial
 
 import httpx
 import pytest
+from dependency_injector import providers
 from document_schema import (
     Bullet,
     Experience,
@@ -17,6 +18,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 from pydantic import JsonValue
 from pydantic_core import to_jsonable_python
 
+from src.agents.career_consultant.page_fit import PageCountPreservationConfig
 from src.app.app import create_app
 from src.app.container import Container
 from tests.agents.career_consultant.test_career_consultant import (
@@ -72,8 +74,22 @@ PLATFORM_JOB = {
 def _container(
     model: ScriptedChatModel,
     prints: Callable[[httpx.Request], httpx.Response] | None = None,
+    **profile: object,
 ) -> Container:
+    """A container whose career-consultant runs on model, prints with prints and has
+    profile's fields in its profile.yaml"""
     container = Container()
+    agent = container.registry()["career-consultant"]
+    container.registry.override(
+        providers.Object(
+            container.registry()
+            | {
+                agent.name: agent.model_copy(
+                    update={"profile": agent.profile.model_copy(update=profile)}
+                )
+            }
+        )
+    )
     container.clients.artifact_service(
         client=httpx.AsyncClient(
             transport=httpx.MockTransport(prints or partial(_print, sent=[])),
@@ -87,8 +103,9 @@ def _container(
 def _client(
     model: ScriptedChatModel,
     prints: Callable[[httpx.Request], httpx.Response] | None = None,
+    **profile: object,
 ) -> TestClient:
-    return TestClient(create_app(_container(model, prints)))
+    return TestClient(create_app(_container(model, prints, **profile)))
 
 
 def _message(
@@ -285,6 +302,17 @@ def test_an_agent_that_never_stops_proposing_fails_without_a_changeset():
     assert "artifacts" not in failed
 
 
+def test_each_turn_stops_after_the_profiles_recursion_limit():
+    model = _model(READ_SKILL, _propose(GOOD_EDIT), DONE)
+
+    failed = _edit(_client(model, recursion_limit=2))
+
+    assert failed["status"]["state"] == "TASK_STATE_FAILED"
+    assert failed["status"]["message"]["parts"][0]["text"].startswith(
+        "Ran out of steps"
+    )
+
+
 def test_page_fit_deletes_untouched_bullets_until_the_page_count_holds():
     done = _edit(_client(_model(READ_SKILL, _propose(NEW_BULLET), DONE)))
 
@@ -371,3 +399,33 @@ def test_the_consultants_thinking_and_reply_stream_before_the_reply_artifact():
         ("career-consultant", {"text": "It already leads with Kubernetes."}),
     ]
     assert events[-1]["statusUpdate"]["status"]["state"] == "TASK_STATE_COMPLETED"
+
+
+def test_page_fit_deletes_at_most_the_profiles_max_bullet_trims():
+    done = _edit(
+        _client(
+            _model(READ_SKILL, _propose(NEW_BULLET), DONE),
+            page_count_preservation=PageCountPreservationConfig(max_bullet_trims=0),
+        )
+    )
+
+    [proposed] = _changesets(done)
+    assert proposed["changeset"]["edits"] == [NEW_BULLET.model_dump(mode="json")]
+
+
+def test_with_page_count_preservation_disabled_the_changeset_is_never_printed():
+    sent: list[httpx.Request] = []
+
+    done = _edit(
+        _client(
+            _model(READ_SKILL, _propose(NEW_BULLET), DONE),
+            partial(_print, sent=sent),
+            page_count_preservation=PageCountPreservationConfig(enabled=False),
+        )
+    )
+
+    [proposed] = _changesets(done)
+    assert proposed["changeset"]["edits"] == [NEW_BULLET.model_dump(mode="json")]
+    assert proposed["changeset"]["id"] != "cs1"
+    assert proposed["changeset"]["agent"] == "career-consultant"
+    assert sent == []

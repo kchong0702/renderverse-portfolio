@@ -27,10 +27,6 @@ instrumentations = ["langchain"]
 hide_inputs = false
 hide_outputs = false
 
-[documents]
-page_fit_trims = 5
-recursion_limit = 40
-
 [email]
 max_threads = 20
 max_thread_messages = 6

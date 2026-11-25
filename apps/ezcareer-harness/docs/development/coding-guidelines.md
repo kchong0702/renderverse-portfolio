@@ -46,6 +46,7 @@ Read [the architecture overview](../architecture/overview.md) for the three kind
 - Keep an exception that one package uses inside that package.
 - Put tests under `tests/`, mirroring `src/`.
 - Take settings such as URLs, limits and model names from config. Never hardcode them.
+- Put a setting that only one agent uses, such as its step limit, in that agent's `profile.yaml` as a typed field of the agent's own profile type, not in `config.toml`. That type subclasses `AgentProfile` in the agent's package, and the container passes it to `load_agents`.
 - A service calls another feature's service, not its repository.
 
 ## Prompts

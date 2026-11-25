@@ -1,5 +1,6 @@
 import json
 from functools import partial, update_wrapper
+from uuid import uuid4
 
 from document_schema import Changeset
 from langchain.tools import ToolRuntime
@@ -10,7 +11,10 @@ from pydantic import ConfigDict, Field, create_model
 
 from src.agents.career_consultant import CareerConsultantState
 from src.agents.career_consultant.checks import check_changeset, cited_values, sources
-from src.agents.career_consultant.page_fit import fit_pages
+from src.agents.career_consultant.page_fit import (
+    PageCountPreservationConfig,
+    fit_pages,
+)
 from src.clients.artifact_service import ArtifactServiceClient
 from src.shared.checks import check_round
 from src.shared.tool_artifact import StepDetail
@@ -35,7 +39,7 @@ def _citing(changeset: Changeset, facts: dict[str, str]) -> StepDetail:
 
 async def _propose_changeset(
     artifact_service: ArtifactServiceClient,
-    trims: int,
+    page_count_preservation: PageCountPreservationConfig,
     changeset: Changeset,
     runtime: ToolRuntime[None, CareerConsultantState],
 ) -> Command | str:
@@ -46,9 +50,16 @@ async def _propose_changeset(
     )["errors"]
     if errors:
         return json.dumps([error.model_dump() for error in errors])
-    changeset = await fit_pages(
-        runtime.state["document"], changeset, artifact_service, trims
+    changeset = changeset.model_copy(
+        update={"id": uuid4().hex, "agent": "career-consultant"}
     )
+    if page_count_preservation.enabled:
+        changeset = await fit_pages(
+            runtime.state["document"],
+            changeset,
+            artifact_service,
+            page_count_preservation.max_bullet_trims,
+        )
     return Command(
         update={
             "changeset": changeset,
@@ -78,13 +89,15 @@ async def _propose_changeset(
 
 
 def propose_changeset_tool(
-    artifact_service: ArtifactServiceClient, trims: int
+    artifact_service: ArtifactServiceClient,
+    page_count_preservation: PageCountPreservationConfig,
 ) -> BaseTool:
     """propose_changeset, which checks a changeset and, once it passes, prints it
-    through artifact_service and deletes up to trims bullets to keep the page count"""
+    through artifact_service and trims bullets to keep the page count when enabled"""
     return StructuredTool.from_function(
         coroutine=update_wrapper(
-            partial(_propose_changeset, artifact_service, trims), _propose_changeset
+            partial(_propose_changeset, artifact_service, page_count_preservation),
+            _propose_changeset,
         ),
         name="propose_changeset",
         args_schema=create_model(

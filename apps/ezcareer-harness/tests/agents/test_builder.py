@@ -19,6 +19,7 @@ from src.core.config import AgentSettings, Settings, get_settings
 from src.infrastructure.observability import tracing
 from src.infrastructure.observability.instrumentation import instrument
 from src.shared.run_context import RunContext
+from tests.agents.test_registry import GreeterProfile
 from tests.conftest import ScriptedChatModel
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -74,8 +75,11 @@ def test_the_registry_loads_every_agent_the_settings_list():
     assert agents["greeter"].system_prompt == FIXTURES / "greeter/prompts/system.md"
 
 
-def test_the_registry_reads_each_list_of_agents_once():
-    assert load_agents((GREETER,)) is load_agents((GREETER,))
+def test_the_registry_reads_each_agents_profile_as_its_profile_type():
+    agents = load_agents((GREETER,), {"greeter": GreeterProfile})
+
+    assert type(agents["greeter"].profile) is GreeterProfile
+    assert type(load_agents((GREETER,))["greeter"].profile) is registry.AgentProfile
 
 
 def test_config_toml_lists_agents_as_tables(tmp_path: Path, monkeypatch):

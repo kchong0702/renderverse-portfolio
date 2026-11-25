@@ -1,4 +1,8 @@
 skills: src/agents/career_consultant/skills
+recursion_limit: 40
+page_count_preservation:
+  enabled: true
+  max_bullet_trims: 5
 tool_description_overrides:
   list_design_options: >-
     Lists the templates an `update_design` edit can use for this document's

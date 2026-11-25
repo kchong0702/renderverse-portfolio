@@ -117,7 +117,7 @@ def _steps(
     namespace: tuple[str, ...],
     task: TaskPayload | TaskResultPayload,
     calls: dict[str, list[tuple[str, str]]],
-    agent_nodes: frozenset[str],
+    handoff_agents: frozenset[str],
 ) -> list[Step]:
     """The steps a graph task starts or ends: an agent's tool calls and the nodes of
     the workflows they run, or a workflow's own nodes, with the details tools set"""
@@ -151,7 +151,7 @@ def _steps(
                 )
             ]
         )
-    if not namespace and task["name"] in agent_nodes and "result" in task:
+    if not namespace and task["name"] in handoff_agents and "result" in task:
         return [
             Step(
                 id=call_id,
@@ -224,9 +224,9 @@ class Executable(BaseModel):
     """The workflow node whose model streams its thinking and text to the user;
     None streams an agent's own model and nothing of a workflow's"""
 
-    agent_nodes: frozenset[str] = frozenset()
-    """The nodes of an agent's handoff graph that each run an agent; whichever
-    runs streams its steps, thinking and text as the agent's own"""
+    handoff_agents: frozenset[str] = frozenset()
+    """The agents of a handoff graph, each a top-level node streamed as the
+    conversation's own; empty for workflows and single agents"""
 
 
 class LanggraphExecutor(AgentExecutor):
@@ -328,7 +328,7 @@ class LanggraphExecutor(AgentExecutor):
                     result = data
                     continue
                 if namespace and (
-                    namespace[0].partition(":")[0] in self.executable.agent_nodes
+                    namespace[0].partition(":")[0] in self.executable.handoff_agents
                 ):
                     namespace = namespace[1:]
                 if mode == "messages" and tuple(
@@ -365,7 +365,7 @@ class LanggraphExecutor(AgentExecutor):
                         namespace,
                         data,
                         calls,
-                        self.executable.agent_nodes,
+                        self.executable.handoff_agents,
                     ):
                         await updater.update_status(
                             TaskState.TASK_STATE_WORKING,

@@ -19,7 +19,7 @@ from langgraph.types import Command
 from pydantic import JsonValue, TypeAdapter
 from pydantic_core import to_jsonable_python
 
-from src.agents import build_agent, load_agents
+from src.agents import build_agent
 from src.agents.career_consultant import CareerConsultantState
 from src.agents.career_consultant.middlewares import inject_document_context
 from src.agents.career_consultant.tools import (
@@ -27,6 +27,7 @@ from src.agents.career_consultant.tools import (
     propose_changeset_tool,
     read_pdf_lines,
 )
+from src.app.container import Container
 from src.clients.artifact_service import ArtifactServiceClient
 from src.core.config import get_settings
 from src.infrastructure.observability import tracing
@@ -40,7 +41,7 @@ from tests.agents.test_prompt import HEADER
 from tests.conftest import ScriptedChatModel
 
 FIXTURES = Path(__file__).parent / "fixtures"
-AGENT = load_agents(get_settings().agents)["career-consultant"]
+AGENT = Container().registry()["career-consultant"]
 LETTER_TEMPLATE = {
     "id": "plain-letter",
     "name": "Plain letter",
@@ -199,7 +200,7 @@ def _agent(model: ScriptedChatModel) -> CompiledStateGraph:
             read_pdf_lines,
             read_profile_facts,
             propose_changeset_tool(
-                artifact_service, get_settings().documents.page_fit_trims
+                artifact_service, AGENT.profile.page_count_preservation
             ),
             list_design_options_tool(artifact_service),
             clarify,
