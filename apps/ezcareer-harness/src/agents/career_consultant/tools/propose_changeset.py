@@ -13,7 +13,7 @@ from src.agents.career_consultant import CareerConsultantState
 from src.agents.career_consultant.checks import check_changeset, cited_values, sources
 from src.agents.career_consultant.page_fit import fit_pages
 from src.clients.artifact_service import ArtifactServiceClient
-from src.core.config import PageCountPreservationConfig
+from src.core.config import PageCountPreservationSettings
 from src.shared.checks import check_round
 from src.shared.tool_artifact import StepDetail
 
@@ -37,7 +37,7 @@ def _citing(changeset: Changeset, facts: dict[str, str]) -> StepDetail:
 
 async def _propose_changeset(
     artifact_service: ArtifactServiceClient,
-    page_count_preservation: PageCountPreservationConfig,
+    page_count_preservation: PageCountPreservationSettings,
     changeset: Changeset,
     runtime: ToolRuntime[None, CareerConsultantState],
 ) -> Command | str:
@@ -88,7 +88,7 @@ async def _propose_changeset(
 
 def propose_changeset_tool(
     artifact_service: ArtifactServiceClient,
-    page_count_preservation: PageCountPreservationConfig,
+    page_count_preservation: PageCountPreservationSettings,
 ) -> BaseTool:
     """propose_changeset, which checks a changeset and, once it passes, prints it
     through artifact_service and trims bullets to keep the page count when enabled"""

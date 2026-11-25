@@ -271,7 +271,7 @@ class EmailSettings(BaseModel):
     """Most free slots read_free_slots shows the agent, the earliest first"""
 
 
-class PageCountPreservationConfig(BaseModel):
+class PageCountPreservationSettings(BaseModel):
     model_config = {"extra": "forbid", "frozen": True}
 
     enabled: bool = True
@@ -346,8 +346,8 @@ class Settings(BaseSettings):
     email: EmailSettings = Field(default_factory=EmailSettings)
     """Limits on the email agents read"""
 
-    page_count_preservation: PageCountPreservationConfig = Field(
-        default_factory=PageCountPreservationConfig
+    page_count_preservation: PageCountPreservationSettings = Field(
+        default_factory=PageCountPreservationSettings
     )
     """How propose_changeset keeps a document's page count"""
 
@@ -413,7 +413,7 @@ __all__ = [
     "GraphProfile",
     "Instrumentation",
     "ObservabilitySettings",
-    "PageCountPreservationConfig",
+    "PageCountPreservationSettings",
     "Settings",
     "TraceRedactionSettings",
     "get_settings",

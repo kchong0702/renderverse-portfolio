@@ -20,7 +20,7 @@ from pydantic_core import to_jsonable_python
 
 from src.app.app import create_app
 from src.app.container import Container
-from src.core.config import PageCountPreservationConfig, get_settings
+from src.core.config import PageCountPreservationSettings, get_settings
 from tests.agents.career_consultant.test_career_consultant import (
     BAD_EDIT,
     DONE,
@@ -74,7 +74,7 @@ PLATFORM_JOB = {
 def _container(
     model: ScriptedChatModel,
     prints: Callable[[httpx.Request], httpx.Response] | None = None,
-    page_count_preservation: PageCountPreservationConfig | None = None,
+    page_count_preservation: PageCountPreservationSettings | None = None,
     **profile: object,
 ) -> Container:
     """A container whose career-consultant runs on model, prints with prints, uses any
@@ -112,7 +112,7 @@ def _container(
 def _client(
     model: ScriptedChatModel,
     prints: Callable[[httpx.Request], httpx.Response] | None = None,
-    page_count_preservation: PageCountPreservationConfig | None = None,
+    page_count_preservation: PageCountPreservationSettings | None = None,
     **profile: object,
 ) -> TestClient:
     return TestClient(
@@ -417,7 +417,7 @@ def test_page_fit_deletes_at_most_max_bullet_trims():
     done = _edit(
         _client(
             _model(READ_SKILL, _propose(NEW_BULLET), DONE),
-            page_count_preservation=PageCountPreservationConfig(max_bullet_trims=0),
+            page_count_preservation=PageCountPreservationSettings(max_bullet_trims=0),
         )
     )
 
@@ -432,7 +432,7 @@ def test_with_page_count_preservation_disabled_the_changeset_is_never_printed():
         _client(
             _model(READ_SKILL, _propose(NEW_BULLET), DONE),
             partial(_print, sent=sent),
-            page_count_preservation=PageCountPreservationConfig(enabled=False),
+            page_count_preservation=PageCountPreservationSettings(enabled=False),
         )
     )
 

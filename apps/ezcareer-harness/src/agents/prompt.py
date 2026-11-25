@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from pydantic_core import PydanticCustomError
 
 
-class PromptHeader(BaseModel):
+class PromptMeta(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         frozen=True,
@@ -41,12 +41,12 @@ class PromptHeader(BaseModel):
         return version
 
 
-def _split(path: Path) -> tuple[PromptHeader, str]:
-    """The file's YAML front matter as a PromptHeader, and the text after it"""
+def _split(path: Path) -> tuple[PromptMeta, str]:
+    """The file's YAML front matter as a PromptMeta, and the text after it"""
     found = re.fullmatch(r"---\n(.*?)\n---(?:\n(.*))?", path.read_text(), re.DOTALL)
     if found is None:
         raise ValueError(f"{path} doesn't start with --- front matter")
-    return PromptHeader.model_validate(yaml.safe_load(found[1])), found[2] or ""
+    return PromptMeta.model_validate(yaml.safe_load(found[1])), found[2] or ""
 
 
 def is_active(path: Path) -> bool:
@@ -56,7 +56,7 @@ def is_active(path: Path) -> bool:
 
 def read_prompt(path: Path) -> str:
     """The prompt text after the file's YAML front matter, which must be a
-    PromptHeader whose status is active"""
+    PromptMeta whose status is active"""
     header, text = _split(path)
     if header.status == "archived":
         raise ValueError(f"{path} is archived")
