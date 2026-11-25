@@ -60,7 +60,7 @@ export type ChangeChoice = "current" | "conflict" | "same" | "different";
 
 export interface NetworkingText {
   text: string;
-  facts: string[];
+  fact_ids: string[];
 }
 
 export interface Networking {

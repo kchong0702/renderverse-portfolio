@@ -153,7 +153,7 @@ export default function NetworkingTab({ entries, skills }: NetworkingTabProps) {
             "headline",
             t("data.networking.toPaste"),
             copyText.headline?.text ?? "",
-            copyText.headline?.facts ?? [],
+            copyText.headline?.fact_ids ?? [],
           )}
         </div>
       </Section>
@@ -167,7 +167,7 @@ export default function NetworkingTab({ entries, skills }: NetworkingTabProps) {
             "summary",
             t("data.networking.toPaste"),
             copyText.summary?.text ?? "",
-            copyText.summary?.facts ?? [],
+            copyText.summary?.fact_ids ?? [],
           )}
         </div>
       </Section>
@@ -215,7 +215,7 @@ export default function NetworkingTab({ entries, skills }: NetworkingTabProps) {
                   fact,
                   t("data.networking.description"),
                   description?.text ?? "",
-                  description?.facts ?? [],
+                  description?.fact_ids ?? [],
                 )}
               </div>
             );
