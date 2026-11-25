@@ -2,6 +2,8 @@ import ast
 import re
 from pathlib import Path
 
+from src.agents.prompt import read_prompt
+
 SRC = Path(__file__).resolve().parents[1] / "src"
 
 # Features never import each other; find_jobs runs analyse_job through its barrel
@@ -166,9 +168,10 @@ def test_tools_check_catches_a_features_tools(tmp_path: Path):
 def misnamed_agents(root: Path) -> list[str]:
     return sorted(
         str(prompt.relative_to(root.parent))
-        for prompt in root.glob("agents/*/system.md")
+        for prompt in root.glob("agents/*/prompts/system*.md")
         if not re.match(
-            rf"You are {prompt.parent.name.replace('_', '-')}[.,]", prompt.read_text()
+            rf"You are {prompt.parent.parent.name.replace('_', '-')}[.,]",
+            read_prompt(prompt),
         )
     )
 
@@ -183,7 +186,10 @@ def test_name_check_catches_a_prompt_naming_another_agent(tmp_path: Path):
         ("job_analyst", "You are job-analyst. You read jobs."),
         ("document_analyst", "You are a career consultant. You read files."),
     ):
-        (root / "agents" / name).mkdir(parents=True)
-        (root / "agents" / name / "system.md").write_text(opening)
+        (root / "agents" / name / "prompts").mkdir(parents=True)
+        (root / "agents" / name / "prompts" / "system.md").write_text(
+            "---\nversion: '1.0'\ndescription: d\nauthor: a\ndate: 2026-11-25\n"
+            f"status: active\n---\n{opening}"
+        )
 
-    assert misnamed_agents(root) == ["src/agents/document_analyst/system.md"]
+    assert misnamed_agents(root) == ["src/agents/document_analyst/prompts/system.md"]

@@ -192,7 +192,7 @@ class DraftReplyInput(BaseModel):
     timezone: str
     """The time zone the slots are read in"""
 
-    facts: list[ProfileFact]
+    profile_facts: list[ProfileFact]
     """What the user has done and knows"""
 
 

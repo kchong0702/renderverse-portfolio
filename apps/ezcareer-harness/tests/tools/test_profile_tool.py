@@ -34,7 +34,7 @@ async def test_agent_reads_the_facts_passed_with_the_run():
     result = await agent.ainvoke(
         {
             "messages": [HumanMessage("What do I know?")],
-            "facts": [
+            "profile_facts": [
                 ProfileFact(
                     id="acme",
                     text="Backend engineer at Acme",

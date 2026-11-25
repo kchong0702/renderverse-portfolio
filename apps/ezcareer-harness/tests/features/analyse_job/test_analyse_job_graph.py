@@ -6,7 +6,6 @@ import respx
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.errors import GraphRecursionError
 
-from src.agents import load_agents
 from src.app.container import Container
 from src.core.config import get_settings, reload_settings
 from src.core.errors import ExecuteError
@@ -19,7 +18,7 @@ URL = "https://jobs.example.com/acme/senior-backend"
 POSTING = (Path(__file__).parent / "fixtures" / "posting.html").read_text()
 INPUT = {
     "url": URL,
-    "facts": [
+    "profile_facts": [
         {
             "id": "acme",
             "text": "Backend engineer at Initech, Python and Django",
@@ -153,7 +152,7 @@ async def test_trace_records_the_agent_hash_check_rounds_and_tool_calls(
         "not_verbatim"
     )
     assert {s.context.trace_id for s in exporter.spans} == {checks[0].context.trace_id}
-    assert load_agents(get_settings().agents)["job-analyst"].hash in {
+    assert Container().registry()["job-analyst"].hash in {
         json.loads(s.attributes["metadata"]).get("agent_hash")
         for s in exporter.spans
         if "metadata" in s.attributes

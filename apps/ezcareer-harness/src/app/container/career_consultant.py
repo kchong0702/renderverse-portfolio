@@ -2,19 +2,24 @@ from dependency_injector import containers, providers
 
 from src.agents import build_agent
 from src.agents.career_consultant import CareerConsultantState
-from src.agents.career_consultant.middlewares import document_prompt
+from src.agents.career_consultant.middlewares import inject_document_context
 from src.agents.career_consultant.tools import (
     list_design_options_tool,
-    propose_changeset,
+    propose_changeset_tool,
     read_pdf_lines,
 )
+from src.agents.middlewares import ParentHandoffMiddleware
 from src.app.a2a import Executable
 from src.clients.artifact_service import ArtifactServiceClient
-from src.features import write_document, write_networking
+from src.core.config import Settings
+from src.features import write_networking
 from src.tools import clarify, read_profile_facts
 
 
 class CareerConsultantContainer(containers.DeclarativeContainer):
+    settings = providers.Dependency(instance_of=Settings)
+    """The app's settings"""
+
     registry = providers.Dependency(instance_of=dict)
     """Every registered agent, by name"""
 
@@ -24,6 +29,9 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
     artifact_service = providers.Dependency(instance_of=ArtifactServiceClient)
     """Lists templates and prints documents"""
 
+    profile = registry.provided["career-consultant"].profile
+    """career-consultant's own settings, from its profile.yaml"""
+
     agent = providers.Singleton(
         build_agent,
         agent=registry.provided["career-consultant"],
@@ -31,10 +39,14 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
         tools=(read_profile_facts, clarify),
         skill_tools=providers.List(
             read_pdf_lines,
-            propose_changeset,
+            providers.Callable(
+                propose_changeset_tool,
+                artifact_service,
+                settings.provided.page_count_preservation,
+            ),
             providers.Callable(list_design_options_tool, artifact_service),
         ),
-        middleware=(document_prompt,),
+        middleware=(inject_document_context, ParentHandoffMiddleware()),
         state_schema=CareerConsultantState,
     )
     """The career-consultant agent, built once"""
@@ -43,26 +55,13 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
         Executable,
         kind="agent",
         name="career-consultant",
-        description="Talk to career-consultant about the user's résumé, CV, cover letter or job portal content",
+        description="Talk to career-consultant about one of the user's résumés, CVs or cover letters, sent as the run's document with its document_id and PDF lines; it proposes checked edits to it",
         graph=agent.provided.copy.call(
             update=providers.Dict(checkpointer=checkpointer)
-        ),
+        ).provided.with_config.call(recursion_limit=profile.provided.recursion_limit),
     )
-    """career-consultant served as an agent the user talks to"""
-
-    edit_document_executable = providers.Singleton(
-        Executable,
-        name="edit-document",
-        description="Answer the user's message about one résumé, CV or cover letter, by its id, proposing a checked changeset when an edit helps",
-        reply_node="agent",
-        graph=providers.Singleton(
-            write_document.build_graph,
-            agent=agent,
-            artifact_service=artifact_service,
-            checkpointer=checkpointer,
-        ),
-    )
-    """The write-document workflow served over A2A as edit-document"""
+    """career-consultant served as an agent the user talks to, each turn stopped
+    after its profile's recursion_limit steps"""
 
     write_networking_executable = providers.Singleton(
         Executable,

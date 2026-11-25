@@ -113,36 +113,37 @@ class ChangesetDecision(BaseModel):
 
 class DocumentMessage(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
-    """What the user asks edit-document about the document"""
+    """What the user asks career-consultant about the document"""
 
 
 class EditDocumentInput(BaseModel):
     document_id: UUID
-    """The document to edit, which edit-document fetches from ops-api"""
+    """The document to edit"""
 
-    facts: list[ProfileFact]
+    document: AnyDocument
+    """Its current draft; its assets' bytes are not sent, as ops-api keeps none"""
+
+    pdf_lines: list[SourceLine]
+    """The imported file's lines; empty for a document not imported"""
+
+    profile_facts: list[ProfileFact]
     """The user's profile facts the edits may cite"""
 
 
-class EditDocumentOutput(BaseModel):
-    reply: str
-    """What career-consultant tells the user"""
+class DocumentContent(BaseModel):
+    document: AnyDocument
+    """The current draft; its assets' bytes are not sent, as ops-api keeps none"""
 
-    changeset: Changeset | None
-    """The checked edits it proposes; None when it only answered"""
+    pdf_lines: list[SourceLine]
+    """The imported file's lines; empty for a document not imported"""
 
 
 class DocumentsAnswer(BaseModel):
     documents: list[DocumentMatch]
     """The user's documents, the best match first"""
 
-
-class DocumentAnswer(BaseModel):
-    document: AnyDocument
-    """The current draft; its assets' bytes are not sent, as ops-api keeps none"""
-
-    lines: list[SourceLine]
-    """The imported file's lines; empty for a document not imported"""
+    content: DocumentContent | None
+    """The best match's draft and lines; None when nothing matches"""
 
 
 class ChangesetArtifact(BaseModel):
@@ -150,7 +151,7 @@ class ChangesetArtifact(BaseModel):
     """The document the edits are for"""
 
     changeset: Changeset
-    """The edits career-director proposes"""
+    """The edits career-consultant proposes"""
 
 
 class ChangesetProposed(BaseModel):
@@ -183,7 +184,7 @@ __all__ = [
     "ChangesetDecision",
     "ChangesetProposed",
     "ChangesetRead",
-    "DocumentAnswer",
+    "DocumentContent",
     "DocumentCreate",
     "DocumentEdits",
     "DocumentMatch",
@@ -193,7 +194,6 @@ __all__ = [
     "DocumentUpdate",
     "DocumentsAnswer",
     "EditDocumentInput",
-    "EditDocumentOutput",
     "LineRead",
     "TailoredDocument",
     "VersionCreate",

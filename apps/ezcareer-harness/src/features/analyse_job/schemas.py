@@ -109,7 +109,7 @@ class JobAnalysis(JobRequirements):
     url: Url
     """Where the posting was fetched from"""
 
-    lines: list[PostingLine]
+    posting_lines: list[PostingLine]
     """The posting's text, so citations can be shown"""
 
     filters: list[HardFilter]

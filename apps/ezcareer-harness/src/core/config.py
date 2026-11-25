@@ -200,7 +200,7 @@ class AgentSettings(BaseModel):
 
     path: Path
     """The agent's profile.yaml, relative to the app folder; its folder holds
-    system.md and skills/"""
+    prompts/ and skills/"""
 
     family: Family
     """Model family the model belongs to, such as glm, which picks its provider"""
@@ -271,6 +271,16 @@ class EmailSettings(BaseModel):
     """Most free slots read_free_slots shows the agent, the earliest first"""
 
 
+class PageCountPreservationSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    enabled: bool = True
+    """Whether propose_changeset trims bullets to keep a document's page count"""
+
+    max_bullet_trims: int = Field(default=5, ge=0)
+    """Most bullets propose_changeset deletes to keep a document's page count"""
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EZCAREER_HARNESS_",
@@ -304,9 +314,13 @@ class Settings(BaseSettings):
     """Each model's deepagents harness profile, by provider or provider:model,
     shared by every agent on that model; relative to the app folder"""
 
-    @field_validator("harness_profiles")
+    middleware_prompts: Path = _ROOT_PATH / "src/agents/prompts/middleware"
+    """Folder of the middlewares' prompt files, one per middleware module, such as
+    parent_handoff.md; relative to the app folder"""
+
+    @field_validator("harness_profiles", "middleware_prompts")
     @classmethod
-    def _harness_profiles_from_app_folder(cls, path: Path) -> Path:
+    def _paths_from_app_folder(cls, path: Path) -> Path:
         """Reads a relative path from the app folder"""
         return path if path.is_absolute() else _ROOT_PATH / path
 
@@ -331,6 +345,11 @@ class Settings(BaseSettings):
 
     email: EmailSettings = Field(default_factory=EmailSettings)
     """Limits on the email agents read"""
+
+    page_count_preservation: PageCountPreservationSettings = Field(
+        default_factory=PageCountPreservationSettings
+    )
+    """How propose_changeset keeps a document's page count"""
 
     @classmethod
     @override
@@ -394,6 +413,7 @@ __all__ = [
     "GraphProfile",
     "Instrumentation",
     "ObservabilitySettings",
+    "PageCountPreservationSettings",
     "Settings",
     "TraceRedactionSettings",
     "get_settings",

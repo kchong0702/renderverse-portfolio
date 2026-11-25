@@ -91,18 +91,37 @@ LETTER_EDITS = {
 
 WIDGET = {"label": "Did you use Kafka at work?", "submit_btn": "Send"}
 
+LINE = {
+    "id": "p1.s1",
+    "text": "Kelvin Chong",
+    "page": 1,
+    "x0": 72.0,
+    "top": 60.5,
+    "x1": 180.25,
+    "bottom": 74.0,
+}
 
-def _proposed(changeset: dict) -> list[dict]:
-    """edit-document's streamed turn replying with changeset"""
+
+def _tailored(document_id: str, changeset: dict) -> list[dict]:
+    """career-consultant's streamed turn publishing changeset for the document, then
+    replying"""
     return [
         stream_task(),
         stream_chunk(
-            "a-1",
-            "edit-document",
-            {"data": {"reply": "Tailored to the posting.", "changeset": changeset}},
+            "changeset-1",
+            "changeset",
+            {"data": {"document_id": document_id, "changeset": changeset}},
         ),
+        stream_chunk("a-1", "career-consultant", {"text": "Tailored to the posting."}),
         stream_status("COMPLETED"),
     ]
+
+
+def _proposed(changeset: dict):
+    """_tailored for the document the turn it answers was sent"""
+    return lambda sent: _tailored(
+        sent["params"]["message"]["parts"][1]["data"]["document_id"], changeset
+    )
 
 
 async def _follow(client, document_id: str) -> list[dict]:
@@ -146,17 +165,7 @@ async def test_a_copy_shows_the_lines_of_its_masters_import(app, client, harness
                             "pages": 1,
                             "last_page_fill": 0.4,
                         },
-                        "lines": [
-                            {
-                                "id": "p1.s1",
-                                "text": "Kelvin Chong",
-                                "page": 1,
-                                "x0": 72.0,
-                                "top": 60.5,
-                                "x1": 180.25,
-                                "bottom": 74.0,
-                            }
-                        ],
+                        "pdf_lines": [LINE],
                         "suggestion": {"template": "serif", "columns": 1, "traits": []},
                     }
                 }
@@ -178,6 +187,8 @@ async def test_a_copy_shows_the_lines_of_its_masters_import(app, client, harness
     copy = (await client.get(f"{DOCUMENTS}/{tailored['resume']['document_id']}")).json()
     assert copy["lines"] == [{"id": "p1.s1", "text": "Kelvin Chong"}]
     await _follow(client, copy["id"])
+    [*_, turn] = (sent["params"]["message"] for sent in a2a_sent(harness))
+    assert turn["parts"][1]["data"]["pdf_lines"] == [LINE]
 
 
 async def test_tailoring_copies_each_master_and_starts_its_chat_turn(client, harness):
@@ -230,6 +241,8 @@ async def test_tailoring_copies_each_master_and_starts_its_chat_turn(client, har
         "- Kubernetes in production (partly)."
     )
     assert first["parts"][1]["data"]["document_id"] == copy_id
+    assert first["parts"][1]["data"]["document"] == resume["body"]
+    assert first["parts"][1]["data"]["pdf_lines"] == []
     second = sent[f"{me['id']}:document:{letter_id}"]
     assert second["parts"][0]["text"].startswith("Tailor this cover letter to")
 
@@ -310,7 +323,7 @@ async def test_a_question_is_answered_in_the_copys_chat(client, harness):
         "document_id"
     ]
     asked = await _follow(client, document_id)
-    harness.outcomes = [_proposed(RESUME_EDITS)]
+    harness.outcomes = [_tailored(document_id, RESUME_EDITS)]
 
     done = await client.post(
         f"{DOCUMENTS}/{document_id}/chat/tasks/task-1/answer",

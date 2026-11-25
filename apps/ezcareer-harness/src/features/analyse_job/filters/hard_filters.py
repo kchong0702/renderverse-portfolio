@@ -16,7 +16,8 @@ def hard_filters(
         filters.append(
             HardFilter(
                 kind=FilterKind.YEARS,
-                passed=experience_years(profile.facts, today) >= terms.min_years.value,
+                passed=experience_years(profile.profile_facts, today)
+                >= terms.min_years.value,
                 line_ids=terms.min_years.line_ids,
             )
         )

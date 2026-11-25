@@ -11,9 +11,11 @@ from pydantic_core import to_jsonable_python
 from src.app.app import create_app
 from src.app.container import Container
 from tests.agents.career_consultant import test_career_consultant as career_consultant
+from tests.agents.career_consultant.test_career_consultant import _print
 from tests.agents.career_director.test_career_director import (
     BACKEND,
     REQUEST,
+    _documents,
     _find,
     _model,
 )
@@ -23,7 +25,6 @@ from tests.agents.job_analyst.test_search_jobs import FOUND
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.analyse_job import test_analyse_job_graph as analyse_job
-from tests.features.write_document.test_write_document_graph import _loaded, _print
 
 
 def _send(
@@ -128,7 +129,7 @@ def test_career_director_analyses_the_posting_at_a_url_through_analyse_job():
             {"text": f"How well do I fit {analyse_job.URL}?"},
             {
                 "data": {
-                    "facts": analyse_job.INPUT["facts"],
+                    "profile_facts": analyse_job.INPUT["profile_facts"],
                     "preferences": analyse_job.INPUT["preferences"],
                 }
             },
@@ -159,7 +160,7 @@ def test_career_director_finds_jobs_for_the_users_preferences_through_find_jobs(
             {"text": "Find me remote jobs"},
             {
                 "data": {
-                    "facts": analyse_job.INPUT["facts"],
+                    "profile_facts": analyse_job.INPUT["profile_facts"],
                     "preferences": {"work_modes": ["remote"]},
                 }
             },
@@ -195,7 +196,12 @@ def test_career_director_hears_why_find_jobs_could_not_search():
         client,
         [
             {"text": "Find me jobs"},
-            {"data": {"facts": analyse_job.INPUT["facts"], "preferences": {}}},
+            {
+                "data": {
+                    "profile_facts": analyse_job.INPUT["profile_facts"],
+                    "preferences": {},
+                }
+            },
         ],
     )
     done = _send(client, [{"data": {"error": reason}}], task=asked)
@@ -210,14 +216,16 @@ def _director_request() -> list[dict[str, JsonValue]]:
         {"text": REQUEST},
         {
             "data": {
-                "facts": to_jsonable_python(career_consultant._state()["facts"]),
+                "profile_facts": to_jsonable_python(
+                    career_consultant._state()["profile_facts"]
+                ),
                 "preferences": {},
             }
         },
     ]
 
 
-def test_a_found_document_is_edited_and_its_changeset_is_published_as_an_artifact():
+def test_a_found_document_is_handed_to_career_consultant_whose_changeset_is_an_artifact():
     consultant = career_consultant._model(
         career_consultant.READ_SKILL,
         career_consultant._propose(career_consultant.GOOD_EDIT),
@@ -225,30 +233,16 @@ def test_a_found_document_is_edited_and_its_changeset_is_published_as_an_artifac
     )
     director = _model(
         _find(name="backend résumé", kind="resume"),
-        _call("edit_document", document_id="doc-1", request=REQUEST),
-        AIMessage("I proposed one edit."),
+        _call("handoff_document", agent="career-consultant", document_id="doc-1"),
     )
     client = TestClient(create_app(_container(_model(), consultant, director)))
 
     finding = _send(client, _director_request())
-    loading = _send(client, [{"data": {"documents": [BACKEND]}}], task=finding)
-    done = _send(client, [{"data": _loaded()}], task=loading)
+    done = _send(client, [{"data": _documents(BACKEND)}], task=finding)
 
-    assert [
-        (
-            task["status"]["state"],
-            [p["data"] for p in task["status"]["message"]["parts"]],
-        )
-        for task in (finding, loading)
-    ] == [
-        (
-            "TASK_STATE_INPUT_REQUIRED",
-            [{"execute_tool": "documents", "name": "backend résumé", "kind": "resume"}],
-        ),
-        (
-            "TASK_STATE_INPUT_REQUIRED",
-            [{"execute_tool": "document", "id": "doc-1"}],
-        ),
+    assert finding["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
+    assert [p["data"] for p in finding["status"]["message"]["parts"]] == [
+        {"execute_tool": "documents", "name": "backend résumé", "kind": "resume"}
     ]
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
     [changeset] = [a for a in done["artifacts"] if a["name"] == "changeset"]
@@ -258,7 +252,7 @@ def test_a_found_document_is_edited_and_its_changeset_is_published_as_an_artifac
         career_consultant.GOOD_EDIT.model_dump(mode="json")
     ]
     [reply] = [a for a in done["artifacts"] if a["name"] == "career-director"]
-    assert reply["parts"][0]["text"] == "I proposed one edit."
+    assert reply["parts"][0]["text"] == career_consultant.DONE.text
 
 
 def test_a_documents_answer_ops_api_cannot_read_fails_the_turn():
@@ -294,20 +288,21 @@ def test_an_unclear_document_shows_the_user_a_document_picker():
     ]
 
 
-def test_a_workflows_question_reaches_the_user_and_their_answer_finishes_the_turn():
+def test_the_consultants_question_reaches_the_user_and_their_answer_finishes_the_turn():
     consultant = career_consultant._model(
         _call("clarify", question="Which bullet?"),
+        career_consultant.READ_SKILL,
         career_consultant._propose(career_consultant.GOOD_EDIT),
         career_consultant.DONE,
     )
     director = _model(
-        _call("edit_document", document_id="doc-1", request=REQUEST),
-        AIMessage("I proposed one edit."),
+        _find(name="backend résumé"),
+        _call("handoff_document", agent="career-consultant", document_id="doc-1"),
     )
     client = TestClient(create_app(_container(_model(), consultant, director)))
 
-    loading = _send(client, _director_request())
-    asked = _send(client, [{"data": _loaded()}], task=loading)
+    finding = _send(client, _director_request())
+    asked = _send(client, [{"data": _documents(BACKEND)}], task=finding)
     done = _send(client, [{"data": {"input": "The queue one"}}], task=asked)
 
     assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
@@ -318,15 +313,15 @@ def test_a_workflows_question_reaches_the_user_and_their_answer_finishes_the_tur
     }
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
     [reply] = [a for a in done["artifacts"] if a["name"] == "career-director"]
-    assert reply["parts"][0]["text"] == "I proposed one edit."
+    assert reply["parts"][0]["text"] == career_consultant.DONE.text
+    [changeset] = [a for a in done["artifacts"] if a["name"] == "changeset"]
+    assert changeset["parts"][0]["data"]["document_id"] == "doc-1"
     [answer] = [
         m.text
         for m in consultant.requests[-1]
         if isinstance(m, ToolMessage) and m.name == "clarify"
     ]
     assert answer == "The queue one"
-    [report] = [m for m in director.requests[-1] if isinstance(m, ToolMessage)]
-    assert report.text.startswith(career_consultant.DONE.text)
     assert len(director.requests) == 2
 
 
@@ -366,7 +361,12 @@ def test_career_director_streams_its_thinking_steps_and_reply():
         TestClient(create_app(container)),
         [
             {"text": f"How well do I fit {analyse_job.URL}?"},
-            {"data": {"facts": analyse_job.INPUT["facts"], "preferences": {}}},
+            {
+                "data": {
+                    "profile_facts": analyse_job.INPUT["profile_facts"],
+                    "preferences": {},
+                }
+            },
         ],
     )
 
@@ -419,32 +419,62 @@ def test_finished_steps_carry_what_their_tools_found_and_worked_on():
     )
     director = _model(
         _find(name="backend résumé", kind="resume"),
-        _call("edit_document", document_id="doc-1", request=REQUEST),
-        AIMessage("I proposed one edit."),
+        _call("handoff_document", agent="career-consultant", document_id="doc-1"),
     )
     client = TestClient(create_app(_container(_model(), consultant, director)))
 
     finding = _stream(client, _director_request())
     task = finding[-1]["statusUpdate"]
-    loading = _stream(client, [{"data": {"documents": [BACKEND]}}], task=task)
-    done = _stream(client, [{"data": _loaded()}], task=task)
+    done = _stream(client, [{"data": _documents(BACKEND)}], task=task)
 
     details = [
         (s["name"], s["detail"])
-        for s in _steps(finding + loading + done)
+        for s in _steps(finding + done)
         if s["status"] == "done"
     ]
     assert details == [
         ("find_documents", "1 résumé"),
-        ("load", None),
+        ("handoff_document", "career-consultant"),
+        ("read_file", None),
         (
-            "agent",
+            "propose_changeset",
             "citing Ran production workloads on Kubernetes at Lumen Pay since 2022",
         ),
-        ("page_fit", None),
-        ("output", None),
-        ("edit_document", "Backend résumé"),
     ]
+
+
+def test_a_second_handoff_in_one_reply_fails_on_its_own_step():
+    director = _model(
+        _find(name="backend résumé", kind="resume"),
+        AIMessage(
+            "",
+            tool_calls=[
+                {
+                    "name": "handoff_document",
+                    "args": {"agent": "career-consultant", "document_id": "doc-1"},
+                    "id": "first",
+                },
+                {
+                    "name": "handoff_document",
+                    "args": {"agent": "career-consultant", "document_id": "doc-1"},
+                    "id": "second",
+                },
+            ],
+        ),
+    )
+    consultant = career_consultant._model(career_consultant.DONE)
+    client = TestClient(create_app(_container(_model(), consultant, director)))
+
+    finding = _stream(client, _director_request())
+    done = _stream(
+        client, [{"data": _documents(BACKEND)}], task=finding[-1]["statusUpdate"]
+    )
+
+    assert {
+        (s["id"], s["status"])
+        for s in _steps(done)
+        if s["name"] == "handoff_document" and s["status"] != "running"
+    } == {("first", "done"), ("second", "failed")}
 
 
 def test_email_is_handed_to_productivity_assistant_which_answers_and_keeps_the_next_turn():
@@ -467,7 +497,7 @@ def test_email_is_handed_to_productivity_assistant_which_answers_and_keeps_the_n
         client,
         [
             {"text": "Anything else from Acme?"},
-            {"data": {"facts": [], "preferences": {}}},
+            {"data": {"profile_facts": [], "preferences": {}}},
         ],
         context=task["contextId"],
     )

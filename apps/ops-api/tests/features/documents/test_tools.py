@@ -5,15 +5,27 @@ from src.features.documents.models import Document
 from tests.conftest import (
     PREFIX,
     a2a_sent,
+    a2a_task,
     interrupt_part,
     sse_events,
     stream_chunk,
     stream_status,
     stream_task,
+    work,
 )
 
 DOCUMENTS = f"{PREFIX}/documents"
 CHAT = f"{PREFIX}/assistant/chats/9b2d6f3e-1c4a-4e8b-9f0d-2a7c5e1b3d4f"
+
+LINE = {
+    "id": "p1.s1",
+    "text": "Kelvin Chong",
+    "page": 1,
+    "x0": 72.0,
+    "top": 60.5,
+    "x1": 180.25,
+    "bottom": 74.0,
+}
 
 RESUME = {
     "kind": "resume",
@@ -64,6 +76,17 @@ async def test_documents_are_found_by_a_misspelled_name_best_first(client, harne
         {"id": d["id"], "kind": d["kind"], "title": d["title"], "master": False}
         for d in (northwind, northwind_cv)
     ]
+    assert answer["content"] == {"document": northwind["body"], "pdf_lines": []}
+
+
+async def test_no_match_comes_with_no_content(client, harness):
+    await _create(client, "Résumé for Lumen Pay")
+
+    answer = await _answer(
+        client, harness, {"execute_tool": "documents", "name": "zebra"}
+    )
+
+    assert answer == {"documents": [], "content": None}
 
 
 async def test_documents_are_found_by_part_of_a_name_and_their_kind(client, harness):
@@ -104,25 +127,66 @@ async def test_documents_without_a_name_list_the_master_then_the_newest(
     ]
 
 
-async def test_a_document_of_another_user_is_not_executed(app, client, harness):
+async def test_an_imported_best_match_comes_with_its_lines(app, client, harness):
+    harness.outcomes = [
+        a2a_task(
+            "COMPLETED",
+            artifact_parts=[
+                {
+                    "data": {
+                        "document": RESUME,
+                        "pdf": "JVBERi0=",
+                        "report": {
+                            "render_id": "0" * 64,
+                            "pages": 1,
+                            "last_page_fill": 0.4,
+                        },
+                        "pdf_lines": [LINE],
+                        "suggestion": {"template": "serif", "columns": 1, "traits": []},
+                    }
+                }
+            ],
+        )
+    ]
+    await client.post(
+        f"{DOCUMENTS}/imports",
+        files={"file": ("resume.pdf", b"%PDF-1.7 resume", "application/pdf")},
+    )
+    await work(app)
+    [imported] = (await client.get(DOCUMENTS)).json()
+
+    answer = await _answer(client, harness, {"execute_tool": "documents"})
+
+    assert [d["id"] for d in answer["documents"]] == [imported["id"]]
+    assert answer["content"]["pdf_lines"] == [LINE]
+
+
+async def test_another_users_documents_are_not_found(app, client, harness):
     mine = await _create(client, "Master résumé")
     async with app.state.session_factory() as session:
         other = User(email="other@example.com")
         session.add(other)
         await session.flush()
-        theirs = Document(
-            user_id=other.id,
-            kind="resume",
-            title="Theirs",
-            body=(await session.get(Document, UUID(mine["id"]))).body,
+        session.add(
+            Document(
+                user_id=other.id,
+                kind="resume",
+                title="Theirs",
+                body=(await session.get(Document, UUID(mine["id"]))).body,
+            )
         )
-        session.add(theirs)
         await session.commit()
 
-    answer = await _answer(
-        client, harness, {"execute_tool": "document", "id": str(theirs.id)}
-    )
-    own = await _answer(client, harness, {"execute_tool": "document", "id": mine["id"]})
+    answer = await _answer(client, harness, {"execute_tool": "documents"})
 
-    assert answer == {"error": "No such document"}
-    assert own == {"document": mine["body"], "lines": []}
+    assert [d["id"] for d in answer["documents"]] == [mine["id"]]
+
+
+async def test_one_document_is_not_executed_on_its_own(client, harness):
+    mine = await _create(client, "Master résumé")
+
+    answer = await _answer(
+        client, harness, {"execute_tool": "document", "id": mine["id"]}
+    )
+
+    assert answer == {"error": "Ops has no document tool"}

@@ -38,7 +38,7 @@ async def test_a_reply_offers_only_free_slots_and_lists_them_in_the_users_zone()
             "thread": THREAD,
             "free_slots": FREE_SLOTS,
             "timezone": "Asia/Kuala_Lumpur",
-            "facts": FACTS,
+            "profile_facts": FACTS,
         }
     )
 
@@ -70,7 +70,12 @@ async def test_only_the_earliest_twelve_free_slots_reach_the_agent():
     model = ScriptedChatModel(replies=[_draft(12, 13), _draft(12)])
 
     result = await _graph(model).ainvoke(
-        {"thread": THREAD, "free_slots": many, "timezone": "UTC", "facts": FACTS}
+        {
+            "thread": THREAD,
+            "free_slots": many,
+            "timezone": "UTC",
+            "profile_facts": FACTS,
+        }
     )
 
     brief = model.requests[0][1].text
@@ -131,7 +136,7 @@ def test_draft_reply_is_served_over_a2a():
                                 "application": None,
                                 "free_slots": FREE_SLOTS,
                                 "timezone": "Europe/London",
-                                "facts": FACTS,
+                                "profile_facts": FACTS,
                             }
                         },
                     ],
@@ -160,7 +165,7 @@ async def test_only_the_latest_messages_of_a_long_thread_reach_the_agent_cut_to_
     model = ScriptedChatModel(replies=[_draft()])
 
     await _graph(model).ainvoke(
-        {"thread": thread, "free_slots": [], "timezone": "UTC", "facts": FACTS}
+        {"thread": thread, "free_slots": [], "timezone": "UTC", "profile_facts": FACTS}
     )
 
     brief = model.requests[0][1].text

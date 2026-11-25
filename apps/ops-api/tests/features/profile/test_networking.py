@@ -40,11 +40,11 @@ async def test_the_copy_is_written_from_every_fact_and_kept(client, harness):
     used = await _role(client, "Senior Engineer", archived=False)
     archived = await _role(client, "Engineer", archived=True)
     copy = {
-        "headline": {"text": "Backend engineer for payments", "facts": [used]},
-        "summary": {"text": "I build payment systems.", "facts": [used, archived]},
+        "headline": {"text": "Backend engineer for payments", "fact_ids": [used]},
+        "summary": {"text": "I build payment systems.", "fact_ids": [used, archived]},
         "descriptions": [
-            {"fact": used, "text": "Led payments.", "facts": [used]},
-            {"fact": archived, "text": "Built ledgers.", "facts": [archived]},
+            {"fact": used, "text": "Led payments.", "fact_ids": [used]},
+            {"fact": archived, "text": "Built ledgers.", "fact_ids": [archived]},
         ],
     }
     harness.outcomes = [_written(copy)]
@@ -61,7 +61,7 @@ async def test_the_copy_is_written_from_every_fact_and_kept(client, harness):
     data = a2a_sent(harness)[0]["params"]["message"]["parts"][0]["data"]
     assert data["profession"] == PROFESSION
     assert data["only"] is None
-    assert {fact["id"] for fact in data["facts"]} == {"about", used, archived}
+    assert {fact["id"] for fact in data["profile_facts"]} == {"about", used, archived}
 
 
 async def test_one_part_is_rewritten_alone(client, harness):
@@ -69,14 +69,18 @@ async def test_one_part_is_rewritten_alone(client, harness):
     harness.outcomes = [
         _written(
             {
-                "headline": {"text": "Backend engineer", "facts": [used]},
-                "summary": {"text": "I build things.", "facts": [used]},
-                "descriptions": [{"fact": used, "text": "Led it.", "facts": [used]}],
+                "headline": {"text": "Backend engineer", "fact_ids": [used]},
+                "summary": {"text": "I build things.", "fact_ids": [used]},
+                "descriptions": [{"fact": used, "text": "Led it.", "fact_ids": [used]}],
             }
         ),
-        _written({"headline": {"text": "Payments engineer", "facts": [used]}}),
+        _written({"headline": {"text": "Payments engineer", "fact_ids": [used]}}),
         _written(
-            {"descriptions": [{"fact": used, "text": "Led payments.", "facts": [used]}]}
+            {
+                "descriptions": [
+                    {"fact": used, "text": "Led payments.", "fact_ids": [used]}
+                ]
+            }
         ),
     ]
     await client.post(f"{PROFILE}/networking", json={"profession": PROFESSION})
@@ -90,9 +94,9 @@ async def test_one_part_is_rewritten_alone(client, harness):
 
     assert rewritten.json() == {
         "profession": "Payments roles",
-        "headline": {"text": "Payments engineer", "facts": [used]},
-        "summary": {"text": "I build things.", "facts": [used]},
-        "descriptions": [{"fact": used, "text": "Led payments.", "facts": [used]}],
+        "headline": {"text": "Payments engineer", "fact_ids": [used]},
+        "summary": {"text": "I build things.", "fact_ids": [used]},
+        "descriptions": [{"fact": used, "text": "Led payments.", "fact_ids": [used]}],
     }
     assert [
         sent["params"]["message"]["parts"][0]["data"]["only"]

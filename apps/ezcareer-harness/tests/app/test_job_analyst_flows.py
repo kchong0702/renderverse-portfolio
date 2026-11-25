@@ -62,7 +62,7 @@ def test_find_jobs_asks_ops_api_to_search_and_finishes_on_its_answer():
     asked = _send(
         client,
         "/ezcareer/a2a/find-jobs",
-        [{"data": {"facts": analyse_job.INPUT["facts"]}}],
+        [{"data": {"profile_facts": analyse_job.INPUT["profile_facts"]}}],
     )
     done = _send(client, "/ezcareer/a2a/find-jobs", [{"data": FOUND}], task=asked)
 
@@ -90,7 +90,7 @@ def test_a_search_ops_api_cannot_run_fails_the_task_with_its_reason():
     asked = _send(
         client,
         "/ezcareer/a2a/find-jobs",
-        [{"data": {"facts": analyse_job.INPUT["facts"]}}],
+        [{"data": {"profile_facts": analyse_job.INPUT["profile_facts"]}}],
     )
     failed = _send(
         client, "/ezcareer/a2a/find-jobs", [{"data": {"error": reason}}], task=asked
@@ -121,7 +121,7 @@ def test_parallel_searches_answered_one_at_a_time_each_reach_the_agent():
     asked = _send(
         client,
         "/ezcareer/a2a/find-jobs",
-        [{"data": {"facts": analyse_job.INPUT["facts"]}}],
+        [{"data": {"profile_facts": analyse_job.INPUT["profile_facts"]}}],
     )
     left = _send(client, "/ezcareer/a2a/find-jobs", [{"data": FOUND}], task=asked)
     done = _send(
@@ -148,7 +148,7 @@ def test_metadata_with_a_key_is_refused_without_echoing_it():
     task = _send(
         TestClient(create_app()),
         "/ezcareer/a2a/find-jobs",
-        [{"data": {"facts": analyse_job.INPUT["facts"]}}],
+        [{"data": {"profile_facts": analyse_job.INPUT["profile_facts"]}}],
         metadata={"job_search": {"api_key": USER_KEY}},
     )
 
@@ -172,7 +172,7 @@ def test_a_posting_that_cannot_be_fetched_fails_the_task_with_the_reason():
     task = _send(
         client,
         "/ezcareer/a2a/analyse-job",
-        [{"data": {"url": URL, "facts": analyse_job.INPUT["facts"]}}],
+        [{"data": {"url": URL, "profile_facts": analyse_job.INPUT["profile_facts"]}}],
     )
 
     assert task["status"]["state"] == "TASK_STATE_FAILED"
@@ -233,7 +233,8 @@ async def test_both_workflows_run_on_the_containers_one_job_analyst():
         analyse_job.INPUT, {"configurable": {"thread_id": "analyse"}}
     )
     found = await graphs["find-jobs"].ainvoke(
-        {"facts": analyse_job.INPUT["facts"]}, {"configurable": {"thread_id": "find"}}
+        {"profile_facts": analyse_job.INPUT["profile_facts"]},
+        {"configurable": {"thread_id": "find"}},
     )
 
     assert analysed["analysis"].fit == 67
@@ -244,7 +245,9 @@ async def test_both_workflows_run_on_the_containers_one_job_analyst():
 
 def test_a_run_without_profile_facts_fails_with_a_way_to_portfolio():
     task = _send(
-        TestClient(create_app()), "/ezcareer/a2a/find-jobs", [{"data": {"facts": []}}]
+        TestClient(create_app()),
+        "/ezcareer/a2a/find-jobs",
+        [{"data": {"profile_facts": []}}],
     )
 
     assert task["status"]["state"] == "TASK_STATE_FAILED"

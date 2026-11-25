@@ -119,7 +119,7 @@ async def test_a_reply_draft_offers_free_slots_from_the_calendar(
     client, google, harness
 ):
     await connect_google(client)
-    facts = (await client.get(f"{PREFIX}/profile/agent")).json()["facts"]
+    facts = (await client.get(f"{PREFIX}/profile/agent")).json()["profile_facts"]
     google.messages = {"m1": THREAD}
     google.events = EVENTS
     outside = {"start": "2026-11-14T09:00:00+08:00", "end": "2026-11-14T10:00:00+08:00"}
@@ -147,7 +147,7 @@ async def test_a_reply_draft_offers_free_slots_from_the_calendar(
         "application": None,
         "free_slots": FREE,
         "timezone": "Asia/Kuala_Lumpur",
-        "facts": facts,
+        "profile_facts": facts,
     }
     [params] = google.calendar_params
     assert params["timeMin"] == ["2026-11-10T12:00:00+00:00"]

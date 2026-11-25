@@ -197,7 +197,7 @@ class ProfileFact(BaseModel):
 class AgentProfile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    facts: list[ProfileFact]
+    profile_facts: list[ProfileFact]
     """What the user has done and knows, without archived items"""
 
     preferences: Preferences
@@ -373,7 +373,7 @@ class NetworkingText(BaseModel):
     text: str
     """Copy to paste into a job portal"""
 
-    facts: list[FactId]
+    fact_ids: list[FactId]
     """The facts it was written from"""
 
 
@@ -411,7 +411,7 @@ class WriteNetworkingInput(BaseModel):
     profession: str
     """The profession the copy is written for"""
 
-    facts: list[ProfileFact]
+    profile_facts: list[ProfileFact]
     """Every fact, archived ones included"""
 
     only: str | None

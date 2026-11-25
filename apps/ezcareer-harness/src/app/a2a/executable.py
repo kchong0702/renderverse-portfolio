@@ -1,4 +1,5 @@
-from typing import Literal, override
+from collections.abc import Callable
+from typing import Any, Literal, override
 
 from a2a.helpers import (
     get_data_parts,
@@ -68,6 +69,20 @@ class RunMetadata(BaseModel):
     """The model the user picked for the run; None keeps each agent's own"""
 
 
+StepStatus = Literal["running", "done", "failed", "waiting"]
+"""Where a step is"""
+
+STEP_STATUSES: tuple[
+    tuple[StepStatus, Callable[[TaskPayload | TaskResultPayload, bool], bool]], ...
+] = (
+    ("running", lambda task, tool_failed: "input" in task),
+    ("failed", lambda task, tool_failed: tool_failed or bool(task["error"])),
+    ("waiting", lambda task, tool_failed: bool(task["interrupts"])),
+)
+"""Each status a graph task gives a step, by whether the step's tool calls failed,
+checked in order, with when it matches; a step none matches is done"""
+
+
 class Step(BaseModel):
     model_config = ConfigDict(frozen=True, use_attribute_docstrings=True)
 
@@ -80,7 +95,7 @@ class Step(BaseModel):
     name: str
     """The tool or graph node, such as analyse_job or fetch"""
 
-    status: Literal["running", "done", "failed", "waiting"]
+    status: StepStatus
     """Where the step is"""
 
     detail: str | None = None
@@ -102,41 +117,48 @@ def _steps(
     namespace: tuple[str, ...],
     task: TaskPayload | TaskResultPayload,
     calls: dict[str, list[tuple[str, str]]],
-    agent_nodes: frozenset[str],
+    handoff_agents: frozenset[str],
 ) -> list[Step]:
     """The steps a graph task starts or ends: an agent's tool calls and the nodes of
     the workflows they run, or a workflow's own nodes, with the details tools set"""
     if "." in task["name"]:
         return []
-    status: Literal["running", "done", "failed", "waiting"]
-    if "input" in task:
-        status = "running"
-    elif task["error"] or any(
-        isinstance(m, ToolMessage) and m.status == "error"
-        for m in task["result"].get("messages", [])
-    ):
-        status = "failed"
-    else:
-        status = "waiting" if task["interrupts"] else "done"
+    tool_errors = (
+        set()
+        if "input" in task
+        else {
+            m.tool_call_id
+            for m in task["result"].get("messages", [])
+            if isinstance(m, ToolMessage) and m.status == "error"
+        }
+    )
+
+    def step(id: str, parent: str | None, name: str, detail: str | None) -> Step:
+        """The step with the status STEP_STATUSES gives it; the task's own step fails
+        on any tool error, a tool call's step on its own"""
+        tool_failed = bool(tool_errors) if id == task["id"] else id in tool_errors
+        return Step(
+            id=id,
+            parent=parent,
+            name=name,
+            status=next(
+                (
+                    status
+                    for status, matches in STEP_STATUSES
+                    if matches(task, tool_failed)
+                ),
+                "done",
+            ),
+            detail=detail,
+        )
+
     details = {} if "input" in task else _details(task)
     detail = [*details.values()][-1] if details else None
     if kind == "workflow":
-        return (
-            []
-            if namespace
-            else [
-                Step(
-                    id=task["id"],
-                    parent=None,
-                    name=task["name"],
-                    status=status,
-                    detail=detail,
-                )
-            ]
-        )
-    if not namespace and task["name"] in agent_nodes and "result" in task:
+        return [] if namespace else [step(task["id"], None, task["name"], detail)]
+    if not namespace and task["name"] in handoff_agents and "result" in task:
         return [
-            Step(id=call_id, parent=None, name=name, status=status, detail=detail)
+            step(call_id, None, name, detail)
             for tools in [*calls]
             for call_id, name in calls.pop(tools)
             if (detail := details.get(call_id))
@@ -145,13 +167,7 @@ def _steps(
         if "input" in task:
             calls[task["id"]] = [(call["id"], call["name"]) for call in task["input"]]
         return [
-            Step(
-                id=call_id,
-                parent=None,
-                name=name,
-                status=status,
-                detail=details.get(call_id),
-            )
+            step(call_id, None, name, details.get(call_id))
             for call_id, name in (
                 calls[task["id"]] if "input" in task else calls.pop(task["id"], [])
             )
@@ -159,15 +175,7 @@ def _steps(
     if len(namespace) == 1 and (
         parent := calls.get(namespace[0].removeprefix("tools:"))
     ):
-        return [
-            Step(
-                id=task["id"],
-                parent=parent[0][0],
-                name=task["name"],
-                status=status,
-                detail=detail,
-            )
-        ]
+        return [step(task["id"], parent[0][0], task["name"], detail)]
     return []
 
 
@@ -201,9 +209,117 @@ class Executable(BaseModel):
     """The workflow node whose model streams its thinking and text to the user;
     None streams an agent's own model and nothing of a workflow's"""
 
-    agent_nodes: frozenset[str] = frozenset()
-    """The nodes of an agent's handoff graph that each run an agent; whichever
-    runs streams its steps, thinking and text as the agent's own"""
+    handoff_agents: frozenset[str] = frozenset()
+    """The agents of a handoff graph, each a top-level node streamed as the
+    conversation's own; empty for workflows and single agents"""
+
+
+class EventRelay:
+    def __init__(self, updater: TaskUpdater, executable: Executable) -> None:
+        """Turns one run's stream of the executable's graph into the task's events"""
+        self.updater = updater
+        """Writes the task's events"""
+
+        self.executable = executable
+        """The executable whose graph streams"""
+
+        self.result: dict = {}
+        """The top-level graph's latest values"""
+
+        self.interrupts: list[Interrupt] = []
+        """Every pause the run stopped at"""
+
+        self.opened: set[str] = set()
+        """The ids of the thinking and text artifacts already streamed"""
+
+        self.calls: dict[str, list[tuple[str, str]]] = {}
+        """Each running tools task's calls, as (call id, tool name)"""
+
+    def _resolve_namespace(self, namespace: tuple[str, ...]) -> tuple[str, ...]:
+        """The namespace without its handoff agent's node, so whichever agent runs
+        streams as the conversation's own"""
+        if namespace and (
+            namespace[0].partition(":")[0] in self.executable.handoff_agents
+        ):
+            return namespace[1:]
+        return namespace
+
+    async def _save_latest_state(self, namespace: tuple[str, ...], data: dict) -> None:
+        """Keeps the top-level graph's values and the pauses they carry"""
+        if namespace:
+            return
+        self.interrupts += data.get("__interrupt__", [])
+        self.result = data
+
+    async def _stream_reply(
+        self, namespace: tuple[str, ...], data: tuple[Any, dict]
+    ) -> None:
+        """Streams the replying model's thinking and text, one artifact per model
+        turn"""
+        if tuple(
+            segment.partition(":")[0] for segment in self._resolve_namespace(namespace)
+        ) != ((self.executable.reply_node,) if self.executable.reply_node else ()):
+            return
+        chunk, meta = data
+        if not (isinstance(chunk, AIMessage) and meta["langgraph_node"] == "model"):
+            return
+        for block in chunk.content_blocks:
+            if block["type"] == "reasoning":
+                name, text = "thinking", block.get("reasoning")
+            elif block["type"] == "text":
+                name, text = "text", block["text"]
+            else:
+                continue
+            if not text:
+                continue
+            artifact_id = f"{name}-{meta['langgraph_checkpoint_ns']}"
+            await self.updater.add_artifact(
+                [new_text_part(text)],
+                artifact_id=artifact_id,
+                name=name,
+                append=artifact_id in self.opened,
+            )
+            self.opened.add(artifact_id)
+
+    async def _report_steps(
+        self, namespace: tuple[str, ...], data: TaskPayload | TaskResultPayload
+    ) -> None:
+        """Reports the steps a graph task starts or ends, then publishes the
+        artifacts a top-level tools task's tools returned"""
+        namespace = self._resolve_namespace(namespace)
+        for step in _steps(
+            self.executable.kind,
+            namespace,
+            data,
+            self.calls,
+            self.executable.handoff_agents,
+        ):
+            await self.updater.update_status(
+                TaskState.TASK_STATE_WORKING,
+                self.updater.new_agent_message(
+                    [new_data_part({"step": step.model_dump()})]
+                ),
+            )
+        if namespace or data["name"] != "tools" or "result" not in data:
+            return
+        for message in data["result"].get("messages", []):
+            match message:
+                case ToolMessage(artifact={"name": str() as name, "data": artifact}):
+                    await self.updater.add_artifact(
+                        [new_data_part(to_jsonable_python(artifact))],
+                        name=name,
+                        append=False,
+                    )
+
+    async def handle(self, namespace: tuple[str, ...], mode: str, data: Any) -> None:
+        """Relays one streamed chunk with its stream mode's handler"""
+        match mode:
+            case "values":
+                await self._save_latest_state(namespace, data)
+            case "messages":
+                await self._stream_reply(namespace, data)
+            case "tasks":
+                await self._report_steps(namespace, data)
 
 
 class LanggraphExecutor(AgentExecutor):
@@ -264,10 +380,7 @@ class LanggraphExecutor(AgentExecutor):
                 )
             )
             return
-        result = {}
-        interrupts: list[Interrupt] = []
-        opened: set[str] = set()
-        calls: dict[str, list[tuple[str, str]]] = {}
+        relay = EventRelay(updater, self.executable)
         try:
             async for namespace, mode, data in self.executable.graph.astream(
                 graph_input,
@@ -300,85 +413,26 @@ class LanggraphExecutor(AgentExecutor):
                 output_keys=self.executable.graph.output_channels,
                 subgraphs=True,
             ):
-                if mode == "values" and not namespace:
-                    interrupts += data.get("__interrupt__", [])
-                    result = data
-                    continue
-                if namespace and (
-                    namespace[0].partition(":")[0] in self.executable.agent_nodes
-                ):
-                    namespace = namespace[1:]
-                if mode == "messages" and tuple(
-                    segment.partition(":")[0] for segment in namespace
-                ) == (
-                    (self.executable.reply_node,) if self.executable.reply_node else ()
-                ):
-                    chunk, meta = data
-                    if not (
-                        isinstance(chunk, AIMessage)
-                        and meta["langgraph_node"] == "model"
-                    ):
-                        continue
-                    for block in chunk.content_blocks:
-                        if block["type"] == "reasoning":
-                            name, text = "thinking", block.get("reasoning")
-                        elif block["type"] == "text":
-                            name, text = "text", block["text"]
-                        else:
-                            continue
-                        if not text:
-                            continue
-                        artifact_id = f"{name}-{meta['langgraph_checkpoint_ns']}"
-                        await updater.add_artifact(
-                            [new_text_part(text)],
-                            artifact_id=artifact_id,
-                            name=name,
-                            append=artifact_id in opened,
-                        )
-                        opened.add(artifact_id)
-                elif mode == "tasks":
-                    for step in _steps(
-                        self.executable.kind,
-                        namespace,
-                        data,
-                        calls,
-                        self.executable.agent_nodes,
-                    ):
-                        await updater.update_status(
-                            TaskState.TASK_STATE_WORKING,
-                            updater.new_agent_message(
-                                [new_data_part({"step": step.model_dump()})]
-                            ),
-                        )
-                    if namespace or data["name"] != "tools" or "result" not in data:
-                        continue
-                    for message in data["result"].get("messages", []):
-                        match message:
-                            case ToolMessage(
-                                artifact={"name": str() as name, "data": artifact}
-                            ):
-                                await updater.add_artifact(
-                                    [new_data_part(to_jsonable_python(artifact))],
-                                    name=name,
-                                    append=False,
-                                )
+                await relay.handle(namespace, mode, data)
         except GraphRecursionError:
             await updater.failed(_reason(updater, "Ran out of steps before finishing"))
             return
         except ExecuteError as error:
             await updater.failed(_reason(updater, str(error), error.next_step))
             return
-        if interrupts:
+        if relay.interrupts:
             await updater.requires_input(
-                updater.new_agent_message([_interrupt_part(i) for i in interrupts])
+                updater.new_agent_message(
+                    [_interrupt_part(i) for i in relay.interrupts]
+                )
             )
             return
         if self.executable.kind == "workflow":
-            reply = new_data_part(to_jsonable_python(result))
-        elif structured := result.get("structured_response"):
+            reply = new_data_part(to_jsonable_python(relay.result))
+        elif structured := relay.result.get("structured_response"):
             reply = new_data_part(to_jsonable_python(structured))
         else:
-            reply = new_text_part(result["messages"][-1].text)
+            reply = new_text_part(relay.result["messages"][-1].text)
         await updater.add_artifact([reply], name=self.executable.name)
         await updater.complete()
 

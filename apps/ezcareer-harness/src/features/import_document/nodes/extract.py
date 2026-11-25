@@ -26,6 +26,6 @@ async def extract(
             raise ImportFailed("couldn't read the file; try again") from error
         raise ImportFailed(error.response.json()["detail"]) from error
     try:
-        return {"lines": extract_lines(pdf), "suggestion": suggest_look(pdf)}
+        return {"pdf_lines": extract_lines(pdf), "suggestion": suggest_look(pdf)}
     except UnreadableFile as error:
         raise ImportFailed(str(error)) from error

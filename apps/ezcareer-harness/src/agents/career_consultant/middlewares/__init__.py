@@ -1,3 +1,5 @@
-from src.agents.career_consultant.middlewares.document_prompt import document_prompt
+from src.agents.career_consultant.middlewares.inject_document_context import (
+    inject_document_context,
+)
 
-__all__ = ["document_prompt"]
+__all__ = ["inject_document_context"]

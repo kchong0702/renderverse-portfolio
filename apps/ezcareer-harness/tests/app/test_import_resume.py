@@ -7,10 +7,10 @@ from pydantic import JsonValue
 from src.app.app import create_app
 from src.app.container import Container
 from src.features.import_document import build_graph
+from tests.agents.career_consultant.test_career_consultant import _print
 from tests.conftest import ScriptedChatModel
 from tests.features.import_document.test_extract import _artifact_service
 from tests.features.import_document.test_import_graph import _model, _reply
-from tests.features.write_document.test_write_document_graph import _print
 from tests.pdfs import make_pdf
 
 PDF = make_pdf([(10, 10, "Ada Lovelace"), (10, 20, "Engineer")])
@@ -75,12 +75,18 @@ def test_a_completed_import_returns_its_result_as_the_artifact():
 
     assert task["status"]["state"] == "TASK_STATE_COMPLETED"
     [part] = task["artifacts"][0]["parts"]
-    assert sorted(part["data"]) == ["document", "lines", "pdf", "report", "suggestion"]
+    assert sorted(part["data"]) == [
+        "document",
+        "pdf",
+        "pdf_lines",
+        "report",
+        "suggestion",
+    ]
     assert part["data"]["suggestion"] == {
         "template": "classic",
         "columns": 1,
         "traits": [],
     }
     assert part["data"]["pdf"] == "JVBERg=="
-    assert [line["id"] for line in part["data"]["lines"]] == ["p1.s1", "p1.s2"]
+    assert [line["id"] for line in part["data"]["pdf_lines"]] == ["p1.s1", "p1.s2"]
     assert model.requests[0][-1].text == "Keep my headline"

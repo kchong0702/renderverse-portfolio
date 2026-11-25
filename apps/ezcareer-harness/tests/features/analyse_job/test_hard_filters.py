@@ -22,7 +22,7 @@ PREFERENCES = Preferences(
 def _filters(terms: dict, preferences: Preferences = PREFERENCES):
     results = hard_filters(
         PostingTerms.model_validate(terms),
-        Profile(facts=FACTS, preferences=preferences),
+        Profile(profile_facts=FACTS, preferences=preferences),
         TODAY,
     )
     return [(f.kind.value, f.passed, f.line_ids) for f in results]

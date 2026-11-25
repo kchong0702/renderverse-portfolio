@@ -177,7 +177,7 @@ class AnalyseJobInput(AgentProfile):
 
 class AnalyseJobOutput(BaseModel):
     analysis: FitAnalysis
-    """How the posting fits; the harness also sends lines and filters, unread"""
+    """How the posting fits; the harness also sends posting_lines and filters, unread"""
 
 
 class JobSearchAnswer(BaseModel):

@@ -30,7 +30,7 @@ def verify(
     if errors := [
         error
         for name in configurations.checks
-        for error in CHECKS[name](reply, state["lines"], configurations)
+        for error in CHECKS[name](reply, state["pdf_lines"], configurations)
     ]:
         return check_round(errors)
     try:

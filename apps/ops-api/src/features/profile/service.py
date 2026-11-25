@@ -249,7 +249,7 @@ class ProfileService:
         skills = await self._repository.skills(user_id)
         preferences = await self._preferences.get(user_id)
         return AgentProfile(
-            facts=[_entry_fact(e) for e in entries if not e.archived]
+            profile_facts=[_entry_fact(e) for e in entries if not e.archived]
             + [_skill_fact(s) for s in skills if not s.archived],
             preferences=Preferences(
                 work_modes=preferences.work_modes,

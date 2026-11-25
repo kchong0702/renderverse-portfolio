@@ -21,7 +21,7 @@ from src.shared.profile import Preferences, Profile, ProfileFact, require_facts
 class FindJobsInput(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
-    facts: list[ProfileFact]
+    profile_facts: list[ProfileFact]
     """The user's profile facts"""
 
     preferences: Preferences = Field(default_factory=Preferences)
@@ -81,7 +81,7 @@ def _postings(messages: list[AnyMessage]) -> list[JobPosting]:
 
 def _brief(state: FindJobsState) -> dict:
     """Ask the agent for jobs, handing it the user's preferences and own search"""
-    require_facts(state.facts)
+    require_facts(state.profile_facts)
     return {
         "messages": [
             HumanMessage(
@@ -134,7 +134,9 @@ def build_graph(
                 for error in check(
                     state.structured_response,
                     postings,
-                    Profile(facts=state.facts, preferences=state.preferences),
+                    Profile(
+                        profile_facts=state.profile_facts, preferences=state.preferences
+                    ),
                 )
             ]
         )

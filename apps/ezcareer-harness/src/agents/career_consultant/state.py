@@ -7,15 +7,18 @@ from src.shared.extraction.types import Line
 
 
 class CareerConsultantState(ProfileState):
+    document_id: NotRequired[str]
+    """The id of the résumé, CV or cover letter the agent works on"""
+
     document: AnyDocument
     """The résumé or letter as it is now"""
 
-    report: Report | None
-    """How the document last printed; None before its first render"""
+    report: NotRequired[Report]
+    """How the document last printed; absent before its first render"""
 
-    lines: list[Line]
+    pdf_lines: NotRequired[list[Line]]
     """The uploaded PDF's lines, which the document cites as p<page>.s<n>"""
 
     changeset: NotRequired[Changeset]
     """The latest changeset the agent proposed that passed the checks, with the
-    page-fit deletes once printed"""
+    page-fit deletes"""

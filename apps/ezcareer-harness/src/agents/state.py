@@ -4,5 +4,5 @@ from src.shared.profile import ProfileFact
 
 
 class ProfileState(DeepAgentState):
-    facts: list[ProfileFact]
+    profile_facts: list[ProfileFact]
     """The user's profile facts"""

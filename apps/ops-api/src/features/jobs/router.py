@@ -135,5 +135,5 @@ async def tailor_documents(
     job_id: UUID, user: CurrentUserDep, service: JobServiceDep
 ) -> TailorRead:
     """Tailor the master résumé and cover letter to the job: each is copied once
-    and edit-document's changeset waits for review in Documents"""
+    and career-consultant's changeset waits for review in Documents"""
     return await service.tailor(user.id, job_id)

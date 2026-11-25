@@ -36,7 +36,7 @@ logger = get_logger(__name__)
 
 
 def _tailor_request(job: JobRead, document: str) -> str:
-    """The request asking edit-document to tailor a document to the job, with the
+    """The request asking career-consultant to tailor a document to the job, with the
     posting's requirements and the analysis's gaps"""
     at = f" at {job.company}" if job.company else ""
     lines = [f"Tailor this {document} to the {job.title} role{at}."]
@@ -242,7 +242,9 @@ class JobService:
             "analyse-job",
             AnalyseJobOutput,
             data=AnalyseJobInput(
-                url=job.url, facts=profile.facts, preferences=profile.preferences
+                url=job.url,
+                profile_facts=profile.profile_facts,
+                preferences=profile.preferences,
             ),
             metadata=metadata,
         )

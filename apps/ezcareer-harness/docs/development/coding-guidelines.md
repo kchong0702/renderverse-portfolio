@@ -25,7 +25,7 @@ If the library's convention doesn't fit, say why in the PR description before yo
 Read [the architecture overview](../architecture/overview.md) for the three kinds of graph. When you write one:
 
 - An agent never runs a workflow built on itself. Give it tools that do the work, and wrap it in a workflow only to make a run deterministic.
-- To add a child to an agent graph, join its agent in the graph builder and add its name to the main agent's `handoff_to_child` choices. Don't add `handoff_to_parent` to its tools: `HandoffToParentMiddleware` offers it only inside the graph.
+- To add a child to an agent graph, join its agent in the graph builder and add its name to the main agent's `handoff_to_child` choices, or to `handoff_document`'s when it works on a document. Don't add `handoff_to_parent` to its tools: `ParentHandoffMiddleware` offers it only inside the graph.
 - Build each agent once. Change what it is offered per run with config and middleware, not with a second instance.
 
 ## Simplicity
@@ -48,6 +48,13 @@ Read [the architecture overview](../architecture/overview.md) for the three kind
 - Take settings such as URLs, limits and model names from config. Never hardcode them.
 - A service calls another feature's service, not its repository.
 
+## Prompts
+
+- Never hardcode a system prompt or a middleware's prompt in Python. Both go in prompt files. A tool's description and error messages, and a failure reason the user sees, stay in the code they belong to.
+- Put an agent's system prompt in `src/agents/<agent>/prompts/system.md`. Add `prompts/system.<provider>.md` only when one provider needs different wording.
+- Put each middleware's prompt in its own file in `src/agents/prompts/middleware/`, named after the middleware's module, such as `parent_handoff.md`. Read it with `read_prompt` from the folder the `middleware_prompts` setting names. Mark where run data goes with a `$name` placeholder and fill it with `string.Template`, so braces in the prompt stay literal. Read a prompt that a model call fills once per path, such as through a `functools.cache` function, not on every call.
+- Start each prompt file with the front matter `read_prompt` validates: `version`, `description`, `author`, `date` and `status`. Quote `version`, such as `"1.10"`, because YAML reads an unquoted `1.10` as the number 1.1. Raise `version` and set `date` when you change the text.
+
 ## Types
 
 - Use the real type. Don't use `Any` or a bare `dict`.
@@ -57,6 +64,7 @@ Read [the architecture overview](../architecture/overview.md) for the three kind
 ## Names
 
 - A name says exactly what the thing is or does. Rename a misleading name.
+- A class-based middleware (an `AgentMiddleware` subclass) is named for what it provides, as a noun phrase ending in `Middleware`, such as `ToolAllowlistMiddleware` or `ParentHandoffMiddleware`. A function-based middleware (one made with a decorator such as `@wrap_model_call` or `@before_agent`) is named for what it does, starting with a verb, such as `inject_document_context`. Its module has the same name, in snake case.
 
 ## Docstrings and comments
 

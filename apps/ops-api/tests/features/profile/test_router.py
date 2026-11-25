@@ -184,7 +184,7 @@ async def test_agent_profile_has_the_harness_shape(client):
 
     assert response.status_code == 200
     assert response.json() == {
-        "facts": [
+        "profile_facts": [
             {
                 "id": f"role-{role['id']}",
                 "text": "Senior Engineer at Acme Corp, Kuala Lumpur\n"
@@ -253,7 +253,7 @@ async def test_a_projects_tools_and_links_reach_the_agents(client):
 
     assert project["tools"] == ["React", "Three.js"]
     assert project["link"] == "https://kelvinchong.dev"
-    [fact] = (await client.get(f"{PROFILE}/agent")).json()["facts"]
+    [fact] = (await client.get(f"{PROFILE}/agent")).json()["profile_facts"]
     assert fact["text"] == (
         "Project Renderverse\n"
         "3D portfolio you can walk through\n"

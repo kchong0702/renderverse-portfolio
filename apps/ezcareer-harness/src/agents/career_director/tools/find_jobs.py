@@ -18,7 +18,7 @@ async def _find_jobs(
         output = await graph.ainvoke(
             graph.get_input_schema().model_validate(
                 {
-                    "facts": runtime.state["facts"],
+                    "profile_facts": runtime.state["profile_facts"],
                     "preferences": runtime.state["preferences"],
                 }
             )

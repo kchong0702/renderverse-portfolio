@@ -39,7 +39,7 @@ class DraftReplyInput(BaseModel):
     timezone: ZoneInfo
     """The user's time zone, such as Europe/London"""
 
-    facts: list[ProfileFact] = Field(default_factory=list)
+    profile_facts: list[ProfileFact] = Field(default_factory=list)
     """The user's profile facts"""
 
     messages: Annotated[list[AnyMessage], add_messages] = Field(default_factory=list)

@@ -1,1 +1,1 @@
-system_prompt: src/agents/document_analyst/system.md
+tool_description_overrides: {}

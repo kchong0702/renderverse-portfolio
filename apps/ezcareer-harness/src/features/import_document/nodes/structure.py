@@ -20,9 +20,9 @@ async def structure(state: ImportState, agent: CompiledStateGraph) -> ImportStat
                     HumanMessage(
                         json.dumps(
                             {
-                                "lines": [
+                                "pdf_lines": [
                                     line.model_dump(include={"id", "text"})
-                                    for line in state["lines"]
+                                    for line in state["pdf_lines"]
                                 ],
                                 "previous_reply": state.get("structured_response"),
                             },

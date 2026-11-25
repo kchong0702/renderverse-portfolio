@@ -386,7 +386,7 @@ class InboxService:
         offered = (
             free.free_slots if thread and settings.automation.offer_free_slots else []
         )
-        facts = (await self._profile.agent_profile(user_id)).facts
+        facts = (await self._profile.agent_profile(user_id)).profile_facts
         metadata = await self._settings.run_metadata(user_id)
         await self._session.commit()
         reply = await self._runner.run(
@@ -405,7 +405,7 @@ class InboxService:
                 else None,
                 free_slots=offered,
                 timezone=free.timezone,
-                facts=facts,
+                profile_facts=facts,
             ),
             metadata=metadata,
         )

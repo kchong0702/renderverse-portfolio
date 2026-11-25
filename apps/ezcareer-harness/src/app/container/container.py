@@ -38,6 +38,7 @@ class Container(containers.DeclarativeContainer):
 
     career_consultant = providers.Container(
         CareerConsultantContainer,
+        settings=settings,
         registry=registry,
         checkpointer=checkpointer,
         artifact_service=clients.artifact_service,
@@ -76,7 +77,6 @@ class Container(containers.DeclarativeContainer):
         job_analyst.analyse_job_executable,
         job_analyst.find_jobs_executable,
         career_consultant.agent_executable,
-        career_consultant.edit_document_executable,
         career_consultant.write_networking_executable,
         career_director.agent_executable,
         productivity_assistant.triage_email_executable,

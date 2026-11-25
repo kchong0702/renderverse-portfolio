@@ -4,15 +4,15 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
-from src.agents import build_agent, load_agents
+from src.agents import build_agent
 from src.agents.career_director import CareerDirectorState
 from src.agents.career_director.tools import find_applications, find_saved_jobs
-from src.core.config import get_settings
+from src.app.container import Container
 from src.shared.profile import Preferences
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 
-AGENT = load_agents(get_settings().agents)["career-director"]
+AGENT = Container().registry()["career-director"]
 STAGES = {"draft": 0, "applied": 2, "replied": 0, "interview": 1, "offer": 0}
 HARBOR = {
     "company": "Harbor Health",
@@ -53,7 +53,11 @@ async def _run(model: ScriptedChatModel, text: str, answer: object) -> tuple:
     ).copy(update={"checkpointer": InMemorySaver()})
     thread = {"configurable": {"thread_id": "t1"}}
     result = await graph.ainvoke(
-        {"messages": [HumanMessage(text)], "facts": [], "preferences": Preferences()},
+        {
+            "messages": [HumanMessage(text)],
+            "profile_facts": [],
+            "preferences": Preferences(),
+        },
         thread,
     )
     [asked] = [i.value for i in result["__interrupt__"]]

@@ -28,7 +28,7 @@ class AnalyseJobInput(BaseModel):
     url: Url
     """The posting the user pasted"""
 
-    facts: list[ProfileFact]
+    profile_facts: list[ProfileFact]
     """The user's profile facts"""
 
     preferences: Preferences = Field(default_factory=Preferences)
@@ -48,7 +48,7 @@ class AnalyseJobOutput(BaseModel):
 class AnalyseJobState(AnalyseJobInput, AnalyseJobOutput):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
-    lines: list[PostingLine] = Field(default_factory=list)
+    posting_lines: list[PostingLine] = Field(default_factory=list)
     """The posting's numbered lines"""
 
     structured_response: JobRequirements | None = None
@@ -60,7 +60,7 @@ class AnalyseJobState(AnalyseJobInput, AnalyseJobOutput):
 
 async def _fetch(state: AnalyseJobState) -> dict:
     """Fetch the posting and hand the agent its lines as untrusted text"""
-    require_facts(state.facts)
+    require_facts(state.profile_facts)
     try:
         lines = await fetch_posting(state.url)
     except httpx.HTTPError as error:
@@ -69,7 +69,7 @@ async def _fetch(state: AnalyseJobState) -> dict:
         raise ExecuteError("The posting page has no text")
     posting = "\n".join(f"[{line.id}] {line.text}" for line in lines)
     return {
-        "lines": lines,
+        "posting_lines": lines,
         "messages": [
             HumanMessage(
                 f"Analyse this job posting.\n\n<posting untrusted>\n{posting}\n</posting>"
@@ -84,10 +84,12 @@ def _output(state: AnalyseJobState) -> dict:
         "analysis": JobAnalysis(
             **state.structured_response.model_dump(),
             url=state.url,
-            lines=state.lines,
+            posting_lines=state.posting_lines,
             filters=hard_filters(
                 state.structured_response.terms,
-                Profile(facts=state.facts, preferences=state.preferences),
+                Profile(
+                    profile_facts=state.profile_facts, preferences=state.preferences
+                ),
                 datetime.now(UTC).date(),
             ),
         )
@@ -120,7 +122,9 @@ def build_graph(
             [
                 error
                 for check in checks
-                for error in check(state.structured_response, state.lines, state.facts)
+                for error in check(
+                    state.structured_response, state.posting_lines, state.profile_facts
+                )
             ]
         )
 

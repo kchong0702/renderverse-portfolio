@@ -17,7 +17,7 @@ def _posting(job_id: str, *lines: str, remote: bool = True) -> JobPosting:
         remote=remote,
         posted_at=datetime(2026, 11, 6, tzinfo=UTC),
         apply_url=f"https://jobs.example.com/{job_id}",
-        lines=[PostingLine(id=n, text=t) for n, t in enumerate(lines, start=1)],
+        posting_lines=[PostingLine(id=n, text=t) for n, t in enumerate(lines, start=1)],
     )
 
 
@@ -27,7 +27,7 @@ POSTINGS = [
     _posting("c", "Go"),
 ]
 FACTS = [ProfileFact(id="py", text="Python at Acme")]
-PROFILE = Profile(facts=FACTS)
+PROFILE = Profile(profile_facts=FACTS)
 
 
 def _requirement(text: str, line: int, match: str = "met") -> dict:
@@ -102,7 +102,8 @@ def test_keeps_the_agents_order_for_equal_fits():
 def test_reports_jobs_that_break_the_users_preferences():
     london_onsite = _posting("london", "Python", remote=False)
     remote_only = Profile(
-        facts=FACTS, preferences=Preferences(work_modes=["remote"], countries=["GB"])
+        profile_facts=FACTS,
+        preferences=Preferences(work_modes=["remote"], countries=["GB"]),
     )
     output = _ranked(
         ("london", [_requirement("Python", 1)]), ("a", [_requirement("Python", 1)])

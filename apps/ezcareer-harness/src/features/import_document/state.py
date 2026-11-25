@@ -14,7 +14,7 @@ class ImportState(TypedDict, total=False):
     file: bytes
     """The uploaded PDF or Word file"""
 
-    lines: list[Line]
+    pdf_lines: list[Line]
     """The file's text lines"""
 
     suggestion: LookSuggestion

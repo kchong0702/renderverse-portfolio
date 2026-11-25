@@ -12,10 +12,10 @@ from src.features.import_document import build_graph
 from src.features.import_document.exceptions import ImportFailed
 from src.features.import_document.schemas import ImportedResume, ImportInput
 from src.shared.run_context import RunContext
+from tests.agents.career_consultant.test_career_consultant import _fail, _print
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.import_document.test_extract import _artifact_service
-from tests.features.write_document.test_write_document_graph import _fail, _print
 from tests.pdfs import make_pdf
 
 UPLOAD = ImportInput(
@@ -74,7 +74,7 @@ async def test_the_passing_draft_is_printed_in_the_suggested_template():
     assert result["suggestion"].template == "classic"
     assert result["pdf"] == "JVBERg=="
     assert result["report"].pages == 1
-    assert [line.id for line in result["lines"]] == ["p1.s1", "p1.s2"]
+    assert [line.id for line in result["pdf_lines"]] == ["p1.s1", "p1.s2"]
 
 
 async def test_the_run_contexts_model_reads_the_resume_instead_of_its_own():

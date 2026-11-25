@@ -991,6 +991,7 @@
       "read_thread": "Reading the email thread",
       "read_free_slots": "Checking your calendar",
       "handoff_to_child": "Handing the chat over",
+      "handoff_document": "Handing your document over",
       "handoff_to_parent": "Handing the chat back"
     },
     "anyStep": "Using a tool",
@@ -1032,6 +1033,7 @@
       "read_thread": "Read the email thread",
       "read_free_slots": "Checked your calendar",
       "handoff_to_child": "Handed the chat over",
+      "handoff_document": "Handed your document over",
       "handoff_to_parent": "Handed the chat back"
     },
     "anyDone": "Used a tool",

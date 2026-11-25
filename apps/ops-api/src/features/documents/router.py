@@ -227,8 +227,7 @@ async def propose_changeset(
     user: CurrentUserDep,
     service: DocumentServiceDep,
 ) -> ChangesetRead:
-    """Store an agent's changeset for the user to answer; ezcareer-harness's
-    edit-document workflow will send these once it is wired in"""
+    """Store an agent's changeset for the user to answer"""
     return await service.propose(user.id, document_id, changeset)
 
 
@@ -263,7 +262,7 @@ async def chat(
     user: CurrentUserDep,
     chat: DocumentChatDep,
 ) -> EventSourceResponse:
-    """Ask edit-document about the document and stream the turn, with any changeset it
+    """Ask career-consultant about the document and stream the turn, with any changeset it
     stored for review, until it replies, asks back, fails or is stopped"""
     return EventSourceResponse(await chat.send(user.id, document_id, message.text))
 

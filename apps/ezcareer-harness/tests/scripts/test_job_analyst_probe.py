@@ -19,7 +19,7 @@ async def test_probe_reports_why_an_analysis_failed():
 
     result = await probe.probe(
         probe.WORKFLOWS["analyse-job"],
-        {"url": URL, "facts": [{"id": "py", "text": "Six years of Python"}]},
+        {"url": URL, "profile_facts": [{"id": "py", "text": "Six years of Python"}]},
     )
 
     assert result["output"] is None
@@ -49,7 +49,7 @@ async def test_probe_answers_parallel_searches_each_with_its_own_result(
     result = await probe.probe(
         probe.WORKFLOWS["find-jobs"],
         {
-            "facts": [{"id": "py", "text": "Six years of Python"}],
+            "profile_facts": [{"id": "py", "text": "Six years of Python"}],
             "tool_results": {"job_search": [FOUND, {**FOUND, "requests_left": 1}]},
         },
     )

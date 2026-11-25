@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 import pytest
@@ -20,26 +21,56 @@ def test_an_agent_runs_on_the_family_and_model_its_settings_name():
     assert (agent.family, agent.model) == ("claude", "claude-opus-5-5")
 
 
-def test_an_agent_reads_the_prompt_and_skills_its_profile_names_from_the_app_folder(
+def test_an_agent_reads_the_skills_its_profile_names_from_the_app_folder(
     tmp_path: Path,
 ):
     profile = tmp_path / "profile.yaml"
-    profile.write_text(
-        "system_prompt: src/agents/job_analyst/system.md\n"
-        "skills: src/agents/job_analyst/skills\n"
-    )
+    profile.write_text("skills: src/agents/job_analyst/skills\n")
 
     agent = _load(profile)
 
-    assert agent.system_prompt == _ROOT_PATH / "src/agents/job_analyst/system.md"
     assert agent.skills == _ROOT_PATH / "src/agents/job_analyst/skills"
 
 
-def test_a_profile_that_names_neither_reads_them_beside_it():
+def test_a_profile_reads_its_step_limit(tmp_path: Path):
+    profile = tmp_path / "profile.yaml"
+    profile.write_text("recursion_limit: 7\n")
+
+    assert _load(profile).profile.recursion_limit == 7
+    assert _load().profile.recursion_limit is None
+
+
+def test_a_profile_that_names_no_skills_reads_them_beside_it():
     agent = _load()
 
-    assert agent.system_prompt == PROFILE.parent / "system.md"
+    assert agent.system_prompt == PROFILE.parent / "prompts/system.md"
     assert agent.skills == PROFILE.parent / "skills"
+
+
+def test_an_agent_reads_its_providers_prompt_variant_when_there_is_one(
+    tmp_path: Path,
+):
+    shutil.copytree(PROFILE.parent, tmp_path, dirs_exist_ok=True)
+    variant = tmp_path / "prompts/system.anthropic.md"
+    variant.write_text((tmp_path / "prompts/system.md").read_text())
+
+    assert _load(tmp_path / "profile.yaml", "claude").system_prompt == variant
+    assert (
+        _load(tmp_path / "profile.yaml", "glm").system_prompt
+        == tmp_path / "prompts/system.md"
+    )
+
+
+def test_an_archived_provider_variant_is_skipped_for_the_default_prompt(
+    tmp_path: Path,
+):
+    shutil.copytree(PROFILE.parent, tmp_path, dirs_exist_ok=True)
+    default = tmp_path / "prompts/system.md"
+    (tmp_path / "prompts/system.anthropic.md").write_text(
+        default.read_text().replace('status: "active"', 'status: "archived"')
+    )
+
+    assert _load(tmp_path / "profile.yaml", "claude").system_prompt == default
 
 
 def test_an_unknown_model_family_is_refused():

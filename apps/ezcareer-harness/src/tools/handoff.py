@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from functools import partial, update_wrapper
 from typing import Literal
 
@@ -17,18 +17,32 @@ def parent_agent() -> str | None:
     return get_config().get("configurable", {}).get("parent_agent")
 
 
-async def _handoff(
-    name: str, runtime: ToolRuntime[None, AgentState], agent: str
-) -> Command:
-    """Moves the conversation to agent's node in the parent graph, passing on the
-    call that asked for it with its answer"""
+async def hand_off(
+    name: str,
+    runtime: ToolRuntime[None, AgentState],
+    agent: str,
+    update: Mapping[str, object] = {},
+) -> Command | ToolMessage:
+    """Moves the conversation to agent's node in the parent graph with update added
+    to its state; only a reply's first call to a handoff tool runs"""
     call = next(
         m for m in reversed(runtime.state["messages"]) if isinstance(m, AIMessage)
     )
+    handoffs = {t.name for t in runtime.tools if (t.metadata or {}).get("handoff")}
+    if runtime.tool_call_id != next(
+        c["id"] for c in call.tool_calls if c["name"] in handoffs
+    ):
+        return ToolMessage(
+            "Hand off one at a time; this handoff did not run",
+            name=name,
+            tool_call_id=runtime.tool_call_id,
+            status="error",
+        )
     return Command(
         goto=agent,
         update={
             "active_agent": agent,
+            **update,
             "messages": [
                 call,
                 ToolMessage(
@@ -36,6 +50,16 @@ async def _handoff(
                     name=name,
                     tool_call_id=runtime.tool_call_id,
                     artifact={"step_detail": agent},
+                ),
+                *(
+                    ToolMessage(
+                        f"Its result was dropped, as the conversation was handed to {agent}",
+                        name=c["name"],
+                        tool_call_id=c["id"],
+                        status="error",
+                    )
+                    for c in call.tool_calls
+                    if c["id"] != runtime.tool_call_id
                 ),
             ],
         },
@@ -47,9 +71,9 @@ def handoff_to_child_tool(children: Sequence[str]) -> BaseTool:
     """handoff_to_child, which hands the conversation to one of the child agents
     named in children"""
     return StructuredTool.from_function(
-        coroutine=update_wrapper(partial(_handoff, "handoff_to_child"), _handoff),
+        coroutine=update_wrapper(partial(hand_off, "handoff_to_child"), hand_off),
         name="handoff_to_child",
-        description="Hands the conversation to the child agent that owns the user's request; it answers the user from then on",
+        description="Hands the conversation to the child agent that owns the user's request; it answers the user from then on. Call it once per reply",
         args_schema=create_model(
             "HandoffToChildArgs",
             __config__=ConfigDict(extra="forbid", arbitrary_types_allowed=True),
@@ -61,13 +85,19 @@ def handoff_to_child_tool(children: Sequence[str]) -> BaseTool:
             ),
             agent=(Literal[*children], Field(description="The child agent's name")),
         ),
+        metadata={"handoff": True},
     )
 
 
 @tool
-async def handoff_to_parent(runtime: ToolRuntime[None, AgentState]) -> Command:
+async def handoff_to_parent(
+    runtime: ToolRuntime[None, AgentState],
+) -> Command | ToolMessage:
     """Hands the conversation back to the agent that handed it to you, when the
     user's message is not yours to answer"""
-    return await _handoff(
+    return await hand_off(
         "handoff_to_parent", runtime, runtime.config["configurable"]["parent_agent"]
     )
+
+
+handoff_to_parent.metadata = {"handoff": True}

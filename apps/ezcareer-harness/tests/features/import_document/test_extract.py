@@ -9,7 +9,7 @@ import pytest
 from src.clients.artifact_service import ArtifactServiceClient
 from src.features.import_document.exceptions import ImportFailed
 from src.features.import_document.nodes import extract
-from tests.features.write_document.test_write_document_graph import _fail
+from tests.agents.career_consultant.test_career_consultant import _fail
 from tests.pdfs import make_pdf
 
 WORD = b"PK\x03\x04 a Word file"
@@ -56,7 +56,7 @@ def _artifact_service(
 async def test_a_word_file_is_read_from_the_pdf_artifact_service_converts_it_to():
     result = await extract({"file": WORD}, _artifact_service())
 
-    assert [line.text for line in result["lines"]] == ["Ada Lovelace", "Engineer"]
+    assert [line.text for line in result["pdf_lines"]] == ["Ada Lovelace", "Engineer"]
 
 
 async def test_a_file_artifact_service_refuses_fails_the_import_with_its_reason():

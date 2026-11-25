@@ -522,7 +522,7 @@ def resume_reply(document: dict = RESUME) -> dict:
         "document": document,
         "pdf": "JVBERi0=",
         "report": {"render_id": "0" * 64, "pages": 1, "last_page_fill": 0.4},
-        "lines": [],
+        "pdf_lines": [],
         "suggestion": {"template": "serif", "columns": 1, "traits": []},
     }
     return a2a_task("COMPLETED", artifact_parts=[{"data": reply}])
