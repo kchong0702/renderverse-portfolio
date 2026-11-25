@@ -2,7 +2,7 @@
 
 Revision ID: 538216513e60
 Revises:
-Create Date: 2026-11-22 06:26:28.788020
+Create Date: 2026-11-25 23:01:51.844756
 
 """
 
@@ -12,6 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
+# revision identifiers, used by Alembic.
 revision: str = "538216513e60"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
@@ -195,12 +196,20 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.CheckConstraint(
+            "(agent = 'career-director') = (active_thread_id IS NOT NULL)",
+            name=op.f("ck_agent_sessions_active_thread"),
+        ),
+        sa.CheckConstraint(
             "agent in ('career-director', 'career-consultant')",
             name=op.f("ck_agent_sessions_agent"),
         ),
-        sa.CheckConstraint(
-            "(agent = 'career-director') = (active_thread_id IS NOT NULL)",
-            name=op.f("ck_agent_sessions_active_thread"),
+        sa.ForeignKeyConstraint(
+            ["active_thread_id"],
+            ["agent_threads.id"],
+            name=op.f("fk_agent_sessions_active_thread_id_agent_threads"),
+            initially="DEFERRED",
+            deferrable=True,
+            use_alter=True,
         ),
         sa.ForeignKeyConstraint(
             ["user_id"],
@@ -1067,6 +1076,43 @@ def upgrade() -> None:
         sqlite_where=sa.text("master"),
     )
     op.create_table(
+        "profile_projects",
+        sa.Column("entry_id", sa.Uuid(), nullable=False),
+        sa.Column("link", sa.String(length=500), nullable=True),
+        sa.Column("code_link", sa.String(length=500), nullable=True),
+        sa.Column(
+            "tools",
+            postgresql.ARRAY(sa.Text()).with_variant(sa.JSON(), "sqlite"),
+            nullable=False,
+        ),
+        sa.Column(
+            "on_site", sa.Boolean(), server_default=sa.text("false"), nullable=False
+        ),
+        sa.Column("image_id", sa.Uuid(), nullable=True),
+        sa.Column("video_id", sa.Uuid(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["entry_id"],
+            ["profile_entries.id"],
+            name=op.f("fk_profile_projects_entry_id_profile_entries"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["image_id"],
+            ["assets.id"],
+            name=op.f("fk_profile_projects_image_id_assets"),
+            initially="DEFERRED",
+            deferrable=True,
+        ),
+        sa.ForeignKeyConstraint(
+            ["video_id"],
+            ["assets.id"],
+            name=op.f("fk_profile_projects_video_id_assets"),
+            initially="DEFERRED",
+            deferrable=True,
+        ),
+        sa.PrimaryKeyConstraint("entry_id", name=op.f("pk_profile_projects")),
+    )
+    op.create_table(
         "agent_threads",
         sa.Column("session_id", sa.Uuid(), nullable=False),
         sa.Column("document_id", sa.Uuid(), nullable=True),
@@ -1136,43 +1182,6 @@ def upgrade() -> None:
         ["id"],
         deferrable=True,
         initially="DEFERRED",
-    )
-    op.create_table(
-        "profile_projects",
-        sa.Column("entry_id", sa.Uuid(), nullable=False),
-        sa.Column("link", sa.String(length=500), nullable=True),
-        sa.Column("code_link", sa.String(length=500), nullable=True),
-        sa.Column(
-            "tools",
-            postgresql.ARRAY(sa.Text()).with_variant(sa.JSON(), "sqlite"),
-            nullable=False,
-        ),
-        sa.Column(
-            "on_site", sa.Boolean(), server_default=sa.text("false"), nullable=False
-        ),
-        sa.Column("image_id", sa.Uuid(), nullable=True),
-        sa.Column("video_id", sa.Uuid(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["entry_id"],
-            ["profile_entries.id"],
-            name=op.f("fk_profile_projects_entry_id_profile_entries"),
-            ondelete="CASCADE",
-        ),
-        sa.ForeignKeyConstraint(
-            ["image_id"],
-            ["assets.id"],
-            name=op.f("fk_profile_projects_image_id_assets"),
-            initially="DEFERRED",
-            deferrable=True,
-        ),
-        sa.ForeignKeyConstraint(
-            ["video_id"],
-            ["assets.id"],
-            name=op.f("fk_profile_projects_video_id_assets"),
-            initially="DEFERRED",
-            deferrable=True,
-        ),
-        sa.PrimaryKeyConstraint("entry_id", name=op.f("pk_profile_projects")),
     )
     op.create_table(
         "document_changesets",
@@ -1705,10 +1714,10 @@ def upgrade() -> None:
     op.enable_rls("profiles")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("user_settings")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("agent_events")  # pyright: ignore[reportAttributeAccessIssue]
-    op.enable_rls("agent_threads")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("applications")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("documents")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("profile_projects")  # pyright: ignore[reportAttributeAccessIssue]
+    op.enable_rls("agent_threads")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("document_changesets")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("document_versions")  # pyright: ignore[reportAttributeAccessIssue]
     op.enable_rls("email_threads")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1723,11 +1732,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_constraint(
-        op.f("fk_agent_sessions_active_thread_id_agent_threads"),
-        "agent_sessions",
-        type_="foreignkey",
-    )
     op.disable_rls("alembic_version")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("thread_messages")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("profile_changes")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1736,10 +1740,10 @@ def downgrade() -> None:
     op.disable_rls("email_threads")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("document_versions")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("document_changesets")  # pyright: ignore[reportAttributeAccessIssue]
+    op.disable_rls("agent_threads")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("profile_projects")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("documents")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("applications")  # pyright: ignore[reportAttributeAccessIssue]
-    op.disable_rls("agent_threads")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("agent_events")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("user_settings")  # pyright: ignore[reportAttributeAccessIssue]
     op.disable_rls("profiles")  # pyright: ignore[reportAttributeAccessIssue]
@@ -1814,7 +1818,11 @@ def downgrade() -> None:
         op.f("ix_document_changesets_document_id"), table_name="document_changesets"
     )
     op.drop_table("document_changesets")
-    op.drop_table("profile_projects")
+    op.drop_constraint(
+        op.f("fk_agent_sessions_active_thread_id_agent_threads"),
+        "agent_sessions",
+        type_="foreignkey",
+    )
     op.drop_index(
         "uq_agent_threads_document",
         table_name="agent_threads",
@@ -1824,6 +1832,7 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_agent_threads_user_id"), table_name="agent_threads")
     op.drop_index(op.f("ix_agent_threads_session_id"), table_name="agent_threads")
     op.drop_table("agent_threads")
+    op.drop_table("profile_projects")
     op.drop_index(
         "uq_documents_master",
         table_name="documents",

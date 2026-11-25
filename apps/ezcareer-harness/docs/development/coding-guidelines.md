@@ -77,6 +77,13 @@ Read [the architecture overview](../architecture/overview.md) for the three kind
 - A tool's schema carries its description, and the model sees each description once.
 - Don't write code comments. Log with structlog, not `print`.
 
+## Migrations
+
+- Generate every migration with `alembic revision --autogenerate`. Keep the file as Alembic writes it, its comments included.
+- `env.py` and `script.py.mako` come from `alembic init -t async`. Leave `script.py.mako` as Alembic's template. Change `env.py` only where the app needs it, such as its database URL, engine, metadata and schema.
+- When autogenerate misses something, fix the model so that it generates it. Don't edit the migration.
+- If a migration needs a line autogenerate can't write, list each such line in the PR and say why.
+
 ## Git
 
 - Use Conventional Commits: `type(scope): summary`, with `feat`, `fix`, `refactor` or `chore`, and `ezcareer-harness` as the scope.
