@@ -147,7 +147,7 @@ async def test_a_run_keeps_its_agent_task_status_and_events_as_its_user(
             """The task the message started"""
             return "task-1"
 
-        async def follow(self, *args: object) -> AsyncIterator[RunEvent[Any]]:
+        async def subscribe(self, *args: object) -> AsyncIterator[RunEvent[Any]]:
             """A task that completes"""
             yield Completed(reply="Done.")
 
@@ -216,7 +216,7 @@ async def test_a_turn_whose_process_went_quiet_is_carried_on_by_another(
         async def start(self, *args: object, **kwargs: object) -> str:
             return "task-1"
 
-        async def follow(self, *args: object) -> AsyncIterator[RunEvent[Any]]:
+        async def subscribe(self, *args: object) -> AsyncIterator[RunEvent[Any]]:
             try:
                 await asyncio.Event().wait()
             finally:

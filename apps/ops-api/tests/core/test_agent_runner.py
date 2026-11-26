@@ -54,8 +54,8 @@ type _Step = RunEvent[str] | ToolsRequested | Exception
 
 class _Harness:
     def __init__(self):
-        """Scripts each follow's events and each state, recording what it is sent"""
-        self.follows: list[list[_Step]] = []
+        """Scripts each subscribe's events and each state, recording what it is sent"""
+        self.subscribed: list[list[_Step]] = []
         self.states: list[TaskState | None | Exception] = []
         self.sent: list[tuple[str, dict[str, Any]]] = []
         self.cancelled: list[str] = []
@@ -73,10 +73,10 @@ class _Harness:
         self.sent.append(("results", message))
         return message["task_id"]
 
-    async def follow(
+    async def subscribe(
         self, *args: object
     ) -> AsyncIterator[RunEvent[str] | ToolsRequested]:
-        for step in self.follows.pop(0):
+        for step in self.subscribed.pop(0):
             if isinstance(step, Exception):
                 raise step
             yield step
@@ -195,7 +195,7 @@ def _id(event: str) -> str:
 
 async def test_a_run_streams_each_event_with_its_id_and_a_retry_hint_first(factory):
     harness = _Harness()
-    harness.follows = [[Text(turn="t", text="1"), Completed(reply="1")]]
+    harness.subscribed = [[Text(turn="t", text="1"), Completed(reply="1")]]
 
     events = [e async for e in await _start(_runner(harness, factory))]
 
@@ -231,7 +231,7 @@ async def test_a_run_ends_as_its_last_event_says_with_the_task_it_followed(facto
             yield _Card() if isinstance(event, Completed) else event
 
     harness = _Harness()
-    harness.follows = [
+    harness.subscribed = [
         [InputRequired(task_id="task-1", widget=Widget(label="Go?"))],
         [Completed(reply="Done.")],
         [Failed(reason="No.")],
@@ -255,7 +255,7 @@ async def test_a_thread_runs_one_turn_at_a_time(factory):
     release = asyncio.Event()
 
     class _Waits(_Harness):
-        async def follow(self, *args: object) -> AsyncIterator[RunEvent[str]]:
+        async def subscribe(self, *args: object) -> AsyncIterator[RunEvent[str]]:
             await release.wait()
             yield Completed(reply="1")
 
@@ -269,7 +269,7 @@ async def test_a_thread_runs_one_turn_at_a_time(factory):
 
 async def test_resume_skips_what_the_client_saw_and_refuses_another_runs_id(factory):
     harness = _Harness()
-    harness.follows = [[Text(turn="t", text="1"), Completed(reply="1")]]
+    harness.subscribed = [[Text(turn="t", text="1"), Completed(reply="1")]]
     runner = _runner(harness, factory)
     events = [e async for e in await _start(runner)]
 
@@ -288,7 +288,7 @@ async def test_the_tools_a_task_asks_for_are_executed_and_their_results_sent(
     factory,
 ):
     harness = _Harness()
-    harness.follows = [
+    harness.subscribed = [
         [
             ToolsRequested(
                 task_id="task-1", requests=[("i-1", ToolRequest(execute_tool="shelf"))]
@@ -313,7 +313,7 @@ async def test_a_tool_that_raises_is_logged_and_answered_with_an_error_so_the_tu
         raise RuntimeError("The shelf table is gone")
 
     harness = _Harness()
-    harness.follows = [
+    harness.subscribed = [
         [
             ToolsRequested(
                 task_id="task-1", requests=[("i-1", ToolRequest(execute_tool="shelf"))]
@@ -347,7 +347,7 @@ async def test_a_tool_that_raises_is_logged_and_answered_with_an_error_so_the_tu
 
 async def test_a_dropped_stream_reconnects_and_follows_the_task_on(factory):
     harness = _Harness()
-    harness.follows = [
+    harness.subscribed = [
         [Text(turn="t", text="Two "), HarnessUnreachable("stream broke")],
         [Completed(reply="Two fit.")],
     ]
@@ -381,7 +381,7 @@ async def test_a_task_that_ended_while_ops_api_was_away_ends_the_run_as_it_did(
     factory,
 ):
     harness = _Harness()
-    harness.follows = [[HarnessUnreachable("stream broke")]]
+    harness.subscribed = [[HarnessUnreachable("stream broke")]]
     harness.states = [TaskState(task_id="task-1", events=[Completed(reply="Done.")])]
     store = _Finishes()
 
@@ -393,7 +393,10 @@ async def test_a_task_that_ended_while_ops_api_was_away_ends_the_run_as_it_did(
 
 async def test_a_pause_found_on_reconnecting_has_its_tools_executed(factory):
     harness = _Harness()
-    harness.follows = [[HarnessUnreachable("stream broke")], [Completed(reply="Dune.")]]
+    harness.subscribed = [
+        [HarnessUnreachable("stream broke")],
+        [Completed(reply="Dune.")],
+    ]
     harness.states = [
         TaskState(
             task_id="task-1",
@@ -421,7 +424,7 @@ async def test_a_message_the_harness_may_not_have_got_is_found_by_its_thread(
 
     harness = _Lost()
     harness.states = [TaskState(task_id="task-7", events=[]), None]
-    harness.follows = [[Completed(reply="Hi.")]]
+    harness.subscribed = [[Completed(reply="Hi.")]]
     before = utcnow()
 
     statuses = await _statuses(await _start(_runner(harness, factory)))
@@ -434,7 +437,7 @@ async def test_a_message_the_harness_may_not_have_got_is_found_by_its_thread(
 
 async def test_a_task_the_harness_lost_fails_the_run(factory):
     harness = _Harness()
-    harness.follows = [[HarnessUnreachable("stream broke")]]
+    harness.subscribed = [[HarnessUnreachable("stream broke")]]
     harness.states = [None]
 
     events = [e async for e in await _start(_runner(harness, factory))]
@@ -448,7 +451,7 @@ async def test_a_harness_gone_past_the_reconnect_window_fails_the_run_and_stops_
     factory,
 ):
     harness = _Harness()
-    harness.follows = [[HarnessUnreachable("stream broke")]]
+    harness.subscribed = [[HarnessUnreachable("stream broke")]]
     harness.states = [HarnessUnreachable("down")] * 1000
     store = _Finishes()
 
@@ -470,7 +473,7 @@ class _Hangs(_Harness):
         super().__init__()
         self.stopped = False
 
-    async def follow(self, *args: object) -> AsyncIterator[RunEvent[str]]:
+    async def subscribe(self, *args: object) -> AsyncIterator[RunEvent[str]]:
         try:
             await asyncio.Event().wait()
         finally:
@@ -507,7 +510,7 @@ async def test_closing_waits_for_a_run_still_saving_its_end(factory):
             self.finished.append((status, task_id))
 
     harness = _Harness()
-    harness.follows = [[Completed(reply="Done.")]]
+    harness.subscribed = [[Completed(reply="Done.")]]
     store = _SlowFinish()
     runner = _runner(harness, factory, store)
     [e async for e in await _start(runner)]
@@ -543,7 +546,7 @@ async def test_a_write_refused_as_taken_over_stops_the_run_here_without_finishin
     factory,
 ):
     harness = _Harness()
-    harness.follows = [[Completed(reply="1")]]
+    harness.subscribed = [[Completed(reply="1")]]
     store = _Finishes()
 
     def taken(

@@ -419,7 +419,7 @@ class AgentRunner:
                     announced = task_id
                     yield Started(task_id=task_id)
                 requested = None
-                async for event in self._ezcareer.follow(
+                async for event in self._ezcareer.subscribe(
                     turn.agent, turn.user_id, turn.thread_id, task_id
                 ):
                     if isinstance(event, ToolsRequested):

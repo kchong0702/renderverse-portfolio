@@ -3,15 +3,13 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import Literal, NamedTuple
+from typing import Literal
 from uuid import UUID, uuid4
 
 import httpx2
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from src.clients.ezcareer.a2a import (
-    Artifact,
-    DataPart,
     ListTasksParams,
     ListTasksRequest,
     ListTasksSuccess,
@@ -21,22 +19,21 @@ from src.clients.ezcareer.a2a import (
     SendMessageParams,
     SendMessageRequest,
     SendMessageSuccess,
-    StatusMessage,
     StepData,
     StreamSuccess,
     Task,
     TaskIdParams,
     TaskRequest,
-    TaskStatus,
     TaskSuccess,
-    TextPart,
-    UsageData,
 )
 from src.clients.ezcareer.exceptions import HarnessUnreachable
+from src.clients.ezcareer.messages import (
+    answer_message,
+    new_message,
+    tool_results_message,
+)
 from src.clients.ezcareer.schemas import (
-    Action,
     Answer,
-    Cancelled,
     Completed,
     Decisions,
     ExecuteTool,
@@ -44,11 +41,8 @@ from src.clients.ezcareer.schemas import (
     InputRequired,
     MessageMetadata,
     ModelCatalog,
-    NextScreen,
     Published,
     RecordUsage,
-    Replied,
-    ReviewRequired,
     Run,
     RunEvent,
     RunMetadata,
@@ -57,174 +51,21 @@ from src.clients.ezcareer.schemas import (
     Text,
     Thinking,
     ThreadSummary,
-    ToolRequest,
     ToolsRequested,
-    Usage,
     Widget,
+)
+from src.clients.ezcareer.task_status import (
+    TaskState,
+    call_usage,
+    failure,
+    reply_text,
+    status_events,
+    tool_requests,
 )
 from src.core.config import EzcareerSettings
 from src.core.exceptions import Conflict, NotFound, ServiceUnavailable
 
 _HEADERS = {"A2A-Version": "1.0", "Content-Type": "application/json"}
-
-
-class TaskState(NamedTuple):
-    task_id: str
-    """The task"""
-
-    events: list[RunEvent[str] | ToolsRequested]
-    """What its status says: nothing while it works, the tools it asks for, or the
-    message ending the turn and how it ended"""
-
-
-def _new_message(
-    context_id: str,
-    message_id: str,
-    text: str,
-    data: BaseModel,
-    metadata: MessageMetadata | None = None,
-) -> Message:
-    """A message starting a run on the user's text and its input data"""
-    return Message(
-        message_id=message_id,
-        context_id=context_id,
-        parts=[TextPart(text=text), DataPart(data=data)]
-        if text
-        else [DataPart(data=data)],
-        metadata=metadata,
-    )
-
-
-def _answer_message(context_id: str, task_id: str, answer: BaseModel) -> Message:
-    """A message answering a paused task's widget or review"""
-    return Message(
-        message_id=uuid4().hex,
-        context_id=context_id,
-        task_id=task_id,
-        parts=[DataPart(data=answer)],
-    )
-
-
-def _results_message(
-    context_id: str, task_id: str, results: list[tuple[str, BaseModel]]
-) -> Message:
-    """A message resuming a paused task with each tool's result, under the interrupt
-    id that asked for it"""
-    return Message(
-        message_id=uuid4().hex,
-        context_id=context_id,
-        task_id=task_id,
-        parts=[
-            DataPart(data=result, metadata={"interrupt_id": interrupt_id})
-            for interrupt_id, result in results
-        ],
-    )
-
-
-def _tool_requests(status: TaskStatus) -> list[tuple[str, ToolRequest]]:
-    """Each tool a paused task asks ops-api to execute, under its interrupt id; empty
-    when the task waits for anything else"""
-    parts = status.message.parts if status.message else []
-    requests = [
-        (str(part.metadata["interrupt_id"]), ToolRequest.model_validate(part.data))
-        for part in parts
-        if isinstance(part.data, dict)
-        and "execute_tool" in part.data
-        and part.metadata
-        and "interrupt_id" in part.metadata
-    ]
-    return requests if len(requests) == len(parts) else []
-
-
-def _review(task_id: str, status: TaskStatus) -> ReviewRequired | None:
-    """The tool calls a paused task waits for the user to approve, or None when it
-    asks something else"""
-    data = status.message.parts[0].data if status.message else None
-    return (
-        ReviewRequired(
-            task_id=task_id,
-            actions=TypeAdapter(list[Action]).validate_python(data["action_requests"]),
-        )
-        if isinstance(data, dict) and "action_requests" in data
-        else None
-    )
-
-
-def _usage(message: StatusMessage | None) -> Usage | None:
-    """The model call's usage a status message carries, if it carries one"""
-    data = message.parts[0].data if message else None
-    return (
-        UsageData.model_validate(data).usage
-        if isinstance(data, dict) and "usage" in data
-        else None
-    )
-
-
-def _failed(status: TaskStatus) -> Failed:
-    """Why a task stopped, as the harness put it or in plain words when it gave no
-    reason, with the screen a data part names"""
-    parts = status.message.parts if status.message else []
-    screen = next(
-        (
-            p.data["next"]
-            for p in parts
-            if isinstance(p.data, dict) and p.data.get("next")
-        ),
-        None,
-    )
-    return Failed(
-        reason=" ".join(part.text for part in parts if part.text)
-        or "The assistant hit an error. Send your message again.",
-        next=NextScreen.model_validate(screen) if screen else None,
-    )
-
-
-def _reply(executable: str, artifacts: list[Artifact]) -> str | None:
-    """The text of the executable's reply artifact, if the task has one yet"""
-    return next(
-        (
-            "".join(part.text or "" for part in artifact.parts)
-            for artifact in artifacts
-            if artifact.name == executable
-        ),
-        None,
-    )
-
-
-def _ended(
-    task_id: str, status: TaskStatus, reply: str | None
-) -> list[RunEvent[str] | ToolsRequested]:
-    """What a task's status says about its run: nothing while it works, the tools it
-    asks ops-api to execute, or the message ending the turn and how it ended"""
-    message = status.message
-    match status.state:
-        case "TASK_STATE_SUBMITTED" | "TASK_STATE_WORKING":
-            return []
-        case "TASK_STATE_INPUT_REQUIRED" if requests := _tool_requests(status):
-            return [ToolsRequested(task_id=task_id, requests=requests)]
-        case "TASK_STATE_INPUT_REQUIRED" if review := _review(task_id, status):
-            ended: RunEvent[str] = review
-        case "TASK_STATE_INPUT_REQUIRED" if message:
-            ended = InputRequired(
-                task_id=task_id, widget=Widget.model_validate(message.parts[0].data)
-            )
-        case "TASK_STATE_COMPLETED":
-            text = (
-                "".join(part.text for part in message.parts if part.text)
-                if message
-                else ""
-            )
-            ended = Completed(reply=text or reply or "")
-        case "TASK_STATE_CANCELED":
-            ended = Cancelled()
-        case _:
-            ended = _failed(status)
-    replied = (
-        [Replied(message_id=message.message_id)]
-        if message and message.message_id
-        else []
-    )
-    return [*replied, ended]
 
 
 class EzcareerClient:
@@ -287,7 +128,9 @@ class EzcareerClient:
                     return Failed(reason=outcome.error.message)
                 task = outcome.result.task
                 for entry in task.history:
-                    if entry.message_id not in recorded and (usage := _usage(entry)):
+                    if entry.message_id not in recorded and (
+                        usage := call_usage(entry)
+                    ):
                         recorded.add(entry.message_id)
                         await self._record_usage(
                             user_id, message.context_id, task.id, usage
@@ -303,7 +146,7 @@ class EzcareerClient:
                             )
                         )
                     case "TASK_STATE_INPUT_REQUIRED" if execute_tool and (
-                        requests := _tool_requests(status)
+                        requests := tool_requests(status)
                     ):
                         results = await asyncio.gather(
                             *(
@@ -311,7 +154,7 @@ class EzcareerClient:
                                 for interrupt_id, request in requests
                             )
                         )
-                        message = _results_message(
+                        message = tool_results_message(
                             message.context_id,
                             task.id,
                             [
@@ -327,7 +170,7 @@ class EzcareerClient:
                             widget=Widget.model_validate(status.message.parts[0].data),
                         )
                     case _:
-                        return _failed(status)
+                        return failure(status)
         except (httpx2.HTTPError, ValueError) as error:
             raise ServiceUnavailable(
                 f"ezcareer-harness did not answer {executable}; try again later"
@@ -351,7 +194,7 @@ class EzcareerClient:
             executable,
             reply,
             user_id,
-            _new_message(context_id, uuid4().hex, text, data),
+            new_message(context_id, uuid4().hex, text, data),
             metadata,
             execute_tool,
         )
@@ -406,7 +249,7 @@ class EzcareerClient:
         or why the harness refused it"""
         return await self._submit(
             executable,
-            _new_message(context_id, message_id, text, data, sent),
+            new_message(context_id, message_id, text, data, sent),
             metadata,
         )
 
@@ -422,7 +265,7 @@ class EzcareerClient:
         """Send the user's answer or decisions to a paused task, which runs on, and
         return its id or why the harness refused the answer"""
         return await self._submit(
-            executable, _answer_message(context_id, task_id, answer), metadata
+            executable, answer_message(context_id, task_id, answer), metadata
         )
 
     async def results(
@@ -437,10 +280,10 @@ class EzcareerClient:
         """Send a paused task the results of the tools it asked for, which it runs on
         with, and return its id or why the harness refused them"""
         return await self._submit(
-            executable, _results_message(context_id, task_id, results), metadata
+            executable, tool_results_message(context_id, task_id, results), metadata
         )
 
-    async def follow(
+    async def subscribe(
         self, executable: str, user_id: UUID, context_id: str, task_id: str
     ) -> AsyncIterator[RunEvent[str] | ToolsRequested]:
         """A task's events from where it stands until it asks for tools, pauses or
@@ -474,7 +317,7 @@ class EzcareerClient:
                     result = outcome.result
                     if result.task:
                         status = result.task.status
-                        reply = _reply(executable, result.task.artifacts) or reply
+                        reply = reply_text(executable, result.task.artifacts) or reply
                     elif update := result.artifact_update:
                         artifact = update.artifact
                         text = "".join(part.text or "" for part in artifact.parts)
@@ -491,7 +334,7 @@ class EzcareerClient:
                     elif update := result.status_update:
                         status = update.status
                         if status.state == "TASK_STATE_WORKING" and (
-                            usage := _usage(status.message)
+                            usage := call_usage(status.message)
                         ):
                             await self._record_usage(
                                 user_id, context_id, task_id, usage
@@ -506,7 +349,7 @@ class EzcareerClient:
                             continue
                     else:
                         continue
-                    if events := _ended(task_id, status, reply):
+                    if events := status_events(task_id, status, reply):
                         for ended in events:
                             yield ended
                         return
@@ -555,7 +398,9 @@ class EzcareerClient:
             return None
         return TaskState(
             task_id=task.id,
-            events=_ended(task.id, task.status, _reply(executable, task.artifacts)),
+            events=status_events(
+                task.id, task.status, reply_text(executable, task.artifacts)
+            ),
         )
 
     async def _find(
@@ -659,4 +504,4 @@ class EzcareerClient:
         await self._http.aclose()
 
 
-__all__ = ["EzcareerClient", "TaskState"]
+__all__ = ["EzcareerClient"]

@@ -1,4 +1,4 @@
-from src.clients.ezcareer.client import EzcareerClient, TaskState
+from src.clients.ezcareer.client import EzcareerClient
 from src.clients.ezcareer.exceptions import AgentRunFailed, HarnessUnreachable
 from src.clients.ezcareer.schemas import (
     Answer,
@@ -32,6 +32,7 @@ from src.clients.ezcareer.schemas import (
     Usage,
     Widget,
 )
+from src.clients.ezcareer.task_status import TaskState
 from src.clients.ezcareer.types import ModelFamily
 
 __all__ = [
