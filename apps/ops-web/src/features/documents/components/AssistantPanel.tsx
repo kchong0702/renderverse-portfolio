@@ -1,15 +1,18 @@
-import { Sparkle } from "lucide-react";
+import { RotateCcw, Sparkle } from "lucide-react";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  openTurn,
+  MAX_RECONNECTS,
+  sendRefused,
   useAnswerTask,
-  useAssistantStore,
-  useResumeTurns,
+  useClearConversation,
+  useConversation,
+  useOlderMessages,
   useSendMessage,
   useStop,
   type AssistantTurn,
-  type ChatEntry,
+  type Chat,
+  type Conversation,
 } from "@/features/assistant";
 import { buttonClass } from "@/shared/components/button";
 import { cn } from "@/shared/lib/cn";
@@ -21,8 +24,6 @@ import {
 } from "../hooks/useDocuments";
 import { changedText } from "../lib/changes";
 import { sourceName } from "../lib/sources";
-
-const NO_ENTRIES: ChatEntry[] = [];
 
 const chipClass =
   "border-hair text-ink-2 min-h-8 cursor-pointer rounded-full border bg-transparent px-3 text-[13px]";
@@ -87,10 +88,12 @@ function ChangeList({
 
 function Turn({
   turn,
+  chat,
   document,
   changes,
 }: {
   turn: AssistantTurn;
+  chat: Chat;
   document: DocumentRecord;
   changes: boolean;
 }) {
@@ -106,9 +109,16 @@ function Turn({
   return (
     <div className="flex flex-col gap-3">
       {!outcome && (
-        <span className="shimmer text-[13px] font-medium">
-          {(step?.kind === "step" && steps[step.step.name]) ||
-            t("assistant.thinking")}
+        <span role="status" className="shimmer text-[13px] font-medium">
+          {turn.connection.status === "retrying"
+            ? t("assistant.retrying", { attempt: turn.connection.attempt })
+            : turn.connection.status === "reconnecting"
+              ? t("assistant.reconnecting", {
+                  attempt: turn.connection.attempt,
+                  max: MAX_RECONNECTS,
+                })
+              : (step?.kind === "step" && steps[step.step.name]) ||
+                t("assistant.thinking")}
         </span>
       )}
       {turn.parts.map(
@@ -140,7 +150,7 @@ function Turn({
                     disabled={answer.isPending}
                     onClick={() =>
                       answer.mutate({
-                        chat: { kind: "document", id: document.id },
+                        chat,
                         taskId: outcome.task_id,
                         answer: { accept },
                         shown: label,
@@ -176,10 +186,14 @@ export default function AssistantPanel({
   document: DocumentRecord;
 }) {
   const { t } = useTranslation();
-  const chat = { kind: "document", id: document.id } as const;
-  const entries = useAssistantStore(
-    (state) => state.chats.document[document.id] ?? NO_ENTRIES,
-  );
+  const conversation: Conversation = {
+    agent: "career-consultant",
+    documentId: document.id,
+  };
+  const { chat, entries, running, history, error } =
+    useConversation(conversation);
+  const older = useOlderMessages(history);
+  const clear = useClearConversation();
   const send = useSendMessage();
   const answer = useAnswerTask();
   const stop = useStop();
@@ -187,8 +201,6 @@ export default function AssistantPanel({
   const pending = usePendingChangeset(document.id);
   const [draft, setDraft] = useState("");
   const inputId = useId();
-  useResumeTurns();
-  const running = openTurn(entries);
   const asking = entries.at(-1);
   const question =
     asking?.role === "assistant" &&
@@ -200,11 +212,11 @@ export default function AssistantPanel({
     .map(
       (entry) =>
         entry.role === "assistant" &&
-        entry.parts.some((part) => part.kind === "changeset"),
+        entry.parts.some((part) => part.kind === "proposed"),
     )
     .lastIndexOf(true);
   const ask = (text: string) => {
-    if (!text.trim() || running) return;
+    if (!text.trim() || running || !chat || !history.isSuccess) return;
     if (question)
       answer.mutate({
         chat,
@@ -212,7 +224,11 @@ export default function AssistantPanel({
         answer: { input: text.trim(), accept: true },
         shown: text.trim(),
       });
-    else send.mutate({ chat, text: text.trim() });
+    else
+      send.mutate(
+        { chat, text: text.trim() },
+        { onError: (error) => sendRefused(error) && setDraft(text) },
+      );
     setDraft("");
   };
 
@@ -222,33 +238,64 @@ export default function AssistantPanel({
         <span className="text-amber flex">
           <Sparkle size={16} />
         </span>
-        {t("assistant.aboutDocument", { title: document.title })}
+        <span className="flex-1">
+          {t("assistant.aboutDocument", { title: document.title })}
+        </span>
+        {entries.length > 0 && (
+          <button
+            type="button"
+            disabled={clear.isPending || running !== undefined}
+            onClick={() =>
+              window.confirm(t("assistant.confirmClear")) &&
+              clear.mutate(conversation)
+            }
+            className="text-ink-3 inline-flex min-h-8 cursor-pointer items-center gap-1.5 border-0 bg-transparent text-[13px] font-medium disabled:cursor-default disabled:opacity-60"
+          >
+            <RotateCcw size={13} />
+            {t("assistant.clear")}
+          </button>
+        )}
       </div>
+      {(error || clear.error) && (
+        <p role="alert" className="text-crit m-0 px-5 pt-3 text-sm">
+          {error
+            ? t("assistant.historyFailed", { reason: error.message })
+            : clear.error &&
+              t("assistant.clearFailed", { reason: clear.error.message })}
+        </p>
+      )}
       <div
         role="log"
         aria-label={t("documents.assistant.conversation")}
         className="flex flex-col gap-[18px] p-5"
       >
+        {history.hasNextPage && (
+          <p ref={older} role="status" className="text-ink-3 m-0 text-[13px]">
+            {history.isFetchingNextPage && t("assistant.loadingOlder")}
+          </p>
+        )}
         {pending && changesTurn < 0 && (
           <ChangeList document={document} pending={pending} />
         )}
-        {entries.map((entry, index) =>
-          entry.role === "user" ? (
-            <div
-              key={index}
-              className="bg-chip max-w-[85%] self-end rounded-[14px_14px_4px_14px] px-3.5 py-2.5 whitespace-pre-wrap"
-            >
-              {entry.text}
-            </div>
-          ) : (
-            <Turn
-              key={index}
-              turn={entry}
-              document={document}
-              changes={index === changesTurn}
-            />
-          ),
-        )}
+        {chat &&
+          entries.map((entry, index) =>
+            entry.role === "user" ? (
+              <div
+                key={entry.id}
+                className="bg-chip max-w-[85%] self-end rounded-[14px_14px_4px_14px] px-3.5 py-2.5 whitespace-pre-wrap"
+              >
+                {entry.text}
+              </div>
+            ) : (
+              <Turn
+                key={entry.id}
+                turn={entry}
+                chat={chat}
+                document={document}
+                changes={index === changesTurn}
+              />
+            ),
+          )}
       </div>
       <div className="border-hair-soft mt-auto flex flex-col gap-3 border-t px-5 pt-4 pb-5">
         <div className="flex flex-wrap gap-2">
@@ -319,7 +366,7 @@ export default function AssistantPanel({
             }}
             className="border-hair bg-ground text-ink min-h-10 flex-1 resize-y rounded-lg border px-3 py-2.5 text-sm leading-normal"
           />
-          {running ? (
+          {running && chat ? (
             <button
               type="button"
               disabled={stop.isPending || !running.taskId}
@@ -331,12 +378,21 @@ export default function AssistantPanel({
               {t("assistant.stop")}
             </button>
           ) : (
-            <button type="submit" className={buttonClass("primary")}>
+            <button
+              type="submit"
+              disabled={!history.isSuccess}
+              className={buttonClass("primary")}
+            >
               <Sparkle size={14} className="text-amber-soft" />
               {t("assistant.send")}
             </button>
           )}
         </form>
+        {sendRefused(send.error) && (
+          <p role="alert" className="text-crit m-0 text-sm">
+            {t("assistant.notSent", { reason: send.error.message })}
+          </p>
+        )}
         {decide.error && (
           <p role="alert" className="text-crit m-0 text-sm">
             {t("documents.assistant.decideFailed", {

@@ -19,8 +19,7 @@ from tests.agents.test_builder import _call
 
 TASK = {
     "messages": [{"type": "human", "content": "Mention my Kubernetes work"}],
-    "document_id": "doc-1",
-    **_loaded(),
+    "desired_document_id": "doc-1",
     "profile_facts": to_jsonable_python(_state()["profile_facts"]),
 }
 
@@ -37,11 +36,23 @@ def _container(*replies) -> None:
 
 
 async def test_a_probe_runs_the_containers_consultant_and_records_each_check_round():
-    _container(READ_SKILL, _propose(BAD_EDIT), _propose(GOOD_EDIT), DONE)
+    _container(
+        _call("read_document"),
+        READ_SKILL,
+        _propose(BAD_EDIT),
+        _propose(GOOD_EDIT),
+        DONE,
+    )
 
     result = await probe.probe(
         probe.WORKFLOWS["career-consultant"],
-        TASK,
+        TASK
+        | {
+            "tool_results": {
+                "read_document": _loaded(),
+                "propose_changeset": {"changeset_id": "cs-saved"},
+            }
+        },
     )
 
     assert result["error"] is None

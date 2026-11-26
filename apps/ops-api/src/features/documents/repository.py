@@ -78,23 +78,16 @@ class DocumentRepository(Repository):
         return changeset if changeset and changeset.document_id == document_id else None
 
     async def lines(self, document: Document) -> list[SourceLine]:
-        """The lines of the import that made the document, or the user's master of
-        its kind for a job's copy; none for one not imported"""
-        made = document.id
+        """The lines of the import that made the document or of the one it was copied
+        from; none for one not imported or a job's copy whose source was deleted"""
+        if document.copied_from is not None:
+            document = await self._session.get_one(Document, document.copied_from)
         if document.job_id is not None:
-            made = (
-                select(Document.id)
-                .where(
-                    Document.user_id == document.user_id,
-                    Document.kind == document.kind,
-                    Document.master,
-                )
-                .scalar_subquery()
-            )
+            return []
         return (
             await self._session.scalar(
                 select(Import.lines)
-                .where(Import.document_id == made, Import.lines.is_not(None))
+                .where(Import.document_id == document.id, Import.lines.is_not(None))
                 .limit(1)
             )
             or []

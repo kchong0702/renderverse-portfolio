@@ -75,11 +75,10 @@ WORKFLOWS: dict[str, RunWorkflow] = {
 
 
 def harness_hash(settings: Settings) -> str:
-    """Sha256 of every file of every agent and graph folder, the middleware prompts
-    folder and the harness profiles the settings name, each with its path"""
+    """Sha256 of the harness the settings name: every file of every agent folder
+    and every graph's harness folder, and the harness profiles file, with its path"""
     roots = [agent.path.parent for agent in settings.agents]
     roots += [profile.folder for profile in settings.graph_profiles]
-    roots += [settings.middleware_prompts]
     files = [
         path for root in roots for path in sorted(root.rglob("*")) if path.is_file()
     ]
@@ -156,6 +155,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = parser.parse_args(argv)
     if args.config:
         os.environ["EZCAREER_HARNESS_CONFIG"] = str(args.config.resolve())
+    os.environ["EZCAREER_HARNESS_STORES"] = "memory"
     reload_settings()
     result = asyncio.run(
         probe(WORKFLOWS[args.workflow], json.loads(args.task.read_text()))

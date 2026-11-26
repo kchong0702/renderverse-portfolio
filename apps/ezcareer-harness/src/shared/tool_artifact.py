@@ -7,6 +7,9 @@ class StepDetail(TypedDict):
     step_detail: NotRequired[str]
     """What the tool found or worked on, in plain words, such as 1 cover letter"""
 
+    step_document_id: NotRequired[str]
+    """The document the tool worked on in the end, such as a job's copy"""
+
 
 class ToolArtifact(StepDetail):
     name: str

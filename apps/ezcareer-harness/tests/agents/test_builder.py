@@ -14,8 +14,8 @@ from langgraph.graph import START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
-from src.agents import Agent, AgentOverride, build_agent, load_agents, registry
-from src.core.config import AgentSettings, Settings, get_settings
+from src.agents import Agent, AgentOverride, build_agent, load_agents
+from src.core.config import AgentSettings, Settings
 from src.infrastructure.observability import tracing
 from src.infrastructure.observability.instrumentation import instrument
 from src.shared.run_context import RunContext
@@ -342,19 +342,16 @@ def test_agent_hash_is_the_hash_of_its_folder(tmp_path: Path):
         assert Agent.load(copy).hash != before
 
 
-def test_agent_hash_changes_with_a_middleware_prompt(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    shutil.copytree(get_settings().middleware_prompts, tmp_path, dirs_exist_ok=True)
-    settings = get_settings().model_copy(update={"middleware_prompts": tmp_path})
-    monkeypatch.setattr(registry, "get_settings", lambda: settings)
-    hashes = [Agent.load(GREETER).hash]
+def test_agent_hash_leaves_out_python_bytecode(tmp_path: Path):
+    shutil.copytree(FIXTURES / "greeter", tmp_path, dirs_exist_ok=True)
+    copy = GREETER.model_copy(update={"path": tmp_path / "profile.yaml"})
+    before = Agent.load(copy).hash
 
-    for path in sorted(tmp_path.glob("*.md")):
-        path.write_text(path.read_text() + "\n")
-        hashes.append(Agent.load(GREETER).hash)
+    (tmp_path / "__pycache__").mkdir(exist_ok=True)
+    (tmp_path / "__pycache__" / "x.cpython-313.pyc").write_bytes(b"bytecode")
+    (tmp_path / "tools.pyc").write_bytes(b"bytecode")
 
-    assert len(set(hashes)) == len(hashes) > 1
+    assert Agent.load(copy).hash == before
 
 
 async def test_trace_records_the_agent_hash_and_the_tool_calls(

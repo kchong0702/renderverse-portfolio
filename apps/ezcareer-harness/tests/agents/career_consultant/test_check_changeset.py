@@ -110,6 +110,30 @@ def test_moves_and_deletes_of_other_content_pass():
     )
 
 
+@pytest.mark.parametrize(
+    "edit",
+    [
+        _bullet("Led the migration of 30 services to a new message queue.", "p1.s8"),
+        {"kind": "move", "path": "blocks/experience/items/lumen/bullets/queue"},
+        {"kind": "update_visibility", "block": "summary", "hidden": False},
+    ],
+)
+def test_an_edit_that_changes_nothing_is_reported(edit):
+    other = {"kind": "delete", "path": "blocks/experience/items/bayu/bullets/api"}
+
+    assert _check(other, edit) == [("no_change", "edits/1")]
+
+
+def test_a_reorder_whose_edits_depend_on_each_other_passes():
+    assert (
+        _check(
+            {"kind": "move", "path": "blocks/summary", "after": "skills"},
+            {"kind": "move", "path": "blocks/experience", "after": "summary"},
+        )
+        == []
+    )
+
+
 def test_an_edit_that_cannot_be_applied_is_reported():
     assert _check({"kind": "delete", "path": "blocks/education"}) == [
         ("not_applicable", "edits")

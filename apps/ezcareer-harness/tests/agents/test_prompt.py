@@ -1,12 +1,8 @@
 from pathlib import Path
-from string import Template
 
 import pytest
 
-from src.agents import middlewares
-from src.agents.middlewares import ParentHandoffMiddleware
 from src.agents.prompt import read_prompt
-from src.core.config import get_settings
 
 HEADER = (
     '---\nversion: "1.0"\ndescription: "Greets"\nauthor: "kchong0702"\n'
@@ -69,26 +65,3 @@ def test_an_archived_prompt_is_refused(tmp_path: Path):
 
     with pytest.raises(ValueError, match="archived"):
         read_prompt(path)
-
-
-def test_parent_handoff_middleware_reads_its_prompt_from_the_middleware_prompts_folder(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    (tmp_path / "parent_handoff.md").write_text(
-        HEADER.format(status="active") + "Hand it back.\n"
-    )
-    settings = get_settings().model_copy(update={"middleware_prompts": tmp_path})
-    monkeypatch.setattr(middlewares.parent_handoff, "get_settings", lambda: settings)
-
-    assert ParentHandoffMiddleware().hand_back == "Hand it back."
-
-
-@pytest.mark.parametrize(
-    "path",
-    sorted(get_settings().middleware_prompts.glob("*.md")),
-    ids=lambda path: path.name,
-)
-def test_each_middleware_prompt_loads_and_fills(path: Path):
-    template = Template(read_prompt(path))
-
-    template.substitute({name: "x" for name in template.get_identifiers()})

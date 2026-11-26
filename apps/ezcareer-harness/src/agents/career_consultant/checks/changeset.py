@@ -48,6 +48,20 @@ def check_changeset(
             )
         )
     for index, edit in enumerate(changeset.edits):
+        try:
+            unchanged = apply_edits(document, changeset.edits[:index]) == apply_edits(
+                document, changeset.edits[: index + 1]
+            )
+        except ValueError:
+            unchanged = False
+        if unchanged:
+            errors.append(
+                CheckError(
+                    rule="no_change",
+                    at=f"edits/{index}",
+                    message="this edit changes nothing",
+                )
+            )
         for at, value in cited_values(edit.model_dump(mode="json"), f"edits/{index}"):
             if not value.src:
                 rule, message = "uncited", f"{value.text!r} cites nothing"

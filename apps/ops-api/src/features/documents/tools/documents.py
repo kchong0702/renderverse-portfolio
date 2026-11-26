@@ -11,11 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from src.core.config import DocumentsSettings
 from src.db.session import session_scope
 from src.features.documents.repository import DocumentRepository
-from src.features.documents.schemas import (
-    DocumentContent,
-    DocumentMatch,
-    DocumentsAnswer,
-)
+from src.features.documents.schemas import DocumentMatch, DocumentsAnswer
 
 
 class DocumentsRequest(BaseModel):
@@ -35,8 +31,8 @@ async def documents(
     user_id: UUID,
     request: DocumentsRequest,
 ) -> DocumentsAnswer:
-    """The user's documents of the kind asked, the best match for a name first with
-    its draft and lines, on a session of its own"""
+    """The user's documents of the kind asked, the best match for a name first, on a
+    session of its own"""
     async for session in session_scope(factory):
         found = [
             d
@@ -58,13 +54,7 @@ async def documents(
         result = DocumentsAnswer(
             documents=[
                 DocumentMatch.model_validate(d, from_attributes=True) for d in found
-            ],
-            content=DocumentContent(
-                document=found[0].body,
-                pdf_lines=await DocumentRepository(session).lines(found[0]),
-            )
-            if found
-            else None,
+            ]
         )
     return result
 

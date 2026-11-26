@@ -15,8 +15,7 @@ def check_citations(
     errors: list[CheckError] = []
     for index, requirement in enumerate(output.requirements):
         at = f"requirements[{index}]"
-        unknown_lines = [i for i in requirement.line_ids if i not in texts]
-        if unknown_lines:
+        if unknown_lines := [i for i in requirement.line_ids if i not in texts]:
             errors.append(
                 CheckError(
                     rule=CheckRule.UNKNOWN_LINE,
@@ -34,8 +33,7 @@ def check_citations(
                         message=f"{requirement.text!r} is not word for word in lines {requirement.line_ids}",
                     )
                 )
-        unknown_facts = [f for f in requirement.fact_ids if f not in fact_ids]
-        if unknown_facts:
+        if unknown_facts := [f for f in requirement.fact_ids if f not in fact_ids]:
             errors.append(
                 CheckError(
                     rule=CheckRule.UNKNOWN_FACT,
@@ -52,8 +50,7 @@ def check_citations(
                 )
             )
     for name, term in output.terms:
-        unknown_lines = [i for i in term.line_ids if i not in texts] if term else []
-        if unknown_lines:
+        if term and (unknown_lines := [i for i in term.line_ids if i not in texts]):
             errors.append(
                 CheckError(
                     rule=CheckRule.UNKNOWN_LINE,

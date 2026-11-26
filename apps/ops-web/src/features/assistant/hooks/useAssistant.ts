@@ -1,25 +1,27 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import i18n from "@/i18n";
-import { useEffect } from "react";
-import type { Chat } from "../api/assistant";
+import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { Chat, Conversation } from "../api/assistant";
 import {
   answerTaskMutationOptions,
+  changesetsQueryOptions,
+  clearConversationMutationOptions,
   decideMutationOptions,
   documentsQueryOptions,
+  followDocumentMutationOptions,
   followTurnMutationOptions,
-  resumeTurnMutationOptions,
   sendMessageMutationOptions,
+  sessionQueryOptions,
   stopMutationOptions,
+  threadMessagesQueryOptions,
 } from "../queries/assistant";
-import { openTurn, useAssistantStore } from "../state/assistantStore";
+import {
+  historyEntry,
+  openTurn,
+  useAssistantStore,
+  type ChatEntry,
+} from "../state/assistantStore";
 
-export function useChat(): Chat {
-  const document = useAssistantStore((state) => state.document);
-  const chatId = useAssistantStore((state) => state.chatId);
-  return document
-    ? { kind: "document", id: document.id }
-    : { kind: "assistant", id: chatId };
-}
+const NO_ENTRIES: ChatEntry[] = [];
 
 export function useSendMessage() {
   return useMutation(sendMessageMutationOptions);
@@ -41,26 +43,99 @@ export function useDocuments() {
   return useQuery(documentsQueryOptions);
 }
 
-export function useFollowTurn() {
-  return useMutation(followTurnMutationOptions);
+export function useChangeset(documentId: string, changesetId: string) {
+  return useQuery({
+    ...changesetsQueryOptions(documentId),
+    select: (records) => records.find(({ id }) => id === changesetId),
+  });
 }
 
-export function useResumeTurns() {
-  const client = useQueryClient();
-  const { mutate: resume } = useMutation(resumeTurnMutationOptions);
-  const apply = useAssistantStore((state) => state.apply);
+export function useFollowDocument() {
+  return useMutation(followDocumentMutationOptions);
+}
+
+export function useClearConversation() {
+  return useMutation(clearConversationMutationOptions);
+}
+
+export function useConversation(conversation: Conversation) {
+  const session = useQuery(sessionQueryOptions(conversation));
+  const threadId = session.data?.thread_id;
+  const history = useInfiniteQuery({
+    ...threadMessagesQueryOptions({ threadId: threadId ?? "" }),
+    enabled: threadId !== undefined,
+  });
+  const stored = useAssistantStore(
+    (state) => (threadId && state.live[threadId]) || NO_ENTRIES,
+  );
+  const { mutate: follow } = useMutation(followTurnMutationOptions);
+  const newest = history.data?.pages[0];
+  const last = newest?.messages.at(-1);
+  const live = useMemo(
+    () => stored.filter((entry) => !newest?.covers.includes(entry)),
+    [newest, stored],
+  );
+  const entries = useMemo(
+    () => [
+      ...[...(history.data?.pages ?? [])]
+        .reverse()
+        .flatMap((page) => page.messages.map(historyEntry)),
+      ...live,
+    ],
+    [history.data, live],
+  );
 
   useEffect(() => {
-    if (client.isMutating({ mutationKey: ["assistant"] })) return;
-    const { chats } = useAssistantStore.getState();
-    for (const kind of ["assistant", "document"] as const)
-      for (const [id, entries] of Object.entries(chats[kind])) {
-        const turn = openTurn(entries ?? []);
-        if (!turn) continue;
-        const chat = { kind, id };
-        if (turn.lastEventId) resume({ chat, lastEventId: turn.lastEventId });
-        else
-          apply(chat, { status: "failed", reason: i18n.t("assistant.ended") });
-      }
-  }, [apply, client, resume]);
+    if (threadId && last?.role === "user" && live.length === 0)
+      follow({ threadId });
+  }, [follow, last, live.length, threadId]);
+
+  return {
+    chat: threadId ? ({ threadId } satisfies Chat) : undefined,
+    entries,
+    running: openTurn(live),
+    history,
+    error: session.error ?? history.error,
+  };
+}
+
+export function useOlderMessages(
+  history: ReturnType<typeof useConversation>["history"],
+) {
+  const [sentinel, setSentinel] = useState<HTMLElement | null>(null);
+  const anchor = useRef<{ element: Element; top: number } | null>(null);
+  const { fetchNextPage, hasNextPage } = history;
+  const pages = history.data?.pages.length ?? 0;
+
+  useLayoutEffect(() => {
+    const saved = anchor.current;
+    if (!saved) return;
+    anchor.current = null;
+    const delta = saved.element.getBoundingClientRect().top - saved.top;
+    let scroller = saved.element.parentElement;
+    while (
+      scroller &&
+      !/auto|scroll/.test(getComputedStyle(scroller).overflowY)
+    )
+      scroller = scroller.parentElement;
+    if (delta) (scroller ?? window).scrollBy(0, delta);
+  }, [pages]);
+
+  useEffect(() => {
+    if (!sentinel || !hasNextPage) return;
+    const observer = new IntersectionObserver(([seen]) => {
+      if (!seen?.isIntersecting) return;
+      const first = sentinel.nextElementSibling;
+      if (first)
+        anchor.current = {
+          element: first,
+          top: first.getBoundingClientRect().top,
+        };
+      void fetchNextPage({ cancelRefetch: false });
+    });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, pages, sentinel]);
+
+  return setSentinel;
 }

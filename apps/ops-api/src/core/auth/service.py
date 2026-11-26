@@ -21,6 +21,7 @@ from src.core.exceptions import (
     Unauthorized,
 )
 from src.db.base import as_utc, utcnow
+from src.features.conversations.repository import ConversationRepository
 
 _RENEW_AFTER = timedelta(hours=1)
 
@@ -50,6 +51,7 @@ class AuthService:
         if user is None:
             user = await self._repository.add(User(email=email))
         user.role = Role.ADMIN
+        await ConversationRepository(self._session).open_sessions(user.id)
         return user
 
     async def sign_in_with_password(
@@ -138,8 +140,11 @@ class AuthService:
             raise Conflict("You can't remove your last sign-in method")
         await self._repository.delete(identity)
 
-    async def create_session(self, user: User, user_agent: str = "") -> str:
-        """A new session; the returned token goes in the cookie and nowhere else"""
+    async def create_session(
+        self, user: User, timezone: str, user_agent: str = ""
+    ) -> str:
+        """A new session from a browser in timezone, opening the user's agent sessions
+        if missing; the returned token goes in the cookie and nowhere else"""
         now = utcnow()
         await self._repository.delete_expired_sessions(user.id, now)
         token = secrets.token_urlsafe(32)
@@ -148,12 +153,22 @@ class AuthService:
                 user_id=user.id,
                 token_hash=_hash_token(token),
                 user_agent=user_agent[:255],
+                timezone=timezone,
                 created_at=now,
                 last_seen_at=now,
                 expires_at=now + self._idle_timeout,
             )
         )
+        await ConversationRepository(self._session).open_sessions(user.id)
         return token
+
+    async def session_timezone(self, token: str) -> str:
+        """The IANA time zone the session's browser signed in from; Unauthorized when
+        the session is unknown or expired"""
+        session = await self._repository.live_session(_hash_token(token), utcnow())
+        if session is None:
+            raise Unauthorized("Sign in to continue")
+        return session.timezone
 
     async def resolve_session(self, token: str) -> User | None:
         """The session's user, or None when it is unknown, expired or disabled"""

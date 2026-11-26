@@ -3,12 +3,15 @@ import secrets
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 from src.core.config import EzcareerSettings
 from src.core.exceptions import Conflict, NotFound
 from src.core.stores.enums import AgentRunStatus
+from src.core.stores.protocol import RunRecord
+from src.db.base import utcnow
 
 
 @dataclass
@@ -21,6 +24,12 @@ class _Run:
 
     status: AgentRunStatus = AgentRunStatus.RUNNING
     """Where the run stands"""
+
+    task_id: str | None = None
+    """The A2A task the run ended on; None while it runs"""
+
+    started_at: datetime = field(default_factory=utcnow)
+    """When the run was opened"""
 
     finished_at: float | None = None
     """When the run ended, on the monotonic clock; None while it runs"""
@@ -66,14 +75,40 @@ class InMemoryRunStore:
         run.events.append(data)
         self._wake(run)
 
+    async def set_task(self, run_id: str, task_id: str) -> None:
+        """Nothing to keep: no other process takes over a run kept in memory"""
+
     async def finish(
         self, run_id: str, status: AgentRunStatus, task_id: str | None
     ) -> None:
         """Mark the run ended with status and wake its readers"""
         run = self._runs[run_id]
         run.status = status
+        run.task_id = task_id
         run.finished_at = time.monotonic()
         self._wake(run)
+
+    async def paused(self, thread_id: str) -> tuple[str, str] | None:
+        """The task thread_id's last run paused on and the status of its last event;
+        None unless that run ended asking the user"""
+        run = self._runs.get(self._current.get(thread_id, ""))
+        if (
+            run is None
+            or run.status != AgentRunStatus.INPUT_REQUIRED
+            or not run.task_id
+        ):
+            return None
+        return run.task_id, run.events[-1]["status"]
+
+    async def abandoned(
+        self, thread_id: str
+    ) -> tuple[str, str | None, datetime] | None:
+        """The id, A2A task if known and start of thread_id's last run when ops-api gave
+        up following it; None otherwise"""
+        run = self._runs.get(self._current.get(thread_id, ""))
+        if run is None or run.status != AgentRunStatus.ABANDONED:
+            return None
+        return run.id, run.task_id, run.started_at
 
     async def latest(self, thread_id: str) -> tuple[str, int]:
         """thread_id's run a client may still read and how many events it has; NotFound
@@ -98,6 +133,21 @@ class InMemoryRunStore:
             if run.status != AgentRunStatus.RUNNING:
                 return
             await changed.wait()
+
+    async def heartbeat(self) -> set[str]:
+        """Every running run: only this process writes the runs it keeps"""
+        return {
+            run.id
+            for run in self._runs.values()
+            if run.status == AgentRunStatus.RUNNING
+        }
+
+    async def sweep(self) -> list[RunRecord]:
+        """None: a run kept in memory ended with the process that wrote it"""
+        return []
+
+    async def release(self) -> None:
+        """Nothing to release"""
 
     async def aclose(self) -> None:
         """Nothing to release"""

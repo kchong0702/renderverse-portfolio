@@ -4,10 +4,9 @@ from typing import Literal
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.agent_runner import ToolError
-from src.db.session import session_scope
 from src.features.jobs.enums import RunTrigger
 from src.features.jobs.repository import JobRepository
 from src.features.jobs.schemas import JobRunCreate, JobRunQueued
@@ -19,19 +18,17 @@ class JobRunRequest(JobRunCreate):
 
 
 async def job_run(
-    factory: async_sessionmaker[AsyncSession], user_id: UUID, request: JobRunRequest
+    session: AsyncSession, user_id: UUID, request: JobRunRequest
 ) -> JobRunQueued | ToolError:
-    """Queue the agent run a paused run asks for, on a session of its own; ToolError
-    while an agent run is queued"""
-    async for session in session_scope(factory):
-        try:
-            queued = await JobRepository(session).queue_run(
-                user_id, RunTrigger.AGENT, request.search, request.run_after
-            )
-            result = JobRunQueued(id=queued.id, run_after=queued.run_after)
-        except IntegrityError:
-            result = ToolError(error="A job agent run is already queued")
-    return result
+    """Queue the agent run a paused run asks for on the session; ToolError while an
+    agent run is queued"""
+    try:
+        queued = await JobRepository(session).queue_run(
+            user_id, RunTrigger.AGENT, request.search, request.run_after
+        )
+    except IntegrityError:
+        return ToolError(error="A job agent run is already queued")
+    return JobRunQueued(id=queued.id, run_after=queued.run_after)
 
 
 __all__ = ["JobRunRequest", "job_run"]

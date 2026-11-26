@@ -51,6 +51,12 @@ class Document(IdMixin, UserScopedMixin, AuditMixin, Base):
     )
     """The job it was tailored to from the master of its kind; None otherwise"""
 
+    copied_from: Mapped[UUID | None] = mapped_column(
+        ForeignKey("documents.id", ondelete="SET NULL"), default=None
+    )
+    """The document a job's copy was copied from, whose lines it cites; None
+    otherwise"""
+
 
 class DocumentVersion(IdMixin, UserScopedMixin, AuditMixin, Base):
     __tablename__ = "document_versions"

@@ -1,6 +1,7 @@
 import json
 from collections.abc import Callable
 from functools import partial
+from typing import Any
 
 import httpx
 import pytest
@@ -34,6 +35,7 @@ from tests.agents.career_consultant.test_career_consultant import (
     _state,
 )
 from tests.agents.test_builder import _call
+from tests.app import ops_api
 from tests.conftest import ScriptedChatModel
 
 REQUEST = "Mention my Kubernetes work in the queue bullet"
@@ -120,55 +122,32 @@ def _client(
     )
 
 
-def _message(
-    parts: list[dict[str, JsonValue]], task: dict[str, JsonValue] | None
-) -> dict[str, JsonValue]:
-    message = {"messageId": f"m-{id(parts)}", "role": "ROLE_USER", "parts": parts}
-    if task:
-        message |= {"taskId": task["id"], "contextId": task["contextId"]}
-    return message
+READ = _call("read_document")
+PATH = "/ezcareer/a2a/career-consultant"
+SAVED = {"changeset_id": "cs-saved"}
+WITH_PHOTO = _loaded()["document"]
+NO_PHOTO = _loaded(
+    document=WITH_PHOTO
+    | {
+        "assets": {},
+        "content": {
+            "blocks": [
+                block
+                for block in WITH_PHOTO["content"]["blocks"]
+                if block["kind"] != "photo"
+            ]
+        },
+    }
+)
 
 
 def _send(
     client: TestClient,
     parts: list[dict[str, JsonValue]],
     task: dict[str, JsonValue] | None = None,
+    **kwargs: Any,
 ) -> dict[str, JsonValue]:
-    response = client.post(
-        "/ezcareer/a2a/career-consultant",
-        headers={"A2A-Version": "1.0"},
-        json={
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "SendMessage",
-            "params": {"message": _message(parts, task)},
-        },
-    )
-    return response.json()["result"]["task"]
-
-
-def _stream(
-    client: TestClient,
-    parts: list[dict[str, JsonValue]],
-    task: dict[str, JsonValue] | None,
-) -> list[dict[str, JsonValue]]:
-    """Every event SendStreamingMessage sends for one message"""
-    with client.stream(
-        "POST",
-        "/ezcareer/a2a/career-consultant",
-        headers={"A2A-Version": "1.0"},
-        json={
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "SendStreamingMessage",
-            "params": {"message": _message(parts, task)},
-        },
-    ) as response:
-        return [
-            json.loads(line.removeprefix("data: "))["result"]
-            for line in response.iter_lines()
-            if line.startswith("data: ")
-        ]
+    return ops_api.send(client, PATH, parts, task=task, **kwargs)
 
 
 def _request() -> list[dict[str, JsonValue]]:
@@ -176,17 +155,30 @@ def _request() -> list[dict[str, JsonValue]]:
         {"text": REQUEST},
         {
             "data": {
-                "document_id": "doc-1",
-                **_loaded(),
+                "desired_document_id": "doc-1",
                 "profile_facts": to_jsonable_python(_state()["profile_facts"]),
             }
         },
     ]
 
 
-def _edit(client: TestClient) -> dict[str, JsonValue]:
-    """Sends REQUEST with doc-1's content; returns the task"""
-    return _send(client, _request())
+def _edit(
+    client: TestClient,
+    asked: list[JsonValue] | None = None,
+    proposed: dict[str, JsonValue] = SAVED,
+) -> dict[str, JsonValue]:
+    """Sends REQUEST about doc-1, answering each read and proposal as ops-api does;
+    returns the task"""
+    return _send(
+        client,
+        _request(),
+        answers={"read_document": NO_PHOTO, "propose_changeset": proposed},
+        asked=[] if asked is None else asked,
+    )
+
+
+def _proposals(asked: list[JsonValue]) -> list[dict[str, JsonValue]]:
+    return [r for r in asked if r["execute_tool"] == "propose_changeset"]
 
 
 def _changesets(task: dict[str, JsonValue]) -> list[dict[str, JsonValue]]:
@@ -214,39 +206,74 @@ def test_career_consultant_is_served_as_an_agent_with_the_containers_checkpointe
     assert container.career_consultant.agent().checkpointer is None
 
 
-def test_a_message_carries_its_document_and_the_proposal_is_a_changeset_artifact():
-    model = _model(READ_SKILL, _propose(GOOD_EDIT), DONE)
+def test_a_message_names_its_document_which_is_read_then_the_proposal_is_saved():
+    model = _model(READ, READ_SKILL, _propose(GOOD_EDIT), DONE)
+    asked: list[JsonValue] = []
 
-    done = _edit(_client(model))
+    done = _edit(_client(model), asked=asked)
 
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
-    [proposed] = _changesets(done)
-    assert proposed["document_id"] == "doc-1"
-    assert proposed["changeset"]["agent"] == "career-consultant"
-    assert proposed["changeset"]["status"] == "pending"
-    assert proposed["changeset"]["id"] != "cs1"
-    assert proposed["changeset"]["edits"] == [GOOD_EDIT.model_dump(mode="json")]
+    assert asked[0] == {"execute_tool": "read_document", "document_id": "doc-1"}
+    [request] = _proposals(asked)
+    assert request["document_id"] == "doc-1"
+    assert request["changeset"]["agent"] == "career-consultant"
+    assert request["changeset"]["status"] == "pending"
+    assert request["changeset"]["id"] != "cs1"
+    assert request["changeset"]["edits"] == [GOOD_EDIT.model_dump(mode="json")]
+    assert _changesets(done) == [{"document_id": "doc-1", "changeset_id": "cs-saved"}]
     [reply] = [a for a in done["artifacts"] if a["name"] == "career-consultant"]
     assert reply["parts"][0]["text"] == DONE.text
-    [system, document, asked] = model.requests[0]
+    [system, sent] = model.requests[0]
     assert _state()["document"].model_dump_json() not in system.text
-    assert _state()["document"].model_dump_json() in document.text
-    assert asked.text == REQUEST
-    assert "propose_changeset" not in model.offered_tools[0]
-    assert "propose_changeset" in model.offered_tools[1]
+    assert sent.text.endswith(REQUEST)
+    assert "propose_changeset" not in model.offered_tools[1]
+    assert "propose_changeset" in model.offered_tools[2]
 
 
-def test_a_message_without_a_document_fails_the_task_with_the_reason():
+def test_the_editor_chat_carries_its_documents_thread_from_turn_to_turn():
+    model = _model(DONE, AIMessage("Yes, the queue bullet does."))
+    client = _client(model)
+    [_, data] = _request()
+
+    _send(client, _request(), context="doc-1-thread")
+    _send(
+        client, [{"text": "Does it mention Kubernetes?"}, data], context="doc-1-thread"
+    )
+
+    [_, first, reply, second] = model.requests[1]
+    assert first.text.endswith(REQUEST)
+    assert reply.text == DONE.text
+    assert second.text.endswith("Does it mention Kubernetes?")
+
+
+def test_a_proposal_ops_api_refuses_goes_back_to_the_agent():
+    model = _model(READ, READ_SKILL, _propose(GOOD_EDIT), DONE)
+
+    done = _edit(
+        _client(model), proposed={"error": "The changeset no longer fits the draft"}
+    )
+
+    assert done["status"]["state"] == "TASK_STATE_COMPLETED"
+    [report] = [
+        m.text
+        for m in model.requests[-1]
+        if isinstance(m, ToolMessage) and m.name == "propose_changeset"
+    ]
+    assert json.loads(report) == [{"error": "The changeset no longer fits the draft"}]
+    assert _changesets(done) == []
+
+
+def test_a_message_without_a_document_id_fails_the_task_with_the_reason():
     model = _model(DONE)
     [text, data] = _request()
-    del data["data"]["document"]
+    del data["data"]["desired_document_id"]
 
     failed = _send(_client(model), [text, data])
 
     assert failed["status"]["state"] == "TASK_STATE_FAILED"
     reason = failed["status"]["message"]["parts"][0]["text"]
     assert reason.startswith("Invalid input:")
-    assert "document\n  Field required" in reason
+    assert "document_id\n  Field required" in reason
     assert model.requests == []
 
 
@@ -254,6 +281,7 @@ def test_an_unclear_request_shows_the_user_a_widget_then_finishes():
     client = _client(
         _model(
             _call("clarify", question="Which job?"),
+            READ,
             READ_SKILL,
             _propose(GOOD_EDIT),
             DONE,
@@ -261,7 +289,12 @@ def test_an_unclear_request_shows_the_user_a_widget_then_finishes():
     )
 
     asked = _edit(client)
-    done = _send(client, [{"data": {"input": "Lumen Pay"}}], task=asked)
+    done = _send(
+        client,
+        [{"data": {"input": "Lumen Pay"}}],
+        task=asked,
+        answers={"read_document": NO_PHOTO, "propose_changeset": SAVED},
+    )
 
     assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
     assert asked["status"]["message"]["parts"][0]["data"] == {
@@ -270,14 +303,14 @@ def test_an_unclear_request_shows_the_user_a_widget_then_finishes():
         "submit_btn": "Send",
     }
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
-    [proposed] = _changesets(done)
-    assert proposed["changeset"]["edits"] == [GOOD_EDIT.model_dump(mode="json")]
+    assert _changesets(done) == [{"document_id": "doc-1", "changeset_id": "cs-saved"}]
 
 
-def test_errors_go_back_to_the_agent_and_only_the_fixed_changeset_is_published():
-    model = _model(READ_SKILL, _propose(BAD_EDIT), _propose(GOOD_EDIT), DONE)
+def test_errors_go_back_to_the_agent_and_only_the_fixed_changeset_is_proposed():
+    model = _model(READ, READ_SKILL, _propose(BAD_EDIT), _propose(GOOD_EDIT), DONE)
+    asked: list[JsonValue] = []
 
-    done = _edit(_client(model))
+    done = _edit(_client(model), asked=asked)
 
     first, second = [
         m.text
@@ -286,8 +319,9 @@ def test_errors_go_back_to_the_agent_and_only_the_fixed_changeset_is_published()
     ]
     assert [error["rule"] for error in json.loads(first)] == ["unknown_source"]
     assert second == "proposed"
-    [proposed] = _changesets(done)
-    assert proposed["changeset"]["edits"] == [GOOD_EDIT.model_dump(mode="json")]
+    [request] = _proposals(asked)
+    assert request["changeset"]["edits"] == [GOOD_EDIT.model_dump(mode="json")]
+    assert len(_changesets(done)) == 1
 
 
 def test_a_changeset_that_never_passes_is_never_published_or_printed():
@@ -295,7 +329,8 @@ def test_a_changeset_that_never_passes_is_never_published_or_printed():
 
     done = _edit(
         _client(
-            _model(READ_SKILL, _propose(BAD_EDIT), DONE), partial(_print, sent=sent)
+            _model(READ, READ_SKILL, _propose(BAD_EDIT), DONE),
+            partial(_print, sent=sent),
         )
     )
 
@@ -305,7 +340,7 @@ def test_a_changeset_that_never_passes_is_never_published_or_printed():
 
 
 def test_an_agent_that_never_stops_proposing_fails_without_a_changeset():
-    failed = _edit(_client(_model(READ_SKILL, _propose(BAD_EDIT))))
+    failed = _edit(_client(_model(READ, READ_SKILL, _propose(BAD_EDIT))))
 
     assert failed["status"]["state"] == "TASK_STATE_FAILED"
     assert failed["status"]["message"]["parts"][0]["text"].startswith(
@@ -315,7 +350,7 @@ def test_an_agent_that_never_stops_proposing_fails_without_a_changeset():
 
 
 def test_each_turn_stops_after_the_profiles_recursion_limit():
-    model = _model(READ_SKILL, _propose(GOOD_EDIT), DONE)
+    model = _model(READ, READ_SKILL, _propose(GOOD_EDIT), DONE)
 
     failed = _edit(_client(model, recursion_limit=2))
 
@@ -326,9 +361,11 @@ def test_each_turn_stops_after_the_profiles_recursion_limit():
 
 
 def test_page_fit_deletes_untouched_bullets_until_the_page_count_holds():
-    done = _edit(_client(_model(READ_SKILL, _propose(NEW_BULLET), DONE)))
+    asked: list[JsonValue] = []
 
-    [proposed] = _changesets(done)
+    _edit(_client(_model(READ, READ_SKILL, _propose(NEW_BULLET), DONE)), asked=asked)
+
+    [proposed] = _proposals(asked)
     edits = proposed["changeset"]["edits"]
     assert [edit["kind"] for edit in edits] == ["insert_item", "delete"]
     assert edits[1]["path"] == "blocks/experience/items/lumen/bullets/latency"
@@ -353,9 +390,11 @@ def test_page_fit_deletes_untouched_bullets_until_the_page_count_holds():
 def test_page_fit_spares_the_bullets_the_changeset_inserted(
     insert: InsertItem | InsertBlock,
 ):
-    done = _edit(_client(_model(READ_SKILL, _propose(insert), DONE)))
+    asked: list[JsonValue] = []
 
-    [proposed] = _changesets(done)
+    _edit(_client(_model(READ, READ_SKILL, _propose(insert), DONE)), asked=asked)
+
+    [proposed] = _proposals(asked)
     edits = proposed["changeset"]["edits"]
     assert [edit["kind"] for edit in edits] == [insert.kind, "delete"]
     assert edits[1]["path"] == "blocks/experience/items/lumen/bullets/latency"
@@ -366,16 +405,17 @@ def test_page_fit_prints_the_document_it_was_sent_first():
 
     _edit(
         _client(
-            _model(READ_SKILL, _propose(GOOD_EDIT), DONE), partial(_print, sent=sent)
+            _model(READ, READ_SKILL, _propose(GOOD_EDIT), DONE),
+            partial(_print, sent=sent),
         )
     )
 
     assert len(sent) == 2
-    assert json.loads(sent[0].content)["document"] == _loaded()["document"]
+    assert json.loads(sent[0].content)["document"] == NO_PHOTO["document"]
 
 
 def test_a_failed_print_fails_the_task_with_the_reason():
-    failed = _edit(_client(_model(READ_SKILL, _propose(GOOD_EDIT), DONE), _fail))
+    failed = _edit(_client(_model(READ, READ_SKILL, _propose(GOOD_EDIT), DONE), _fail))
 
     assert failed["status"]["state"] == "TASK_STATE_FAILED"
     assert failed["status"]["message"]["parts"][0]["text"].startswith(
@@ -396,7 +436,7 @@ def test_the_consultants_thinking_and_reply_stream_before_the_reply_artifact():
         )
     )
 
-    events = _stream(client, _request(), None)
+    events = ops_api.stream(client, PATH, _request())
 
     assert [
         (
@@ -414,30 +454,61 @@ def test_the_consultants_thinking_and_reply_stream_before_the_reply_artifact():
 
 
 def test_page_fit_deletes_at_most_max_bullet_trims():
-    done = _edit(
+    asked: list[JsonValue] = []
+
+    _edit(
         _client(
-            _model(READ_SKILL, _propose(NEW_BULLET), DONE),
+            _model(READ, READ_SKILL, _propose(NEW_BULLET), DONE),
             page_count_preservation=PageCountPreservationSettings(max_bullet_trims=0),
-        )
+        ),
+        asked=asked,
     )
 
-    [proposed] = _changesets(done)
+    [proposed] = _proposals(asked)
     assert proposed["changeset"]["edits"] == [NEW_BULLET.model_dump(mode="json")]
 
 
 def test_with_page_count_preservation_disabled_the_changeset_is_never_printed():
     sent: list[httpx.Request] = []
+    asked: list[JsonValue] = []
 
-    done = _edit(
+    _edit(
         _client(
-            _model(READ_SKILL, _propose(NEW_BULLET), DONE),
+            _model(READ, READ_SKILL, _propose(NEW_BULLET), DONE),
             partial(_print, sent=sent),
             page_count_preservation=PageCountPreservationSettings(enabled=False),
-        )
+        ),
+        asked=asked,
     )
 
-    [proposed] = _changesets(done)
+    [proposed] = _proposals(asked)
     assert proposed["changeset"]["edits"] == [NEW_BULLET.model_dump(mode="json")]
     assert proposed["changeset"]["id"] != "cs1"
     assert proposed["changeset"]["agent"] == "career-consultant"
     assert sent == []
+
+
+def test_a_document_with_an_image_is_proposed_unprinted_with_a_note_saying_so():
+    model = _model(READ, READ_SKILL, _propose(NEW_BULLET), DONE)
+    sent: list[httpx.Request] = []
+    asked: list[JsonValue] = []
+
+    done = _send(
+        _client(model, partial(_print, sent=sent)),
+        _request(),
+        answers={"read_document": _loaded(), "propose_changeset": SAVED},
+        asked=asked,
+    )
+
+    [proposed] = _proposals(asked)
+    assert proposed["changeset"]["edits"] == [NEW_BULLET.model_dump(mode="json")]
+    assert _changesets(done) == [{"document_id": "doc-1", "changeset_id": "cs-saved"}]
+    assert sent == []
+    [report] = [
+        m.text
+        for m in model.requests[-1]
+        if isinstance(m, ToolMessage) and m.name == "propose_changeset"
+    ]
+    assert report == (
+        "proposed, but the page count wasn't checked because the document has an image"
+    )

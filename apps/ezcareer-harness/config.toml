@@ -1,5 +1,6 @@
 harness_profiles = "harness_profiles.yaml"
 reasoning_effort = "low"
+stores = "postgres"
 
 [app]
 name = "ezcareer-harness"
@@ -30,6 +31,18 @@ hide_outputs = false
 [page_count_preservation]
 enabled = true
 max_bullet_trims = 5
+
+[database]
+url = "postgresql+psycopg://ops:ops@localhost:5432/ops"
+schema_name = "ezcareer"
+pool_size = 5
+
+[tasks]
+resume_window_seconds = 600
+heartbeat_seconds = 10
+dead_after_seconds = 30
+sweep_seconds = 15
+thread_wait_seconds = 60
 
 [email]
 max_threads = 20

@@ -1,22 +1,31 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.core.stores.enums import AgentRunStatus
-from src.db.base import Base, EnumString, utcnow
+from src.db.base import Base, EnumString
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 
 
 class AgentRun(UserScopedMixin, AuditMixin, Base):
     __tablename__ = "agent_runs"
+    __table_args__ = (
+        Index(
+            "ix_agent_runs_heartbeat_at",
+            "heartbeat_at",
+            postgresql_where=text("status = 'running'"),
+            sqlite_where=text("status = 'running'"),
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     """The run's id"""
 
     thread_id: Mapped[str] = mapped_column(String(200), index=True)
-    """The A2A context_id the run belongs to, such as a user's chat"""
+    """The A2A context_id the run belongs to: an agent thread's id, or a
+    workflow's own context"""
 
     agent: Mapped[str] = mapped_column(String(100))
     """The harness agent or workflow the run calls"""
@@ -27,8 +36,11 @@ class AgentRun(UserScopedMixin, AuditMixin, Base):
     status: Mapped[AgentRunStatus] = mapped_column(EnumString(AgentRunStatus))
     """Where the run stands"""
 
-    active_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    """When the run last started or added an event"""
+    owner: Mapped[str | None] = mapped_column(Text)
+    """The process that writes the run, one id per process start"""
+
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When the owner last showed it was alive, on the database clock"""
 
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     """When the run ended; None while it runs"""
@@ -103,4 +115,21 @@ class AgentModelCall(IdMixin, UserScopedMixin, AuditMixin, Base):
     """The provider's id for the response, when it gave one"""
 
 
-__all__ = ["AgentEvent", "AgentModelCall", "AgentRun"]
+class AgentToolResult(UserScopedMixin, AuditMixin, Base):
+    __tablename__ = "agent_tool_results"
+
+    interrupt_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    """The paused tool call the result answers"""
+
+    task_id: Mapped[str] = mapped_column(String(100), index=True)
+    """The A2A task that asked for the tool"""
+
+    tool: Mapped[str] = mapped_column(String(100))
+    """The tool, such as profile_update"""
+
+    result: Mapped[dict[str, Any]]
+    """The result asking again returns instead of writing twice; deleted when the
+    task's run ends"""
+
+
+__all__ = ["AgentEvent", "AgentModelCall", "AgentRun", "AgentToolResult"]

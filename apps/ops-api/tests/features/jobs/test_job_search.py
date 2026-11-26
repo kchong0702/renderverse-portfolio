@@ -24,14 +24,13 @@ from tests.conftest import (
     FakeJSearch,
     _app,
     _client,
-    a2a_sent,
     a2a_task,
+    ask,
     idle_in_transaction,
     interrupt_part,
+    sent_messages,
     sse_events,
-    stream_chunk,
-    stream_status,
-    stream_task,
+    tool_pause,
     work,
 )
 from tests.core.conftest import DATABASE_URL
@@ -95,24 +94,20 @@ async def _find(app, client, harness, request: dict = SEARCH) -> dict:
 
 def _answer(harness) -> dict:
     """What ops-api last answered the harness"""
-    [part] = a2a_sent(harness)[-1]["params"]["message"]["parts"]
+    [part] = sent_messages(harness)[-1]["message"]["parts"]
     return part["data"]
 
 
 async def _ask_assistant(client, harness) -> list[dict]:
     """Ask the assistant for jobs, find-jobs searching once inside its run"""
-    harness.outcomes = [
-        [stream_task(), stream_status("INPUT_REQUIRED", [interrupt_part(SEARCH)])],
-        [
-            stream_chunk("a-1", "career-director", {"text": "None fit yet."}),
-            stream_status("COMPLETED"),
-        ],
-    ]
-    response = await client.post(
-        f"{PREFIX}/assistant/chats/9b2d6f3e-1c4a-4e8b-9f0d-2a7c5e1b3d4f/messages",
-        json={"text": "Find me backend jobs"},
+    return sse_events(
+        await ask(
+            client,
+            harness,
+            "Find me backend jobs",
+            *tool_pause(SEARCH, "None fit yet."),
+        )
     )
-    return sse_events(response)
 
 
 async def test_find_searches_jsearch_on_the_users_key_and_answers_its_postings(
@@ -253,7 +248,7 @@ async def test_the_key_never_reaches_the_harness_or_the_logs(
         API_KEY
     }
     assert refused["error"] == "JSearch refused the key"
-    assert len(harness.received) == 6
+    assert len(harness.received) == 8
     assert [
         request.url.path
         for request in harness.received

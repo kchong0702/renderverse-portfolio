@@ -1,5 +1,5 @@
 from src.clients.ezcareer.client import EzcareerClient
-from src.clients.ezcareer.exceptions import AgentRunFailed
+from src.clients.ezcareer.exceptions import AgentRunFailed, HarnessUnreachable
 from src.clients.ezcareer.schemas import (
     Answer,
     Cancelled,
@@ -10,19 +10,29 @@ from src.clients.ezcareer.schemas import (
     Failed,
     FamilyModels,
     InputRequired,
+    MessageMetadata,
     ModelCatalog,
     ModelChoice,
     Published,
+    Reconnected,
+    Reconnecting,
     RecordUsage,
+    Replied,
     ReviewRequired,
     Run,
     RunEvent,
     RunMetadata,
     Started,
+    Step,
+    StepUpdate,
+    SummaryUpdate,
+    ThreadSummary,
     ToolRequest,
+    ToolsRequested,
     Usage,
     Widget,
 )
+from src.clients.ezcareer.task_status import TaskState
 from src.clients.ezcareer.types import ModelFamily
 
 __all__ = [
@@ -36,18 +46,29 @@ __all__ = [
     "EzcareerClient",
     "Failed",
     "FamilyModels",
+    "HarnessUnreachable",
     "InputRequired",
+    "MessageMetadata",
     "ModelCatalog",
     "ModelChoice",
     "ModelFamily",
     "Published",
+    "Reconnected",
+    "Reconnecting",
     "RecordUsage",
+    "Replied",
     "ReviewRequired",
     "Run",
     "RunEvent",
     "RunMetadata",
     "Started",
+    "Step",
+    "StepUpdate",
+    "SummaryUpdate",
+    "TaskState",
+    "ThreadSummary",
     "ToolRequest",
+    "ToolsRequested",
     "Usage",
     "Widget",
 ]

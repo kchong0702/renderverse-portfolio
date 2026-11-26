@@ -3,7 +3,7 @@ import { Sparkle } from "lucide-react";
 import { useEffect, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { useFollowTurn } from "@/features/assistant";
+import { useFollowDocument } from "@/features/assistant";
 import { useEditorStore } from "@/features/documents";
 import { buttonClass } from "@/shared/components/button";
 import { cn } from "@/shared/lib/cn";
@@ -27,7 +27,7 @@ export default function JobDetail({ job }: { job: Job }) {
   const { mutate: markSeen } = useUpdateJob();
   const analyse = useAnalyseJob();
   const tailor = useTailorJob();
-  const follow = useFollowTurn();
+  const follow = useFollowDocument();
   const showPanel = useEditorStore((state) => state.showPanel);
   const navigate = useNavigate();
   const analysing = useMutationState({
@@ -101,8 +101,7 @@ export default function JobDetail({ job }: { job: Job }) {
             tailor.mutate(job.id, {
               onSuccess: ({ resume, cover_letter }) => {
                 for (const copy of [resume, cover_letter])
-                  if (copy?.tailoring)
-                    follow.mutate({ kind: "document", id: copy.document_id });
+                  if (copy?.tailoring) follow.mutate(copy.document_id);
                 showPanel("assistant");
                 navigate(`/documents?doc=${resume.document_id}`);
               },

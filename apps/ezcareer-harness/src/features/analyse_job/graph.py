@@ -16,7 +16,7 @@ from src.features.analyse_job.configurations import CHECKS, AnalyseJobConfigurat
 from src.features.analyse_job.filters import hard_filters
 from src.features.analyse_job.nodes import fetch_posting
 from src.features.analyse_job.schemas import JobAnalysis, JobRequirements
-from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
+from src.shared.checks import CheckError, CheckReport, CheckRule, report_check
 from src.shared.jobs import PostingLine
 from src.shared.profile import Preferences, Profile, ProfileFact, require_facts
 from src.shared.url import Url
@@ -107,9 +107,9 @@ def build_graph(
     )
     checks = [CHECKS[name] for name in configurations.checks]
 
-    def check(state: AnalyseJobState) -> CheckRound:
+    def check(state: AnalyseJobState) -> CheckReport:
         if state.structured_response is None:
-            return check_round(
+            return report_check(
                 [
                     CheckError(
                         rule=CheckRule.NO_ANSWER,
@@ -118,7 +118,7 @@ def build_graph(
                     )
                 ]
             )
-        return check_round(
+        return report_check(
             [
                 error
                 for check in checks

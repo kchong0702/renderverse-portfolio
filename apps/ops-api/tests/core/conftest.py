@@ -5,11 +5,18 @@ from uuid import UUID, uuid4
 import pytest
 from pydantic import SecretStr
 from sqlalchemy import delete
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from src.core.auth.models import User
 from src.core.config import DatabaseSettings, EzcareerSettings
 from src.core.stores import PostgresRunStore
+from src.db import models  # noqa: F401
+from src.db.base import Base
 from src.db.session import create_session_factory
 
 DATABASE_URL = os.environ.get("OPS_API_TEST_DATABASE_URL", "")
@@ -47,3 +54,13 @@ async def postgres_user(engine: AsyncEngine) -> AsyncIterator[UUID]:
     yield user_id
     async with factory() as session, session.begin():
         await session.execute(delete(User).where(User.id == user_id))
+
+
+@pytest.fixture
+async def factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
+    """Sessions on a fresh in-memory SQLite database with every table"""
+    engine = create_async_engine("sqlite+aiosqlite://")
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    yield create_session_factory(engine)
+    await engine.dispose()

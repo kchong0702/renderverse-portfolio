@@ -200,6 +200,10 @@ class AuthSettings(BaseModel):
     dev_email: str = "owner@localhost"
     """Who a request acts as while auth is disabled"""
 
+    dev_timezone: str = "UTC"
+    """The IANA time zone a request's messages are written in while auth is
+    disabled"""
+
     web_url: str = "http://localhost:5174"
     """Where ops-web is served; OAuth callbacks and redirects go through it"""
 
@@ -311,6 +315,29 @@ class EzcareerSettings(BaseModel):
     run_poll_seconds: float = Field(default=5, gt=0)
     """How often a reader checks a run it heard nothing about, in case a notification
     was missed"""
+
+    reconnect_seconds: float = Field(default=600, gt=0)
+    """How long a run keeps reaching the harness again after losing it before it
+    fails"""
+
+    reconnect_initial_wait_seconds: float = Field(default=1, ge=0)
+    """The wait before the second try to reach the harness again, doubling with
+    each try after"""
+
+    reconnect_max_wait_seconds: float = Field(default=30, ge=0)
+    """The longest wait between two tries to reach the harness again"""
+
+    stop_wait_seconds: float = Field(default=10, gt=0)
+    """How long a new turn waits for a task ops-api gave up following to stop"""
+
+    heartbeat_seconds: float = Field(default=10, gt=0)
+    """How often a process marks the runs it writes as still its own"""
+
+    dead_after_seconds: float = Field(default=30, gt=0)
+    """How long a run's process may miss its heartbeats before another takes it over"""
+
+    sweep_seconds: float = Field(default=15, gt=0)
+    """How often a process looks for runs whose process went quiet"""
 
     stores: Literal["memory", "postgres"] = "memory"
     """Where agent runs are kept: memory serves one ops-api process, postgres

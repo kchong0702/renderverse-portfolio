@@ -34,6 +34,7 @@ export interface Step {
   name: string;
   status: "running" | "done" | "failed" | "waiting";
   detail: string | null;
+  document_id: string | null;
 }
 
 export type ProfileEdit =
@@ -70,11 +71,9 @@ export type Outcome =
   | { status: "failed"; reason: string }
   | { status: "cancelled" };
 
-export interface Changeset {
-  document_id: string;
-  title: string;
-  changeset_id: string;
-  edits: number;
+export interface ChangesetRecord {
+  id: string;
+  changeset: { edits: unknown[]; status: "pending" | "accepted" | "rejected" };
 }
 
 export type RunEvent =
@@ -82,13 +81,47 @@ export type RunEvent =
   | { status: "thinking"; turn: string; text: string }
   | { status: "text"; turn: string; text: string }
   | { status: "step"; step: Step }
-  | ({ status: "changeset" } & Changeset)
+  | {
+      status: "changeset";
+      document_id: string;
+      changeset_id: string;
+      created_at: string;
+    }
   | { status: "profile_saved"; saved: number }
+  | { status: "reconnecting"; attempt: number; retry_at: string }
+  | { status: "reconnected" }
   | Outcome;
 
-export interface Chat {
-  kind: "assistant" | "document";
+export type Agent = "career-director" | "career-consultant";
+
+export type Conversation =
+  | { agent: "career-director" }
+  | { agent: "career-consultant"; documentId: string };
+
+export interface AgentSession {
+  agent: Agent;
+  thread_id: string;
+}
+
+export interface ThreadMessage {
   id: string;
+  role: "user" | "agent";
+  text: string;
+  created_at: string;
+  document_id: string | null;
+  agent: string | null;
+  changesets: { id: string; document_id: string; created_at: string }[];
+  steps: Step[] | null;
+  failure: string | null;
+}
+
+export interface ThreadPage {
+  messages: ThreadMessage[];
+  has_more: boolean;
+}
+
+export interface Chat {
+  threadId: string;
 }
 
 export interface ChatMessage {
@@ -109,17 +142,12 @@ export interface TaskDecision {
   decision: { approve: boolean; message?: string };
 }
 
-export interface TurnCursor {
-  chat: Chat;
-  lastEventId: string | null;
-}
-
 export interface Task {
   chat: Chat;
   taskId: string;
 }
 
-type OnEvent = (event: RunEvent, id: string | undefined) => void;
+type OnEvent = (event: RunEvent) => void;
 
 type OnReconnect = (attempt: number) => void;
 
@@ -139,13 +167,11 @@ const TERMINAL: ReadonlySet<RunEvent["status"]> = new Set([
   "cancelled",
 ]);
 
-const chatUrl = ({ kind, id }: Chat) =>
-  kind === "document"
-    ? `${URL}/documents/${id}/chat`
-    : `${URL}/assistant/chats/${id}`;
+const threadUrl = ({ threadId }: Pick<Chat, "threadId">) =>
+  `${URL}/agent/threads/${encodeURIComponent(threadId)}`;
 
 const taskUrl = ({ chat, taskId }: Task) =>
-  `${chatUrl(chat)}/tasks/${encodeURIComponent(taskId)}`;
+  `${threadUrl(chat)}/tasks/${encodeURIComponent(taskId)}`;
 
 const openChatStream = (
   chat: Chat,
@@ -154,7 +180,7 @@ const openChatStream = (
   onRetry: (ms: number) => void,
 ) =>
   stream(
-    `${chatUrl(chat)}/stream`,
+    `${threadUrl(chat)}/stream`,
     {
       headers: lastEventId ? { "Last-Event-ID": lastEventId } : undefined,
       signal,
@@ -178,13 +204,13 @@ const wait = (ms: number, signal: AbortSignal) =>
 async function streamTurn(
   chat: Chat,
   request: { url: string; body: unknown } | null,
-  lastEventId: string | null,
   signal: AbortSignal,
   onEvent: OnEvent,
   onReconnect: OnReconnect,
 ): Promise<void> {
   let retryMs = DEFAULT_RETRY_MS;
   let reconnects = 0;
+  let lastEventId: string | null = null;
   const onRetry = (ms: number) => {
     retryMs = ms;
   };
@@ -205,7 +231,7 @@ async function streamTurn(
           const event = JSON.parse(value.data) as RunEvent;
           lastEventId = value.id ?? lastEventId;
           reconnects = 0;
-          onEvent(event, value.id);
+          onEvent(event);
           if (TERMINAL.has(event.status)) return;
         }
       } catch (error) {
@@ -235,14 +261,16 @@ export const sendMessage = (
   streamTurn(
     chat,
     {
-      url: `${chatUrl(chat)}/messages`,
+      url: `${threadUrl(chat)}/messages`,
       body: { text },
     },
-    null,
     signal,
     onEvent,
     onReconnect,
   );
+
+export const sendRefused = (error: Error | null): error is ApiError =>
+  error instanceof ApiError && error.status === 409;
 
 export const answerTask = (
   { answer, ...task }: TaskAnswer,
@@ -253,7 +281,6 @@ export const answerTask = (
   streamTurn(
     task.chat,
     { url: `${taskUrl(task)}/answer`, body: answer },
-    null,
     signal,
     onEvent,
     onReconnect,
@@ -268,21 +295,61 @@ export const decideTask = (
   streamTurn(
     task.chat,
     { url: `${taskUrl(task)}/decision`, body: decision },
-    null,
     signal,
     onEvent,
     onReconnect,
   );
 
-export const resumeTurn = (
-  { chat, lastEventId }: TurnCursor,
+export const followTurn = (
+  chat: Chat,
   signal: AbortSignal,
   onEvent: OnEvent,
   onReconnect: OnReconnect,
-) => streamTurn(chat, null, lastEventId, signal, onEvent, onReconnect);
+) => streamTurn(chat, null, signal, onEvent, onReconnect);
 
-export const cancelTask = (task: Task) =>
-  http.post<void>(`${taskUrl(task)}/cancel`);
+export const cancelTask = (task: Task) => http.delete(taskUrl(task));
+
+const sessionQuery = (conversation: Conversation) =>
+  conversation.agent === "career-consultant"
+    ? `?${new URLSearchParams({ document_id: conversation.documentId })}`
+    : "";
+
+export const fetchSession = (
+  conversation: Conversation,
+  signal?: AbortSignal,
+) =>
+  http.get<AgentSession>(
+    `${URL}/agent/sessions/${conversation.agent}${sessionQuery(conversation)}`,
+    signal,
+  );
+
+export const startThread = (conversation: Conversation) =>
+  http.post<AgentSession>(
+    `${URL}/agent/sessions/${conversation.agent}/threads${sessionQuery(conversation)}`,
+  );
+
+export const fetchThreadMessages = (
+  {
+    threadId,
+    before,
+  }: Pick<Chat, "threadId"> & {
+    before: string | null;
+  },
+  signal: AbortSignal,
+) =>
+  http.get<ThreadPage>(
+    `${threadUrl({ threadId })}/messages?${new URLSearchParams({
+      limit: "30",
+      ...(before && { before }),
+    })}`,
+    signal,
+  );
 
 export const fetchDocuments = (signal?: AbortSignal) =>
   http.get<DocumentSummary[]>(`${URL}/documents`, signal);
+
+export const fetchChangesets = (documentId: string, signal?: AbortSignal) =>
+  http.get<ChangesetRecord[]>(
+    `${URL}/documents/${encodeURIComponent(documentId)}/changesets`,
+    signal,
+  );

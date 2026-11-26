@@ -2,10 +2,8 @@ from datetime import date, datetime
 from typing import Annotated, Literal
 from zoneinfo import ZoneInfo
 
-from document_schema import AnyDocument, DocumentKind
+from document_schema import DocumentKind
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
-
-from src.shared.extraction.types import Line
 
 ApplicationStage = Literal[
     "draft", "applied", "replied", "interview", "offer", "closed"
@@ -17,8 +15,7 @@ class DocumentSummary(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
     id: str
-    """The document_id handoff_document takes to hand the document to
-    career-consultant"""
+    """The document_id assign_career_consultant_task takes"""
 
     title: str
     """The name the user gave the document"""
@@ -33,24 +30,11 @@ class DocumentSummary(BaseModel):
     """When the user last changed it"""
 
 
-class DocumentContent(BaseModel):
-    model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
-
-    document: AnyDocument
-    """The document as it is now, which career-consultant is handed"""
-
-    pdf_lines: list[Line]
-    """The uploaded PDF's lines, which the document cites as p<page>.s<n>"""
-
-
 class FoundDocuments(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
     documents: list[DocumentSummary]
     """The documents that match, best match first"""
-
-    content: DocumentContent | None
-    """The best match's document and PDF lines; None when nothing matches"""
 
 
 class AboutEdit(BaseModel):
@@ -257,6 +241,9 @@ class FoundApplications(BaseModel):
 
 class SavedJob(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
+
+    id: str
+    """The job's id, which a tailoring task's description names"""
 
     title: str
     """The job title"""

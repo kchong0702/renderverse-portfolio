@@ -1,5 +1,6 @@
 import secrets
 from contextlib import asynccontextmanager
+from functools import partial
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI
@@ -14,6 +15,7 @@ from src.core.auth.csrf import CSRFMiddleware
 from src.core.config import Settings, get_settings
 from src.core.exceptions import ServiceException
 from src.core.logging import configure_logging
+from src.features.conversations.router import recovered_turn
 
 
 def _origin(url: str) -> str:
@@ -58,6 +60,7 @@ def create_app(container: Container | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        await container.runner().recover(partial(recovered_turn, container))
         yield
         await container.runner().aclose()
         await container.artifact().aclose()

@@ -1,30 +1,21 @@
 from tests.conftest import (
     PREFIX,
-    a2a_sent,
-    interrupt_part,
+    ask,
+    sent_messages,
     sse_events,
-    stream_chunk,
-    stream_status,
-    stream_task,
+    tool_pause,
 )
 
 JOBS = f"{PREFIX}/jobs"
-CHAT = f"{PREFIX}/assistant/chats/9b2d6f3e-1c4a-4e8b-9f0d-2a7c5e1b3d4f"
 
 
 async def _answer(client, harness, request: dict) -> dict:
     """What ops-api resumed career-director with after it paused on this tool"""
-    harness.outcomes = [
-        [stream_task(), stream_status("INPUT_REQUIRED", [interrupt_part(request)])],
-        [
-            stream_chunk("a-1", "career-director", {"text": "Found them."}),
-            stream_status("COMPLETED"),
-        ],
-    ]
-    response = await client.post(f"{CHAT}/messages", json={"text": "Which jobs?"})
+    response = await ask(
+        client, harness, "Which jobs?", *tool_pause(request, "Found them.")
+    )
     assert sse_events(response)[-1] == {"status": "completed", "reply": "Found them."}
-    [part] = a2a_sent(harness)[-1]["params"]["message"]["parts"]
-    return part["data"]
+    return sent_messages(harness)[-1]["message"]["parts"][0]["data"]
 
 
 async def _job(client, company: str, status: str) -> dict:
@@ -37,7 +28,7 @@ async def _job(client, company: str, status: str) -> dict:
 
 
 async def test_the_jobs_page_jobs_are_listed_and_every_status_counted(client, harness):
-    await _job(client, "Harbor Health", "saved")
+    saved = await _job(client, "Harbor Health", "saved")
     await _job(client, "Kopi Cloud", "picked")
     await _job(client, "Lumen Pay", "dismissed")
 
@@ -50,6 +41,7 @@ async def test_the_jobs_page_jobs_are_listed_and_every_status_counted(client, ha
     ]
     [harbor] = [job for job in answer["jobs"] if job["company"] == "Harbor Health"]
     assert harbor == {
+        "id": saved["id"],
         "title": "Engineer",
         "company": "Harbor Health",
         "location": "",

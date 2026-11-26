@@ -31,13 +31,14 @@ async def _set_password(app, email: str = OWNER, password: str = PASSWORD) -> No
 
 async def _sign_in(client, password: str = PASSWORD, email: str = OWNER):
     return await client.post(
-        f"{PREFIX}/auth/password", json={"email": email, "password": password}
+        f"{PREFIX}/auth/password",
+        json={"email": email, "password": password, "timezone": "Asia/Kuala_Lumpur"},
     )
 
 
 async def _sign_in_with(client, provider: str):
     """Sign in through the provider's login and callback; returns the callback"""
-    await client.get(f"{PREFIX}/auth/{provider}/login")
+    await client.get(f"{PREFIX}/auth/{provider}/login?timezone=Asia/Kuala_Lumpur")
     return await client.get(f"{PREFIX}/auth/{provider}/callback")
 
 
@@ -268,13 +269,21 @@ async def test_clients_behind_the_proxy_are_throttled_apart(auth_app):
         for i in range(20):
             await proxy.post(
                 f"{PREFIX}/auth/password",
-                json={"email": f"x{i}@example.com", "password": "nope"},
+                json={
+                    "email": f"x{i}@example.com",
+                    "password": "nope",
+                    "timezone": "Asia/Kuala_Lumpur",
+                },
                 headers={"X-Forwarded-For": "203.0.113.1"},
             )
 
         response = await proxy.post(
             f"{PREFIX}/auth/password",
-            json={"email": "y@example.com", "password": "nope"},
+            json={
+                "email": "y@example.com",
+                "password": "nope",
+                "timezone": "Asia/Kuala_Lumpur",
+            },
             headers={"X-Forwarded-For": "203.0.113.2"},
         )
 
@@ -286,13 +295,21 @@ async def test_an_untrusted_peer_cannot_forge_its_address(auth_app):
         for i in range(20):
             await client.post(
                 f"{PREFIX}/auth/password",
-                json={"email": f"x{i}@example.com", "password": "nope"},
+                json={
+                    "email": f"x{i}@example.com",
+                    "password": "nope",
+                    "timezone": "Asia/Kuala_Lumpur",
+                },
                 headers={"X-Forwarded-For": f"203.0.113.{i}"},
             )
 
         response = await client.post(
             f"{PREFIX}/auth/password",
-            json={"email": "y@example.com", "password": "nope"},
+            json={
+                "email": "y@example.com",
+                "password": "nope",
+                "timezone": "Asia/Kuala_Lumpur",
+            },
             headers={"X-Forwarded-For": "203.0.113.99"},
         )
 
@@ -413,7 +430,9 @@ async def test_sign_in_methods(auth_client):
 async def test_oauth_login_redirects_with_the_web_callback(
     auth_client, oauth_providers
 ):
-    response = await auth_client.get(f"{PREFIX}/auth/google/login?next=/jobs")
+    response = await auth_client.get(
+        f"{PREFIX}/auth/google/login?timezone=Asia/Kuala_Lumpur&next=/jobs"
+    )
 
     assert response.status_code == 307
     assert response.headers["location"] == "https://provider.test/authorize"
@@ -424,7 +443,9 @@ async def test_oauth_login_redirects_with_the_web_callback(
 
 
 async def test_oauth_callback_signs_in_and_returns_to_next(auth_app, auth_client):
-    await auth_client.get(f"{PREFIX}/auth/google/login?next=/jobs")
+    await auth_client.get(
+        f"{PREFIX}/auth/google/login?timezone=Asia/Kuala_Lumpur&next=/jobs"
+    )
 
     response = await auth_client.get(f"{PREFIX}/auth/google/callback")
 
@@ -434,7 +455,9 @@ async def test_oauth_callback_signs_in_and_returns_to_next(auth_app, auth_client
 
 
 async def test_next_cannot_leave_ops_web(auth_client):
-    await auth_client.get(f"{PREFIX}/auth/google/login?next=//evil.test")
+    await auth_client.get(
+        f"{PREFIX}/auth/google/login?timezone=Asia/Kuala_Lumpur&next=//evil.test"
+    )
 
     response = await auth_client.get(f"{PREFIX}/auth/google/callback")
 
@@ -517,7 +540,9 @@ async def test_cancelled_oauth_is_sent_back(auth_client, oauth_providers):
 async def test_unconfigured_provider_is_not_found(auth_client, oauth_providers):
     del oauth_providers["github"]
 
-    response = await auth_client.get(f"{PREFIX}/auth/github/login")
+    response = await auth_client.get(
+        f"{PREFIX}/auth/github/login?timezone=Asia/Kuala_Lumpur"
+    )
 
     assert response.status_code == 404
 
@@ -717,7 +742,7 @@ async def test_cross_site_writes_are_blocked(auth_app, auth_client, headers, sta
 
     response = await auth_client.post(
         f"{PREFIX}/auth/password",
-        json={"email": OWNER, "password": PASSWORD},
+        json={"email": OWNER, "password": PASSWORD, "timezone": "Asia/Kuala_Lumpur"},
         headers=headers,
     )
 

@@ -72,6 +72,9 @@ class AuthSession(IdMixin, UserScopedMixin, Base):
 
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     user_agent: Mapped[str] = mapped_column(String(255), default="")
+    timezone: Mapped[str] = mapped_column(String(64))
+    """The IANA time zone the browser signed in from; never updated"""
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
     )

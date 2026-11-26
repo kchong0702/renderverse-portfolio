@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.agents.prompt import is_active
 from src.clients.llm_providers import PROVIDERS
-from src.core.config import _ROOT_PATH, AgentSettings, Family, get_settings
+from src.core.config import _ROOT_PATH, AgentSettings, Family
 
 
 class AgentProfile(BaseModel):
@@ -24,8 +24,8 @@ class AgentProfile(BaseModel):
     """Descriptions that replace a tool's own, by tool name"""
 
     recursion_limit: int | None = Field(default=None, gt=0)
-    """Most steps one turn of the agent may take when served on its own; None keeps
-    LangGraph's default"""
+    """Most steps one turn of the agent may take, served on its own or as a subagent;
+    None keeps deepagents' default"""
 
     @field_validator("skills")
     @classmethod
@@ -78,14 +78,17 @@ class Agent(BaseModel):
 
     @property
     def hash(self) -> str:
-        """Sha256 of every file in the agent's folder and in the middleware prompts
-        folder, each with its path from that folder"""
+        """Sha256 of every source file in the agent's folder, with its path, leaving
+        out Python's generated __pycache__ files"""
         digest = sha256()
-        for folder in (self.folder, get_settings().middleware_prompts):
-            for path in sorted(folder.rglob("*")):
-                if path.is_file():
-                    digest.update(str(path.relative_to(folder)).encode() + b"\0")
-                    digest.update(path.read_bytes() + b"\0")
+        for path in sorted(self.folder.rglob("*")):
+            if (
+                path.is_file()
+                and "__pycache__" not in path.relative_to(self.folder).parts
+                and path.suffix != ".pyc"
+            ):
+                digest.update(str(path.relative_to(self.folder)).encode() + b"\0")
+                digest.update(path.read_bytes() + b"\0")
         return digest.hexdigest()
 
     @classmethod

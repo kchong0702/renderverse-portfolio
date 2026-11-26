@@ -281,6 +281,40 @@ class PageCountPreservationSettings(BaseModel):
     """Most bullets propose_changeset deletes to keep a document's page count"""
 
 
+class DatabaseSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    url: SecretStr = SecretStr("postgresql+psycopg://ops:ops@localhost:5432/ops")
+    """SQLAlchemy async URL on psycopg of the Postgres server ops-api shares"""
+
+    schema_name: str = Field(default="ezcareer", pattern=r"^[a-z_][a-z0-9_]*$")
+    """The schema that holds every table of the harness, created when missing"""
+
+    pool_size: int = Field(default=5, gt=0)
+    """Connections each pool keeps open"""
+
+
+class TaskSettings(BaseModel):
+    model_config = {"extra": "forbid", "frozen": True}
+
+    resume_window_seconds: float = Field(default=600, gt=0)
+    """A taken-over agent task updated this recently resumes from its last
+    checkpoint; an older one fails"""
+
+    heartbeat_seconds: float = Field(default=10, gt=0)
+    """How often a process marks the tasks it runs as alive"""
+
+    dead_after_seconds: float = Field(default=30, gt=0)
+    """A task whose owner has not marked it alive for this long is taken over"""
+
+    sweep_seconds: float = Field(default=15, gt=0)
+    """How often a process looks for tasks to take over"""
+
+    thread_wait_seconds: float = Field(default=60, gt=0)
+    """How long an agent run waits for an earlier run on its thread to stop before
+    failing its task"""
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EZCAREER_HARNESS_",
@@ -314,11 +348,7 @@ class Settings(BaseSettings):
     """Each model's deepagents harness profile, by provider or provider:model,
     shared by every agent on that model; relative to the app folder"""
 
-    middleware_prompts: Path = _ROOT_PATH / "src/agents/prompts/middleware"
-    """Folder of the middlewares' prompt files, one per middleware module, such as
-    parent_handoff.md; relative to the app folder"""
-
-    @field_validator("harness_profiles", "middleware_prompts")
+    @field_validator("harness_profiles")
     @classmethod
     def _paths_from_app_folder(cls, path: Path) -> Path:
         """Reads a relative path from the app folder"""
@@ -350,6 +380,16 @@ class Settings(BaseSettings):
         default_factory=PageCountPreservationSettings
     )
     """How propose_changeset keeps a document's page count"""
+
+    stores: Literal["memory", "postgres"] = "memory"
+    """Where tasks and checkpoints are kept: memory loses them when the process
+    stops, postgres keeps them so threads last and a restart resumes its tasks"""
+
+    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+    """The Postgres the postgres stores use"""
+
+    tasks: TaskSettings = Field(default_factory=TaskSettings)
+    """How each running task is owned, and taken over when its process dies"""
 
     @classmethod
     @override

@@ -47,6 +47,7 @@ async def saved_jobs(
                 SavedJob(
                     **job.model_dump(
                         include={
+                            "id",
                             "title",
                             "company",
                             "location",

@@ -1,6 +1,6 @@
 from langchain_core.messages import AIMessage, ToolMessage
 
-from tests.agents.career_director.test_handoffs import _graph, _turn
+from tests.agents.career_director.test_career_director import _graph, _turn
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 

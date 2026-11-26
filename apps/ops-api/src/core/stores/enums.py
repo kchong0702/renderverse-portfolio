@@ -19,5 +19,8 @@ class AgentRunStatus(StrEnum):
     CANCELLED = "cancelled"
     """The user or a shutdown stopped the run"""
 
+    ABANDONED = "abandoned"
+    """ops-api gave up reaching the harness; the run's task may still go on there"""
+
 
 __all__ = ["AgentRunStatus"]

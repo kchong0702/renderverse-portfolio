@@ -1,5 +1,4 @@
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
-import { useAssistantStore } from "@/features/assistant";
 import { sessionQueryKey } from "@/shared/api/queryClient";
 import {
   fetchMe,
@@ -28,9 +27,5 @@ export const signInMutationOptions = mutationOptions({
 
 export const signOutMutationOptions = mutationOptions({
   mutationFn: signOut,
-  onSuccess: () => {
-    useAssistantStore.getState().reset();
-    useAssistantStore.persist.clearStorage();
-    window.location.assign("/sign-in");
-  },
+  onSuccess: () => window.location.assign("/sign-in"),
 });

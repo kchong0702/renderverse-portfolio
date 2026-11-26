@@ -13,14 +13,12 @@ from document_schema import (
     apply_edits,
 )
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.artifact import ArtifactClient, Render
 from src.core.config import DocumentsSettings
 from src.core.exceptions import Conflict, InvalidInput, NotFound
-from src.core.logging import get_logger
 from src.db.base import utcnow
-from src.db.session import session_scope
 from src.features.documents.models import (
     Document,
     DocumentChangeset,
@@ -29,7 +27,6 @@ from src.features.documents.models import (
 from src.features.documents.repository import DocumentRepository
 from src.features.documents.schemas import (
     ChangesetDecision,
-    ChangesetProposed,
     ChangesetRead,
     DocumentCreate,
     DocumentEdits,
@@ -40,9 +37,6 @@ from src.features.documents.schemas import (
     VersionCreate,
     VersionRead,
 )
-from src.features.imports import SourceLine
-
-logger = get_logger(__name__)
 
 
 def _pending(changesets: Sequence[DocumentChangeset]) -> int:
@@ -78,7 +72,7 @@ def _summary(document: Document, pending_changesets: int) -> DocumentSummary:
     )
 
 
-async def _load(
+async def load_document(
     repository: DocumentRepository, user_id: UUID, document_id: UUID
 ) -> Document:
     """The user's document, or NotFound"""
@@ -88,7 +82,7 @@ async def _load(
     return document
 
 
-async def _propose(
+async def propose(
     repository: DocumentRepository, document: Document, changeset: Changeset
 ) -> DocumentChangeset:
     """Store an agent's changeset for the user to accept or reject, adding its edits to
@@ -122,15 +116,13 @@ class DocumentService:
     def __init__(
         self,
         session: AsyncSession,
-        factory: async_sessionmaker[AsyncSession],
         artifact: ArtifactClient,
         limits: DocumentsSettings,
     ):
-        """Hold the session, its repository and a factory for sessions runs outlive,
-        artifact-service and the documents limit"""
+        """Hold the session, its repository, artifact-service and the documents
+        limit"""
         self._session = session
         self._repository = DocumentRepository(session)
-        self._factory = factory
         self._artifact = artifact
         self._limits = limits
 
@@ -154,18 +146,13 @@ class DocumentService:
 
     async def get(self, user_id: UUID, document_id: UUID) -> DocumentRead:
         """One document with its current draft"""
-        return await self._read(await _load(self._repository, user_id, document_id))
-
-    async def content(
-        self, user_id: UUID, document_id: UUID
-    ) -> tuple[AnyDocument, list[SourceLine]]:
-        """The user's document's draft and imported lines, or NotFound"""
-        document = await _load(self._repository, user_id, document_id)
-        return document.body, await self._repository.lines(document)
+        return await self._read(
+            await load_document(self._repository, user_id, document_id)
+        )
 
     async def require(self, user_id: UUID, document_id: UUID) -> None:
         """NotFound unless the user has the document"""
-        await _load(self._repository, user_id, document_id)
+        await load_document(self._repository, user_id, document_id)
 
     async def create(self, user_id: UUID, create: DocumentCreate) -> DocumentRead:
         """Store a new document and keep its first draft as version 1; Conflict when
@@ -198,7 +185,7 @@ class DocumentService:
         self, user_id: UUID, document_id: UUID, patch: DocumentUpdate
     ) -> DocumentRead:
         """Rename a document"""
-        document = await _load(self._repository, user_id, document_id)
+        document = await load_document(self._repository, user_id, document_id)
         if patch.title is not None:
             document.title = patch.title
         return await self._read(document)
@@ -207,7 +194,7 @@ class DocumentService:
         self, user_id: UUID, document_id: UUID, edits: DocumentEdits
     ) -> DocumentRead:
         """Make the user's own edits to the current draft"""
-        document = await _load(self._repository, user_id, document_id)
+        document = await load_document(self._repository, user_id, document_id)
         try:
             document.body = apply_edits(document.body, edits.edits)
         except ValueError as error:
@@ -216,14 +203,14 @@ class DocumentService:
 
     async def set_master(self, user_id: UUID, document_id: UUID) -> DocumentRead:
         """Make a document the master of its kind, in place of any other"""
-        document = await _load(self._repository, user_id, document_id)
+        document = await load_document(self._repository, user_id, document_id)
         await self._repository.clear_master(user_id, document.kind)
         document.master = True
         return await self._read(document)
 
     async def delete(self, user_id: UUID, document_id: UUID) -> None:
         """Remove a document with its versions and changesets; Conflict for a master"""
-        document = await _load(self._repository, user_id, document_id)
+        document = await load_document(self._repository, user_id, document_id)
         if document.master:
             raise Conflict(
                 f"Set another {document.kind.value.replace('_', ' ')} as master"
@@ -238,12 +225,12 @@ class DocumentService:
     async def render(self, user_id: UUID, document_id: UUID) -> Render:
         """The current draft printed as a PDF, with how its pages came out"""
         return await self._artifact.render(
-            (await _load(self._repository, user_id, document_id)).body
+            (await load_document(self._repository, user_id, document_id)).body
         )
 
     async def versions(self, user_id: UUID, document_id: UUID) -> list[VersionRead]:
         """Every kept version of a document, the latest first"""
-        document = await _load(self._repository, user_id, document_id)
+        document = await load_document(self._repository, user_id, document_id)
         return [
             VersionRead.model_validate(version, from_attributes=True)
             for version in await self._repository.versions(document.id)
@@ -253,7 +240,7 @@ class DocumentService:
         self, user_id: UUID, document_id: UUID, create: VersionCreate
     ) -> VersionRead:
         """Keep the current draft as the next version"""
-        document = await _load(self._repository, user_id, document_id)
+        document = await load_document(self._repository, user_id, document_id)
         version = await self._keep(document, create.label)
         return VersionRead.model_validate(version, from_attributes=True)
 
@@ -262,7 +249,7 @@ class DocumentService:
     ) -> DocumentRead:
         """Keep the current draft as a version, then put a kept version back as the
         draft"""
-        document = await _load(self._repository, user_id, document_id)
+        document = await load_document(self._repository, user_id, document_id)
         version = await self._repository.version(document.id, version_id)
         if version is None:
             raise NotFound("No such version")
@@ -272,7 +259,7 @@ class DocumentService:
 
     async def changesets(self, user_id: UUID, document_id: UUID) -> list[ChangesetRead]:
         """Every changeset proposed for a document, the latest first"""
-        document = await _load(self._repository, user_id, document_id)
+        document = await load_document(self._repository, user_id, document_id)
         return [
             ChangesetRead.model_validate(row, from_attributes=True)
             for row in await self._repository.changesets([document.id])
@@ -283,9 +270,9 @@ class DocumentService:
     ) -> ChangesetRead:
         """Store an agent's changeset for the user to accept or reject, adding its edits
         to the one still pending; the edits must apply to the current draft"""
-        row = await _propose(
+        row = await propose(
             self._repository,
-            await _load(self._repository, user_id, document_id),
+            await load_document(self._repository, user_id, document_id),
             changeset,
         )
         return ChangesetRead.model_validate(row, from_attributes=True)
@@ -295,7 +282,7 @@ class DocumentService:
     ) -> ChangesetRead:
         """Take one edit out of a pending changeset, closing it as rejected when none
         is left; Conflict when the edits left no longer fit the draft"""
-        document = await _load(self._repository, user_id, document_id)
+        document = await load_document(self._repository, user_id, document_id)
         row = await self._repository.changeset(document.id, changeset_id)
         if row is None or not 0 <= index < len(row.edits):
             raise NotFound("No such edit")
@@ -315,27 +302,6 @@ class DocumentService:
             row.edits = edits
         return ChangesetRead.model_validate(row, from_attributes=True)
 
-    async def propose_from_run(
-        self, user_id: UUID, document_id: UUID, changeset: Changeset
-    ) -> ChangesetProposed | None:
-        """Store a changeset a run proposed on a session of its own, since the run
-        outlives the request's; None, logged, when it doesn't fit or has no document"""
-        try:
-            async for session in session_scope(self._factory):
-                repository = DocumentRepository(session)
-                document = await _load(repository, user_id, document_id)
-                row = await _propose(repository, document, changeset)
-                proposed = ChangesetProposed(
-                    document_id=document.id,
-                    title=document.title,
-                    changeset_id=row.id,
-                    edits=len(row.edits),
-                )
-        except (NotFound, InvalidInput) as error:
-            logger.warning("changeset_skipped", reason=error.message)
-            return None
-        return proposed
-
     async def decide(
         self,
         user_id: UUID,
@@ -345,7 +311,7 @@ class DocumentService:
     ) -> ChangesetRead:
         """Accept a changeset, applying every edit to the draft and keeping a version,
         or reject it; Conflict once it is answered or when its edits no longer fit"""
-        document = await _load(self._repository, user_id, document_id)
+        document = await load_document(self._repository, user_id, document_id)
         row = await self._repository.changeset(document.id, changeset_id)
         if row is None:
             raise NotFound("No such changeset")
@@ -389,12 +355,101 @@ class DocumentService:
                     title=title,
                     body=master.body,
                     job_id=job_id,
+                    copied_from=master.copied_from if master.job_id else master.id,
                 )
             )
         except IntegrityError as error:
             raise Conflict("This job's documents are already being tailored") from error
         await self._keep(document, f"Copied from {master.title}")
         return document
+
+    async def _start_over(
+        self, user_id: UUID, copy: Document, master: Document, version_id: UUID
+    ) -> bool:
+        """Reset a job's copy to master once per version_id, rejecting its pending
+        changeset and keeping its draft as that version; whether one was pending"""
+        if await self._repository.version(copy.id, version_id):
+            return False
+        pending = _waiting(await self._repository.changesets([copy.id]))
+        if pending:
+            await self.decide(
+                user_id,
+                copy.id,
+                pending.id,
+                ChangesetDecision(status=ChangesetStatus.REJECTED),
+            )
+        await self._keep(
+            copy, f"Before starting over from {master.title}"[:200], version_id
+        )
+        copy.body = master.body
+        copy.copied_from = master.copied_from if master.job_id else master.id
+        return pending is not None
+
+    async def copy_to_job(
+        self,
+        user_id: UUID,
+        document_id: UUID,
+        job_id: UUID,
+        name: str,
+        copy_id: UUID,
+        start_over: bool,
+    ) -> tuple[Document, bool]:
+        """The job's copy of the document's kind, made as copy_id or reset once per
+        copy_id when start_over, and whether that rejected a pending changeset"""
+        source = await load_document(self._repository, user_id, document_id)
+        root = source.copied_from if source.job_id else source.id
+        if (
+            (copy := await self._repository.owned(Document, user_id, copy_id))
+            and copy.copied_from == root
+            and copy.job_id == job_id
+        ):
+            return copy, False
+        if source.job_id == job_id:
+            if not start_over or await self._repository.version(source.id, copy_id):
+                return source, False
+            if source.copied_from is None:
+                raise Conflict(
+                    "The document this copy was made from is deleted, so there is"
+                    " nothing to start over from"
+                )
+            return source, await self._start_over(
+                user_id,
+                source,
+                await load_document(self._repository, user_id, source.copied_from),
+                copy_id,
+            )
+        copy = next(
+            (
+                d
+                for d in await self._repository.documents(user_id)
+                if d.job_id == job_id and d.kind is source.kind
+            ),
+            None,
+        )
+        if copy is not None:
+            if start_over:
+                return copy, await self._start_over(user_id, copy, source, copy_id)
+            return copy, False
+        await self._make_room(user_id, source.kind)
+        try:
+            copy = await self._repository.add(
+                Document(
+                    id=copy_id,
+                    user_id=user_id,
+                    kind=source.kind,
+                    title=f"{source.title} for {name}"[:200],
+                    body=source.body,
+                    job_id=job_id,
+                    copied_from=root,
+                )
+            )
+        except IntegrityError as error:
+            raise Conflict(
+                "This job already has a tailored"
+                f" {source.kind.value.replace('_', ' ')}. Edit that one instead."
+            ) from error
+        await self._keep(copy, f"Copied from {source.title}")
+        return copy, False
 
     async def _read(self, document: Document) -> DocumentRead:
         """The document as the API returns it, flushed so updated_at is current"""
@@ -413,10 +468,13 @@ class DocumentService:
             else None,
         )
 
-    async def _keep(self, document: Document, label: str) -> DocumentVersion:
-        """Copy the current draft into the next version"""
+    async def _keep(
+        self, document: Document, label: str, version_id: UUID | None = None
+    ) -> DocumentVersion:
+        """Copy the current draft into the next version, under version_id if given"""
         return await self._repository.add(
             DocumentVersion(
+                id=version_id,
                 user_id=document.user_id,
                 document_id=document.id,
                 number=await self._repository.last_version_number(document.id) + 1,
@@ -426,4 +484,4 @@ class DocumentService:
         )
 
 
-__all__ = ["DocumentService"]
+__all__ = ["DocumentService", "load_document", "propose"]

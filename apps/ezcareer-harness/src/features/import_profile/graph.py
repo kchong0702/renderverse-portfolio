@@ -1,4 +1,3 @@
-import json
 from functools import partial
 from typing import Annotated, Literal, TypedDict
 
@@ -9,7 +8,7 @@ from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.managed import RemainingSteps
 from langgraph.types import Checkpointer
-from pydantic_core import to_jsonable_python
+from pydantic_core import to_json
 
 from src.agents import AgentOverride
 from src.core.config import get_settings
@@ -24,7 +23,7 @@ from src.features.import_profile.schemas import (
     ImportedSkill,
     ImportProfileInput,
 )
-from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
+from src.shared.checks import CheckError, CheckReport, CheckRule, report_check
 
 CHECKS = {"verbatim": check_verbatim}
 """Every check the import-profile configurations.yaml may turn on, by name"""
@@ -69,14 +68,12 @@ async def _structure(
             {
                 "messages": [
                     HumanMessage(
-                        json.dumps(
+                        to_json(
                             {
                                 "files": state["files"],
                                 "previous_reply": state.get("structured_response"),
-                            },
-                            default=to_jsonable_python,
-                            ensure_ascii=False,
-                        )
+                            }
+                        ).decode()
                     ),
                     *state.get("messages", []),
                 ]
@@ -94,10 +91,10 @@ async def _structure(
 
 def _verify(
     state: ImportProfileState, configurations: ImportProfileConfigurations
-) -> CheckRound | ImportProfileState:
+) -> CheckReport | ImportProfileState:
     """Checks the last reply against the export's rows and keeps it once it passes"""
     if (reply := state["structured_response"]) is None:
-        return check_round(
+        return report_check(
             [CheckError(rule=CheckRule.SCHEMA, at="", message=state["parsing_error"])]
         )
     if errors := [
@@ -105,9 +102,9 @@ def _verify(
         for name in configurations.checks
         for error in CHECKS[name](reply, state["files"])
     ]:
-        return check_round(errors)
+        return report_check(errors)
     return {
-        **check_round([]),
+        **report_check([]),
         "about": reply.about,
         "entries": reply.entries,
         "skills": reply.skills,

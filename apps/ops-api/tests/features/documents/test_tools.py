@@ -4,18 +4,15 @@ from src.core.auth.models import User
 from src.features.documents.models import Document
 from tests.conftest import (
     PREFIX,
-    a2a_sent,
     a2a_task,
-    interrupt_part,
+    ask,
+    sent_messages,
     sse_events,
-    stream_chunk,
-    stream_status,
-    stream_task,
+    tool_pause,
     work,
 )
 
 DOCUMENTS = f"{PREFIX}/documents"
-CHAT = f"{PREFIX}/assistant/chats/9b2d6f3e-1c4a-4e8b-9f0d-2a7c5e1b3d4f"
 
 LINE = {
     "id": "p1.s1",
@@ -47,17 +44,11 @@ async def _create(client, title: str, kind: str = "resume") -> dict:
 
 async def _answer(client, harness, request: dict) -> dict:
     """What ops-api resumed career-director with after it paused on this tool"""
-    harness.outcomes = [
-        [stream_task(), stream_status("INPUT_REQUIRED", [interrupt_part(request)])],
-        [
-            stream_chunk("a-1", "career-director", {"text": "Found it."}),
-            stream_status("COMPLETED"),
-        ],
-    ]
-    response = await client.post(f"{CHAT}/messages", json={"text": "Edit my résumé"})
+    response = await ask(
+        client, harness, "Edit my résumé", *tool_pause(request, "Found it.")
+    )
     assert sse_events(response)[-1] == {"status": "completed", "reply": "Found it."}
-    [part] = a2a_sent(harness)[-1]["params"]["message"]["parts"]
-    return part["data"]
+    return sent_messages(harness)[-1]["message"]["parts"][0]["data"]
 
 
 async def test_documents_are_found_by_a_misspelled_name_best_first(client, harness):
@@ -76,17 +67,16 @@ async def test_documents_are_found_by_a_misspelled_name_best_first(client, harne
         {"id": d["id"], "kind": d["kind"], "title": d["title"], "master": False}
         for d in (northwind, northwind_cv)
     ]
-    assert answer["content"] == {"document": northwind["body"], "pdf_lines": []}
 
 
-async def test_no_match_comes_with_no_content(client, harness):
+async def test_no_match_finds_no_documents(client, harness):
     await _create(client, "Résumé for Lumen Pay")
 
     answer = await _answer(
         client, harness, {"execute_tool": "documents", "name": "zebra"}
     )
 
-    assert answer == {"documents": [], "content": None}
+    assert answer == {"documents": []}
 
 
 async def test_documents_are_found_by_part_of_a_name_and_their_kind(client, harness):
@@ -127,7 +117,7 @@ async def test_documents_without_a_name_list_the_master_then_the_newest(
     ]
 
 
-async def test_an_imported_best_match_comes_with_its_lines(app, client, harness):
+async def test_an_imported_document_is_read_with_its_lines(app, client, harness):
     harness.outcomes = [
         a2a_task(
             "COMPLETED",
@@ -155,10 +145,18 @@ async def test_an_imported_best_match_comes_with_its_lines(app, client, harness)
     await work(app)
     [imported] = (await client.get(DOCUMENTS)).json()
 
-    answer = await _answer(client, harness, {"execute_tool": "documents"})
+    answer = await _answer(
+        client,
+        harness,
+        {"execute_tool": "read_document", "document_id": imported["id"]},
+    )
 
-    assert [d["id"] for d in answer["documents"]] == [imported["id"]]
-    assert answer["content"]["pdf_lines"] == [LINE]
+    assert answer == {
+        "title": imported["title"],
+        "document": (await client.get(f"{DOCUMENTS}/{imported['id']}")).json()["body"],
+        "pdf_lines": [LINE],
+        "job_id": None,
+    }
 
 
 async def test_another_users_documents_are_not_found(app, client, harness):
@@ -180,6 +178,30 @@ async def test_another_users_documents_are_not_found(app, client, harness):
     answer = await _answer(client, harness, {"execute_tool": "documents"})
 
     assert [d["id"] for d in answer["documents"]] == [mine["id"]]
+
+
+async def test_another_users_document_is_not_read(app, client, harness):
+    mine = await _create(client, "Master résumé")
+    async with app.state.session_factory() as session:
+        other = User(email="other@example.com")
+        session.add(other)
+        await session.flush()
+        theirs = Document(
+            user_id=other.id,
+            kind="resume",
+            title="Theirs",
+            body=(await session.get(Document, UUID(mine["id"]))).body,
+        )
+        session.add(theirs)
+        await session.commit()
+
+    answer = await _answer(
+        client,
+        harness,
+        {"execute_tool": "read_document", "document_id": str(theirs.id)},
+    )
+
+    assert answer == {"error": "No such document"}
 
 
 async def test_one_document_is_not_executed_on_its_own(client, harness):

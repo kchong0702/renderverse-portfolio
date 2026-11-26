@@ -6,12 +6,15 @@ from a2a.server.tasks import InMemoryTaskStore
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage
+from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import JsonValue
 
 from src.agents import Agent, build_agent
-from src.app.a2a import Executable, add_executable_routes
-from src.core.config import AppSettings
+from src.app.a2a import Executable, TaskSupervisor, add_executable_routes
+from src.core.config import AppSettings, TaskSettings
+from src.infrastructure.stores import MemoryTaskOwners, MemoryThreadLock
 from tests.agents.test_builder import GREETER
+from tests.app import ops_api
 from tests.conftest import ScriptedChatModel
 
 PATH = "/ezcareer/a2a/greeter"
@@ -87,37 +90,23 @@ def _client(configured: ScriptedChatModel) -> TestClient:
                 kind="agent",
                 name="greeter",
                 description="Greets whoever writes to it",
-                graph=build_agent(Agent.load(GREETER), model=configured),
+                graph=build_agent(Agent.load(GREETER), model=configured).copy(
+                    update={"checkpointer": InMemorySaver()}
+                ),
             )
         ],
         InMemoryTaskStore(),
+        None,
+        TaskSupervisor(MemoryTaskOwners(), TaskSettings()),
+        MemoryThreadLock(60),
         AppSettings(),
     )
     return TestClient(app)
 
 
-def _rpc(client: TestClient, method: str, params: dict[str, JsonValue]) -> str:
-    """The raw JSON-RPC response to one call"""
-    return client.post(
-        PATH,
-        headers={"A2A-Version": "1.0"},
-        json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
-    ).text
-
-
-def _say(client: TestClient, metadata: dict[str, JsonValue] | None) -> str:
-    """Sends hi with metadata and returns the raw SendMessage response"""
-    message = {"messageId": "m-1", "role": "ROLE_USER", "parts": [{"text": "hi"}]}
-    return _rpc(
-        client,
-        "SendMessage",
-        {"message": message, **({"metadata": metadata} if metadata else {})},
-    )
-
-
-def _task(response: str) -> dict[str, JsonValue]:
-    """The task a SendMessage response carries"""
-    return json.loads(response)["result"]["task"]
+def _say(client: TestClient, metadata: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    """Sends hi as the user with metadata and returns the task once it stops"""
+    return ops_api.send(client, PATH, [{"text": "hi"}], metadata=metadata)
 
 
 def test_a_run_calls_the_model_the_metadata_names_on_the_servers_key(
@@ -125,7 +114,7 @@ def test_a_run_calls_the_model_the_metadata_names_on_the_servers_key(
 ):
     configured = ScriptedChatModel(replies=[AIMessage("Hello from glm")])
 
-    task = _task(_say(_client(configured), METADATA))
+    task = _say(_client(configured), METADATA)
 
     assert task["status"]["state"] == "TASK_STATE_COMPLETED"
     [reply] = [a for a in task["artifacts"] if a["name"] == "greeter"]
@@ -144,7 +133,7 @@ def test_a_run_calls_the_model_the_metadata_names_on_the_servers_key(
 def test_without_metadata_a_run_keeps_its_configured_model(anthropic: FakeAnthropic):
     configured = ScriptedChatModel(replies=[AIMessage("Hello from glm")])
 
-    task = _task(_say(_client(configured), None))
+    task = _say(_client(configured), {})
 
     [reply] = [a for a in task["artifacts"] if a["name"] == "greeter"]
     assert reply["parts"][0]["text"] == "Hello from glm"
@@ -154,7 +143,7 @@ def test_without_metadata_a_run_keeps_its_configured_model(anthropic: FakeAnthro
 def test_a_model_the_harness_does_not_offer_fails_the_task(anthropic: FakeAnthropic):
     metadata = {"model": {"family": "claude", "model": "claude-9"}}
 
-    task = _task(_say(_client(ScriptedChatModel(replies=[])), metadata))
+    task = _say(_client(ScriptedChatModel(replies=[])), metadata)
 
     assert task["status"]["state"] == "TASK_STATE_FAILED"
     assert task["status"]["message"]["parts"][0]["text"] == (
@@ -164,7 +153,7 @@ def test_a_model_the_harness_does_not_offer_fails_the_task(anthropic: FakeAnthro
 
 
 def test_invalid_metadata_fails_the_task(anthropic: FakeAnthropic):
-    task = _task(_say(_client(ScriptedChatModel(replies=[])), {"model": "claude"}))
+    task = _say(_client(ScriptedChatModel(replies=[])), {"model": "claude"})
 
     assert task["status"]["state"] == "TASK_STATE_FAILED"
     assert task["status"]["message"]["parts"][0]["text"].startswith("Invalid input:")
