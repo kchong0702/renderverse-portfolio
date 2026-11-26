@@ -125,19 +125,6 @@ class LanggraphExecutor(AgentExecutor):
         )
         await self._forget(updater.task_id)
 
-    @override
-    async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
-        """Own the task while the run goes on, and give it up once the run stops;
-        a run cancelled by a takeover or a shutdown keeps it for the next owner"""
-        await self.supervisor.claim(context.task_id)
-        async with AsyncExitStack() as held:
-            try:
-                await self._execute(context, event_queue, held)
-            except Exception:
-                await self.supervisor.unclaim(context.task_id)
-                raise
-        await self.supervisor.unclaim(context.task_id)
-
     async def _execute(
         self, context: RequestContext, event_queue: EventQueue, held: AsyncExitStack
     ) -> None:
@@ -256,6 +243,19 @@ class LanggraphExecutor(AgentExecutor):
             completed.message_id = relay.result["messages"][-1].id
         await updater.complete(completed)
         await self._forget(context.task_id)
+
+    @override
+    async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
+        """Own the task while the run goes on, and give it up once the run stops;
+        a run cancelled by a takeover or a shutdown keeps it for the next owner"""
+        await self.supervisor.claim(context.task_id)
+        async with AsyncExitStack() as held:
+            try:
+                await self._execute(context, event_queue, held)
+            except Exception:
+                await self.supervisor.unclaim(context.task_id)
+                raise
+        await self.supervisor.unclaim(context.task_id)
 
     @override
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
