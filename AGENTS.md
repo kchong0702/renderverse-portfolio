@@ -36,6 +36,15 @@
 - A workflow owns no tools and has no `tools/` folder. It may only whitelist its agent's tools by name with `AgentOverride(tools=...)`.
 - Follow LangChain, LangGraph, deepagents or the relevant library's convention instead of inventing your own.
 
+# Deslop and Review Large Changes
+
+- A change is large when it alters architecture (adds, moves or removes services, layers, agents, tools, data stores, migrations or the A2A contract) or touches many files across apps.
+- Before committing a large change or asking for review, run two passes on the whole diff:
+  1. **Deslop.** Remove AI-generated slop without changing behaviour: comments, defensive checks on trusted paths, needless helpers, variables or casts, and anything inconsistent with the surrounding code. Use pstack's `deslop` skill when it is available.
+  2. **Independent review.** A fresh agent that did not write the change reviews the diff for bugs, broken callers, stale docs and rule breaks. Use pstack's `thermo-nuclear-review` or `/code-review` when available. Fix every real finding, then run lint, typecheck and test again.
+- Run both passes again after every later round of changes, not only after the first build.
+- Say in the pull request which passes ran.
+
 # Git Conventions
 
 - Never add Claude, Anthropic, or any AI assistant as an author, co-author, or contributor: no `Co-Authored-By` trailers, and no AI attribution in commit messages, PR descriptions, issues, or review comments.
