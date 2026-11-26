@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from structlog.testing import capture_logs
 
 from src.clients.ezcareer import (
     AgentRunFailed,
@@ -24,7 +25,7 @@ from src.clients.ezcareer import (
     Widget,
 )
 from src.clients.ezcareer.schemas import NextScreen, Text
-from src.core.agent_runner import AgentRunner, Tool, ToolExecutor, Turn
+from src.core.agent_runner import AgentRunner, Tool, ToolError, ToolExecutor, Turn
 from src.core.config import EzcareerSettings
 from src.core.exceptions import Conflict, NotFound, ServiceUnavailable
 from src.core.stores import AgentRunStatus, InMemoryRunStore, RunLost, RunRecord
@@ -303,6 +304,45 @@ async def test_the_tools_a_task_asks_for_are_executed_and_their_results_sent(
         ("start", None),
         ("results", [("i-1", _Shelf(books=["Dune"]))]),
     ]
+
+
+async def test_a_tool_that_raises_is_logged_and_answered_with_an_error_so_the_turn_ends(
+    factory,
+):
+    async def broken(user_id: object, request: BaseModel) -> _Shelf:
+        raise RuntimeError("The shelf table is gone")
+
+    harness = _Harness()
+    harness.follows = [
+        [
+            ToolsRequested(
+                task_id="task-1", requests=[("i-1", ToolRequest(execute_tool="shelf"))]
+            )
+        ],
+        [Completed(reply="I couldn't read your shelf.")],
+    ]
+    store = _Finishes()
+    runner = AgentRunner(
+        cast(EzcareerClient, harness),
+        ToolExecutor([{"shelf": Tool(_Input, broken)}], factory),
+        store,
+        SETTINGS,
+    )
+
+    with capture_logs() as logs:
+        statuses = await _statuses(await _start(runner))
+
+    assert statuses == ["started", "completed"]
+    assert [
+        message["results"] for kind, message in harness.sent if kind == "results"
+    ] == [[("i-1", ToolError(error="Ops failed to execute shelf"))]]
+    assert store.finished == [(AgentRunStatus.COMPLETED, "task-1")]
+    [failed] = [log for log in logs if log["event"] == "tool_failed"]
+    assert (failed["tool"], failed["task_id"], failed["exc_info"]) == (
+        "shelf",
+        "task-1",
+        True,
+    )
 
 
 async def test_a_dropped_stream_reconnects_and_follows_the_task_on(factory):

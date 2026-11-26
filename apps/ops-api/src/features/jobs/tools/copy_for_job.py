@@ -49,6 +49,7 @@ async def copy_for_job(
             url=job.url,
             requirements=job.analysis.requirements if job.analysis else [],
         ),
+        made=copy.id == request.copy_id,
         rejected_changeset=rejected,
     )
 

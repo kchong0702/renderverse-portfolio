@@ -112,10 +112,7 @@ class ConversationTurns:
             logger.warning("changeset_skipped", reason="No such changeset")
             return None
         return ChangesetProposed(
-            document_id=document.id,
-            title=document.title,
-            changeset_id=row.id,
-            edits=len(row.edits),
+            document_id=document.id, changeset_id=row.id, created_at=row.created_at
         )
 
     async def _answered(

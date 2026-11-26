@@ -168,14 +168,11 @@ class ChangesetProposed(BaseModel):
     document_id: UUID
     """The document the edits are for"""
 
-    title: str
-    """The document's name"""
-
     changeset_id: UUID
     """The stored changeset"""
 
-    edits: int
-    """How many edits it holds"""
+    created_at: datetime
+    """When the agent proposed it"""
 
 
 class TailoredDocument(BaseModel):

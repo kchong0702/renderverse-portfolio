@@ -114,9 +114,8 @@ async def test_a_turn_stores_the_edits_it_proposes_and_announces_them(client, ha
         {
             "status": "changeset",
             "document_id": document["id"],
-            "title": "Master résumé",
             "changeset_id": stored["id"],
-            "edits": 1,
+            "created_at": stored["created_at"],
         },
         {"status": "completed", "reply": "I added your years of experience."},
     ]

@@ -152,8 +152,8 @@ class ToolExecutor:
     async def execute(
         self, user_id: UUID, task_id: str, interrupt_id: str, request: ToolRequest
     ) -> BaseModel:
-        """The tool result a paused task resumes with; ToolError for an unknown tool or
-        a malformed request, and a write's first result when its interrupt asks again"""
+        """The tool result a paused task resumes with; ToolError for an unknown tool, a
+        malformed request or a tool that raised, and a write's first result again"""
         match self._tools.get(request.execute_tool):
             case None:
                 result = ToolError(error=f"Ops has no {request.execute_tool} tool")
@@ -165,15 +165,29 @@ class ToolExecutor:
                     result = ToolError(error=str(error))
                     outcome = "malformed"
                 else:
-                    if isinstance(tool, WriteTool):
-                        result, outcome = await self._write(
-                            tool, user_id, task_id, interrupt_id, request, parsed
+                    try:
+                        if isinstance(tool, WriteTool):
+                            result, outcome = await self._write(
+                                tool, user_id, task_id, interrupt_id, request, parsed
+                            )
+                        else:
+                            result = await tool.execute(user_id, parsed)
+                            outcome = (
+                                "refused"
+                                if isinstance(result, ToolError)
+                                else "executed"
+                            )
+                    except Exception:
+                        logger.exception(
+                            "tool_failed",
+                            tool=request.execute_tool,
+                            user_id=str(user_id),
+                            task_id=task_id,
                         )
-                    else:
-                        result = await tool.execute(user_id, parsed)
-                        outcome = (
-                            "refused" if isinstance(result, ToolError) else "executed"
+                        result = ToolError(
+                            error=f"Ops failed to execute {request.execute_tool}"
                         )
+                        outcome = "failed"
         logger.info(
             "tool_execution",
             tool=request.execute_tool,

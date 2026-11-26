@@ -266,6 +266,9 @@ class CopiedForJob(DocumentContent):
     job: TargetJob
     """The job the copy is for"""
 
+    made: bool
+    """Whether the copy was made for this copy_id, not the job's existing one"""
+
     rejected_changeset: bool
     """Whether starting over rejected the copy's pending changeset"""
 

@@ -220,6 +220,9 @@ class Step(BaseModel):
     detail: str | None = None
     """Its result or target in plain words, such as 1 cover letter; None when unset"""
 
+    document_id: str | None = None
+    """The document the step's tool call names; None when it names none"""
+
 
 class StepUpdate(BaseModel):
     status: Literal["step"] = "step"

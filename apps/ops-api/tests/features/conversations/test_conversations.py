@@ -141,6 +141,7 @@ async def test_a_turn_keeps_the_users_message_and_the_agents_answer(client, harn
                 "name": "find_jobs",
                 "status": "done",
                 "detail": None,
+                "document_id": None,
             }
         ],
         "failure": None,

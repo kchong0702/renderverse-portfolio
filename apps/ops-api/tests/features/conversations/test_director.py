@@ -40,7 +40,7 @@ WIDGET = {
     "cancel_btn": "Cancel",
 }
 
-STEP = {"id": "call-1", "parent": None, "name": "find_jobs"}
+STEP = {"id": "call-1", "parent": None, "name": "find_jobs", "document_id": None}
 
 GAVE_UP = {
     "status": "failed",
@@ -1034,9 +1034,8 @@ async def test_edits_career_director_proposes_are_stored_and_announced(client, h
         {
             "status": "changeset",
             "document_id": document["id"],
-            "title": "Master résumé",
             "changeset_id": stored["id"],
-            "edits": 1,
+            "created_at": stored["created_at"],
         },
         {"status": "completed", "reply": "Review my edits."},
     ]
@@ -1052,12 +1051,19 @@ async def test_every_changeset_a_turn_proposes_is_kept_on_its_message(client, ha
                 f"{PREFIX}/documents", json={"title": title, "body": RESUME}
             )
         ).json()
-        changeset = (
-            await client.post(
-                f"{PREFIX}/documents/{document['id']}/changesets", json=TAILOR
-            )
+        await client.post(
+            f"{PREFIX}/documents/{document['id']}/changesets", json=TAILOR
+        )
+        [changeset] = (
+            await client.get(f"{PREFIX}/documents/{document['id']}/changesets")
         ).json()
-        proposed.append({"id": changeset["id"], "document_id": document["id"]})
+        proposed.append(
+            {
+                "id": changeset["id"],
+                "document_id": document["id"],
+                "created_at": changeset["created_at"],
+            }
+        )
     harness.outcomes = a2a_turn(
         *(
             stream_chunk(
@@ -1065,13 +1071,18 @@ async def test_every_changeset_a_turn_proposes_is_kept_on_its_message(client, ha
                 "changeset",
                 {"data": {"document_id": p["document_id"], "changeset_id": p["id"]}},
             )
-            for index, p in enumerate(proposed)
+            for index, p in enumerate(reversed(proposed))
         ),
         _completed("Review my edits."),
     )
 
-    await _send(client, "Tailor both")
+    response = await _send(client, "Tailor both")
 
+    assert [
+        (e["changeset_id"], e["created_at"])
+        for e in sse_events(response)
+        if e["status"] == "changeset"
+    ] == [(p["id"], p["created_at"]) for p in reversed(proposed)]
     page = (
         await client.get(f"{AGENT}/threads/{await thread_of(client)}/messages")
     ).json()

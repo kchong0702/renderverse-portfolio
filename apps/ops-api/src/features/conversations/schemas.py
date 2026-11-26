@@ -29,6 +29,9 @@ class MessageChangeset(BaseModel):
     document_id: UUID
     """The document its edits are for"""
 
+    created_at: datetime
+    """When the agent proposed it"""
+
 
 class ThreadMessageRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)

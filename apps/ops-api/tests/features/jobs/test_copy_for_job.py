@@ -100,6 +100,7 @@ async def test_a_document_is_copied_for_the_job_with_its_posting(client, harness
                 },
             ],
         },
+        "made": True,
         "rejected_changeset": False,
     }
     assert copy["title"] == "Backend résumé for Northwind Labs"
@@ -130,7 +131,7 @@ async def test_a_document_already_the_jobs_is_returned_itself_with_the_posting(
 
     again = await _copy(client, harness, _request(copy_id, job_id, str(uuid4())), "i-2")
 
-    assert again == first
+    assert again == first | {"made": False}
     assert len((await client.get(DOCUMENTS)).json()) == 2
 
 
@@ -190,9 +191,10 @@ async def test_a_job_with_a_copy_of_the_kind_returns_that_copy(client, harness):
         client, harness, _request(other["id"], job_id, str(uuid4())), "i-2"
     )
 
-    assert (answer["document_id"], answer["title"]) == (
+    assert (answer["document_id"], answer["title"], answer["made"]) == (
         copy_id,
         "Backend résumé for Northwind Labs",
+        False,
     )
     assert answer["document"] == edited["body"]
     assert len((await client.get(DOCUMENTS)).json()) == 3
@@ -214,7 +216,11 @@ async def test_start_over_keeps_the_copys_draft_then_resets_it_once_per_call(
     await _edit(client, copy_id, "Tailored again.")
     again = await _copy(client, harness, reset, "i-3")
 
-    assert (answer["document_id"], answer["document"]) == (copy_id, master["body"])
+    assert (answer["document_id"], answer["document"], answer["made"]) == (
+        copy_id,
+        master["body"],
+        False,
+    )
     versions = (await client.get(f"{DOCUMENTS}/{copy_id}/versions")).json()
     assert [v["label"] for v in versions] == [
         "Before starting over from Master résumé",

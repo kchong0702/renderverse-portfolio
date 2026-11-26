@@ -249,9 +249,8 @@ async def test_tailoring_copies_the_master_and_starts_a_turn_on_the_copys_thread
         {
             "status": "changeset",
             "document_id": copy_id,
-            "title": "Résumé for Northwind Labs",
             "changeset_id": events[-2]["changeset_id"],
-            "edits": 1,
+            "created_at": events[-2]["created_at"],
         },
         {"status": "completed", "reply": "Tailored to the posting."},
     ]
@@ -288,7 +287,11 @@ async def test_tailoring_copies_the_master_and_starts_a_turn_on_the_copys_thread
         ("agent", copy_id),
     ]
     assert messages[1]["changesets"] == [
-        {"id": events[-2]["changeset_id"], "document_id": copy_id}
+        {
+            "id": events[-2]["changeset_id"],
+            "document_id": copy_id,
+            "created_at": events[-2]["created_at"],
+        }
     ]
 
 
