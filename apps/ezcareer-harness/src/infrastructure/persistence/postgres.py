@@ -2,9 +2,10 @@ import asyncio
 
 from a2a.server.cluster import DatabaseTaskEventStream, VersionedDatabaseTaskStore
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
-from sqlalchemy import make_url, text
+from sqlalchemy import event, make_url, text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from src.core.config import DatabaseSettings
@@ -12,17 +13,30 @@ from src.core.config import DatabaseSettings
 
 def create_engine(settings: DatabaseSettings) -> AsyncEngine:
     """An async SQLAlchemy engine, for the A2A task store and event stream and the
-    task owners, working in the harness's schema"""
-    return create_async_engine(
+    task owners, working in the harness's schema; Supabase's session pooler ignores a
+    startup search_path"""
+    engine = create_async_engine(
         settings.url.get_secret_value(),
         pool_size=settings.pool_size,
-        connect_args={"options": f"-c search_path={settings.schema_name}"},
     )
+
+    @event.listens_for(engine.sync_engine, "connect", insert=True)
+    def _set_search_path(dbapi_connection, _record) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute(f'SET search_path TO "{settings.schema_name}"')
+        cursor.close()
+        dbapi_connection.commit()
+
+    return engine
 
 
 def create_pool(settings: DatabaseSettings) -> AsyncConnectionPool:
     """A closed psycopg pool, for LangGraph's checkpointer, working in the harness's
     schema; open_postgres opens it"""
+
+    async def set_search_path(connection: AsyncConnection) -> None:
+        await connection.execute(f'SET search_path TO "{settings.schema_name}"')
+
     return AsyncConnectionPool(
         make_url(settings.url.get_secret_value())
         .set(drivername="postgresql")
@@ -30,11 +44,11 @@ def create_pool(settings: DatabaseSettings) -> AsyncConnectionPool:
         min_size=1,
         max_size=settings.pool_size,
         open=False,
+        configure=set_search_path,
         kwargs={
             "autocommit": True,
             "prepare_threshold": 0,
             "row_factory": dict_row,
-            "options": f"-c search_path={settings.schema_name}",
         },
     )
 
