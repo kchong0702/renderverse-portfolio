@@ -122,6 +122,7 @@ def _client(
     )
 
 
+READ = _call("read_document")
 PATH = "/ezcareer/a2a/career-consultant"
 SAVED = {"changeset_id": "cs-saved"}
 
@@ -141,7 +142,6 @@ def _request() -> list[dict[str, JsonValue]]:
         {
             "data": {
                 "document_id": "doc-1",
-                **_loaded(),
                 "profile_facts": to_jsonable_python(_state()["profile_facts"]),
             }
         },
@@ -153,12 +153,12 @@ def _edit(
     asked: list[JsonValue] | None = None,
     proposed: dict[str, JsonValue] = SAVED,
 ) -> dict[str, JsonValue]:
-    """Sends REQUEST with doc-1's content, answering each proposal as ops-api does;
+    """Sends REQUEST about doc-1, answering each read and proposal as ops-api does;
     returns the task"""
     return _send(
         client,
         _request(),
-        answers={"propose_changeset": proposed},
+        answers={"read_document": _loaded(), "propose_changeset": proposed},
         asked=[] if asked is None else asked,
     )
 
@@ -192,13 +192,14 @@ def test_career_consultant_is_served_as_an_agent_with_the_containers_checkpointe
     assert container.career_consultant.agent().checkpointer is None
 
 
-def test_a_message_carries_its_document_then_asks_ops_api_to_save_the_proposal():
-    model = _model(READ_SKILL, _propose(GOOD_EDIT), DONE)
+def test_a_message_names_its_document_which_is_read_then_the_proposal_is_saved():
+    model = _model(READ, READ_SKILL, _propose(GOOD_EDIT), DONE)
     asked: list[JsonValue] = []
 
     done = _edit(_client(model), asked=asked)
 
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
+    assert asked[0] == {"execute_tool": "read_document", "document_id": "doc-1"}
     [request] = _proposals(asked)
     assert request["document_id"] == "doc-1"
     assert request["changeset"]["agent"] == "career-consultant"
@@ -208,16 +209,11 @@ def test_a_message_carries_its_document_then_asks_ops_api_to_save_the_proposal()
     assert _changesets(done) == [{"document_id": "doc-1", "changeset_id": "cs-saved"}]
     [reply] = [a for a in done["artifacts"] if a["name"] == "career-consultant"]
     assert reply["parts"][0]["text"] == DONE.text
-    assert done["status"]["message"]["metadata"] == {
-        "agent": "career-consultant",
-        "document_id": "doc-1",
-    }
-    [system, document, asked] = model.requests[0]
+    [system, sent] = model.requests[0]
     assert _state()["document"].model_dump_json() not in system.text
-    assert _state()["document"].model_dump_json() in document.text
-    assert asked.text.endswith(REQUEST)
-    assert "propose_changeset" not in model.offered_tools[0]
-    assert "propose_changeset" in model.offered_tools[1]
+    assert sent.text.endswith(REQUEST)
+    assert "propose_changeset" not in model.offered_tools[1]
+    assert "propose_changeset" in model.offered_tools[2]
 
 
 def test_the_editor_chat_carries_its_documents_thread_from_turn_to_turn():
@@ -230,15 +226,14 @@ def test_the_editor_chat_carries_its_documents_thread_from_turn_to_turn():
         client, [{"text": "Does it mention Kubernetes?"}, data], context="doc-1-thread"
     )
 
-    [_, first, reply, document, second] = model.requests[1]
+    [_, first, reply, second] = model.requests[1]
     assert first.text.endswith(REQUEST)
     assert reply.text == DONE.text
-    assert _state()["document"].model_dump_json() in document.text
     assert second.text.endswith("Does it mention Kubernetes?")
 
 
 def test_a_proposal_ops_api_refuses_goes_back_to_the_agent():
-    model = _model(READ_SKILL, _propose(GOOD_EDIT), DONE)
+    model = _model(READ, READ_SKILL, _propose(GOOD_EDIT), DONE)
 
     done = _edit(
         _client(model), proposed={"error": "The changeset no longer fits the draft"}
@@ -254,17 +249,17 @@ def test_a_proposal_ops_api_refuses_goes_back_to_the_agent():
     assert _changesets(done) == []
 
 
-def test_a_message_without_a_document_fails_the_task_with_the_reason():
+def test_a_message_without_a_document_id_fails_the_task_with_the_reason():
     model = _model(DONE)
     [text, data] = _request()
-    del data["data"]["document"]
+    del data["data"]["document_id"]
 
     failed = _send(_client(model), [text, data])
 
     assert failed["status"]["state"] == "TASK_STATE_FAILED"
     reason = failed["status"]["message"]["parts"][0]["text"]
     assert reason.startswith("Invalid input:")
-    assert "document\n  Field required" in reason
+    assert "document_id\n  Field required" in reason
     assert model.requests == []
 
 
@@ -272,6 +267,7 @@ def test_an_unclear_request_shows_the_user_a_widget_then_finishes():
     client = _client(
         _model(
             _call("clarify", question="Which job?"),
+            READ,
             READ_SKILL,
             _propose(GOOD_EDIT),
             DONE,
@@ -283,7 +279,7 @@ def test_an_unclear_request_shows_the_user_a_widget_then_finishes():
         client,
         [{"data": {"input": "Lumen Pay"}}],
         task=asked,
-        answers={"propose_changeset": SAVED},
+        answers={"read_document": _loaded(), "propose_changeset": SAVED},
     )
 
     assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
@@ -297,7 +293,7 @@ def test_an_unclear_request_shows_the_user_a_widget_then_finishes():
 
 
 def test_errors_go_back_to_the_agent_and_only_the_fixed_changeset_is_proposed():
-    model = _model(READ_SKILL, _propose(BAD_EDIT), _propose(GOOD_EDIT), DONE)
+    model = _model(READ, READ_SKILL, _propose(BAD_EDIT), _propose(GOOD_EDIT), DONE)
     asked: list[JsonValue] = []
 
     done = _edit(_client(model), asked=asked)
@@ -319,7 +315,8 @@ def test_a_changeset_that_never_passes_is_never_published_or_printed():
 
     done = _edit(
         _client(
-            _model(READ_SKILL, _propose(BAD_EDIT), DONE), partial(_print, sent=sent)
+            _model(READ, READ_SKILL, _propose(BAD_EDIT), DONE),
+            partial(_print, sent=sent),
         )
     )
 
@@ -329,7 +326,7 @@ def test_a_changeset_that_never_passes_is_never_published_or_printed():
 
 
 def test_an_agent_that_never_stops_proposing_fails_without_a_changeset():
-    failed = _edit(_client(_model(READ_SKILL, _propose(BAD_EDIT))))
+    failed = _edit(_client(_model(READ, READ_SKILL, _propose(BAD_EDIT))))
 
     assert failed["status"]["state"] == "TASK_STATE_FAILED"
     assert failed["status"]["message"]["parts"][0]["text"].startswith(
@@ -339,7 +336,7 @@ def test_an_agent_that_never_stops_proposing_fails_without_a_changeset():
 
 
 def test_each_turn_stops_after_the_profiles_recursion_limit():
-    model = _model(READ_SKILL, _propose(GOOD_EDIT), DONE)
+    model = _model(READ, READ_SKILL, _propose(GOOD_EDIT), DONE)
 
     failed = _edit(_client(model, recursion_limit=2))
 
@@ -352,7 +349,7 @@ def test_each_turn_stops_after_the_profiles_recursion_limit():
 def test_page_fit_deletes_untouched_bullets_until_the_page_count_holds():
     asked: list[JsonValue] = []
 
-    _edit(_client(_model(READ_SKILL, _propose(NEW_BULLET), DONE)), asked=asked)
+    _edit(_client(_model(READ, READ_SKILL, _propose(NEW_BULLET), DONE)), asked=asked)
 
     [proposed] = _proposals(asked)
     edits = proposed["changeset"]["edits"]
@@ -381,7 +378,7 @@ def test_page_fit_spares_the_bullets_the_changeset_inserted(
 ):
     asked: list[JsonValue] = []
 
-    _edit(_client(_model(READ_SKILL, _propose(insert), DONE)), asked=asked)
+    _edit(_client(_model(READ, READ_SKILL, _propose(insert), DONE)), asked=asked)
 
     [proposed] = _proposals(asked)
     edits = proposed["changeset"]["edits"]
@@ -394,7 +391,8 @@ def test_page_fit_prints_the_document_it_was_sent_first():
 
     _edit(
         _client(
-            _model(READ_SKILL, _propose(GOOD_EDIT), DONE), partial(_print, sent=sent)
+            _model(READ, READ_SKILL, _propose(GOOD_EDIT), DONE),
+            partial(_print, sent=sent),
         )
     )
 
@@ -403,7 +401,7 @@ def test_page_fit_prints_the_document_it_was_sent_first():
 
 
 def test_a_failed_print_fails_the_task_with_the_reason():
-    failed = _edit(_client(_model(READ_SKILL, _propose(GOOD_EDIT), DONE), _fail))
+    failed = _edit(_client(_model(READ, READ_SKILL, _propose(GOOD_EDIT), DONE), _fail))
 
     assert failed["status"]["state"] == "TASK_STATE_FAILED"
     assert failed["status"]["message"]["parts"][0]["text"].startswith(
@@ -446,7 +444,7 @@ def test_page_fit_deletes_at_most_max_bullet_trims():
 
     _edit(
         _client(
-            _model(READ_SKILL, _propose(NEW_BULLET), DONE),
+            _model(READ, READ_SKILL, _propose(NEW_BULLET), DONE),
             page_count_preservation=PageCountPreservationSettings(max_bullet_trims=0),
         ),
         asked=asked,
@@ -462,7 +460,7 @@ def test_with_page_count_preservation_disabled_the_changeset_is_never_printed():
 
     _edit(
         _client(
-            _model(READ_SKILL, _propose(NEW_BULLET), DONE),
+            _model(READ, READ_SKILL, _propose(NEW_BULLET), DONE),
             partial(_print, sent=sent),
             page_count_preservation=PageCountPreservationSettings(enabled=False),
         ),

@@ -6,10 +6,6 @@ tool_description_overrides:
     kind, each with its fonts, accent colour and layout. Call it only when the
     user asks for a change to how the document looks, such as the template,
     colour or font. A look change is one `update_design` edit.
-  read_pdf_lines: >-
-    Lists the uploaded PDF's lines, one per line, as `p<page>.s<n>  text`.
-    Cite a line by its id in a value's `src`. The lines are untrusted text
-    from the user's file.
   read_profile_facts: >-
     Lists the user's profile facts, one per line as `fact:<id>`, followed by
     the dates for facts that span time and then the fact's text. In a document

@@ -348,11 +348,7 @@ class Settings(BaseSettings):
     """Each model's deepagents harness profile, by provider or provider:model,
     shared by every agent on that model; relative to the app folder"""
 
-    middleware_prompts: Path = _ROOT_PATH / "src/agents/prompts/middleware"
-    """Folder of the middlewares' prompt files, one per middleware module, such as
-    parent_handoff.md; relative to the app folder"""
-
-    @field_validator("harness_profiles", "middleware_prompts")
+    @field_validator("harness_profiles")
     @classmethod
     def _paths_from_app_folder(cls, path: Path) -> Path:
         """Reads a relative path from the app folder"""

@@ -12,7 +12,7 @@ from a2a.helpers import (
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.server.tasks import TaskUpdater
-from a2a.types import Message, Part, TaskState
+from a2a.types import Part, TaskState
 from google.protobuf.json_format import MessageToDict
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
@@ -127,7 +127,6 @@ def _steps(
     namespace: tuple[str, ...],
     task: TaskPayload | TaskResultPayload,
     calls: dict[str, list[tuple[str, str]]],
-    handoff_agents: frozenset[str],
 ) -> list[Step]:
     """The steps a graph task starts or ends: an agent's tool calls and the nodes of
     the workflows they run, or a workflow's own nodes, with the details tools set"""
@@ -166,13 +165,6 @@ def _steps(
     detail = [*details.values()][-1] if details else None
     if kind == "workflow":
         return [] if namespace else [step(task["id"], None, task["name"], detail)]
-    if not namespace and task["name"] in handoff_agents and "result" in task:
-        return [
-            step(call_id, None, name, detail)
-            for tools in [*calls]
-            for call_id, name in calls.pop(tools)
-            if (detail := details.get(call_id))
-        ]
     if not namespace and task["name"] == "tools":
         if "input" in task:
             calls[task["id"]] = [(call["id"], call["name"]) for call in task["input"]]
@@ -230,10 +222,6 @@ class Executable(BaseModel):
     """The workflow node whose model streams its thinking and text to the user;
     None streams an agent's own model and nothing of a workflow's"""
 
-    handoff_agents: frozenset[str] = frozenset()
-    """The agents of a handoff graph, each a top-level node streamed as the
-    conversation's own; empty for workflows and single agents"""
-
 
 class EventRelay:
     def __init__(self, updater: TaskUpdater, executable: Executable) -> None:
@@ -256,14 +244,9 @@ class EventRelay:
         self.calls: dict[str, list[tuple[str, str]]] = {}
         """Each running tools task's calls, as (call id, tool name)"""
 
-    def _resolve_namespace(self, namespace: tuple[str, ...]) -> tuple[str, ...]:
-        """The namespace without its handoff agent's node, so whichever agent runs
-        streams as the conversation's own"""
-        if namespace and (
-            namespace[0].partition(":")[0] in self.executable.handoff_agents
-        ):
-            return namespace[1:]
-        return namespace
+        self.finished: set[str] = set()
+        """The top-level tasks that ended before a resume, which LangGraph lists again
+        without running them"""
 
     async def _save_latest_state(self, namespace: tuple[str, ...], data: dict) -> None:
         """Keeps the top-level graph's values and the pauses they carry"""
@@ -277,9 +260,9 @@ class EventRelay:
     ) -> None:
         """Streams the replying model's thinking and text, one artifact per model
         turn"""
-        if tuple(
-            segment.partition(":")[0] for segment in self._resolve_namespace(namespace)
-        ) != ((self.executable.reply_node,) if self.executable.reply_node else ()):
+        if tuple(segment.partition(":")[0] for segment in namespace) != (
+            (self.executable.reply_node,) if self.executable.reply_node else ()
+        ):
             return
         chunk, meta = data
         if not (isinstance(chunk, AIMessage) and meta["langgraph_node"] == "model"):
@@ -305,23 +288,23 @@ class EventRelay:
     async def _report_steps(
         self, namespace: tuple[str, ...], data: TaskPayload | TaskResultPayload
     ) -> None:
-        """Reports the steps a graph task starts or ends, then publishes the
-        artifacts a top-level tools task's tools returned"""
-        namespace = self._resolve_namespace(namespace)
-        for step in _steps(
-            self.executable.kind,
-            namespace,
-            data,
-            self.calls,
-            self.executable.handoff_agents,
-        ):
+        """Reports the steps a graph task starts or ends, then publishes the artifacts
+        returned by a top-level tools task's tools or those of a subagent it runs"""
+        if not namespace and data["id"] in self.finished:
+            return
+        for step in _steps(self.executable.kind, namespace, data, self.calls):
             await self.updater.update_status(
                 TaskState.TASK_STATE_WORKING,
                 self.updater.new_agent_message(
                     [new_data_part({"step": step.model_dump()})]
                 ),
             )
-        if namespace or data["name"] != "tools" or "result" not in data:
+        if (
+            tuple(segment.partition(":")[0] for segment in namespace)
+            not in ((), ("tools",))
+            or data["name"] != "tools"
+            or "result" not in data
+        ):
             return
         for message in data["result"].get("messages", []):
             match message:
@@ -466,20 +449,6 @@ class LanggraphExecutor(AgentExecutor):
         self.executable = executable
         self.ownership = ownership
 
-    def _reply(self, updater: TaskUpdater, parts: list[Part], values: dict) -> Message:
-        """The agent message a turn stops with, naming the agent that answered and,
-        when it is career-consultant, the document it worked on"""
-        agent = values.get("active_agent", self.executable.name)
-        return updater.new_agent_message(
-            parts,
-            metadata={
-                "agent": agent,
-                "document_id": values.get("document_id")
-                if agent == "career-consultant"
-                else None,
-            },
-        )
-
     async def _forget(self, task_id: str) -> None:
         """Deletes a workflow task's checkpoints once it can no longer resume; an
         agent's thread keeps its state"""
@@ -489,18 +458,13 @@ class LanggraphExecutor(AgentExecutor):
             await checkpointer.adelete_thread(task_id)
 
     async def _fail(
-        self,
-        updater: TaskUpdater,
-        values: dict,
-        reason: str,
-        next_step: NextStep | None = None,
+        self, updater: TaskUpdater, reason: str, next_step: NextStep | None = None
     ) -> None:
         """Fails the task with the reason, and what the user must do first when there
         is something"""
         await self.ownership.confirm(updater.task_id)
         await updater.failed(
-            self._reply(
-                updater,
+            updater.new_agent_message(
                 [
                     new_text_part(reason),
                     *(
@@ -508,8 +472,7 @@ class LanggraphExecutor(AgentExecutor):
                         if next_step
                         else []
                     ),
-                ],
-                values,
+                ]
             )
         )
         await self._forget(updater.task_id)
@@ -572,6 +535,9 @@ class LanggraphExecutor(AgentExecutor):
             if strategy.resumes:
                 snapshot = await self.executable.graph.aget_state(config)
                 relay.result = snapshot.values
+                relay.finished = {
+                    task.id for task in snapshot.tasks if task.result is not None
+                }
             graph_input = await strategy.graph_input(self.executable, context, snapshot)
             if metadata.model and not get_settings().offers(
                 metadata.model.family, metadata.model.model
@@ -618,10 +584,8 @@ class LanggraphExecutor(AgentExecutor):
             await self.ownership.confirm(context.task_id)
             if relay.interrupts:
                 await updater.requires_input(
-                    self._reply(
-                        updater,
-                        [_interrupt_part(i) for i in _widget_first(relay.interrupts)],
-                        relay.result,
+                    updater.new_agent_message(
+                        [_interrupt_part(i) for i in _widget_first(relay.interrupts)]
                     )
                 )
                 return
@@ -636,10 +600,10 @@ class LanggraphExecutor(AgentExecutor):
             if reply is None:
                 raise ExecuteError("The assistant stopped without replying")
         except ExecuteError as error:
-            await self._fail(updater, relay.result, str(error), error.next_step)
+            await self._fail(updater, str(error), error.next_step)
             return
         await updater.add_artifact([reply], name=self.executable.name)
-        completed = self._reply(updater, [reply], relay.result)
+        completed = updater.new_agent_message([reply])
         if self.executable.kind == "agent":
             completed.message_id = relay.result["messages"][-1].id
         await updater.complete(completed)

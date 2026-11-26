@@ -15,6 +15,8 @@ async def _list_design_options(
 ) -> str:
     """Lists the template specs an update_design edit can use for the document's
     kind; only for changes to how the document looks"""
+    if runtime.state.get("document_read_for") != runtime.state["document_id"]:
+        return "Read the document with read_document first"
     return (
         TypeAdapter(list[TemplateSpec])
         .dump_json(

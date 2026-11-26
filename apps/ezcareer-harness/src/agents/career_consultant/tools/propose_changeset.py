@@ -68,9 +68,16 @@ async def _propose_changeset(
     page_count_preservation: PageCountPreservationSettings,
     changeset: Changeset,
     runtime: ToolRuntime[None, CareerConsultantState],
-) -> Command | str:
+) -> Command | ToolMessage | str:
     """Proposes a changeset to the user. Returns "proposed", or a JSON list of errors,
     each with its rule, edit path and what to fix; fix every one and propose again."""
+    if runtime.state.get("document_read_for") != runtime.state["document_id"]:
+        return ToolMessage(
+            "Read the document with read_document first, then propose the changeset",
+            name="propose_changeset",
+            tool_call_id=runtime.tool_call_id,
+            status="error",
+        )
     changeset = await _run_fit_pages(
         artifact_service,
         page_count_preservation,

@@ -1,7 +1,6 @@
 from dependency_injector import containers, providers
 
 from src.agents import build_agent
-from src.agents.middlewares import ParentHandoffMiddleware
 from src.agents.productivity_assistant.tools import (
     find_events_tool,
     read_free_slots_tool,
@@ -44,7 +43,6 @@ class ProductivityAssistantContainer(containers.DeclarativeContainer):
             ),
             providers.Callable(find_events_tool),
         ),
-        middleware=(ParentHandoffMiddleware(),),
         state_schema=ProfileState,
     )
     """The productivity-assistant agent, built once"""

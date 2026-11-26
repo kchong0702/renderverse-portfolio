@@ -9,11 +9,19 @@ from langgraph.types import Command
 from src.app.container import Container
 from src.core.errors import ExecuteError
 from src.shared.profile import ProfileFact
-from tests.agents.career_director.test_handoffs import ACME, HAND_BACK
 from tests.agents.test_builder import _call
 from tests.conftest import ScriptedChatModel
 from tests.features.draft_reply import test_draft_reply_graph as draft_test
 from tests.features.triage_email import test_triage_email_graph as triage_test
+
+ACME = {
+    "id": "t-1",
+    "subject": "Your interview with Acme Payments",
+    "sender": "Priya Shah <priya@acme.com>",
+    "last_sent_at": "2026-11-09T09:12:00Z",
+    "message_count": 2,
+    "has_attachment": False,
+}
 
 
 def _assistant(model: ScriptedChatModel) -> CompiledStateGraph:
@@ -128,18 +136,6 @@ async def test_a_threads_answer_that_does_not_parse_fails_the_run():
 
     with pytest.raises(ExecuteError, match="The threads didn't load"):
         await _run(model, "Show my email", {"threads": "not a list"})
-
-
-async def test_on_its_own_productivity_assistant_is_never_offered_handoff_to_parent():
-    model = ScriptedChatModel(replies=[AIMessage("Hello.")])
-
-    await _run(model, "Hi")
-
-    assert {"search_threads", "read_thread", "read_free_slots"} <= (
-        model.offered_tools[0]
-    )
-    assert "handoff_to_parent" not in model.offered_tools[0]
-    assert HAND_BACK not in model.requests[0][0].text
 
 
 async def test_read_thread_shows_a_long_threads_latest_messages_cut_to_length():

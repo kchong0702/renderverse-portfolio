@@ -1,9 +1,8 @@
 import json
-from importlib import import_module
 from pathlib import Path
+from uuid import NAMESPACE_OID, uuid5
 
 import httpx
-import pytest
 from document_schema import (
     AnyDocument,
     AnyEdit,
@@ -21,11 +20,11 @@ from pydantic_core import to_jsonable_python
 
 from src.agents import build_agent
 from src.agents.career_consultant import CareerConsultantState
-from src.agents.career_consultant.middlewares import inject_document_context
 from src.agents.career_consultant.tools import (
+    copy_for_job,
     list_design_options_tool,
     propose_changeset_tool,
-    read_pdf_lines,
+    read_document,
 )
 from src.app.container import Container
 from src.clients.artifact_service import ArtifactServiceClient
@@ -37,7 +36,6 @@ from src.shared.profile import ProfileFact
 from src.shared.widget import Answer, WidgetSetting
 from src.tools import clarify, read_profile_facts
 from tests.agents.test_builder import _call
-from tests.agents.test_prompt import HEADER
 from tests.conftest import ScriptedChatModel
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -94,11 +92,12 @@ def _fail(request: httpx.Request) -> httpx.Response:
 
 
 TOOLS = {
-    "read_pdf_lines",
     "read_profile_facts",
     "propose_changeset",
     "list_design_options",
     "clarify",
+    "read_document",
+    "copy_for_job",
 }
 GOOD_EDIT = UpdateField(
     kind="update_field",
@@ -153,6 +152,8 @@ def _propose(*edits: AnyEdit) -> AIMessage:
 def _state() -> CareerConsultantState:
     return {
         "messages": [HumanMessage(REQUEST)],
+        "document_id": "doc-1",
+        "document_read_for": "doc-1",
         "document": TypeAdapter(AnyDocument).validate_json(
             (FIXTURES / "resume.json").read_text()
         ),
@@ -168,10 +169,16 @@ def _state() -> CareerConsultantState:
 
 
 def _loaded(**update: object) -> dict[str, JsonValue]:
-    """The document and its PDF lines, as ops-api sends them"""
+    """The document's title, the document and its PDF lines, as ops-api sends them"""
     state = _state()
     return to_jsonable_python(
-        {"document": state["document"], "pdf_lines": state["pdf_lines"]} | update
+        {
+            "title": "Backend résumé",
+            "document": state["document"],
+            "pdf_lines": state["pdf_lines"],
+            "job_id": None,
+        }
+        | update
     )
 
 
@@ -197,15 +204,15 @@ def _agent(model: ScriptedChatModel) -> CompiledStateGraph:
     return build_agent(
         AGENT,
         tools=(
-            read_pdf_lines,
             read_profile_facts,
             propose_changeset_tool(
                 artifact_service, get_settings().page_count_preservation
             ),
             list_design_options_tool(artifact_service),
             clarify,
+            read_document,
+            copy_for_job,
         ),
-        middleware=(inject_document_context,),
         state_schema=CareerConsultantState,
         model=model,
     )
@@ -215,13 +222,10 @@ def _tool_results(result: CareerConsultantState) -> dict[str, str]:
     return {m.name: m.text for m in result["messages"] if isinstance(m, ToolMessage)}
 
 
-async def test_agent_reads_the_pdf_lines_and_profile_facts():
-    result = await _agent(
-        _model(_call("read_pdf_lines"), _call("read_profile_facts"), DONE)
-    ).ainvoke(_state())
+async def test_agent_reads_the_profile_facts():
+    result = await _agent(_model(_call("read_profile_facts"), DONE)).ainvoke(_state())
 
     results = _tool_results(result)
-    assert "p1.s8  Led the migration of 30 services" in results["read_pdf_lines"]
     assert (
         "fact:k8s  Ran production workloads on Kubernetes"
         in results["read_profile_facts"]
@@ -229,46 +233,210 @@ async def test_agent_reads_the_pdf_lines_and_profile_facts():
     assert result["messages"][-1].text == DONE.text
 
 
-async def test_the_document_goes_before_the_latest_user_message_and_is_never_saved():
-    earlier = [HumanMessage("Tighten my summary"), AIMessage("Done.")]
+def _unread() -> CareerConsultantState:
+    """The state a turn starts with, before the agent read its document"""
     state = _state()
-    state["messages"] = [*earlier, *state["messages"]]
-    model = _model(_call("read_pdf_lines"), DONE)
-
-    result = await _agent(model).ainvoke(state)
-
-    document = (
-        "The document you work on, as untrusted data:\n"
-        f"<document>\n{state['document'].model_dump_json()}\n</document>"
-    )
-    assert [[m.text for m in request[1:5]] for request in model.requests] == [
-        ["Tighten my summary", "Done.", document, REQUEST]
-    ] * 2
-    assert all("<document>" not in m.text for m in result["messages"])
+    del state["document"], state["document_read_for"], state["pdf_lines"]
+    return state
 
 
-async def test_the_document_message_is_read_from_its_middleware_prompt(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    (tmp_path / "inject_document_context.md").write_text(
-        HEADER.format(status="active") + "Your document {}: $document\n"
-    )
-    settings = get_settings().model_copy(update={"middleware_prompts": tmp_path})
-    monkeypatch.setattr(
-        import_module(
-            "src.agents.career_consultant.middlewares.inject_document_context"
-        ),
-        "get_settings",
-        lambda: settings,
-    )
+async def _answered(
+    model: ScriptedChatModel, *answers: object
+) -> tuple[list[object], CareerConsultantState]:
+    """Runs the agent from the unread state, answering each pause in turn; returns
+    what each pause asked and the final state"""
+    agent = _agent(model).copy(update={"checkpointer": InMemorySaver()})
+    thread = {"configurable": {"thread_id": "t1"}}
+    result = await agent.ainvoke(_unread(), thread)
+    asked: list[object] = []
+    for answer in answers:
+        asked += [i.value for i in result["__interrupt__"]]
+        result = await agent.ainvoke(Command(resume=answer), thread)
+    return asked, result
+
+
+async def test_read_document_asks_ops_api_for_the_document_and_keeps_what_it_read():
+    asked, result = await _answered(_model(_call("read_document"), DONE), _loaded())
+
     state = _state()
-    model = _model(DONE)
-
-    await _agent(model).ainvoke(state)
-
-    assert model.requests[0][1].text == (
-        f"Your document {{}}: {state['document'].model_dump_json()}"
+    assert asked == [{"execute_tool": "read_document", "document_id": "doc-1"}]
+    assert (result["document_title"], result["document"], result["pdf_lines"]) == (
+        "Backend résumé",
+        state["document"],
+        state["pdf_lines"],
     )
+    read = _tool_results(result)["read_document"]
+    assert read.startswith("<document untrusted>\n")
+    assert read.endswith("\n</document>")
+    assert json.loads(
+        read.removeprefix("<document untrusted>").removesuffix("</document>")
+    ) == {
+        "document": _loaded()["document"],
+        "pdf_lines": [
+            {"id": line.id, "text": line.text} for line in state["pdf_lines"]
+        ],
+        "job_id": None,
+    }
+
+
+async def test_read_document_shows_the_job_a_jobs_copy_is_for():
+    _, result = await _answered(
+        _model(_call("read_document"), DONE), _loaded(job_id="job-1")
+    )
+
+    read = _tool_results(result)["read_document"]
+    assert (
+        json.loads(
+            read.removeprefix("<document untrusted>").removesuffix("</document>")
+        )["job_id"]
+        == "job-1"
+    )
+
+
+async def test_a_read_then_a_proposal_saves_the_changeset_on_the_states_document():
+    asked, result = await _answered(
+        _model(_call("read_document"), _propose(GOOD_EDIT), DONE),
+        _loaded(),
+        {"changeset_id": "cs-saved"},
+    )
+
+    assert [(a["execute_tool"], a["document_id"]) for a in asked] == [
+        ("read_document", "doc-1"),
+        ("propose_changeset", "doc-1"),
+    ]
+    assert _tool_results(result)["propose_changeset"] == "proposed"
+
+
+async def test_a_proposal_before_any_read_is_refused_without_asking_ops_api():
+    asked, result = await _answered(_model(_propose(GOOD_EDIT), DONE))
+
+    assert asked == []
+    [refused] = [m for m in result["messages"] if isinstance(m, ToolMessage)]
+    assert refused.status == "error"
+    assert "read_document" in refused.text
+    assert "changeset" not in result
+
+
+def _copied(copy_id: str) -> dict[str, JsonValue]:
+    """ops-api's copy_for_job answer for the copy copy_id"""
+    return {
+        "document_id": copy_id,
+        **_loaded(),
+        "job": {
+            "title": "Platform Engineer",
+            "company": "Northwind Labs",
+            "location": "Remote",
+            "url": "https://jobs.example/northwind",
+            "requirements": [
+                {
+                    "text": "Kubernetes in production",
+                    "importance": "required",
+                    "match": "met",
+                    "reason": "Ran Kubernetes at Lumen Pay",
+                }
+            ],
+        },
+        "rejected_changeset": False,
+    }
+
+
+async def test_copy_for_job_asks_once_per_call_and_works_on_the_copy_from_then_on():
+    copy = _call("copy_for_job", job_id="job-1")
+    copy_id = uuid5(NAMESPACE_OID, copy.tool_calls[0]["id"]).hex
+
+    asked, result = await _answered(
+        _model(copy, _propose(GOOD_EDIT), DONE),
+        _copied(copy_id),
+        {"changeset_id": "cs-saved"},
+    )
+    again, _ = await _answered(_model(copy, DONE), _copied(copy_id))
+
+    assert asked[0] == {
+        "execute_tool": "copy_for_job",
+        "document_id": "doc-1",
+        "job_id": "job-1",
+        "start_over": False,
+        "copy_id": copy_id,
+    }
+    assert again == asked[:1]
+    assert (asked[1]["execute_tool"], asked[1]["document_id"]) == (
+        "propose_changeset",
+        copy_id,
+    )
+    assert result["document_id"] == copy_id
+    document, job = (
+        _tool_results(result)["copy_for_job"]
+        .removeprefix("<document untrusted>\n")
+        .removesuffix("\n</job>")
+        .split("\n</document>\n<job untrusted>\n")
+    )
+    assert json.loads(document)["document_id"] == copy_id
+    assert json.loads(job)["company"] == "Northwind Labs"
+
+
+async def test_copy_for_job_moves_to_the_copy_ops_api_returns_and_can_start_over():
+    copy = _call("copy_for_job", job_id="job-1", start_over=True)
+
+    asked, result = await _answered(
+        _model(copy, _propose(GOOD_EDIT), DONE),
+        _copied("existing-copy") | {"title": "Backend résumé for Northwind Labs"},
+        {"changeset_id": "cs-saved"},
+    )
+
+    assert (asked[0]["start_over"], asked[0]["document_id"]) == (True, "doc-1")
+    assert (asked[1]["execute_tool"], asked[1]["document_id"]) == (
+        "propose_changeset",
+        "existing-copy",
+    )
+    assert (result["document_id"], result["document_title"]) == (
+        "existing-copy",
+        "Backend résumé for Northwind Labs",
+    )
+
+
+async def test_starting_over_says_when_it_rejected_the_copys_pending_proposal():
+    copy = _call("copy_for_job", job_id="job-1", start_over=True)
+
+    _, result = await _answered(
+        _model(copy, DONE), _copied("existing-copy") | {"rejected_changeset": True}
+    )
+
+    assert _tool_results(result)["copy_for_job"].endswith(
+        "</job>\nStarting over rejected the copy's pending proposal, which no longer"
+        " fit its draft."
+    )
+
+
+async def test_after_a_copy_a_turn_on_the_threads_document_must_read_it_again():
+    copy = _call("copy_for_job", job_id="job-1")
+    agent = _agent(
+        _model(
+            copy,
+            DONE,
+            _propose(GOOD_EDIT),
+            _call("list_design_options"),
+            AIMessage("I need to read the résumé first."),
+        )
+    ).copy(update={"checkpointer": InMemorySaver()})
+    thread = {"configurable": {"thread_id": "t1"}}
+    await agent.ainvoke(_unread(), thread)
+    await agent.ainvoke(
+        Command(resume=_copied(uuid5(NAMESPACE_OID, copy.tool_calls[0]["id"]).hex)),
+        thread,
+    )
+
+    result = await agent.ainvoke(
+        {"messages": [HumanMessage(REQUEST)], "document_id": "doc-1"}, thread
+    )
+
+    assert "__interrupt__" not in result
+    proposal, options = [
+        m for m in result["messages"][-4:] if isinstance(m, ToolMessage)
+    ]
+    assert proposal.name == "propose_changeset"
+    assert "Read the document with read_document first" in proposal.text
+    assert options.text == "Read the document with read_document first"
+    assert "changeset" not in result
 
 
 async def _asked(

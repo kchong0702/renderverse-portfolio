@@ -57,16 +57,14 @@ async def _greet(task: object) -> object:
 
 
 def _candidate(folder: Path) -> Path:
-    """A candidate harness: copies of the greeter, the greet graph's folder, the
-    harness profiles and the middleware prompts, and a config.toml that names them"""
+    """A candidate harness: copies of the greeter, the greet graph's folder and
+    the harness profiles, and a config.toml that names them"""
     shutil.copytree(FIXTURES / "greeter", folder / "greeter")
     shutil.copytree(Path(__file__).parent / "fixtures/greet", folder / "greet")
     shutil.copy(get_settings().harness_profiles, folder / "harness_profiles.yaml")
-    shutil.copytree(get_settings().middleware_prompts, folder / "middleware")
     config = folder / "config.toml"
     config.write_text(
-        f'harness_profiles = "{folder}/harness_profiles.yaml"\n'
-        f'middleware_prompts = "{folder}/middleware"\n\n'
+        f'harness_profiles = "{folder}/harness_profiles.yaml"\n\n'
         '[models]\nglm = ["glm-5.3"]\n\n'
         f'[[agents]]\nname = "greeter"\npath = "{folder}/greeter/profile.yaml"\n'
         'family = "glm"\nmodel = "glm-5.3"\n\n'
@@ -126,8 +124,6 @@ def test_editing_any_harness_file_changes_the_harness_hash(task: Path, tmp_path:
         "greet/profile.yaml",
         "greet/prompt.md",
         "harness_profiles.yaml",
-        "middleware/parent_handoff.md",
-        "middleware/inject_document_context.md",
     ):
         path = tmp_path / "candidate" / changed
         path.write_text(path.read_text() + "\n")

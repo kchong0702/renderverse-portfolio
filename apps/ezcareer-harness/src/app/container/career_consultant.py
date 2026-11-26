@@ -2,13 +2,12 @@ from dependency_injector import containers, providers
 
 from src.agents import build_agent
 from src.agents.career_consultant import CareerConsultantState
-from src.agents.career_consultant.middlewares import inject_document_context
 from src.agents.career_consultant.tools import (
+    copy_for_job,
     list_design_options_tool,
     propose_changeset_tool,
-    read_pdf_lines,
+    read_document,
 )
-from src.agents.middlewares import ParentHandoffMiddleware
 from src.app.a2a import Executable
 from src.clients.artifact_service import ArtifactServiceClient
 from src.core.config import Settings
@@ -36,9 +35,9 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
         build_agent,
         agent=registry.provided["career-consultant"],
         response_formats=(write_networking.NetworkingCopy,),
-        tools=(read_profile_facts, clarify),
+        tools=(read_profile_facts, clarify, read_document),
         skill_tools=providers.List(
-            read_pdf_lines,
+            copy_for_job,
             providers.Callable(
                 propose_changeset_tool,
                 artifact_service,
@@ -46,7 +45,6 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
             ),
             providers.Callable(list_design_options_tool, artifact_service),
         ),
-        middleware=(inject_document_context, ParentHandoffMiddleware()),
         state_schema=CareerConsultantState,
     )
     """The career-consultant agent, built once"""
@@ -55,7 +53,7 @@ class CareerConsultantContainer(containers.DeclarativeContainer):
         Executable,
         kind="agent",
         name="career-consultant",
-        description="Talk to career-consultant about one of the user's résumés, CVs or cover letters, sent as the run's document with its document_id and PDF lines; it proposes checked edits to it",
+        description="Talk to career-consultant about one of the user's résumés, CVs or cover letters, named by the run's document_id; it reads the document through ops-api and proposes checked edits to it",
         graph=agent.provided.copy.call(
             update=providers.Dict(checkpointer=checkpointer)
         ).provided.with_config.call(recursion_limit=profile.provided.recursion_limit),

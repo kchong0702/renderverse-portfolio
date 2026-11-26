@@ -11,7 +11,7 @@ from pydantic_core import to_jsonable_python
 from src.app.app import create_app
 from src.app.container import Container
 from src.infrastructure.persistence import MemoryTaskOwners
-from tests.agents.career_consultant.test_career_consultant import _loaded, _state
+from tests.agents.career_consultant.test_career_consultant import _state
 from tests.agents.test_builder import _call
 from tests.app import ops_api
 from tests.conftest import ScriptedChatModel
@@ -22,15 +22,10 @@ SECOND = "bravo " * 28_000
 """Each about 42% of the model's input limit, so the second turn passes 85%"""
 
 FACTS = to_jsonable_python(_state()["profile_facts"])
-CONSULTANT = {"document_id": "doc-1", **_loaded(), "profile_facts": FACTS}
+CONSULTANT = {"document_id": "doc-1", "profile_facts": FACTS}
 TURNS = [
     ("career-consultant", "career-consultant", CONSULTANT),
     ("career-director", "career-director", {"profile_facts": FACTS, "preferences": {}}),
-    (
-        "career-director",
-        "career-consultant",
-        {**CONSULTANT, "preferences": {}, "active_agent": "career-consultant"},
-    ),
 ]
 
 

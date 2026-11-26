@@ -1,11 +1,9 @@
 from typing import Literal
 
 import pytest
-from document_schema import AnyDocument, DocumentKind
+from document_schema import DocumentKind
 from langgraph.checkpoint.serde.event_hooks import register_serde_event_listener
-from pydantic import TypeAdapter
 
-from src.agents.career_director.types import DocumentContent
 from src.app.container import Container
 from src.core.config import get_settings
 from src.shared.profile import Preferences
@@ -35,11 +33,9 @@ async def test_thread_state_reads_back_as_the_harness_types_with_none_unregister
     container.settings.override(get_settings().model_copy(update={"stores": stores}))
     container.executables()
     state = career_consultant._state()
-    letter = TypeAdapter(AnyDocument).validate_python(career_consultant.LETTER)
     values = {
         **state,
         "preferences": Preferences(work_modes=["remote"]),
-        "document_contents": {"doc-2": DocumentContent(document=letter, pdf_lines=[])},
         "changeset": career_consultant._changeset(career_consultant.GOOD_EDIT),
         "kind": DocumentKind.COVER_LETTER,
     }

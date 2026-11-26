@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, TypedDict, override
+from typing import Any, override
 
 import pytest
 from a2a.server.context import ServerCallContext
@@ -281,40 +281,6 @@ def test_a_bare_answer_with_no_question_waiting_fails_the_task():
     assert _status_text(answered) == "There is no question waiting for an answer"
 
 
-class Handoff(TypedDict):
-    active_agent: str
-    document_id: str
-
-
-def test_an_answer_that_fails_before_running_names_the_checkpoints_agent():
-    builder = StateGraph(Handoff)
-    builder.add_node("hand_off", lambda state: state)
-    builder.add_edge(START, "hand_off")
-    graph = builder.compile(checkpointer=InMemorySaver())
-    graph.invoke(
-        {"active_agent": "career-consultant", "document_id": "doc-1"},
-        {"configurable": {"thread_id": "task-1"}, "metadata": {"task_id": "task-1"}},
-    )
-    store = InMemoryTaskStore()
-    paused = Task(
-        id="task-1",
-        context_id="context-1",
-        status=TaskStatus(state=TaskState.TASK_STATE_INPUT_REQUIRED),
-    )
-    paused.metadata.update({"executable": "greet", "run": {}})
-    asyncio.run(store.save(paused, ServerCallContext()))
-
-    answered = _send(
-        _served(graph, store), "Prof", task={"id": "task-1", "contextId": "context-1"}
-    )
-
-    assert _status_text(answered) == "There is no question waiting for an answer"
-    assert answered["status"]["message"]["metadata"] == {
-        "agent": "career-consultant",
-        "document_id": "doc-1",
-    }
-
-
 class Found(BaseModel):
     documents: str = ""
     title: str = ""
@@ -477,10 +443,6 @@ def test_a_users_message_without_when_it_was_sent_fails():
 
     assert task["status"]["state"] == "TASK_STATE_FAILED"
     assert task["status"]["message"]["parts"][0]["text"].startswith("Invalid input:")
-    assert task["status"]["message"]["metadata"] == {
-        "agent": "greeter",
-        "document_id": None,
-    }
 
 
 def test_an_agent_keeps_its_threads_state_across_turns_under_the_context_id():
@@ -522,7 +484,6 @@ def test_each_turn_ends_with_the_agents_message_by_its_id_in_the_thread():
     ]
     assert message["role"] == "ROLE_AGENT"
     assert message["parts"] == [{"text": "Hello, Ada!"}]
-    assert message["metadata"] == {"agent": "greeter", "document_id": None}
     assert message["messageId"] == reply.id
     assert again["status"]["message"]["messageId"] == message["messageId"]
 

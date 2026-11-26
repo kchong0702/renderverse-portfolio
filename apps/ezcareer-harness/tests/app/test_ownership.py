@@ -355,10 +355,6 @@ def test_a_task_left_working_too_long_fails_without_running_again():
 
     assert task["status"]["state"] == "TASK_STATE_FAILED"
     assert task["status"]["message"]["parts"] == [{"text": "The assistant restarted"}]
-    assert task["status"]["message"]["metadata"] == {
-        "agent": "steps",
-        "document_id": None,
-    }
     assert ran == ["first", "second"]
     assert graph.get_state(THREAD).next == ("second",)
 

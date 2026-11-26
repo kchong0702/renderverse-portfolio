@@ -7,11 +7,17 @@ from src.shared.extraction.types import Line
 
 
 class CareerConsultantState(ProfileState):
-    document_id: NotRequired[str]
+    document_id: str
     """The id of the résumé, CV or cover letter the agent works on"""
 
-    document: AnyDocument
-    """The résumé or letter as it is now"""
+    document: NotRequired[AnyDocument]
+    """The document as read_document or copy_for_job last read it; absent before"""
+
+    document_read_for: NotRequired[str]
+    """The document_id document was read for; absent before the first read"""
+
+    document_title: NotRequired[str]
+    """The title of the document last read; absent before the first read"""
 
     report: NotRequired[Report]
     """How the document last printed; absent before its first render"""
