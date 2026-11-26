@@ -78,8 +78,8 @@ class MessageSend(BaseModel):
 
 
 class ConsultantInput(AgentProfile):
-    document_id: UUID
-    """The document the thread is about"""
+    desired_document_id: UUID
+    """The document the thread is about, which career-consultant works on"""
 
 
 class StartedTurn(BaseModel):

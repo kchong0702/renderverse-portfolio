@@ -221,7 +221,8 @@ class Step(BaseModel):
     """Its result or target in plain words, such as 1 cover letter; None when unset"""
 
     document_id: str | None = None
-    """The document the step's tool call names; None when it names none"""
+    """The document the step works on: its tool call's, or once done, the one its
+    tool reports, such as a job's copy; None when there is none"""
 
 
 class StepUpdate(BaseModel):

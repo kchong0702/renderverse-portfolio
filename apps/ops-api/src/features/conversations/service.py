@@ -157,7 +157,7 @@ class ConversationService:
                 data: BaseModel = ConsultantInput(
                     profile_facts=profile.profile_facts,
                     preferences=profile.preferences,
-                    document_id=document_id,
+                    desired_document_id=document_id,
                 )
             case ServedAgent.CAREER_DIRECTOR, None:
                 data = profile

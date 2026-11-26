@@ -126,8 +126,8 @@ async def test_a_turn_stores_the_edits_it_proposes_and_announces_them(client, ha
     )
     assert first["parts"][0] == {"text": "Mention my years"}
     data = first["parts"][1]["data"]
-    assert data.keys() == {"document_id", "profile_facts", "preferences"}
-    assert data["document_id"] == document["id"]
+    assert data.keys() == {"desired_document_id", "profile_facts", "preferences"}
+    assert data["desired_document_id"] == document["id"]
     assert results["parts"] == [interrupt_part({"changeset_id": stored["id"]}, "i-1")]
 
 

@@ -114,7 +114,7 @@ def _tailoring(changeset: dict) -> list:
 
     def accepted(sent: dict) -> dict:
         seen["document_id"] = sent["params"]["message"]["parts"][1]["data"][
-            "document_id"
+            "desired_document_id"
         ]
         return a2a_accepted()
 
@@ -278,7 +278,7 @@ async def test_tailoring_copies_the_master_and_starts_a_turn_on_the_copys_thread
         "- Kafka or another event bus (not met). Not in the profile\n"
         "- Kubernetes in production (partly)."
     )
-    assert first["parts"][1]["data"]["document_id"] == copy_id
+    assert first["parts"][1]["data"]["desired_document_id"] == copy_id
     messages = (await client.get(f"{PREFIX}/agent/threads/{thread}/messages")).json()[
         "messages"
     ]
@@ -314,7 +314,9 @@ async def test_the_resume_and_letter_are_tailored_at_once_each_on_its_own_thread
     ended = [(await _follow(client, c))[-1] for c in copies]
     assert ended == [{"status": "completed", "reply": "Tailored."}] * 2
     started = {
-        m["message"]["contextId"]: m["message"]["parts"][1]["data"]["document_id"]
+        m["message"]["contextId"]: m["message"]["parts"][1]["data"][
+            "desired_document_id"
+        ]
         for m in sent_messages(harness)
     }
     assert started == dict(zip(threads, copies, strict=True))
