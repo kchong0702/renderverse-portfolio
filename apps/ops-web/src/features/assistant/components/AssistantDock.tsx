@@ -79,6 +79,8 @@ const actionIcons: Partial<Record<string, LucideIcon>> = {
   preview_profile_sync: SearchAction,
   update_profile: EditAction,
   edit_document: EditAction,
+  assign_career_consultant_task: EditAction,
+  copy_for_job: EditAction,
   propose_changeset: EditAction,
   agent: EditAction,
 };

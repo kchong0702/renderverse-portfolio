@@ -106,7 +106,7 @@ export interface ThreadMessage {
   created_at: string;
   document_id: string | null;
   agent: string | null;
-  changeset_id: string | null;
+  changesets: { id: string; document_id: string }[];
   steps: Step[] | null;
   failure: string | null;
 }

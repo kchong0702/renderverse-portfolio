@@ -17,7 +17,6 @@ import {
   sendMessage,
   sendRefused,
   startThread,
-  type AgentSession,
   type Chat,
   type ChatMessage,
   type Conversation,
@@ -91,23 +90,11 @@ const receive =
     if (
       event.status === "step" &&
       event.step.status === "done" &&
-      ["edit_documents", "tailor_documents"].includes(event.step.name)
+      event.step.name === "assign_career_consultant_task"
     ) {
-      void Promise.all(
-        queryClient
-          .getQueriesData<AgentSession>({
-            queryKey: ["agent", "sessions", { agent: "career-consultant" }],
-          })
-          .map(
-            ([, session]) =>
-              session &&
-              queryClient.invalidateQueries({
-                queryKey: threadMessagesQueryOptions({
-                  threadId: session.thread_id,
-                }).queryKey,
-              }),
-          ),
-      );
+      void queryClient.invalidateQueries({
+        queryKey: documentsQueryOptions.queryKey,
+      });
       return;
     }
     if (event.status === "profile_saved") {

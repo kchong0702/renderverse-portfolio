@@ -161,19 +161,17 @@ export function historyEntry(message: ThreadMessage): ChatEntry {
     endedAt: null,
     connection: { status: "connected" },
   });
-  return message.changeset_id && message.document_id
-    ? {
-        ...turn,
-        parts: [
-          ...turn.parts,
-          {
-            kind: "proposed",
-            documentId: message.document_id,
-            changesetId: message.changeset_id,
-          },
-        ],
-      }
-    : turn;
+  return {
+    ...turn,
+    parts: [
+      ...turn.parts,
+      ...message.changesets.map((changeset) => ({
+        kind: "proposed" as const,
+        documentId: changeset.document_id,
+        changesetId: changeset.id,
+      })),
+    ],
+  };
 }
 
 export interface ShownDocument {
