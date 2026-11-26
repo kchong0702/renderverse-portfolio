@@ -1,0 +1,234 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to deploy again, e.g. v1.2.0
+        required: true
+        type: string
+
+jobs:
+  release-please:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      sha: ${{ steps.release.outputs.sha }}
+
+    steps:
+      - name: Open or update the release PR, or release a merged one
+        id: release
+        uses: googleapis/release-please-action@v5
+
+  build:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - image: ops-web
+            dockerfile: apps/ops-web/Dockerfile
+            target: ops-web
+          - image: ops-api
+            dockerfile: apps/ops-api/Dockerfile
+            target: ops-api
+          - image: ezcareer-harness
+            dockerfile: apps/ezcareer-harness/Dockerfile
+            target: ezcareer-harness
+          - image: artifact-service
+            dockerfile: apps/artifact-service/Dockerfile
+            target: artifact-service
+          - image: ezbot
+            dockerfile: apps/ezbot-harness/Dockerfile
+            target: ezbot
+          - image: ezbot-laya
+            dockerfile: apps/ezbot-harness/Dockerfile
+            target: laya
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag with the commit SHA and main
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          tags: |
+            type=sha,format=long,prefix=
+            type=raw,value=main
+
+      - name: Build and push ${{ matrix.image }}
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  tag:
+    needs: [release-please, build]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+
+    steps:
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add the release tag and latest to the released commit's images
+        env:
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+          SHA: ${{ needs.release-please.outputs.sha }}
+        run: |
+          for name in ops-web ops-api ezcareer-harness artifact-service ezbot ezbot-laya; do
+            image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$name"
+            docker buildx imagetools create --tag "$image:$TAG" --tag "$image:latest" "$image:$SHA"
+          done
+
+  deploy:
+    needs: [release-please, tag]
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.tag.result == 'success') }}
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    env:
+      TAG: ${{ inputs.tag || needs.release-please.outputs.tag_name }}
+      HOST: deploy@${{ vars.DEPLOY_HOST }}
+      DEPLOY: /srv/renderverse/infra/deploy/deploy.sh
+
+    steps:
+      - name: Checkout the release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Write the .env files
+        env:
+          SECRETS: ${{ toJSON(secrets) }}
+          VARS: ${{ toJSON(vars) }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::$TAG is not a release tag like v1.2.0"; exit 1; }
+          infra/deploy/write-env.sh .env COLLECTOR_ DEPLOYMENT_ENV
+          printf "TAG='%s'\nREGISTRY='ghcr.io/%s/'\n" "$TAG" "${GITHUB_REPOSITORY_OWNER,,}" >> .env
+          infra/deploy/write-env.sh apps/ops-api/.env OPS_API_
+          infra/deploy/write-env.sh apps/ezcareer-harness/.env EZCAREER_HARNESS_ AIGW_ OPENAI_ ANTHROPIC_
+          infra/deploy/write-env.sh apps/artifact-service/.env ARTIFACT_SERVICE_
+          infra/deploy/write-env.sh apps/ezbot-harness/.env EZBOT_ LAYA_ GROQ_ MISTRAL_ GOOGLE_ OPENROUTER_
+
+      - name: Connect to the tailnet
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:deploy
+          ping: ${{ vars.DEPLOY_HOST }}
+
+      - name: Copy the compose files, configs, .env files and deploy script
+        run: |
+          tar -czf - docker-compose.yaml apps/*/docker-compose.yaml apps/*/.env .env \
+              infra/otel-collector/config.yaml infra/seccomp/chromium.json infra/deploy/deploy.sh \
+            | tailscale ssh "$HOST" tar -xzf - -C /srv/renderverse
+
+      - name: Pull the images
+        run: printf '%s' "$GITHUB_TOKEN" | tailscale ssh "$HOST" "$DEPLOY" pull "$GITHUB_ACTOR"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Migrate ops-api
+        run: tailscale ssh "$HOST" "$DEPLOY" migrate ops-api
+
+      - name: Migrate ezcareer-harness
+        run: tailscale ssh "$HOST" "$DEPLOY" migrate ezcareer-harness
+
+      - name: Start the release
+        run: tailscale ssh "$HOST" "$DEPLOY" up
+
+      - name: Check health, rolling back to the previous release on failure
+        run: tailscale ssh "$HOST" "$DEPLOY" health
+
+      - name: Remove all but the current and previous release's images
+        run: tailscale ssh "$HOST" "$DEPLOY" prune
+
+  pages:
+    needs: [release-please, deploy]
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout the release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || needs.release-please.outputs.tag_name }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build renderverse
+        env:
+          VITE_EZBOT_API_URL: ${{ vars.VITE_EZBOT_API_URL }}
+          VITE_CHATBOT_ENABLED: ${{ vars.VITE_CHATBOT_ENABLED }}
+          VITE_SECRET_ROOM_PASSWORD: ${{ secrets.VITE_SECRET_ROOM_PASSWORD }}
+          VITE_PORTFOLIO_BUCKET_URL: ${{ vars.VITE_PORTFOLIO_BUCKET_URL }}
+          VITE_PORTFOLIO_USER_ID: ${{ vars.VITE_PORTFOLIO_USER_ID }}
+        run: pnpm exec nx run renderverse:build
+
+      - name: Install Wrangler globally, since pnpm blocks its workerd build script
+        run: npm install --global wrangler@4
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/renderverse/dist --project-name=renderverse --branch=main
