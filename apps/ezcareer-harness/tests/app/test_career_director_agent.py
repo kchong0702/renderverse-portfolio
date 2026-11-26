@@ -445,6 +445,11 @@ def test_parallel_tasks_stream_one_step_and_changeset_each_and_only_the_director
         ("again", "running", None),
         ("again", "failed", None),
     ]
+    assert {
+        (s["id"], s["document_id"])
+        for s in _steps(events)
+        if s["name"] == "assign_career_consultant_task"
+    } == {("backend", "doc-1"), ("letter", "doc-2"), ("again", "doc-1")}
     assert steps.index(("backend", "done", "Backend résumé")) < steps.index(
         ("letter", "done", "Backend résumé")
     )
@@ -462,6 +467,29 @@ def test_parallel_tasks_stream_one_step_and_changeset_each_and_only_the_director
         ("text", [{"text": tasks.DONE.text}]),
         ("career-director", [{"text": tasks.DONE.text}]),
     ]
+
+
+def test_a_task_given_a_document_id_that_isnt_a_string_doesnt_fail_the_turn():
+    director = _model(
+        tasks._calls(
+            (
+                "backend",
+                "assign_career_consultant_task",
+                {"document_id": 1, "description": tasks.BACKEND_TASK},
+            )
+        ),
+        tasks.DONE,
+    )
+    client = TestClient(create_app(_container(_model(), _model(), director)))
+
+    events = _stream(client, _director_request())
+
+    assert [
+        (s["status"], s["document_id"])
+        for s in _steps(events)
+        if s["name"] == "assign_career_consultant_task"
+    ] == [("running", None), ("failed", None)]
+    assert events[-1]["statusUpdate"]["status"]["state"] == "TASK_STATE_COMPLETED"
 
 
 def test_stopping_a_run_cancels_every_task_it_runs():

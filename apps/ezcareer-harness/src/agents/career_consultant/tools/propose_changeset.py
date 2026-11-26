@@ -47,13 +47,13 @@ async def _run_fit_pages(
     state: CareerConsultantState,
 ) -> str | Changeset:
     """The changeset's check errors as JSON, or once it passes, the changeset fitted
-    to the page count when enabled; a task, so a resume can reuse it"""
+    to the page count when enabled and the document has no assets; a task"""
     errors = check_round(check_changeset(state["document"], changeset, sources(state)))[
         "errors"
     ]
     if errors:
         return json.dumps([error.model_dump() for error in errors])
-    if not page_count_preservation.enabled:
+    if not page_count_preservation.enabled or state["document"].assets:
         return changeset
     return await fit_pages(
         state["document"],
@@ -69,8 +69,8 @@ async def _propose_changeset(
     changeset: Changeset,
     runtime: ToolRuntime[None, CareerConsultantState],
 ) -> Command | ToolMessage | str:
-    """Proposes a changeset to the user. Returns "proposed", or a JSON list of errors,
-    each with its rule, edit path and what to fix; fix every one and propose again."""
+    """Proposes a changeset to the user. Returns "proposed" and any note, or a JSON list
+    of errors, each with its rule, edit path and what to fix; fix all, then retry."""
     if runtime.state.get("document_read_for") != runtime.state["document_id"]:
         return ToolMessage(
             "Read the document with read_document first, then propose the changeset",
@@ -110,7 +110,11 @@ async def _propose_changeset(
             "changeset": changeset,
             "messages": [
                 ToolMessage(
-                    "proposed",
+                    "proposed, but the page count wasn't checked because the "
+                    "document has an image"
+                    if page_count_preservation.enabled
+                    and runtime.state["document"].assets
+                    else "proposed",
                     name="propose_changeset",
                     tool_call_id=runtime.tool_call_id,
                     artifact={

@@ -69,5 +69,8 @@ class CopiedForJob(DocumentDraft):
     job: TargetJob
     """The job the copy is for"""
 
+    made: bool
+    """Whether ops-api made a new copy, rather than returning the job's existing one"""
+
     rejected_changeset: bool
     """Whether starting over rejected the copy's pending changeset"""

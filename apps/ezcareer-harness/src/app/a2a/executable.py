@@ -111,6 +111,9 @@ class Step(BaseModel):
     detail: str | None = None
     """What the step found or worked on, in plain words, such as 1 cover letter"""
 
+    document_id: str | None = None
+    """The document the step's tool call names, if any"""
+
 
 def _details(task: TaskResultPayload) -> dict[str, str]:
     """The step detail each tool call in the task's result returned, by call id"""
@@ -126,7 +129,7 @@ def _steps(
     kind: Literal["workflow", "agent"],
     namespace: tuple[str, ...],
     task: TaskPayload | TaskResultPayload,
-    calls: dict[str, list[tuple[str, str]]],
+    calls: dict[str, list[tuple[str, str, str | None]]],
 ) -> list[Step]:
     """The steps a graph task starts or ends: an agent's tool calls and the nodes of
     the workflows they run, or a workflow's own nodes, with the details tools set"""
@@ -142,7 +145,13 @@ def _steps(
         }
     )
 
-    def step(id: str, parent: str | None, name: str, detail: str | None) -> Step:
+    def step(
+        id: str,
+        parent: str | None,
+        name: str,
+        detail: str | None,
+        document_id: str | None = None,
+    ) -> Step:
         """The step with the status STEP_STATUSES gives it; the task's own step fails
         on any tool error, a tool call's step on its own"""
         tool_failed = bool(tool_errors) if id == task["id"] else id in tool_errors
@@ -159,6 +168,7 @@ def _steps(
                 "done",
             ),
             detail=detail,
+            document_id=document_id,
         )
 
     details = {} if "input" in task else _details(task)
@@ -167,10 +177,19 @@ def _steps(
         return [] if namespace else [step(task["id"], None, task["name"], detail)]
     if not namespace and task["name"] == "tools":
         if "input" in task:
-            calls[task["id"]] = [(call["id"], call["name"]) for call in task["input"]]
+            calls[task["id"]] = [
+                (
+                    call["id"],
+                    call["name"],
+                    document_id
+                    if isinstance(document_id := call["args"].get("document_id"), str)
+                    else None,
+                )
+                for call in task["input"]
+            ]
         return [
-            step(call_id, None, name, details.get(call_id))
-            for call_id, name in (
+            step(call_id, None, name, details.get(call_id), document_id)
+            for call_id, name, document_id in (
                 calls[task["id"]] if "input" in task else calls.pop(task["id"], [])
             )
         ]
@@ -241,8 +260,8 @@ class EventRelay:
         self.opened: set[str] = set()
         """The ids of the thinking and text artifacts already streamed"""
 
-        self.calls: dict[str, list[tuple[str, str]]] = {}
-        """Each running tools task's calls, as (call id, tool name)"""
+        self.calls: dict[str, list[tuple[str, str, str | None]]] = {}
+        """Each running tools task's calls, as (call id, tool name, document id)"""
 
         self.finished: set[str] = set()
         """The top-level tasks that ended before a resume, which LangGraph lists again

@@ -57,6 +57,16 @@ def copy_for_job(
                     ).decode()
                     + f"\n</document>\n<job untrusted>\n{to_json(copied.job).decode()}\n</job>"
                     + (
+                        "\nMade a new copy for the job."
+                        if copied.made
+                        else "\nUsing the job's existing copy."
+                    )
+                    + (
+                        "\nThere was no copy to start over."
+                        if start_over and copied.made
+                        else ""
+                    )
+                    + (
                         "\nStarting over rejected the copy's pending proposal, which"
                         " no longer fit its draft."
                         if copied.rejected_changeset

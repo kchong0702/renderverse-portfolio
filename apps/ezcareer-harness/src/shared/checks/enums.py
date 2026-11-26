@@ -35,6 +35,9 @@ class CheckRule(StrEnum):
     UNKNOWN_SOURCE = "unknown_source"
     """An edited value cites a PDF line or fact that doesn't exist"""
 
+    NO_CHANGE = "no_change"
+    """A changeset's edit leaves the document as the edits before it left it"""
+
     UNKNOWN_SLOT = "unknown_slot"
     """A draft offers a time that isn't one of the user's free slots"""
 

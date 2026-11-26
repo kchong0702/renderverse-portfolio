@@ -304,7 +304,7 @@ async def test_a_read_then_a_proposal_saves_the_changeset_on_the_states_document
         ("read_document", "doc-1"),
         ("propose_changeset", "doc-1"),
     ]
-    assert _tool_results(result)["propose_changeset"] == "proposed"
+    assert _tool_results(result)["propose_changeset"].startswith("proposed")
 
 
 async def test_a_proposal_before_any_read_is_refused_without_asking_ops_api():
@@ -336,6 +336,7 @@ def _copied(copy_id: str) -> dict[str, JsonValue]:
                 }
             ],
         },
+        "made": True,
         "rejected_changeset": False,
     }
 
@@ -367,7 +368,7 @@ async def test_copy_for_job_asks_once_per_call_and_works_on_the_copy_from_then_o
     document, job = (
         _tool_results(result)["copy_for_job"]
         .removeprefix("<document untrusted>\n")
-        .removesuffix("\n</job>")
+        .removesuffix("\n</job>\nMade a new copy for the job.")
         .split("\n</document>\n<job untrusted>\n")
     )
     assert json.loads(document)["document_id"] == copy_id
@@ -379,7 +380,8 @@ async def test_copy_for_job_moves_to_the_copy_ops_api_returns_and_can_start_over
 
     asked, result = await _answered(
         _model(copy, _propose(GOOD_EDIT), DONE),
-        _copied("existing-copy") | {"title": "Backend résumé for Northwind Labs"},
+        _copied("existing-copy")
+        | {"title": "Backend résumé for Northwind Labs", "made": False},
         {"changeset_id": "cs-saved"},
     )
 
@@ -392,18 +394,32 @@ async def test_copy_for_job_moves_to_the_copy_ops_api_returns_and_can_start_over
         "existing-copy",
         "Backend résumé for Northwind Labs",
     )
+    assert _tool_results(result)["copy_for_job"].endswith(
+        "</job>\nUsing the job's existing copy."
+    )
 
 
 async def test_starting_over_says_when_it_rejected_the_copys_pending_proposal():
     copy = _call("copy_for_job", job_id="job-1", start_over=True)
 
     _, result = await _answered(
-        _model(copy, DONE), _copied("existing-copy") | {"rejected_changeset": True}
+        _model(copy, DONE),
+        _copied("existing-copy") | {"made": False, "rejected_changeset": True},
     )
 
     assert _tool_results(result)["copy_for_job"].endswith(
-        "</job>\nStarting over rejected the copy's pending proposal, which no longer"
-        " fit its draft."
+        "</job>\nUsing the job's existing copy.\nStarting over rejected the copy's"
+        " pending proposal, which no longer fit its draft."
+    )
+
+
+async def test_starting_over_a_job_with_no_copy_says_there_was_none_to_start_over():
+    copy = _call("copy_for_job", job_id="job-1", start_over=True)
+
+    _, result = await _answered(_model(copy, DONE), _copied("new-copy"))
+
+    assert _tool_results(result)["copy_for_job"].endswith(
+        "</job>\nMade a new copy for the job.\nThere was no copy to start over."
     )
 
 

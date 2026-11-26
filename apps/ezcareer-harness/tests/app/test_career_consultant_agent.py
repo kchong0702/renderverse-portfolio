@@ -125,6 +125,20 @@ def _client(
 READ = _call("read_document")
 PATH = "/ezcareer/a2a/career-consultant"
 SAVED = {"changeset_id": "cs-saved"}
+WITH_PHOTO = _loaded()["document"]
+NO_PHOTO = _loaded(
+    document=WITH_PHOTO
+    | {
+        "assets": {},
+        "content": {
+            "blocks": [
+                block
+                for block in WITH_PHOTO["content"]["blocks"]
+                if block["kind"] != "photo"
+            ]
+        },
+    }
+)
 
 
 def _send(
@@ -158,7 +172,7 @@ def _edit(
     return _send(
         client,
         _request(),
-        answers={"read_document": _loaded(), "propose_changeset": proposed},
+        answers={"read_document": NO_PHOTO, "propose_changeset": proposed},
         asked=[] if asked is None else asked,
     )
 
@@ -279,7 +293,7 @@ def test_an_unclear_request_shows_the_user_a_widget_then_finishes():
         client,
         [{"data": {"input": "Lumen Pay"}}],
         task=asked,
-        answers={"read_document": _loaded(), "propose_changeset": SAVED},
+        answers={"read_document": NO_PHOTO, "propose_changeset": SAVED},
     )
 
     assert asked["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
@@ -397,7 +411,7 @@ def test_page_fit_prints_the_document_it_was_sent_first():
     )
 
     assert len(sent) == 2
-    assert json.loads(sent[0].content)["document"] == _loaded()["document"]
+    assert json.loads(sent[0].content)["document"] == NO_PHOTO["document"]
 
 
 def test_a_failed_print_fails_the_task_with_the_reason():
@@ -472,3 +486,29 @@ def test_with_page_count_preservation_disabled_the_changeset_is_never_printed():
     assert proposed["changeset"]["id"] != "cs1"
     assert proposed["changeset"]["agent"] == "career-consultant"
     assert sent == []
+
+
+def test_a_document_with_an_image_is_proposed_unprinted_with_a_note_saying_so():
+    model = _model(READ, READ_SKILL, _propose(NEW_BULLET), DONE)
+    sent: list[httpx.Request] = []
+    asked: list[JsonValue] = []
+
+    done = _send(
+        _client(model, partial(_print, sent=sent)),
+        _request(),
+        answers={"read_document": _loaded(), "propose_changeset": SAVED},
+        asked=asked,
+    )
+
+    [proposed] = _proposals(asked)
+    assert proposed["changeset"]["edits"] == [NEW_BULLET.model_dump(mode="json")]
+    assert _changesets(done) == [{"document_id": "doc-1", "changeset_id": "cs-saved"}]
+    assert sent == []
+    [report] = [
+        m.text
+        for m in model.requests[-1]
+        if isinstance(m, ToolMessage) and m.name == "propose_changeset"
+    ]
+    assert report == (
+        "proposed, but the page count wasn't checked because the document has an image"
+    )

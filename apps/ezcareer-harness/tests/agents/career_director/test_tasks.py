@@ -182,6 +182,7 @@ ANSWERS: Answers = {
             "url": "https://jobs.example/northwind",
             "requirements": [],
         },
+        "made": True,
         "rejected_changeset": False,
     },
     "threads": lambda request: {"threads": [ACME], "total": 1},
