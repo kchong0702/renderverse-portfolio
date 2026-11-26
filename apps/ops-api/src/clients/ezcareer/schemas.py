@@ -254,12 +254,6 @@ class Replied(BaseModel):
     message_id: str
     """The harness's id for the message, the same after any reconnect"""
 
-    agent: str | None
-    """The agent that answered, which may be one the turn's agent handed to"""
-
-    document_id: UUID | None
-    """The document the answer is about, if any"""
-
 
 class Reconnecting(BaseModel):
     status: Literal["reconnecting"] = "reconnecting"

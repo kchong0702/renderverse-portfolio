@@ -111,19 +111,30 @@ class ChangesetDecision(BaseModel):
 
 
 class DocumentContent(BaseModel):
+    title: str
+    """The document's title, such as Backend résumé"""
+
     document: AnyDocument
     """The current draft; its assets' bytes are not sent, as ops-api keeps none"""
 
     pdf_lines: list[SourceLine]
     """The imported file's lines; empty for a document not imported"""
 
+    job_id: UUID | None
+    """The job the document is a copy for; None for one not a job's"""
+
 
 class DocumentsAnswer(BaseModel):
     documents: list[DocumentMatch]
     """The user's documents, the best match first"""
 
-    content: DocumentContent | None
-    """The best match's draft and lines; None when nothing matches"""
+
+class ReadDocumentRequest(BaseModel):
+    execute_tool: Literal["read_document"]
+    """career-consultant asks for the document it works on"""
+
+    document_id: UUID
+    """The document to read"""
 
 
 class ProposeChangesetRequest(BaseModel):
@@ -191,6 +202,7 @@ __all__ = [
     "DocumentsAnswer",
     "LineRead",
     "ProposeChangesetRequest",
+    "ReadDocumentRequest",
     "TailoredDocument",
     "VersionCreate",
     "VersionRead",

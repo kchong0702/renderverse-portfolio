@@ -37,7 +37,6 @@ from src.features.documents.schemas import (
     VersionCreate,
     VersionRead,
 )
-from src.features.imports import SourceLine
 
 
 def _pending(changesets: Sequence[DocumentChangeset]) -> int:
@@ -150,13 +149,6 @@ class DocumentService:
         return await self._read(
             await load_document(self._repository, user_id, document_id)
         )
-
-    async def content(
-        self, user_id: UUID, document_id: UUID
-    ) -> tuple[AnyDocument, list[SourceLine]]:
-        """The user's document's draft and imported lines, or NotFound"""
-        document = await load_document(self._repository, user_id, document_id)
-        return document.body, await self._repository.lines(document)
 
     async def require(self, user_id: UUID, document_id: UUID) -> None:
         """NotFound unless the user has the document"""
@@ -363,12 +355,101 @@ class DocumentService:
                     title=title,
                     body=master.body,
                     job_id=job_id,
+                    copied_from=master.copied_from if master.job_id else master.id,
                 )
             )
         except IntegrityError as error:
             raise Conflict("This job's documents are already being tailored") from error
         await self._keep(document, f"Copied from {master.title}")
         return document
+
+    async def _start_over(
+        self, user_id: UUID, copy: Document, master: Document, version_id: UUID
+    ) -> bool:
+        """Reset a job's copy to master once per version_id, rejecting its pending
+        changeset and keeping its draft as that version; whether one was pending"""
+        if await self._repository.version(copy.id, version_id):
+            return False
+        pending = _waiting(await self._repository.changesets([copy.id]))
+        if pending:
+            await self.decide(
+                user_id,
+                copy.id,
+                pending.id,
+                ChangesetDecision(status=ChangesetStatus.REJECTED),
+            )
+        await self._keep(
+            copy, f"Before starting over from {master.title}"[:200], version_id
+        )
+        copy.body = master.body
+        copy.copied_from = master.copied_from if master.job_id else master.id
+        return pending is not None
+
+    async def copy_to_job(
+        self,
+        user_id: UUID,
+        document_id: UUID,
+        job_id: UUID,
+        name: str,
+        copy_id: UUID,
+        start_over: bool,
+    ) -> tuple[Document, bool]:
+        """The job's copy of the document's kind, made as copy_id or reset once per
+        copy_id when start_over, and whether that rejected a pending changeset"""
+        source = await load_document(self._repository, user_id, document_id)
+        root = source.copied_from if source.job_id else source.id
+        if (
+            (copy := await self._repository.owned(Document, user_id, copy_id))
+            and copy.copied_from == root
+            and copy.job_id == job_id
+        ):
+            return copy, False
+        if source.job_id == job_id:
+            if not start_over or await self._repository.version(source.id, copy_id):
+                return source, False
+            if source.copied_from is None:
+                raise Conflict(
+                    "The document this copy was made from is deleted, so there is"
+                    " nothing to start over from"
+                )
+            return source, await self._start_over(
+                user_id,
+                source,
+                await load_document(self._repository, user_id, source.copied_from),
+                copy_id,
+            )
+        copy = next(
+            (
+                d
+                for d in await self._repository.documents(user_id)
+                if d.job_id == job_id and d.kind is source.kind
+            ),
+            None,
+        )
+        if copy is not None:
+            if start_over:
+                return copy, await self._start_over(user_id, copy, source, copy_id)
+            return copy, False
+        await self._make_room(user_id, source.kind)
+        try:
+            copy = await self._repository.add(
+                Document(
+                    id=copy_id,
+                    user_id=user_id,
+                    kind=source.kind,
+                    title=f"{source.title} for {name}"[:200],
+                    body=source.body,
+                    job_id=job_id,
+                    copied_from=root,
+                )
+            )
+        except IntegrityError as error:
+            raise Conflict(
+                "This job already has a tailored"
+                f" {source.kind.value.replace('_', ' ')}. Edit that one instead."
+            ) from error
+        await self._keep(copy, f"Copied from {source.title}")
+        return copy, False
 
     async def _read(self, document: Document) -> DocumentRead:
         """The document as the API returns it, flushed so updated_at is current"""
@@ -387,10 +468,13 @@ class DocumentService:
             else None,
         )
 
-    async def _keep(self, document: Document, label: str) -> DocumentVersion:
-        """Copy the current draft into the next version"""
+    async def _keep(
+        self, document: Document, label: str, version_id: UUID | None = None
+    ) -> DocumentVersion:
+        """Copy the current draft into the next version, under version_id if given"""
         return await self._repository.add(
             DocumentVersion(
+                id=version_id,
                 user_id=document.user_id,
                 document_id=document.id,
                 number=await self._repository.last_version_number(document.id) + 1,

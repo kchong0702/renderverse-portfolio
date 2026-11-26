@@ -6,6 +6,7 @@ from src.features.documents.router import (
 from src.features.documents.schemas import (
     ChangesetArtifact,
     ChangesetProposed,
+    DocumentContent,
     TailoredDocument,
 )
 from src.features.documents.service import DocumentService
@@ -14,6 +15,7 @@ from src.features.documents.tools import document_tools
 __all__ = [
     "ChangesetArtifact",
     "ChangesetProposed",
+    "DocumentContent",
     "DocumentService",
     "DocumentServiceDep",
     "TailoredDocument",

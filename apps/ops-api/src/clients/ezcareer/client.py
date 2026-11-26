@@ -220,13 +220,7 @@ def _ended(
         case _:
             ended = _failed(status)
     replied = (
-        [
-            Replied(
-                message_id=message.message_id,
-                agent=(message.metadata or {}).get("agent"),
-                document_id=(message.metadata or {}).get("document_id"),
-            )
-        ]
+        [Replied(message_id=message.message_id)]
         if message and message.message_id
         else []
     )

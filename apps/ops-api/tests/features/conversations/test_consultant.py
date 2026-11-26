@@ -78,12 +78,7 @@ def _proposes(document_id: str, reply: str, interrupt_id: str = "i-1") -> list:
                 "changeset",
                 {"data": {"document_id": document_id} | stored},
             ),
-            stream_status(
-                "COMPLETED",
-                [{"text": reply}],
-                f"reply-{interrupt_id}",
-                {"agent": "career-consultant", "document_id": document_id},
-            ),
+            stream_status("COMPLETED", [{"text": reply}], f"reply-{interrupt_id}"),
         ]
 
     request = {
@@ -132,13 +127,8 @@ async def test_a_turn_stores_the_edits_it_proposes_and_announces_them(client, ha
     )
     assert first["parts"][0] == {"text": "Mention my years"}
     data = first["parts"][1]["data"]
+    assert data.keys() == {"document_id", "profile_facts", "preferences"}
     assert data["document_id"] == document["id"]
-    assert (
-        data["document"]
-        == (await client.get(f"{DOCUMENTS}/{document['id']}")).json()["body"]
-    )
-    assert data["pdf_lines"] == []
-    assert {"profile_facts", "preferences"} <= data.keys()
     assert results["parts"] == [interrupt_part({"changeset_id": stored["id"]}, "i-1")]
 
 
@@ -253,12 +243,7 @@ async def test_a_documents_thread_lists_every_message_on_it(client, harness):
             harness,
             text,
             *a2a_turn(
-                stream_status(
-                    "COMPLETED",
-                    [{"text": f"Re {text}"}],
-                    f"reply-{text}",
-                    {"agent": "career-consultant", "document_id": document["id"]},
-                )
+                stream_status("COMPLETED", [{"text": f"Re {text}"}], f"reply-{text}")
             ),
             agent="career-consultant",
             document_id=document["id"],

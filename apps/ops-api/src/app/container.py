@@ -13,7 +13,6 @@ from src.db.session import create_engine, create_session_factory
 from src.features.applications import application_tools
 from src.features.assistant import profile_tools
 from src.features.calendar import calendar_tools
-from src.features.conversations.tools import conversation_tools
 from src.features.documents import document_tools
 from src.features.inbox import inbox_tools
 from src.features.jobs import job_tools
@@ -94,7 +93,6 @@ class Container(containers.DeclarativeContainer):
                 google,
                 settings.provided.google,
             ),
-            providers.Callable(conversation_tools, __self__),
         ),
         factory=session_factory,
     )

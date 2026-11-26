@@ -16,7 +16,7 @@ from src.clients.ezcareer import (
     ThreadSummary,
 )
 from src.core.agent_runner import AgentRunner
-from src.core.exceptions import Conflict, InvalidInput, NotFound, ServiceException
+from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.db.base import utcnow
 from src.features.assistant.schemas import ProfileDecision
 from src.features.conversations.enums import MessageRole, ServedAgent
@@ -24,12 +24,10 @@ from src.features.conversations.models import AgentSession, AgentThread, ThreadM
 from src.features.conversations.repository import ConversationRepository
 from src.features.conversations.schemas import (
     ConsultantInput,
-    DirectorInput,
     MessagePage,
     SessionRead,
     SkippedTurn,
     StartedTurn,
-    StartedTurns,
     ThreadMessageRead,
 )
 from src.features.conversations.turns import ConversationTurns
@@ -37,14 +35,6 @@ from src.features.documents import DocumentService
 from src.features.documents.models import Document
 from src.features.profile import ProfileService
 from src.features.settings import SettingsService
-
-
-def started_turns(turns: list[StartedTurn | SkippedTurn]) -> StartedTurns:
-    """The turns started and skipped, apart"""
-    return StartedTurns(
-        started=[t for t in turns if isinstance(t, StartedTurn)],
-        skipped=[t for t in turns if isinstance(t, SkippedTurn)],
-    )
 
 
 class ConversationService:
@@ -164,36 +154,13 @@ class ConversationService:
         profile = await self._profile.agent_profile(user_id)
         match agent, document_id:
             case ServedAgent.CAREER_CONSULTANT, UUID() as document_id:
-                body, lines = await self._documents.content(user_id, document_id)
                 data: BaseModel = ConsultantInput(
                     profile_facts=profile.profile_facts,
                     preferences=profile.preferences,
                     document_id=document_id,
-                    document=body,
-                    pdf_lines=lines,
                 )
             case ServedAgent.CAREER_DIRECTOR, None:
-                last = await self._repository.last_reply(thread_id)
-                consulted = (
-                    last.document_id
-                    if last and last.agent == ServedAgent.CAREER_CONSULTANT
-                    else None
-                )
-                body, lines = (
-                    await self._documents.content(user_id, consulted)
-                    if consulted
-                    else (None, None)
-                )
-                data = DirectorInput(
-                    profile_facts=profile.profile_facts,
-                    preferences=profile.preferences,
-                    active_agent=last.agent
-                    if last and last.agent != ServedAgent.CAREER_DIRECTOR
-                    else None,
-                    document_id=last.document_id if last else None,
-                    document=body,
-                    pdf_lines=lines,
-                )
+                data = profile
             case _:
                 raise NotFound("No such thread")
         metadata = await self._settings.run_metadata(user_id)
@@ -311,14 +278,6 @@ class ConversationService:
         agent, _ = await self._thread(user_id, thread_id)
         return await self._runner.update_summary(str(thread_id), agent.value, update)
 
-    async def timezone(self, user_id: UUID) -> str:
-        """The IANA time zone the user last wrote a message from; InvalidInput before
-        they wrote any"""
-        timezone = await self._repository.timezone(user_id)
-        if timezone is None:
-            raise InvalidInput("The user has not written to the assistant yet")
-        return timezone
-
     async def edit(
         self, user_id: UUID, document: Document, text: str, timezone: str
     ) -> StartedTurn | SkippedTurn:
@@ -346,31 +305,5 @@ class ConversationService:
             )
         return StartedTurn(document_id=document.id, title=document.title)
 
-    async def edit_or_skip(
-        self, user_id: UUID, document: Document, text: str, timezone: str
-    ) -> StartedTurn | SkippedTurn:
-        """Start the document's turn as edit does, or skip it with the error that
-        stopped it"""
-        try:
-            return await self.edit(user_id, document, text, timezone)
-        except ServiceException as error:
-            return SkippedTurn(document_id=document.id, reason=error.message)
 
-    async def edit_documents(
-        self, user_id: UUID, document_ids: list[UUID], instruction: str
-    ) -> StartedTurns:
-        """Start a career-consultant turn on each of the user's documents with the
-        instruction as the user's message, skipping those it can't start on"""
-        timezone = await self.timezone(user_id)
-        turns: list[StartedTurn | SkippedTurn] = []
-        for document_id in dict.fromkeys(document_ids):
-            document = await self._repository.owned(Document, user_id, document_id)
-            turns.append(
-                await self.edit_or_skip(user_id, document, instruction, timezone)
-                if document
-                else SkippedTurn(document_id=document_id, reason="No such document")
-            )
-        return started_turns(turns)
-
-
-__all__ = ["ConversationService", "started_turns"]
+__all__ = ["ConversationService"]

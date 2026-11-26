@@ -6,6 +6,7 @@ from src.features.conversations.models import (
     AgentSession,
     AgentThread,
     ThreadMessage,
+    ThreadMessageChangeset,
 )
 from src.features.documents.models import (
     Document,
@@ -56,6 +57,7 @@ __all__ = [
     "ProfileSkill",
     "SignInAttempts",
     "ThreadMessage",
+    "ThreadMessageChangeset",
     "User",
     "UserSettings",
 ]

@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, BaseModel, Field, computed_field
 
 from src.adapters.job_sources import JobPosting, PostingLine
-from src.features.documents import TailoredDocument
+from src.features.documents import DocumentContent, TailoredDocument
 from src.features.jobs.enums import Importance, JobStatus, Match, RunStatus, RunTrigger
 from src.features.profile import AgentProfile
 
@@ -207,7 +207,7 @@ class FindJobsOutput(BaseModel):
 
 class SavedJob(BaseModel):
     id: UUID
-    """The job's id, which tailor_documents takes as its job_id"""
+    """The job's id"""
 
     title: str
     """The job title"""
@@ -242,6 +242,53 @@ class SavedJobsAnswer(BaseModel):
     """The jobs asked for, best fit first, unanalysed ones last"""
 
 
+class TargetJob(BaseModel):
+    title: str
+    """The job title"""
+
+    company: str
+    """The employer"""
+
+    location: str
+    """Where the job is"""
+
+    url: str
+    """Where the posting is"""
+
+    requirements: list[Requirement]
+    """What the posting asks for, as its analysis found; empty before an analysis"""
+
+
+class CopiedForJob(DocumentContent):
+    document_id: UUID
+    """The copy's id"""
+
+    job: TargetJob
+    """The job the copy is for"""
+
+    rejected_changeset: bool
+    """Whether starting over rejected the copy's pending changeset"""
+
+
+class CopyForJobRequest(BaseModel):
+    execute_tool: Literal["copy_for_job"]
+    """career-consultant asks to copy the document it works on for a job"""
+
+    document_id: UUID
+    """The document to copy"""
+
+    job_id: UUID
+    """The job to copy it for"""
+
+    start_over: bool = False
+    """Start the job's copy over from the document, or from the one it was copied from
+    when the document is the copy, keeping its draft as a version"""
+
+    copy_id: UUID
+    """The copy's id, or the kept version's when start_over resets a copy; the same
+    each time the agent asks for the same copy"""
+
+
 class TailorRead(BaseModel):
     resume: TailoredDocument
     """The job's résumé, copied from the master résumé"""
@@ -254,6 +301,8 @@ class TailorRead(BaseModel):
 __all__ = [
     "AnalyseJobInput",
     "AnalyseJobOutput",
+    "CopiedForJob",
+    "CopyForJobRequest",
     "FindJobsInput",
     "FindJobsOutput",
     "FitAnalysis",
@@ -272,4 +321,5 @@ __all__ = [
     "SavedJob",
     "SavedJobsAnswer",
     "TailorRead",
+    "TargetJob",
 ]

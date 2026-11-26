@@ -197,20 +197,15 @@ def a2a_turn(*events: dict) -> list:
     return [a2a_accepted(), [stream_task(), *events]]
 
 
-def a2a_replied(
-    text: str, message_id: str = "reply-1", agent: str = "career-director"
-) -> list:
+def a2a_replied(text: str, message_id: str = "reply-1") -> list:
     """A turn that only replies with text"""
-    return a2a_turn(
-        stream_status("COMPLETED", [{"text": text}], message_id, {"agent": agent})
-    )
+    return a2a_turn(stream_status("COMPLETED", [{"text": text}], message_id))
 
 
 def stream_status(
     state: str,
     parts: list[dict] | None = None,
     message_id: str = "m",
-    metadata: dict | None = None,
 ) -> dict:
     """A status update of task-1, with a message when parts are given"""
     status: dict = {"state": f"TASK_STATE_{state}"}
@@ -219,7 +214,7 @@ def stream_status(
             "messageId": message_id,
             "role": "ROLE_AGENT",
             "parts": parts,
-        } | ({"metadata": metadata} if metadata else {})
+        }
     return {
         "result": {
             "statusUpdate": {

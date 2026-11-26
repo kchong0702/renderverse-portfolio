@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import TypeAdapter
@@ -14,12 +15,15 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.clients.ezcareer import Step
 from src.db.base import Base, EnumString, PydanticJson
 from src.db.mixins import AuditMixin, IdMixin, UserScopedMixin
 from src.features.conversations.enums import MessageRole, ServedAgent
+
+if TYPE_CHECKING:
+    from src.features.documents.models import DocumentChangeset
 
 
 class AgentSession(IdMixin, UserScopedMixin, AuditMixin, Base):
@@ -77,6 +81,21 @@ class AgentThread(IdMixin, UserScopedMixin, AuditMixin, Base):
     """When the user cleared the conversation on it; None while new turns go on it"""
 
 
+class ThreadMessageChangeset(UserScopedMixin, AuditMixin, Base):
+    __tablename__ = "thread_message_changesets"
+
+    message_id: Mapped[str] = mapped_column(
+        ForeignKey("thread_messages.id", ondelete="CASCADE", onupdate="CASCADE"),
+        primary_key=True,
+    )
+    """The agent's message ending the turn that proposed the changeset"""
+
+    changeset_id: Mapped[UUID] = mapped_column(
+        ForeignKey("document_changesets.id", ondelete="CASCADE"), primary_key=True
+    )
+    """The changeset the turn proposed"""
+
+
 class ThreadMessage(UserScopedMixin, AuditMixin, Base):
     __tablename__ = "thread_messages"
     __table_args__ = (
@@ -112,10 +131,13 @@ class ThreadMessage(UserScopedMixin, AuditMixin, Base):
     agent: Mapped[str | None] = mapped_column(String(100))
     """The agent that answered; None on a user's message"""
 
-    changeset_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("document_changesets.id", ondelete="SET NULL")
+    changesets: Mapped[list[DocumentChangeset]] = relationship(
+        secondary=ThreadMessageChangeset.__table__,
+        lazy="selectin",
+        order_by="DocumentChangeset.created_at",
+        viewonly=True,
     )
-    """The changeset the agent proposed in the turn, if any"""
+    """The changesets the agent proposed in the turn, the oldest first"""
 
     steps: Mapped[list[Step] | None] = mapped_column(
         PydanticJson(TypeAdapter(list[Step]))
@@ -134,4 +156,9 @@ Index(
 )
 
 
-__all__ = ["AgentSession", "AgentThread", "ThreadMessage"]
+__all__ = [
+    "AgentSession",
+    "AgentThread",
+    "ThreadMessage",
+    "ThreadMessageChangeset",
+]

@@ -10,8 +10,8 @@ from src.core.agent_runner import AgentRunner
 from src.core.exceptions import Conflict, InvalidInput, NotFound
 from src.core.logging import get_logger
 from src.db.base import utcnow
-from src.features.conversations.schemas import StartedTurn, StartedTurns
-from src.features.conversations.service import ConversationService, started_turns
+from src.features.conversations.schemas import StartedTurn
+from src.features.conversations.service import ConversationService
 from src.features.documents import DocumentService, TailoredDocument
 from src.features.documents.models import Document
 from src.features.jobs.enums import JobStatus, Match, RunStatus, RunTrigger
@@ -290,19 +290,6 @@ class JobService:
             for document, request in await self._copies(user_id, job_id)
         ]
         return TailorRead(resume=resume, cover_letter=letter[0] if letter else None)
-
-    async def tailor_documents(self, user_id: UUID, job_id: UUID) -> StartedTurns:
-        """Tailor the job's copies as tailor does, in the zone the user last wrote
-        from, saying which turns started and why others did not"""
-        timezone = await self._conversations.timezone(user_id)
-        return started_turns(
-            [
-                await self._conversations.edit_or_skip(
-                    user_id, document, request, timezone
-                )
-                for document, request in await self._copies(user_id, job_id)
-            ]
-        )
 
 
 __all__ = ["JobService"]

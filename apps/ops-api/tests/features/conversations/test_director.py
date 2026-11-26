@@ -199,9 +199,7 @@ async def _task(client, action: str, body: dict):
 
 def _completed(text: str, message_id: str = "reply-1") -> dict:
     """The status ending a career-director turn with its reply"""
-    return stream_status(
-        "COMPLETED", [{"text": text}], message_id, {"agent": "career-director"}
-    )
+    return stream_status("COMPLETED", [{"text": text}], message_id)
 
 
 def _paused(request: dict, interrupt_id: str = "interrupt-1") -> dict:
@@ -559,7 +557,6 @@ async def test_a_reply_given_up_on_that_finished_is_kept_before_the_next_turn(
         "messageId": "reply-late",
         "role": "ROLE_AGENT",
         "parts": [{"text": "Two fit."}],
-        "metadata": {"agent": "career-director"},
     }
     harness.outcomes = [
         _task_of(thread, "COMPLETED", reply),
@@ -1047,6 +1044,75 @@ async def test_edits_career_director_proposes_are_stored_and_announced(client, h
     assert answer["data"] == {"changeset_id": stored["id"]}
 
 
+async def test_every_changeset_a_turn_proposes_is_kept_on_its_message(client, harness):
+    proposed = []
+    for title in ["Backend résumé", "Frontend résumé"]:
+        document = (
+            await client.post(
+                f"{PREFIX}/documents", json={"title": title, "body": RESUME}
+            )
+        ).json()
+        changeset = (
+            await client.post(
+                f"{PREFIX}/documents/{document['id']}/changesets", json=TAILOR
+            )
+        ).json()
+        proposed.append({"id": changeset["id"], "document_id": document["id"]})
+    harness.outcomes = a2a_turn(
+        *(
+            stream_chunk(
+                f"changeset-{index}",
+                "changeset",
+                {"data": {"document_id": p["document_id"], "changeset_id": p["id"]}},
+            )
+            for index, p in enumerate(proposed)
+        ),
+        _completed("Review my edits."),
+    )
+
+    await _send(client, "Tailor both")
+
+    page = (
+        await client.get(f"{AGENT}/threads/{await thread_of(client)}/messages")
+    ).json()
+    assert page["messages"][-1]["changesets"] == proposed
+
+
+async def test_a_changeset_published_again_after_a_takeover_is_announced_once(
+    client, harness
+):
+    document = (
+        await client.post(
+            f"{PREFIX}/documents", json={"title": "Master résumé", "body": RESUME}
+        )
+    ).json()
+    changeset = (
+        await client.post(
+            f"{PREFIX}/documents/{document['id']}/changesets", json=TAILOR
+        )
+    ).json()
+    published = stream_chunk(
+        "changeset-1",
+        "changeset",
+        {"data": {"document_id": document["id"], "changeset_id": changeset["id"]}},
+    )
+    harness.outcomes = [
+        *a2a_turn(published, stream_status("WORKING")),
+        {"result": a2a_task("WORKING")["result"]["task"]},
+        [stream_task(), published, _completed("Review my edits.")],
+    ]
+
+    response = await _send(client, "Tailor it")
+
+    assert [e["status"] for e in sse_events(response)] == [
+        "started",
+        "changeset",
+        "reconnecting",
+        "reconnected",
+        "completed",
+    ]
+
+
 async def test_a_changeset_artifact_naming_nothing_of_the_users_is_skipped(
     app, client, harness
 ):
@@ -1434,12 +1500,9 @@ def _delegating(director: str, request: dict, answers: list, repeats: int = 1):
         if task == director and left[0]:
             left[0] -= 1
             return [stream_task(), _paused(request)]
-        agent = "career-director" if task == director else "career-consultant"
         return [
             stream_task(),
-            stream_status(
-                "COMPLETED", [{"text": "Done."}], uuid4().hex, {"agent": agent}
-            ),
+            stream_status("COMPLETED", [{"text": "Done."}], uuid4().hex),
         ]
 
     return respond
@@ -1459,179 +1522,6 @@ async def _ended(client, document_id: str) -> dict:
     """How the document's career-consultant thread's turn ended"""
     thread = await thread_of(client, "career-consultant", document_id)
     return sse_events(await client.get(f"{AGENT}/threads/{thread}/stream"))[-1]
-
-
-async def test_edit_documents_starts_career_consultant_on_each_document_it_can(
-    client, harness
-):
-    first, second, waiting = [
-        (
-            await client.post(
-                f"{PREFIX}/documents", json={"title": title, "body": RESUME}
-            )
-        ).json()["id"]
-        for title in ("Résumé A", "Résumé B", "Résumé C")
-    ]
-    await client.post(f"{PREFIX}/documents/{waiting}/changesets", json=TAILOR)
-    unknown = str(uuid4())
-    answers: list = []
-    request = {
-        "execute_tool": "edit_documents",
-        "document_ids": [first, second, waiting, unknown, first],
-        "instruction": "Shorten the summary",
-    }
-    harness.outcomes = [_delegating(await thread_of(client), request, answers)] * 20
-
-    response = await _send(client, "Shorten my résumés")
-
-    assert sse_events(response)[-1] == {"status": "completed", "reply": "Done."}
-    [[answer]] = answers
-    assert answer["data"] == {
-        "started": [
-            {"document_id": first, "title": "Résumé A"},
-            {"document_id": second, "title": "Résumé B"},
-        ],
-        "skipped": [
-            {"document_id": waiting, "reason": "Its proposed edits wait for review"},
-            {"document_id": unknown, "reason": "No such document"},
-        ],
-    }
-    assert [await _ended(client, d) for d in (first, second)] == [
-        {"status": "completed", "reply": "Done."}
-    ] * 2
-    threads = [await thread_of(client, "career-consultant", d) for d in (first, second)]
-    assert _started(harness) == {threads[0]: first, threads[1]: second}
-    page = (await client.get(f"{AGENT}/threads/{threads[0]}/messages")).json()
-    assert [(m["role"], m["text"]) for m in page["messages"]] == [
-        ("user", "Shorten the summary"),
-        ("agent", "Done."),
-    ]
-
-
-async def test_edit_documents_skips_a_document_its_turn_cannot_start_on_and_goes_on(
-    client, harness
-):
-    stuck, free = [
-        (
-            await client.post(
-                f"{PREFIX}/documents", json={"title": title, "body": RESUME}
-            )
-        ).json()["id"]
-        for title in ("Résumé A", "Résumé B")
-    ]
-
-    def drop(request: dict) -> list:
-        """The stream breaks and the harness is gone"""
-        harness.down = True
-        return [stream_task(), stream_status("WORKING")]
-
-    harness.outcomes = [a2a_accepted(), drop]
-    await _send(client, "Hi", await thread_of(client, "career-consultant", stuck))
-    harness.down = False
-    answers: list = []
-    request = {
-        "execute_tool": "edit_documents",
-        "document_ids": [stuck, free],
-        "instruction": "Shorten the summary",
-    }
-    delegating = _delegating(await thread_of(client), request, answers)
-
-    def respond(sent: dict) -> dict | list:
-        """Leave unanswered where the stuck document's last reply stands"""
-        if sent["method"] == "GetTask":
-            raise httpx2.ConnectError("connection refused")
-        return delegating(sent)
-
-    harness.outcomes = [respond] * 20
-
-    await _send(client, "Shorten my résumés")
-
-    [[answer]] = answers
-    assert answer["data"]["started"] == [{"document_id": free, "title": "Résumé B"}]
-    assert [s["document_id"] for s in answer["data"]["skipped"]] == [stuck]
-    assert await _ended(client, free) == {"status": "completed", "reply": "Done."}
-
-
-async def test_edit_documents_asked_again_under_its_interrupt_starts_nothing_more(
-    client, harness
-):
-    document = (
-        await client.post(f"{PREFIX}/documents", json={"title": "CV", "body": RESUME})
-    ).json()["id"]
-    answers: list = []
-    request = {
-        "execute_tool": "edit_documents",
-        "document_ids": [document],
-        "instruction": "Shorten it",
-    }
-    harness.outcomes = [
-        _delegating(await thread_of(client), request, answers, repeats=2)
-    ] * 20
-
-    await _send(client, "Shorten my CV")
-
-    first, second = answers
-    assert first == second
-    assert first[0]["data"]["started"] == [{"document_id": document, "title": "CV"}]
-    assert await _ended(client, document) == {"status": "completed", "reply": "Done."}
-    assert len(_started(harness)) == 1
-    assert [
-        m["role"]
-        for m in (
-            await client.get(
-                f"{AGENT}/threads/{await thread_of(client, 'career-consultant', document)}"
-                "/messages"
-            )
-        ).json()["messages"]
-    ] == ["user", "agent"]
-
-
-async def test_tailor_documents_tailors_each_master_for_the_job_as_the_jobs_page_does(
-    client, harness
-):
-    for title, body in (("Master résumé", RESUME), ("Master letter", LETTER)):
-        created = (
-            await client.post(
-                f"{PREFIX}/documents", json={"title": title, "body": body}
-            )
-        ).json()
-        await client.put(f"{PREFIX}/documents/{created['id']}/master")
-    job = (
-        await client.post(
-            f"{PREFIX}/jobs", json={"title": "Staff Engineer", "company": "Northwind"}
-        )
-    ).json()["id"]
-    answers: list = []
-    request = {"execute_tool": "tailor_documents", "job_id": job}
-    harness.outcomes = [_delegating(await thread_of(client), request, answers)] * 20
-
-    await _send(client, "Tailor my documents for Northwind")
-
-    [[answer]] = answers
-    started = answer["data"]["started"]
-    assert [d["title"] for d in started] == [
-        "Résumé for Northwind",
-        "Cover letter for Northwind",
-    ]
-    assert answer["data"]["skipped"] == []
-    assert [await _ended(client, d["document_id"]) for d in started] == [
-        {"status": "completed", "reply": "Done."}
-    ] * 2
-    assert sorted(_started(harness).values()) == sorted(
-        d["document_id"] for d in started
-    )
-
-
-async def test_tailor_documents_for_a_job_that_is_not_the_users_is_refused(
-    client, harness
-):
-    answers: list = []
-    request = {"execute_tool": "tailor_documents", "job_id": str(uuid4())}
-    harness.outcomes = [_delegating(await thread_of(client), request, answers)] * 20
-
-    await _send(client, "Tailor for it")
-
-    assert answers == [[interrupt_part({"error": "No such job"})]]
 
 
 async def test_a_write_asked_for_again_under_the_same_interrupt_runs_once(

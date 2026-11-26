@@ -140,10 +140,7 @@ def _tailoring(changeset: dict) -> list:
             stream_task(),
             stream_chunk("changeset-1", "changeset", {"data": seen}),
             stream_status(
-                "COMPLETED",
-                [{"text": "Tailored to the posting."}],
-                uuid4().hex,
-                {"agent": "career-consultant", "document_id": seen["document_id"]},
+                "COMPLETED", [{"text": "Tailored to the posting."}], uuid4().hex
             ),
         ]
 
@@ -165,10 +162,7 @@ def _replies_on_each_thread(sent: dict) -> dict | list:
     return [
         stream_task(),
         stream_status(
-            "COMPLETED",
-            [{"text": "Tailored."}],
-            f"reply-{sent['params']['id']}",
-            {"agent": "career-consultant"},
+            "COMPLETED", [{"text": "Tailored."}], f"reply-{sent['params']['id']}"
         ),
     ]
 
@@ -293,7 +287,9 @@ async def test_tailoring_copies_the_master_and_starts_a_turn_on_the_copys_thread
         ("user", copy_id),
         ("agent", copy_id),
     ]
-    assert messages[1]["changeset_id"] == events[-2]["changeset_id"]
+    assert messages[1]["changesets"] == [
+        {"id": events[-2]["changeset_id"], "document_id": copy_id}
+    ]
 
 
 async def test_the_resume_and_letter_are_tailored_at_once_each_on_its_own_thread(
@@ -450,10 +446,7 @@ async def test_a_question_is_answered_on_the_consultant_thread(client, harness):
         [
             stream_task(),
             stream_status(
-                "COMPLETED",
-                [{"text": "Tailored to the posting."}],
-                "reply-2",
-                {"agent": "career-consultant", "document_id": document_id},
+                "COMPLETED", [{"text": "Tailored to the posting."}], "reply-2"
             ),
         ],
     ]

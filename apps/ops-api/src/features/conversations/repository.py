@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from src.db.base import utcnow
 from src.db.repository import Repository
-from src.features.conversations.enums import MessageRole, ServedAgent
+from src.features.conversations.enums import ServedAgent
 from src.features.conversations.models import AgentSession, AgentThread, ThreadMessage
 
 
@@ -128,30 +128,6 @@ class ConversationRepository(Repository):
                 ).limit(limit)
             )
         ).all()
-
-    async def last_reply(self, thread_id: UUID) -> ThreadMessage | None:
-        """The thread's latest agent message, if any"""
-        return await self._session.scalar(
-            select(ThreadMessage)
-            .where(
-                ThreadMessage.thread_id == thread_id,
-                ThreadMessage.role == MessageRole.AGENT,
-            )
-            .order_by(ThreadMessage.created_at.desc(), ThreadMessage.id.desc())
-            .limit(1)
-        )
-
-    async def timezone(self, user_id: UUID) -> str | None:
-        """The IANA time zone the user last wrote a message from, if any"""
-        return await self._session.scalar(
-            select(ThreadMessage.timezone)
-            .where(
-                ThreadMessage.user_id == user_id,
-                ThreadMessage.role == MessageRole.USER,
-            )
-            .order_by(ThreadMessage.created_at.desc(), ThreadMessage.id.desc())
-            .limit(1)
-        )
 
     async def message(self, thread_id: UUID, message_id: str) -> ThreadMessage | None:
         """One of the thread's messages, or None when it is missing or another

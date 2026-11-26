@@ -1,5 +1,4 @@
 from urllib.parse import parse_qs
-from uuid import UUID
 
 from sqlalchemy import select
 
@@ -7,7 +6,6 @@ from src.core.auth.models import AuthSession, User
 from src.core.auth.service import AuthService
 from src.core.config import get_settings
 from src.features.conversations.models import AgentSession, AgentThread, ThreadMessage
-from src.features.documents.models import Document
 from tests.conftest import (
     OWNER,
     PREFIX,
@@ -116,12 +114,7 @@ async def test_a_turn_keeps_the_users_message_and_the_agents_answer(client, harn
                     }
                 ],
             ),
-            stream_status(
-                "COMPLETED",
-                [{"text": "Two fit."}],
-                "reply-1",
-                {"agent": "career-director"},
-            ),
+            stream_status("COMPLETED", [{"text": "Two fit."}], "reply-1"),
         ),
     )
 
@@ -140,7 +133,7 @@ async def test_a_turn_keeps_the_users_message_and_the_agents_answer(client, harn
         "created_at": agent["created_at"],
         "document_id": None,
         "agent": "career-director",
-        "changeset_id": None,
+        "changesets": [],
         "steps": [
             {
                 "id": "call-1",
@@ -226,82 +219,6 @@ async def test_a_new_message_carries_when_and_where_the_user_wrote_it(client, ha
         "created_at": user["created_at"].replace("+00:00", "Z"),
         "timezone": "UTC",
     }
-
-
-async def test_career_director_hears_who_it_last_handed_the_thread_to(
-    app, client, harness
-):
-    document = (
-        await client.post(f"{PREFIX}/documents", json={"title": "CV", "body": RESUME})
-    ).json()
-    await ask(
-        client,
-        harness,
-        "Edit my CV",
-        *a2a_turn(
-            stream_status(
-                "COMPLETED",
-                [{"text": "Edited."}],
-                "reply-1",
-                {"agent": "career-consultant", "document_id": document["id"]},
-            )
-        ),
-    )
-    async with app.state.session_factory() as session:
-        row = await session.get(Document, UUID(document["id"]))
-        current = row.body.model_dump(mode="json")
-        current["content"]["blocks"][0]["name"]["text"] = "K. Chong"
-        row.body = type(row.body).model_validate(current)
-        await session.commit()
-    await ask(client, harness, "More", *a2a_replied("More.", "reply-2"))
-    await ask(client, harness, "Thanks", *a2a_replied("Welcome.", "reply-3"))
-
-    first, second, third = (
-        sent["message"]["parts"][1]["data"] for sent in sent_messages(harness)
-    )
-    assert not {"active_agent", "document_id", "document", "pdf_lines"} & first.keys()
-    assert (second["active_agent"], second["document_id"]) == (
-        "career-consultant",
-        document["id"],
-    )
-    assert (second["document"], second["pdf_lines"]) == (current, [])
-    assert not {"active_agent", "document", "pdf_lines"} & third.keys()
-
-
-async def test_after_a_stopped_turn_career_director_still_hears_the_current_document(
-    app, client, harness
-):
-    document = (
-        await client.post(f"{PREFIX}/documents", json={"title": "CV", "body": RESUME})
-    ).json()
-    await ask(
-        client,
-        harness,
-        "Edit my CV",
-        *a2a_turn(
-            stream_status(
-                "COMPLETED",
-                [{"text": "Edited."}],
-                "reply-1",
-                {"agent": "career-consultant", "document_id": document["id"]},
-            )
-        ),
-    )
-    await ask(client, harness, "More", *a2a_turn(stream_status("CANCELED")))
-    async with app.state.session_factory() as session:
-        row = await session.get(Document, UUID(document["id"]))
-        current = row.body.model_dump(mode="json")
-        current["content"]["blocks"][0]["name"]["text"] = "K. Chong"
-        row.body = type(row.body).model_validate(current)
-        await session.commit()
-    await ask(client, harness, "Again", *a2a_replied("Done.", "reply-3"))
-
-    last = sent_messages(harness)[-1]["message"]["parts"][1]["data"]
-    assert (last["active_agent"], last["document_id"], last["document"]) == (
-        "career-consultant",
-        document["id"],
-        current,
-    )
 
 
 async def test_the_summary_is_read_and_edited_through_the_harness(client, harness):

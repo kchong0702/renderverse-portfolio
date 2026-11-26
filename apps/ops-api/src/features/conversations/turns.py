@@ -32,8 +32,11 @@ from src.features.assistant.schemas import (
     UpdateProfileArgs,
 )
 from src.features.conversations.enums import MessageRole, ServedAgent
-from src.features.conversations.models import AgentThread, ThreadMessage
-from src.features.conversations.repository import ConversationRepository
+from src.features.conversations.models import (
+    AgentThread,
+    ThreadMessage,
+    ThreadMessageChangeset,
+)
 from src.features.documents import ChangesetArtifact, ChangesetProposed
 from src.features.documents.models import Document
 from src.features.documents.repository import DocumentRepository
@@ -122,10 +125,10 @@ class ConversationTurns:
         replied: Replied | None,
         ended: BaseModel,
         steps: dict[str, Step],
-        changeset_id: UUID | None,
+        changesets: list[UUID],
     ) -> None:
-        """Keep how the run ended as the agent's message, once even after a reconnect;
-        without the harness's message it keeps the last reply's agent and document"""
+        """Keep how the run ended as the agent's message, once even after a
+        reconnect"""
         match ended:
             case Completed(reply=reply):
                 text, failure = str(reply), None
@@ -138,13 +141,6 @@ class ConversationTurns:
             case _:
                 text, failure = "", None
         async with self._factory() as session, session.begin():
-            document = (
-                await DocumentRepository(session).owned(
-                    Document, turn.user_id, replied.document_id
-                )
-                if replied and replied.document_id
-                else None
-            )
             thread_document = await session.scalar(
                 select(AgentThread.document_id).where(
                     AgentThread.id == UUID(turn.thread_id)
@@ -157,24 +153,25 @@ class ConversationTurns:
                 if row:
                     row.id = message_id
             if row is None:
-                previous = await ConversationRepository(session).last_reply(
-                    UUID(turn.thread_id)
-                )
                 row = ThreadMessage(
                     id=message_id,
                     user_id=turn.user_id,
                     thread_id=UUID(turn.thread_id),
                     role=MessageRole.AGENT,
-                    agent=previous.agent if previous else turn.agent,
-                    document_id=previous.document_id if previous else thread_document,
+                    agent=turn.agent,
+                    document_id=thread_document,
                 )
                 session.add(row)
             row.text = text
-            if replied:
-                row.agent = replied.agent or turn.agent
-                row.document_id = document.id if document else thread_document
             row.steps = list(steps.values()) or row.steps or []
-            row.changeset_id = changeset_id or row.changeset_id
+            kept = {changeset.id for changeset in row.changesets}
+            session.add_all(
+                ThreadMessageChangeset(
+                    user_id=turn.user_id, message_id=row.id, changeset_id=changeset_id
+                )
+                for changeset_id in changesets
+                if changeset_id not in kept
+            )
             row.failure = failure
 
     async def _rewrite(
@@ -183,11 +180,11 @@ class ConversationTurns:
         run_id: str,
         events: AsyncIterator[RunEvent[str]],
         steps: dict[str, Step],
+        changesets: list[UUID],
     ) -> AsyncIterator[BaseModel]:
         """A turn's events as the browser gets them, keeping the turn's answer as a
-        message when it ends; steps collects each step as it last stood"""
+        message when it ends; steps and changesets keep what it ran and proposed"""
         replied = None
-        changeset_id = None
         async for event in events:
             match event:
                 case Replied():
@@ -204,7 +201,7 @@ class ConversationTurns:
                             replied,
                             review,
                             steps,
-                            changeset_id,
+                            changesets,
                         )
                         yield review
                         continue
@@ -221,13 +218,15 @@ class ConversationTurns:
                             ),
                         ),
                         steps,
+                        changesets,
                     ):
                         yield resumed
                 case Published(name="profile_updated"):
                     yield ProfileSaved.model_validate(event.data)
                 case Published(name="changeset"):
-                    if proposed := await self._changeset(turn.user_id, event.data):
-                        changeset_id = proposed.changeset_id
+                    proposed = await self._changeset(turn.user_id, event.data)
+                    if proposed and proposed.changeset_id not in changesets:
+                        changesets.append(proposed.changeset_id)
                         yield proposed
                 case Published():
                     pass
@@ -238,7 +237,7 @@ class ConversationTurns:
                         replied,
                         event,
                         steps,
-                        changeset_id,
+                        changesets,
                     )
                     yield event
                 case _:
@@ -248,7 +247,7 @@ class ConversationTurns:
         self, turn: Turn, run_id: str, events: AsyncIterator[RunEvent[str]]
     ) -> AsyncIterator[BaseModel]:
         """A run's events rewritten for the browser, its answer kept as a message"""
-        return self._rewrite(turn, run_id, events, {})
+        return self._rewrite(turn, run_id, events, {}, [])
 
 
 __all__ = ["ConversationTurns"]
