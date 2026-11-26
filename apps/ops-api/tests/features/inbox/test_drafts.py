@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 import httpx2
 import pytest
 from sqlalchemy import delete
-from sqlalchemy.ext.asyncio import create_async_engine
 
 from src.adapters.storage import LocalStorage
 from src.core.auth.models import User
@@ -29,7 +28,7 @@ from tests.conftest import (
     sse_events,
     tool_pause,
 )
-from tests.core.conftest import DATABASE_URL
+from tests.core.conftest import DATABASE_URL, postgres_engine
 
 INBOX = f"{PREFIX}/inbox"
 
@@ -513,7 +512,7 @@ async def probed_client(
 ) -> AsyncIterator[httpx2.AsyncClient]:
     """The app on the test Postgres database with probed_google, its dev user
     deleted after the test"""
-    engine = create_async_engine(DATABASE_URL)
+    engine = postgres_engine()
     async for app in _app(
         harness, artifact, probed_google, jsearch, storage, engine=engine
     ):

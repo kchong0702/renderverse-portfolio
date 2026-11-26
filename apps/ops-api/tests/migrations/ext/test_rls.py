@@ -3,7 +3,8 @@ import os
 import pytest
 from alembic.runtime.plugins import Plugin
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+
+from tests.core.conftest import postgres_engine
 
 DATABASE_URL = os.environ.get("OPS_API_TEST_DATABASE_URL", "")
 
@@ -12,11 +13,11 @@ pytestmark = [
     pytest.mark.skipif(not DATABASE_URL, reason="OPS_API_TEST_DATABASE_URL is not set"),
 ]
 
-CHECKED_SCHEMAS = ("public",)
+CHECKED_SCHEMAS = ("ops",)
 
 
 async def test_every_table_has_row_level_security():
-    engine = create_async_engine(DATABASE_URL)
+    engine = postgres_engine()
     async with engine.connect() as connection:
         rows = await connection.execute(
             text(
@@ -36,7 +37,7 @@ async def test_every_table_has_row_level_security():
         tables = await connection.scalar(
             text(
                 "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
-                "WHERE c.relkind = 'r' AND n.nspname = 'public'"
+                "WHERE c.relkind = 'r' AND n.nspname = 'ops'"
             )
         )
     await engine.dispose()
@@ -66,7 +67,7 @@ async def test_autogenerate_enables_rls_where_it_is_off():
         assert script.upgrade_ops is not None
         return [operation.to_diff_tuple() for operation in script.upgrade_ops.ops]
 
-    engine = create_async_engine(DATABASE_URL)
+    engine = postgres_engine()
     async with engine.connect() as connection:
         found = await connection.run_sync(upgrade_ops)
         await connection.rollback()

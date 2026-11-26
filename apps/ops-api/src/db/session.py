@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends, Request
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -15,13 +16,25 @@ from src.core.config import DatabaseSettings
 
 
 def create_engine(settings: DatabaseSettings) -> AsyncEngine:
-    """Create the async engine; Supabase's session pooler allows prepared statements"""
-    return create_async_engine(
+    """Create the async engine, whose connections work in ops-api's schema; Supabase's
+    session pooler allows prepared statements but ignores a startup search_path"""
+    engine = create_async_engine(
         settings.url.get_secret_value(),
         pool_size=settings.pool_size,
         pool_pre_ping=True,
         echo=settings.echo,
     )
+
+    if engine.dialect.name == "postgresql":
+
+        @event.listens_for(engine.sync_engine, "connect", insert=True)
+        def _set_search_path(dbapi_connection, _record) -> None:
+            cursor = dbapi_connection.cursor()
+            cursor.execute(f'SET search_path TO "{settings.schema_name}"')
+            cursor.close()
+            dbapi_connection.commit()
+
+    return engine
 
 
 def create_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:

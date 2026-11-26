@@ -733,7 +733,7 @@ async def postgres_app(
     """The app on the test Postgres database, its dev user deleted after the test"""
     from src.core.auth.models import User
     from src.core.config import get_settings
-    from tests.core.conftest import DATABASE_URL
+    from tests.core.conftest import postgres_engine
 
     async for app in _app(
         harness,
@@ -741,7 +741,7 @@ async def postgres_app(
         google,
         jsearch,
         storage,
-        engine=create_async_engine(DATABASE_URL),
+        engine=postgres_engine(),
     ):
         yield app
         async with app.state.session_factory() as session, session.begin():

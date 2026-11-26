@@ -7,7 +7,6 @@ import pytest
 from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import create_async_engine
 from structlog.testing import capture_logs
 
 from src.adapters.storage import LocalStorage
@@ -33,7 +32,7 @@ from tests.conftest import (
     tool_pause,
     work,
 )
-from tests.core.conftest import DATABASE_URL
+from tests.core.conftest import DATABASE_URL, postgres_engine
 
 JOBS = f"{PREFIX}/jobs"
 JSEARCH = f"{PREFIX}/settings/connections/jsearch"
@@ -364,7 +363,7 @@ async def probed_app(
 ) -> AsyncIterator[FastAPI]:
     """The app on the test Postgres database with probed_jsearch, its dev user
     deleted after the test"""
-    engine = create_async_engine(DATABASE_URL)
+    engine = postgres_engine()
     async for app in _app(
         harness, artifact, google, probed_jsearch, storage, engine=engine
     ):

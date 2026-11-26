@@ -262,6 +262,9 @@ class DatabaseSettings(BaseModel):
     url: SecretStr = SecretStr("postgresql+asyncpg://ops:ops@localhost:5432/ops")
     """SQLAlchemy async URL; Supabase through the session pooler"""
 
+    schema_name: str = Field(default="ops", pattern=r"^[a-z_][a-z0-9_]*$")
+    """The schema that holds every table of ops-api, created when missing"""
+
     pool_size: int = Field(default=5, gt=0)
     """Connection pool size"""
 

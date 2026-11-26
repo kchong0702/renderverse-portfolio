@@ -44,6 +44,7 @@ api_base_url = "https://api.github.com/"
 scope = "read:user user:email"
 
 [database]
+schema_name = "ops"
 pool_size = 5
 echo = false
 
