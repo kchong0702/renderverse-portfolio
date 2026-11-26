@@ -1,6 +1,6 @@
 services:
   artifact-service:
-    image: artifact-service:${TAG:-dev}
+    image: ${REGISTRY:-}artifact-service:${TAG:-dev}
     profiles: ["apps"]
     build:
       context: ../..

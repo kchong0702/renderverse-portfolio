@@ -1,6 +1,6 @@
 services:
   ops-web:
-    image: ops-web:${TAG:-dev}
+    image: ${REGISTRY:-}ops-web:${TAG:-dev}
     profiles: ["apps"]
     build:
       context: ../..
