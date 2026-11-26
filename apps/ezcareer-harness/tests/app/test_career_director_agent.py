@@ -25,7 +25,7 @@ from tests.agents.career_director.test_update_profile import HEADLINE, READ_SKIL
 from tests.agents.job_analyst.test_search_jobs import FOUND
 from tests.agents.test_builder import _call
 from tests.app import ops_api
-from tests.app.test_ownership import _until
+from tests.app.test_task_supervisor import _until
 from tests.conftest import ScriptedChatModel
 from tests.features.analyse_job import test_analyse_job_graph as analyse_job
 
@@ -429,31 +429,31 @@ def test_parallel_tasks_stream_one_step_and_changeset_each_and_only_the_director
     )
 
     steps = [
-        (s["id"], s["status"], s["detail"])
+        (s["id"], s["status"], s["document_id"])
         for s in _steps(events)
         if s["name"] == "assign_career_consultant_task"
     ]
     assert [s for s in steps if s[0] == "backend"] == [
-        ("backend", "running", None),
-        ("backend", "waiting", None),
-        ("backend", "running", None),
-        ("backend", "waiting", None),
-        ("backend", "running", None),
-        ("backend", "done", "Backend résumé"),
+        ("backend", "running", "doc-1"),
+        ("backend", "waiting", "doc-1"),
+        ("backend", "running", "doc-1"),
+        ("backend", "waiting", "doc-1"),
+        ("backend", "running", "doc-1"),
+        ("backend", "done", "doc-1"),
     ]
     assert [s for s in steps if s[0] == "again"] == [
-        ("again", "running", None),
-        ("again", "failed", None),
+        ("again", "running", "doc-1"),
+        ("again", "failed", "doc-1"),
     ]
-    assert {
-        (s["id"], s["document_id"])
+    assert all(
+        s["detail"] is None
         for s in _steps(events)
         if s["name"] == "assign_career_consultant_task"
-    } == {("backend", "doc-1"), ("letter", "doc-2"), ("again", "doc-1")}
-    assert steps.index(("backend", "done", "Backend résumé")) < steps.index(
-        ("letter", "done", "Backend résumé")
     )
-    assert steps[-1] == ("letter", "done", "Backend résumé")
+    assert steps.index(("backend", "done", "doc-1")) < steps.index(
+        ("letter", "done", "doc-2")
+    )
+    assert steps[-1] == ("letter", "done", "doc-2")
     assert [
         (
             e["artifactUpdate"]["artifact"]["name"],

@@ -78,10 +78,15 @@ class Agent(BaseModel):
 
     @property
     def hash(self) -> str:
-        """Sha256 of every file in the agent's folder, with its path"""
+        """Sha256 of every source file in the agent's folder, with its path, leaving
+        out Python's generated __pycache__ files"""
         digest = sha256()
         for path in sorted(self.folder.rglob("*")):
-            if path.is_file():
+            if (
+                path.is_file()
+                and "__pycache__" not in path.relative_to(self.folder).parts
+                and path.suffix != ".pyc"
+            ):
                 digest.update(str(path.relative_to(self.folder)).encode() + b"\0")
                 digest.update(path.read_bytes() + b"\0")
         return digest.hexdigest()

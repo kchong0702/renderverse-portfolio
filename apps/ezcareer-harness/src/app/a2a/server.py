@@ -9,9 +9,11 @@ from a2a.server.tasks import TaskStore
 from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
 from fastapi import FastAPI
 
-from src.app.a2a.executable import Executable, LanggraphExecutor
-from src.app.a2a.ownership import Ownership
+from src.app.a2a.executable import Executable
+from src.app.a2a.executor import LanggraphExecutor
+from src.app.a2a.task_supervisor import TaskSupervisor
 from src.core.config import AppSettings
+from src.infrastructure.stores import ThreadLock
 
 
 def add_executable_routes(
@@ -19,7 +21,8 @@ def add_executable_routes(
     executables: list[Executable],
     task_store: TaskStore | VersionedTaskStore,
     event_stream: TaskEventStream | None,
-    ownership: Ownership,
+    supervisor: TaskSupervisor,
+    thread_lock: ThreadLock,
     settings: AppSettings,
 ) -> dict[str, DefaultRequestHandler]:
     """Serves each executable as an A2A agent at <route_prefix>/a2a/<name>, its
@@ -51,7 +54,7 @@ def add_executable_routes(
             ],
         )
         handlers[executable.name] = DefaultRequestHandler(
-            LanggraphExecutor(executable, ownership),
+            LanggraphExecutor(executable, supervisor, thread_lock),
             task_store,
             card,
             event_stream=event_stream,

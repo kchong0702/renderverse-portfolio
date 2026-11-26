@@ -3,7 +3,6 @@ from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
 from langgraph.types import Command, interrupt
 from pydantic import TypeAdapter, ValidationError
-from pydantic_core import to_json
 
 from src.agents.career_consultant.state import CareerConsultantState
 from src.agents.career_consultant.types import DocumentDraft
@@ -20,7 +19,7 @@ def read_document(runtime: ToolRuntime[None, CareerConsultantState]) -> Command 
             interrupt(
                 {
                     "execute_tool": "read_document",
-                    "document_id": runtime.state["document_id"],
+                    "document_id": runtime.state["desired_document_id"],
                 }
             )
         )
@@ -31,20 +30,18 @@ def read_document(runtime: ToolRuntime[None, CareerConsultantState]) -> Command 
     return Command(
         update={
             "document": draft.document,
-            "document_read_for": runtime.state["document_id"],
-            "document_title": draft.title,
+            "actual_document_id": runtime.state["desired_document_id"],
             "pdf_lines": draft.pdf_lines,
             "messages": [
                 ToolMessage(
                     "<document untrusted>\n"
-                    + to_json(
-                        draft,
+                    + draft.model_dump_json(
                         include={
                             "document": True,
                             "pdf_lines": {"__all__": {"id", "text"}},
                             "job_id": True,
-                        },
-                    ).decode()
+                        }
+                    )
                     + "\n</document>",
                     name="read_document",
                     tool_call_id=runtime.tool_call_id,

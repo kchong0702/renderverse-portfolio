@@ -13,7 +13,7 @@ from src.core.errors import ExecuteError
 from src.features.find_jobs.configurations import CHECKS, FindJobsConfigurations
 from src.features.find_jobs.ranking import matched_jobs
 from src.features.find_jobs.schemas import MatchedJob, RankedJobs
-from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
+from src.shared.checks import CheckError, CheckReport, CheckRule, report_check
 from src.shared.jobs import FoundJobs, JobPosting, JobSearch
 from src.shared.profile import Preferences, Profile, ProfileFact, require_facts
 
@@ -113,11 +113,11 @@ def build_graph(
     )
     checks = [CHECKS[name] for name in configurations.checks]
 
-    def check(state: FindJobsState) -> CheckRound:
+    def check(state: FindJobsState) -> CheckReport:
         if not _searches(state.messages) and (failures := _failures(state.messages)):
             raise ExecuteError("; ".join(dict.fromkeys(failures)))
         if state.structured_response is None:
-            return check_round(
+            return report_check(
                 [
                     CheckError(
                         rule=CheckRule.NO_ANSWER,
@@ -127,7 +127,7 @@ def build_graph(
                 ]
             )
         postings = _postings(state.messages)
-        return check_round(
+        return report_check(
             [
                 error
                 for check in checks

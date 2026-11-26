@@ -14,7 +14,7 @@ from src.agents import AgentOverride
 from src.core.config import get_settings
 from src.features.draft_reply.configurations import CHECKS, DraftReplyConfigurations
 from src.features.draft_reply.schemas import Application, DraftReply
-from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
+from src.shared.checks import CheckError, CheckReport, CheckRule, report_check
 from src.shared.email import (
     EmailThread,
     TimeSlot,
@@ -127,10 +127,10 @@ def _brief(state: DraftReplyState, configurations: DraftReplyConfigurations) -> 
 def _check(
     state: DraftReplyState,
     checks: Sequence[Callable[[DraftReply, list[TimeSlot]], list[CheckError]]],
-) -> CheckRound:
+) -> CheckReport:
     """Run the configured checks on the agent's answer, or ask for one"""
     if state.structured_response is None:
-        return check_round(
+        return report_check(
             [
                 CheckError(
                     rule=CheckRule.NO_ANSWER,
@@ -139,7 +139,7 @@ def _check(
                 )
             ]
         )
-    return check_round(
+    return report_check(
         [
             error
             for check in checks

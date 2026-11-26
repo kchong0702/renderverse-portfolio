@@ -1,9 +1,7 @@
-import json
-
 from langchain.agents.structured_output import StructuredOutputValidationError
 from langchain_core.messages import HumanMessage
 from langgraph.graph.state import CompiledStateGraph
-from pydantic_core import to_jsonable_python
+from pydantic_core import to_json
 
 from src.agents import AgentOverride
 from src.features.import_document.schemas import ImportedResume
@@ -18,17 +16,15 @@ async def structure(state: ImportState, agent: CompiledStateGraph) -> ImportStat
             {
                 "messages": [
                     HumanMessage(
-                        json.dumps(
+                        to_json(
                             {
                                 "pdf_lines": [
                                     line.model_dump(include={"id", "text"})
                                     for line in state["pdf_lines"]
                                 ],
                                 "previous_reply": state.get("structured_response"),
-                            },
-                            default=to_jsonable_python,
-                            ensure_ascii=False,
-                        )
+                            }
+                        ).decode()
                     ),
                     *state.get("messages", []),
                 ]

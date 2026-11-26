@@ -152,8 +152,8 @@ def _propose(*edits: AnyEdit) -> AIMessage:
 def _state() -> CareerConsultantState:
     return {
         "messages": [HumanMessage(REQUEST)],
-        "document_id": "doc-1",
-        "document_read_for": "doc-1",
+        "desired_document_id": "doc-1",
+        "actual_document_id": "doc-1",
         "document": TypeAdapter(AnyDocument).validate_json(
             (FIXTURES / "resume.json").read_text()
         ),
@@ -236,7 +236,7 @@ async def test_agent_reads_the_profile_facts():
 def _unread() -> CareerConsultantState:
     """The state a turn starts with, before the agent read its document"""
     state = _state()
-    del state["document"], state["document_read_for"], state["pdf_lines"]
+    del state["document"], state["actual_document_id"], state["pdf_lines"]
     return state
 
 
@@ -260,8 +260,8 @@ async def test_read_document_asks_ops_api_for_the_document_and_keeps_what_it_rea
 
     state = _state()
     assert asked == [{"execute_tool": "read_document", "document_id": "doc-1"}]
-    assert (result["document_title"], result["document"], result["pdf_lines"]) == (
-        "Backend résumé",
+    assert (result["actual_document_id"], result["document"], result["pdf_lines"]) == (
+        "doc-1",
         state["document"],
         state["pdf_lines"],
     )
@@ -364,7 +364,10 @@ async def test_copy_for_job_asks_once_per_call_and_works_on_the_copy_from_then_o
         "propose_changeset",
         copy_id,
     )
-    assert result["document_id"] == copy_id
+    assert (result["desired_document_id"], result["actual_document_id"]) == (
+        copy_id,
+        copy_id,
+    )
     document, job = (
         _tool_results(result)["copy_for_job"]
         .removeprefix("<document untrusted>\n")
@@ -390,9 +393,9 @@ async def test_copy_for_job_moves_to_the_copy_ops_api_returns_and_can_start_over
         "propose_changeset",
         "existing-copy",
     )
-    assert (result["document_id"], result["document_title"]) == (
+    assert (result["desired_document_id"], result["actual_document_id"]) == (
         "existing-copy",
-        "Backend résumé for Northwind Labs",
+        "existing-copy",
     )
     assert _tool_results(result)["copy_for_job"].endswith(
         "</job>\nUsing the job's existing copy."
@@ -442,7 +445,7 @@ async def test_after_a_copy_a_turn_on_the_threads_document_must_read_it_again():
     )
 
     result = await agent.ainvoke(
-        {"messages": [HumanMessage(REQUEST)], "document_id": "doc-1"}, thread
+        {"messages": [HumanMessage(REQUEST)], "desired_document_id": "doc-1"}, thread
     )
 
     assert "__interrupt__" not in result
@@ -545,7 +548,7 @@ async def test_trace_records_each_check_round_and_the_agent_hash(
         update={"checkpointer": InMemorySaver()}
     )
     thread = {"configurable": {"thread_id": "t1"}}
-    proposing = await agent.ainvoke(_state() | {"document_id": "doc-1"}, thread)
+    proposing = await agent.ainvoke(_state() | {"desired_document_id": "doc-1"}, thread)
     tracing.shutdown_tracing()
 
     [exporter] = span_exporters

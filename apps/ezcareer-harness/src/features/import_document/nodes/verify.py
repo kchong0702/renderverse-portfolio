@@ -8,7 +8,7 @@ from src.features.import_document.checks import (
 )
 from src.features.import_document.configurations import ImportResumeConfigurations
 from src.features.import_document.state import ImportState
-from src.shared.checks import CheckError, CheckRule, check_round
+from src.shared.checks import CheckError, CheckRule, report_check
 
 CHECKS = {
     "verbatim": check_verbatim,
@@ -24,7 +24,7 @@ def verify(
     """Checks the last reply against the file's lines and makes the draft, in the
     suggested template, once it passes; errors go back to the LLM"""
     if (reply := state["structured_response"]) is None:
-        return check_round(
+        return report_check(
             [CheckError(rule=CheckRule.SCHEMA, at="", message=state["parsing_error"])]
         )
     if errors := [
@@ -32,7 +32,7 @@ def verify(
         for name in configurations.checks
         for error in CHECKS[name](reply, state["pdf_lines"], configurations)
     ]:
-        return check_round(errors)
+        return report_check(errors)
     try:
         document = ResumeDocument(
             kind=DocumentKind.RESUME,
@@ -40,7 +40,7 @@ def verify(
             design=Design(template=state["suggestion"].template),
         )
     except ValidationError as error:
-        return check_round(
+        return report_check(
             [
                 CheckError(
                     rule=CheckRule.SCHEMA,
@@ -50,4 +50,4 @@ def verify(
                 for issue in error.errors()
             ]
         )
-    return {**check_round([]), "document": document}
+    return {**report_check([]), "document": document}

@@ -155,7 +155,7 @@ def _request() -> list[dict[str, JsonValue]]:
         {"text": REQUEST},
         {
             "data": {
-                "document_id": "doc-1",
+                "desired_document_id": "doc-1",
                 "profile_facts": to_jsonable_python(_state()["profile_facts"]),
             }
         },
@@ -266,7 +266,7 @@ def test_a_proposal_ops_api_refuses_goes_back_to_the_agent():
 def test_a_message_without_a_document_id_fails_the_task_with_the_reason():
     model = _model(DONE)
     [text, data] = _request()
-    del data["data"]["document_id"]
+    del data["data"]["desired_document_id"]
 
     failed = _send(_client(model), [text, data])
 

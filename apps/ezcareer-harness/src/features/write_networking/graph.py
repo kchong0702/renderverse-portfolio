@@ -15,7 +15,7 @@ from src.features.write_networking.checks import (
 )
 from src.features.write_networking.configurations import WriteNetworkingConfigurations
 from src.features.write_networking.schemas import NetworkingCopy, WriteNetworkingInput
-from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
+from src.shared.checks import CheckError, CheckReport, CheckRule, report_check
 from src.shared.profile import require_facts
 
 CHECKS = {
@@ -71,10 +71,10 @@ def _brief(
 
 def _check(
     state: WriteNetworkingState, configurations: WriteNetworkingConfigurations
-) -> CheckRound:
+) -> CheckReport:
     """Run the configured checks on the agent's answer, or ask for one"""
     if state.structured_response is None:
-        return check_round(
+        return report_check(
             [
                 CheckError(
                     rule=CheckRule.NO_ANSWER,
@@ -83,7 +83,7 @@ def _check(
                 )
             ]
         )
-    return check_round(
+    return report_check(
         [
             error
             for name in configurations.checks

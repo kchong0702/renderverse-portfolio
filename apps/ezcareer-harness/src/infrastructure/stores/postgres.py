@@ -22,7 +22,7 @@ def create_engine(settings: DatabaseSettings) -> AsyncEngine:
 
 def create_pool(settings: DatabaseSettings) -> AsyncConnectionPool:
     """A closed psycopg pool, for LangGraph's checkpointer, working in the harness's
-    schema; open_postgres opens it"""
+    schema; setup_postgres opens it"""
     return AsyncConnectionPool(
         make_url(settings.url.get_secret_value())
         .set(drivername="postgresql")
@@ -39,7 +39,7 @@ def create_pool(settings: DatabaseSettings) -> AsyncConnectionPool:
     )
 
 
-async def open_postgres(
+async def setup_postgres(
     engine: AsyncEngine,
     pool: AsyncConnectionPool,
     schema_name: str,

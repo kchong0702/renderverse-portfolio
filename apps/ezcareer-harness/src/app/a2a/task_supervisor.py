@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
-from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from uuid import uuid4
 
 from a2a.helpers import new_text_part
@@ -21,29 +21,29 @@ from google.protobuf.json_format import MessageToDict
 
 from src.core.config import TaskSettings
 from src.infrastructure import get_logger
-from src.infrastructure.persistence import TaskOwners
+from src.infrastructure.stores import TaskOwners
 
 logger = get_logger(__name__)
 
 
-async def _every(seconds: float, step: Callable[[], Awaitable[None]]) -> None:
-    """Runs step every seconds, logging a failed step and carrying on"""
+async def _loop_step(seconds: float, step: Callable[[], Awaitable[None]]) -> None:
+    """Calls step every seconds, logging a failed call and carrying on"""
     while True:
         await asyncio.sleep(seconds)
         try:
             await step()
         except Exception:
-            logger.exception("task ownership step failed")
+            logger.exception("task supervisor step failed")
 
 
-class Ownership:
+class TaskSupervisor:
     def __init__(self, owners: TaskOwners, settings: TaskSettings) -> None:
         """Owns the tasks this process runs and takes over those of dead processes"""
         self.owners = owners
         """Which process owns each running task"""
 
         self.settings = settings
-        """How often to beat and sweep, and when an owner counts as dead"""
+        """How often to heartbeat and sweep, and when an owner counts as dead"""
 
         self.runs: dict[str, asyncio.Task] = {}
         """This process's run of each task it owns"""
@@ -55,13 +55,13 @@ class Ownership:
         if run := asyncio.current_task():
             self.runs[task_id] = run
 
-    async def drop(self, task_id: str) -> None:
+    async def unclaim(self, task_id: str) -> None:
         """Gives up the task once its run stopped: completed, failed, cancelled or
         paused"""
         self.runs.pop(task_id, None)
-        await self.owners.drop(task_id)
+        await self.owners.unclaim(task_id)
 
-    async def confirm(self, task_id: str) -> None:
+    async def cancel_if_taken_over(self, task_id: str) -> None:
         """Cancels the current run, before it ends its task, when another process
         has taken the task over"""
         if not await self.owners.owns(task_id):
@@ -69,20 +69,11 @@ class Ownership:
             self.runs.pop(task_id, None)
             raise asyncio.CancelledError
 
-    def thread(
-        self, thread_id: str, wait: bool = True
-    ) -> AbstractAsyncContextManager[bool]:
-        """Holds exclusive use of the thread while open, waiting for an earlier run on
-        it to stop unless told not to; whether it got it in time"""
-        return self.owners.thread(
-            thread_id, self.settings.thread_wait_seconds if wait else 0
-        )
-
     async def heartbeat(self, task_store: TaskStore | VersionedTaskStore) -> None:
         """Marks this process's tasks alive, cancels runs taken over or cancelled
-        elsewhere, and drops tasks whose run stopped without dropping them"""
+        elsewhere, and unclaims tasks whose run stopped without unclaiming them"""
         runs = dict(self.runs)
-        alive = await self.owners.beat()
+        alive = await self.owners.heartbeat()
         for task_id, run in runs.items():
             if self.runs.get(task_id) is not run:
                 continue
@@ -91,7 +82,7 @@ class Ownership:
                 del self.runs[task_id]
                 run.cancel()
             elif run.done():
-                await self.drop(task_id)
+                await self.unclaim(task_id)
             else:
                 stored = await task_store.get(task_id, ServerCallContext())
                 task = stored.task if isinstance(stored, StoredTask) else stored
@@ -108,7 +99,7 @@ class Ownership:
         from its thread's checkpoint, or fails it when too old or a workflow's"""
         context = ServerCallContext()
         dead_after = self.settings.dead_after_seconds
-        taken = await self.owners.take_stale(dead_after)
+        taken = await self.owners.take_over_dead(dead_after)
         request = ListTasksRequest(status=TaskState.TASK_STATE_WORKING)
         quiet_since = datetime.now(UTC) - timedelta(seconds=dead_after)
         while True:
@@ -116,7 +107,9 @@ class Ownership:
             for task in page.tasks:
                 if task.status.timestamp.ToDatetime(
                     UTC
-                ) < quiet_since and await self.owners.take_unowned(task.id, dead_after):
+                ) < quiet_since and await self.owners.take_over_unowned(
+                    task.id, dead_after
+                ):
                     taken.append(task.id)
             if not page.next_page_token:
                 break
@@ -134,7 +127,7 @@ class Ownership:
                 or task.status.state != TaskState.TASK_STATE_WORKING
                 or handler is None
             ):
-                await self.owners.drop(task_id)
+                await self.owners.unclaim(task_id)
                 continue
             message = Message(
                 message_id=uuid4().hex,
@@ -160,17 +153,19 @@ class Ownership:
                 await handler.on_message_send(send, context)
             except Exception:
                 logger.exception("task did not restart", task_id=task_id)
-                await self.owners.drop(task_id)
+                await self.owners.unclaim(task_id)
 
-    async def keep(
+    async def run(
         self,
         handlers: Mapping[str, DefaultRequestHandler],
         task_store: TaskStore | VersionedTaskStore,
     ) -> None:
-        """Beats and sweeps on their intervals until cancelled"""
+        """Heartbeats and sweeps on their intervals until cancelled"""
         await asyncio.gather(
-            _every(self.settings.heartbeat_seconds, lambda: self.heartbeat(task_store)),
-            _every(
-                self.settings.sweep_seconds, lambda: self.sweep(handlers, task_store)
+            _loop_step(
+                self.settings.heartbeat_seconds, partial(self.heartbeat, task_store)
+            ),
+            _loop_step(
+                self.settings.sweep_seconds, partial(self.sweep, handlers, task_store)
             ),
         )

@@ -4,7 +4,6 @@ from document_schema import DocumentKind
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 from pydantic import ValidationError
-from pydantic_core import to_json
 
 from src.agents.career_director.types import FoundDocuments
 from src.core.errors import ExecuteError
@@ -29,7 +28,7 @@ def find_documents(
         DocumentKind.COVER_LETTER: ("cover letter", "cover letters"),
     }
     counts = Counter(document.kind for document in found.documents)
-    return to_json(found.documents).decode(), {
+    return found.model_dump_json(), {
         "step_detail": ", ".join(
             f"{count} {words[kind][count > 1]}" for kind, count in counts.items()
         )

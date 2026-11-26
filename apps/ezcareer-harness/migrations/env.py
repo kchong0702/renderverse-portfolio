@@ -6,7 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 from src.core.config import get_settings
-from src.infrastructure.persistence import create_engine, metadata
+from src.infrastructure.stores import create_engine, metadata
 
 config = context.config
 

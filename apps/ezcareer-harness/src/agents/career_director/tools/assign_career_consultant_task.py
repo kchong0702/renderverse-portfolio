@@ -1,7 +1,7 @@
 from functools import partial, update_wrapper
 
 from langchain.tools import ToolRuntime
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import HumanMessage
 from langchain_core.tools import BaseTool, StructuredTool, ToolException
 from langgraph.errors import GraphBubbleUp
 from langgraph.graph.state import CompiledStateGraph
@@ -18,23 +18,12 @@ async def _assign_career_consultant_task(
     description: str,
 ) -> tuple[str, StepDetail]:
     """Has career-consultant do one task on one document and returns its final
-    reply; one task per document per reply"""
-    if runtime.tool_call_id != next(
-        c["id"]
-        for c in next(
-            m for m in reversed(runtime.state["messages"]) if isinstance(m, AIMessage)
-        ).tool_calls
-        if c["name"] == "assign_career_consultant_task"
-        and c["args"].get("document_id") == document_id
-    ):
-        raise ToolException(
-            f"Document {document_id} already has a task in this reply, so this one did not run. Put everything for one document in one task"
-        )
+    reply, with the document it worked on in the end"""
     try:
         result = await agent.ainvoke(
             {
                 "messages": [HumanMessage(description)],
-                "document_id": document_id,
+                "desired_document_id": document_id,
                 "profile_facts": runtime.state["profile_facts"],
             }
         )
@@ -44,9 +33,9 @@ async def _assign_career_consultant_task(
         raise ToolException(
             f"career-consultant stopped before finishing the task on document {document_id}, so treat it as not done"
         ) from error
-    return result["messages"][-1].text, (
-        {"step_detail": result["document_title"]} if "document_title" in result else {}
-    )
+    return result["messages"][-1].text, {
+        "step_document_id": result.get("actual_document_id", document_id)
+    }
 
 
 def assign_career_consultant_task_tool(agent: CompiledStateGraph) -> BaseTool:

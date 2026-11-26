@@ -5,7 +5,6 @@ from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
 from langgraph.types import Command, interrupt
 from pydantic import TypeAdapter, ValidationError
-from pydantic_core import to_json
 
 from src.agents.career_consultant.state import CareerConsultantState
 from src.agents.career_consultant.types import CopiedForJob
@@ -26,7 +25,7 @@ def copy_for_job(
             interrupt(
                 {
                     "execute_tool": "copy_for_job",
-                    "document_id": runtime.state["document_id"],
+                    "document_id": runtime.state["desired_document_id"],
                     "job_id": job_id,
                     "start_over": start_over,
                     "copy_id": uuid5(NAMESPACE_OID, runtime.tool_call_id).hex,
@@ -39,23 +38,21 @@ def copy_for_job(
         return f"The document wasn't copied: {copied.error}"
     return Command(
         update={
-            "document_id": copied.document_id,
+            "desired_document_id": copied.document_id,
             "document": copied.document,
-            "document_read_for": copied.document_id,
-            "document_title": copied.title,
+            "actual_document_id": copied.document_id,
             "pdf_lines": copied.pdf_lines,
             "messages": [
                 ToolMessage(
                     "<document untrusted>\n"
-                    + to_json(
-                        copied,
+                    + copied.model_dump_json(
                         include={
                             "document_id": True,
                             "document": True,
                             "pdf_lines": {"__all__": {"id", "text"}},
-                        },
-                    ).decode()
-                    + f"\n</document>\n<job untrusted>\n{to_json(copied.job).decode()}\n</job>"
+                        }
+                    )
+                    + f"\n</document>\n<job untrusted>\n{copied.job.model_dump_json()}\n</job>"
                     + (
                         "\nMade a new copy for the job."
                         if copied.made

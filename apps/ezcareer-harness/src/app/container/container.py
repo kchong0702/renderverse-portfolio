@@ -10,7 +10,7 @@ from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from pydantic import BaseModel
 
 from src.agents import load_agents
-from src.app.a2a.ownership import Ownership
+from src.app.a2a.task_supervisor import TaskSupervisor
 from src.app.container.career_consultant import CareerConsultantContainer
 from src.app.container.career_director import CareerDirectorContainer
 from src.app.container.clients import ClientsContainer
@@ -18,9 +18,11 @@ from src.app.container.import_document import ImportDocumentContainer
 from src.app.container.job_analyst import JobAnalystContainer
 from src.app.container.productivity_assistant import ProductivityAssistantContainer
 from src.core.config import get_settings
-from src.infrastructure.persistence import (
+from src.infrastructure.stores import (
     MemoryTaskOwners,
+    MemoryThreadLock,
     PostgresTaskOwners,
+    PostgresThreadLock,
     create_engine,
     create_pool,
 )
@@ -34,8 +36,8 @@ class Container(containers.DeclarativeContainer):
     """Every registered agent, by name"""
 
     engine = providers.Singleton(create_engine, settings.provided.database)
-    """The SQLAlchemy engine the postgres task store, event stream and task owners
-    use"""
+    """The SQLAlchemy engine the postgres task store, event stream, task owners and
+    thread lock use"""
 
     pool = providers.Singleton(create_pool, settings.provided.database)
     """The psycopg pool the postgres checkpointer uses"""
@@ -63,6 +65,17 @@ class Container(containers.DeclarativeContainer):
     )
     """Which process runs each running task"""
 
+    thread_lock = providers.Selector(
+        settings.provided.stores,
+        memory=providers.Singleton(
+            MemoryThreadLock, settings.provided.tasks.thread_wait_seconds
+        ),
+        postgres=providers.Singleton(
+            PostgresThreadLock, engine, settings.provided.tasks.thread_wait_seconds
+        ),
+    )
+    """Lets one run at a time use each agent's thread"""
+
     serde = providers.Singleton(
         JsonPlusSerializer,
         allowed_msgpack_modules=providers.Callable(
@@ -88,7 +101,9 @@ class Container(containers.DeclarativeContainer):
     """Where graphs keep checkpoints, one thread per A2A context for an agent and
     per A2A task for a workflow; pass it to each executable's graph"""
 
-    ownership = providers.Singleton(Ownership, task_owners, settings.provided.tasks)
+    task_supervisor = providers.Singleton(
+        TaskSupervisor, task_owners, settings.provided.tasks
+    )
     """Owns this process's running tasks and takes over those of dead processes"""
 
     clients = providers.Container(ClientsContainer, settings=settings)

@@ -261,16 +261,16 @@ async def test_parallel_tasks_each_propose_and_a_second_task_on_one_document_is_
     [again] = _answers_to(result, "again")
     assert (backend.status, backend.text) == ("success", "I proposed the backend edit.")
     assert (letter.status, letter.text) == ("success", "I proposed the letter edit.")
-    assert backend.artifact == {"step_detail": "Title of doc-1"}
-    assert letter.artifact == {"step_detail": "Title of doc-2"}
+    assert backend.artifact == {"step_document_id": "doc-1"}
+    assert letter.artifact == {"step_document_id": "doc-2"}
     assert again.status == "error"
     assert "already has a task in this reply" in again.text
     assert result["messages"][-1].text == DONE.text
     assert len(director.requests) == 2
     assert {
         "document",
-        "document_id",
-        "document_title",
+        "desired_document_id",
+        "actual_document_id",
         "changeset",
         "pdf_lines",
     }.isdisjoint(result)
@@ -323,7 +323,7 @@ async def test_a_task_starts_from_its_description_alone_and_works_on_its_documen
     assert asked[0] == [{"execute_tool": "read_document", "document_id": "doc-1"}]
 
 
-async def test_a_task_that_never_read_its_document_has_no_step_detail():
+async def test_a_task_that_never_read_its_document_reports_the_one_it_was_given():
     director = _model(_calls(_assign("backend", "doc-1", BACKEND_TASK)), DONE)
     consultant = TaskModel(
         scripts={BACKEND_TASK: [AIMessage("Which bullet do you mean?")]}
@@ -332,7 +332,10 @@ async def test_a_task_that_never_read_its_document_has_no_step_detail():
     result = await _run(_director(director, consultant), [])
 
     [backend] = _answers_to(result, "backend")
-    assert (backend.text, backend.artifact) == ("Which bullet do you mean?", {})
+    assert (backend.text, backend.artifact) == (
+        "Which bullet do you mean?",
+        {"step_document_id": "doc-1"},
+    )
 
 
 async def test_a_tailoring_task_copies_its_document_and_proposes_on_the_copy():
@@ -345,9 +348,10 @@ async def test_a_tailoring_task_copies_its_document_and_proposes_on_the_copy():
     consultant = TaskModel(scripts={TAILOR_TASK: tailor})
     asked: list[list[dict]] = []
 
-    await _run(_director(director, consultant), asked)
+    result = await _run(_director(director, consultant), asked)
 
     [[copy], [proposal]] = asked
+    [task] = _answers_to(result, "tailor")
     assert (copy["execute_tool"], copy["document_id"], copy["job_id"]) == (
         "copy_for_job",
         "doc-1",
@@ -357,6 +361,7 @@ async def test_a_tailoring_task_copies_its_document_and_proposes_on_the_copy():
         "propose_changeset",
         copy["copy_id"],
     )
+    assert task.artifact == {"step_document_id": copy["copy_id"]}
 
 
 async def test_a_run_killed_with_one_task_done_resumes_without_repeating_any_request():

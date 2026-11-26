@@ -18,7 +18,7 @@ from src.infrastructure import (
     shutdown_metrics,
     shutdown_tracing,
 )
-from src.infrastructure.persistence import open_postgres
+from src.infrastructure.stores import setup_postgres
 
 _settings = get_settings()
 
@@ -72,10 +72,10 @@ def create_app(container: Container | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        """Opens the stores and keeps owning and taking over tasks; on shutdown hands
+        """Sets up the stores and runs the task supervisor; on shutdown hands
         its tasks to another process and closes the stores"""
         if settings.stores == "postgres":
-            await open_postgres(
+            await setup_postgres(
                 container.engine(),
                 container.pool(),
                 settings.database.schema_name,
@@ -83,18 +83,18 @@ def create_app(container: Container | None = None) -> FastAPI:
                 container.event_stream(),
                 container.checkpointer(),
             )
-        ownership = container.ownership()
-        await ownership.sweep(app.state.handlers, container.task_store())
-        keeper = asyncio.create_task(
-            ownership.keep(app.state.handlers, container.task_store())
+        supervisor = container.task_supervisor()
+        await supervisor.sweep(app.state.handlers, container.task_store())
+        supervising = asyncio.create_task(
+            supervisor.run(app.state.handlers, container.task_store())
         )
         yield
-        keeper.cancel()
+        supervising.cancel()
         with suppress(asyncio.CancelledError):
-            await keeper
+            await supervising
         for handler in app.state.handlers.values():
             await handler.aclose()
-        await ownership.owners.release()
+        await supervisor.owners.hand_over_all()
         if settings.stores == "postgres":
             await container.pool().close()
             await container.engine().dispose()
@@ -132,7 +132,8 @@ def create_app(container: Container | None = None) -> FastAPI:
         container.executables(),
         container.task_store(),
         container.event_stream(),
-        container.ownership(),
+        container.task_supervisor(),
+        container.thread_lock(),
         _settings.app,
     )
 

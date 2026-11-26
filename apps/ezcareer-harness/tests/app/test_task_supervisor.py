@@ -17,11 +17,11 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import START, StateGraph, add_messages
 from langgraph.graph.state import CompiledStateGraph
 
-from src.app.a2a import Executable, Ownership
+from src.app.a2a import Executable, TaskSupervisor
 from src.app.app import create_app
 from src.app.container import Container
 from src.core.config import TaskSettings
-from src.infrastructure.persistence import MemoryTaskOwners
+from src.infrastructure.stores import MemoryTaskOwners, MemoryThreadLock
 
 PATH = "/ezcareer/a2a/steps"
 HEADERS = {"A2A-Version": "1.0"}
@@ -100,7 +100,7 @@ def _app(
     kind: Literal["agent", "workflow"] = "agent",
     settings: TaskSettings | None = None,
     threads: set[str] | None = None,
-) -> tuple[FastAPI, Ownership]:
+) -> tuple[FastAPI, TaskSupervisor]:
     """An app instance serving graph as kind over the shared store, task owner rows
     and held threads, as one more replica would"""
     container = Container()
@@ -114,9 +114,13 @@ def _app(
         )
     )
     container.task_store.override(providers.Object(store))
-    ownership = Ownership(MemoryTaskOwners(rows, threads), settings or TaskSettings())
-    container.ownership.override(providers.Object(ownership))
-    return create_app(container), ownership
+    settings = settings or TaskSettings()
+    supervisor = TaskSupervisor(MemoryTaskOwners(rows), settings)
+    container.task_supervisor.override(providers.Object(supervisor))
+    container.thread_lock.override(
+        providers.Object(MemoryThreadLock(settings.thread_wait_seconds, threads))
+    )
+    return create_app(container), supervisor
 
 
 def _get(client: TestClient, task_id: str = "task-1") -> dict:
@@ -254,8 +258,8 @@ def test_two_instances_sweeping_at_once_resume_a_dead_owners_task_once():
     async def race() -> Task | None:
         await asyncio.gather(
             *(
-                ownership.sweep(app.state.handlers, store)
-                for app, ownership in instances
+                supervisor.sweep(app.state.handlers, store)
+                for app, supervisor in instances
             )
         )
         for _ in range(200):
@@ -280,7 +284,7 @@ def test_a_run_whose_task_was_taken_over_stops_without_failing_the_task():
     graph = _graph(ran, "hang")
     store = InMemoryTaskStore()
     rows: dict[str, tuple[str, datetime]] = {}
-    app, ownership = _app(
+    app, supervisor = _app(
         graph,
         store,
         rows,
@@ -298,7 +302,7 @@ def test_a_run_whose_task_was_taken_over_stops_without_failing_the_task():
     assert task["status"]["state"] == "TASK_STATE_WORKING"
     assert graph.get_state(_thread(task)).values["first"] == "done"
     assert rows[task_id][0] == "other-pod"
-    assert ownership.runs == {}
+    assert supervisor.runs == {}
 
 
 def test_a_run_that_finds_its_task_taken_over_as_it_ends_leaves_the_task_alone():
@@ -307,14 +311,14 @@ def test_a_run_that_finds_its_task_taken_over_as_it_ends_leaves_the_task_alone()
     graph = _graph(ran, wake)
     store = InMemoryTaskStore()
     rows: dict[str, tuple[str, datetime]] = {}
-    app, ownership = _app(graph, store, rows)
+    app, supervisor = _app(graph, store, rows)
 
     with TestClient(app) as client:
         task_id = _start(client)
         _until(lambda: "second" in ran, "reached the second step")
         rows[task_id] = ("other-pod", datetime.now(UTC))
         wake.set()
-        _until(lambda: not ownership.runs, "gave the run up")
+        _until(lambda: not supervisor.runs, "gave the run up")
         time.sleep(0.1)
         task = _get(client, task_id)
 
@@ -496,13 +500,13 @@ def test_a_run_that_raises_leaves_no_checkpoints():
     assert not graph.checkpointer.storage
 
 
-def test_a_run_cancelled_without_dropping_its_task_loses_it_on_the_next_beat():
+def test_a_run_cancelled_without_unclaiming_its_task_loses_it_on_the_next_heartbeat():
     owners = MemoryTaskOwners()
-    ownership = Ownership(owners, TaskSettings())
+    supervisor = TaskSupervisor(owners, TaskSettings())
 
     async def cancelled_elsewhere() -> None:
         async def run() -> None:
-            await ownership.claim("task-1")
+            await supervisor.claim("task-1")
             await asyncio.sleep(3600)
 
         running = asyncio.create_task(run())
@@ -510,7 +514,7 @@ def test_a_run_cancelled_without_dropping_its_task_loses_it_on_the_next_beat():
         running.cancel()
         with suppress(asyncio.CancelledError):
             await running
-        await ownership.heartbeat(InMemoryTaskStore())
+        await supervisor.heartbeat(InMemoryTaskStore())
 
     asyncio.run(cancelled_elsewhere())
 

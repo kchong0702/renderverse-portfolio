@@ -18,14 +18,14 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
 from pydantic import BaseModel
 
-from src.app.a2a import Executable, Ownership, add_executable_routes
+from src.app.a2a import Executable, TaskSupervisor, add_executable_routes
 from src.app.app import create_app
 from src.app.container import Container
 from src.core.config import AppSettings, TaskSettings
 from src.core.enums import Screen
 from src.core.errors import ExecuteError
 from src.core.types import NextStep
-from src.infrastructure.persistence import MemoryTaskOwners
+from src.infrastructure.stores import MemoryTaskOwners, MemoryThreadLock
 from tests.app import ops_api
 from tests.conftest import ScriptedChatModel
 
@@ -78,7 +78,8 @@ def client() -> TestClient:
         [_executable()],
         InMemoryTaskStore(),
         None,
-        Ownership(MemoryTaskOwners(), TaskSettings()),
+        TaskSupervisor(MemoryTaskOwners(), TaskSettings()),
+        MemoryThreadLock(60),
         AppSettings(public_url="https://box.example.ts.net"),
     )
     return TestClient(app)
@@ -204,7 +205,8 @@ def test_two_interrupts_at_once_resume_each_with_the_answer_under_its_id():
         ],
         InMemoryTaskStore(),
         None,
-        Ownership(MemoryTaskOwners(), TaskSettings()),
+        TaskSupervisor(MemoryTaskOwners(), TaskSettings()),
+        MemoryThreadLock(60),
         AppSettings(public_url="https://box.example.ts.net"),
     )
     client = TestClient(app)
@@ -252,7 +254,8 @@ def _served(graph: CompiledStateGraph, store: InMemoryTaskStore) -> TestClient:
         [Executable(name="greet", description="Greets a person", graph=graph)],
         store,
         None,
-        Ownership(MemoryTaskOwners(), TaskSettings()),
+        TaskSupervisor(MemoryTaskOwners(), TaskSettings()),
+        MemoryThreadLock(60),
         AppSettings(public_url="https://box.example.ts.net"),
     )
     return TestClient(app)
@@ -364,7 +367,8 @@ def _agent_client(agent: CompiledStateGraph) -> TestClient:
         ],
         InMemoryTaskStore(),
         None,
-        Ownership(MemoryTaskOwners(), TaskSettings()),
+        TaskSupervisor(MemoryTaskOwners(), TaskSettings()),
+        MemoryThreadLock(60),
         AppSettings(),
     )
     return TestClient(app)

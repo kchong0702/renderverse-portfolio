@@ -14,7 +14,7 @@ from src.features.triage_email.configurations import TriageEmailConfigurations
 from src.features.triage_email.enums import ThreadState
 from src.features.triage_email.matching import matched_application
 from src.features.triage_email.schemas import Application, EmailReading, Interview
-from src.shared.checks import CheckError, CheckRound, CheckRule, check_round
+from src.shared.checks import CheckError, CheckReport, CheckRule, report_check
 from src.shared.email import EmailThread, untrusted_thread
 
 
@@ -68,10 +68,10 @@ def _brief(state: TriageEmailState) -> dict:
     }
 
 
-def _check(state: TriageEmailState) -> CheckRound:
+def _check(state: TriageEmailState) -> CheckReport:
     """Send the agent back when it ended without an EmailReading"""
     if state.structured_response is None:
-        return check_round(
+        return report_check(
             [
                 CheckError(
                     rule=CheckRule.NO_ANSWER,
@@ -80,7 +80,7 @@ def _check(state: TriageEmailState) -> CheckRound:
                 )
             ]
         )
-    return check_round([])
+    return report_check([])
 
 
 def _output(state: TriageEmailState) -> dict:

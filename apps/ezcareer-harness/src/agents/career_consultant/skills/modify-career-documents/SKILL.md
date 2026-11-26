@@ -21,3 +21,4 @@ metadata:
 5. New ids are short, lowercase and unique among their siblings, such as `k8s-bullet`.
 6. Set the changeset's `id` to a new short id and `agent` to `career-consultant`. Write `reason` as one sentence the user reads, saying what the changeset does and why.
 7. Propose the changeset with `propose_changeset`.
+8. End your reply by saying plainly on which document you proposed edits, by its title, and any note `propose_changeset` returned, such as a page count it didn't check.

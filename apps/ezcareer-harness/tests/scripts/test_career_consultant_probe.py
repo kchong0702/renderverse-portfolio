@@ -19,7 +19,7 @@ from tests.agents.test_builder import _call
 
 TASK = {
     "messages": [{"type": "human", "content": "Mention my Kubernetes work"}],
-    "document_id": "doc-1",
+    "desired_document_id": "doc-1",
     "profile_facts": to_jsonable_python(_state()["profile_facts"]),
 }
 

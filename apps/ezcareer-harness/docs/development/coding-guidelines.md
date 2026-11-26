@@ -15,6 +15,7 @@ Examples in this codebase:
 | Pause a run for input                       | LangGraph `interrupt` and `Command(resume=...)`                                                                      |
 | Give another agent a task                   | deepagents' sync subagent `task`: a tool that runs the subagent's agent inside the run and returns its final message |
 | Offer a tool only in some runs              | A LangChain middleware that registers it in `AgentMiddleware.tools` and filters it in `wrap_model_call`              |
+| Refuse a tool call before it runs           | LangChain `wrap_tool_call` returning an error `ToolMessage`, as `DuplicateTaskGuardMiddleware` does                  |
 | Stream a run                                | LangGraph `astream` with `stream_mode` and `subgraphs=True`                                                          |
 | Wire singletons and dependencies            | `dependency-injector` containers                                                                                     |
 | Pass per-run data such as the model         | LangGraph runtime context (`RunContext`), read from `runtime.context`                                                |
@@ -50,6 +51,7 @@ Read [the architecture overview](../architecture/overview.md) for the two kinds 
 - Keep an exception that one package uses inside that package.
 - Put tests under `tests/`, mirroring `src/`.
 - Take settings such as URLs, limits and model names from config. Never hardcode them.
+- Write `.env.example` with no comments and no commented-out variables. Leave each secret empty, and give every other variable the value that bootstraps the app locally.
 - A service calls another feature's service, not its repository.
 
 ## Prompts

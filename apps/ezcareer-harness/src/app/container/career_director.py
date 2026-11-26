@@ -15,6 +15,7 @@ from src.agents.career_director.tools import (
     schedule_job_run,
     update_profile,
 )
+from src.agents.middlewares import DuplicateTaskGuardMiddleware
 from src.app.a2a import Executable
 from src.tools import read_profile_facts
 
@@ -70,11 +71,13 @@ class CareerDirectorContainer(containers.DeclarativeContainer):
             read_profile_facts,
         ),
         skill_tools=(preview_profile_sync, update_profile),
+        middleware=providers.List(providers.Factory(DuplicateTaskGuardMiddleware)),
         state_schema=CareerDirectorState,
         interrupt_on={"update_profile": {"allowed_decisions": ["approve", "reject"]}},
     )
     """career-director, built once, with workflows and subagents held to their own
-    recursion_limit as tools, saving profile changes once the user approves them"""
+    recursion_limit as tools, one task per document per reply, saving profile
+    changes once the user approves them"""
 
     agent_executable = providers.Singleton(
         Executable,

@@ -10,7 +10,7 @@ from pydantic_core import to_jsonable_python
 
 from src.app.app import create_app
 from src.app.container import Container
-from src.infrastructure.persistence import MemoryTaskOwners
+from src.infrastructure.stores import MemoryThreadLock
 from tests.agents.career_consultant.test_career_consultant import _state
 from tests.agents.test_builder import _call
 from tests.app import ops_api
@@ -22,7 +22,7 @@ SECOND = "bravo " * 28_000
 """Each about 42% of the model's input limit, so the second turn passes 85%"""
 
 FACTS = to_jsonable_python(_state()["profile_facts"])
-CONSULTANT = {"document_id": "doc-1", "profile_facts": FACTS}
+CONSULTANT = {"desired_document_id": "doc-1", "profile_facts": FACTS}
 TURNS = [
     ("career-consultant", "career-consultant", CONSULTANT),
     ("career-director", "career-director", {"profile_facts": FACTS, "preferences": {}}),
@@ -92,7 +92,7 @@ def test_a_summary_made_on_one_turn_stands_in_on_the_next(
     [summarised, *_] = model.requests[-1][1:]
     assert f"<summary>\n{SUMMARY}\n</summary>" in summarised.text
     assert all(FIRST not in m.text for m in model.requests[-1])
-    assert client.get(_summary_url(path)).json() == {"summary": SUMMARY}
+    assert client.get(_summary_url(path)).json() == {"summary": summarised.text}
 
 
 @pytest.mark.parametrize(("path", "agent", "data"), TURNS)
@@ -110,7 +110,7 @@ def test_an_edited_summary_is_what_the_agent_sees_next(
     assert done["status"]["state"] == "TASK_STATE_COMPLETED"
     assert model.summaries == 1
     [summarised, *_] = model.requests[-1][1:]
-    assert "<summary>\nAda wants a staff role.\n</summary>" in summarised.text
+    assert summarised.text == "Ada wants a staff role."
     assert client.get(_summary_url(path)).json() == {
         "summary": "Ada wants a staff role."
     }
@@ -136,7 +136,7 @@ def test_a_summary_cannot_be_edited_while_a_run_holds_the_thread_or_it_waits_for
     held: set[str] = set()
     container = Container()
     container.career_consultant.agent(model=model)
-    container.task_owners.override(providers.Object(MemoryTaskOwners(threads=held)))
+    container.thread_lock.override(providers.Object(MemoryThreadLock(60, held)))
     client = TestClient(create_app(container))
     paused = _say(client, "career-consultant", "Shorten a bullet", CONSULTANT)
 

@@ -10,9 +10,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import JsonValue
 
 from src.agents import Agent, build_agent
-from src.app.a2a import Executable, Ownership, add_executable_routes
+from src.app.a2a import Executable, TaskSupervisor, add_executable_routes
 from src.core.config import AppSettings, TaskSettings
-from src.infrastructure.persistence import MemoryTaskOwners
+from src.infrastructure.stores import MemoryTaskOwners, MemoryThreadLock
 from tests.agents.test_builder import GREETER
 from tests.app import ops_api
 from tests.conftest import ScriptedChatModel
@@ -97,7 +97,8 @@ def _client(configured: ScriptedChatModel) -> TestClient:
         ],
         InMemoryTaskStore(),
         None,
-        Ownership(MemoryTaskOwners(), TaskSettings()),
+        TaskSupervisor(MemoryTaskOwners(), TaskSettings()),
+        MemoryThreadLock(60),
         AppSettings(),
     )
     return TestClient(app)

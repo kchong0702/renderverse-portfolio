@@ -342,6 +342,18 @@ def test_agent_hash_is_the_hash_of_its_folder(tmp_path: Path):
         assert Agent.load(copy).hash != before
 
 
+def test_agent_hash_leaves_out_python_bytecode(tmp_path: Path):
+    shutil.copytree(FIXTURES / "greeter", tmp_path, dirs_exist_ok=True)
+    copy = GREETER.model_copy(update={"path": tmp_path / "profile.yaml"})
+    before = Agent.load(copy).hash
+
+    (tmp_path / "__pycache__").mkdir(exist_ok=True)
+    (tmp_path / "__pycache__" / "x.cpython-313.pyc").write_bytes(b"bytecode")
+    (tmp_path / "tools.pyc").write_bytes(b"bytecode")
+
+    assert Agent.load(copy).hash == before
+
+
 async def test_trace_records_the_agent_hash_and_the_tool_calls(
     make_settings, span_exporters
 ):

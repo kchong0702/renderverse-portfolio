@@ -1,4 +1,3 @@
-import json
 from functools import partial, update_wrapper
 from uuid import NAMESPACE_OID, uuid5
 
@@ -9,6 +8,7 @@ from langchain_core.tools import BaseTool, StructuredTool
 from langgraph.func import task
 from langgraph.types import Command, interrupt
 from pydantic import ConfigDict, Field, TypeAdapter, ValidationError, create_model
+from pydantic_core import to_json
 
 from src.agents.career_consultant import CareerConsultantState
 from src.agents.career_consultant.checks import check_changeset, cited_values, sources
@@ -17,7 +17,7 @@ from src.agents.career_consultant.types import ChangesetProposed
 from src.clients.artifact_service import ArtifactServiceClient
 from src.core.config import PageCountPreservationSettings
 from src.core.errors import ExecuteError
-from src.shared.checks import check_round
+from src.shared.checks import CheckError, report_check
 from src.shared.tool_artifact import StepDetail
 from src.shared.tool_error import ToolError
 
@@ -45,14 +45,13 @@ async def _run_fit_pages(
     page_count_preservation: PageCountPreservationSettings,
     changeset: Changeset,
     state: CareerConsultantState,
-) -> str | Changeset:
-    """The changeset's check errors as JSON, or once it passes, the changeset fitted
-    to the page count when enabled and the document has no assets; a task"""
-    errors = check_round(check_changeset(state["document"], changeset, sources(state)))[
-        "errors"
-    ]
-    if errors:
-        return json.dumps([error.model_dump() for error in errors])
+) -> list[CheckError] | Changeset:
+    """The changeset's check errors, or once it passes, the changeset fitted to the
+    page count when enabled and the document has no assets; a task"""
+    if errors := report_check(
+        check_changeset(state["document"], changeset, sources(state))
+    )["errors"]:
+        return errors
     if not page_count_preservation.enabled or state["document"].assets:
         return changeset
     return await fit_pages(
@@ -71,7 +70,7 @@ async def _propose_changeset(
 ) -> Command | ToolMessage | str:
     """Proposes a changeset to the user. Returns "proposed" and any note, or a JSON list
     of errors, each with its rule, edit path and what to fix; fix all, then retry."""
-    if runtime.state.get("document_read_for") != runtime.state["document_id"]:
+    if runtime.state.get("actual_document_id") != runtime.state["desired_document_id"]:
         return ToolMessage(
             "Read the document with read_document first, then propose the changeset",
             name="propose_changeset",
@@ -89,14 +88,14 @@ async def _propose_changeset(
         ),
         runtime.state,
     )
-    if isinstance(changeset, str):
-        return changeset
+    if isinstance(changeset, list):
+        return to_json(changeset).decode()
     try:
         proposed_changeset = TypeAdapter(ChangesetProposed | ToolError).validate_python(
             interrupt(
                 {
                     "execute_tool": "propose_changeset",
-                    "document_id": runtime.state["document_id"],
+                    "document_id": runtime.state["desired_document_id"],
                     "changeset": changeset.model_dump(mode="json"),
                 }
             )
@@ -104,7 +103,7 @@ async def _propose_changeset(
     except ValidationError as error:
         raise ExecuteError(f"The changeset wasn't proposed: {error}") from error
     if isinstance(proposed_changeset, ToolError):
-        return json.dumps([proposed_changeset.model_dump()])
+        return to_json([proposed_changeset]).decode()
     return Command(
         update={
             "changeset": changeset,
@@ -120,7 +119,7 @@ async def _propose_changeset(
                     artifact={
                         "name": "changeset",
                         "data": {
-                            "document_id": runtime.state["document_id"],
+                            "document_id": runtime.state["desired_document_id"],
                             "changeset_id": proposed_changeset.changeset_id,
                         },
                         **_citing(
