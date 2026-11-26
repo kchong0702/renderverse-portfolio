@@ -12,7 +12,7 @@ To run without Postgres, set `EZCAREER_HARNESS_STORES=memory` in `.env`. A resta
 
 ## In Docker Compose
 
-The harness's `docker-compose.yaml` waits for the `postgres` service and points `EZCAREER_HARNESS_DATABASE__URL` at `postgres:5432`, with the `POSTGRES_*` variables ops-api uses. Apply its migrations with:
+The root `docker-compose.override.yaml` points `EZCAREER_HARNESS_DATABASE__URL` at the `postgres` service, with the `POSTGRES_*` variables ops-api uses, and `pnpm run start` starts Postgres first. Apply its migrations with:
 
 ```bash
 docker compose run --rm --no-deps ezcareer-harness alembic upgrade head
