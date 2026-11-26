@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Chat, Conversation } from "../api/assistant";
 import {
   answerTaskMutationOptions,
+  changesetsQueryOptions,
   clearConversationMutationOptions,
   decideMutationOptions,
   documentsQueryOptions,
@@ -40,6 +41,13 @@ export function useStop() {
 
 export function useDocuments() {
   return useQuery(documentsQueryOptions);
+}
+
+export function useChangeset(documentId: string, changesetId: string) {
+  return useQuery({
+    ...changesetsQueryOptions(documentId),
+    select: (records) => records.find(({ id }) => id === changesetId),
+  });
 }
 
 export function useFollowDocument() {

@@ -34,6 +34,7 @@ export interface Step {
   name: string;
   status: "running" | "done" | "failed" | "waiting";
   detail: string | null;
+  document_id: string | null;
 }
 
 export type ProfileEdit =
@@ -70,11 +71,9 @@ export type Outcome =
   | { status: "failed"; reason: string }
   | { status: "cancelled" };
 
-export interface Changeset {
-  document_id: string;
-  title: string;
-  changeset_id: string;
-  edits: number;
+export interface ChangesetRecord {
+  id: string;
+  changeset: { edits: unknown[]; status: "pending" | "accepted" | "rejected" };
 }
 
 export type RunEvent =
@@ -82,7 +81,12 @@ export type RunEvent =
   | { status: "thinking"; turn: string; text: string }
   | { status: "text"; turn: string; text: string }
   | { status: "step"; step: Step }
-  | ({ status: "changeset" } & Changeset)
+  | {
+      status: "changeset";
+      document_id: string;
+      changeset_id: string;
+      created_at: string;
+    }
   | { status: "profile_saved"; saved: number }
   | { status: "reconnecting"; attempt: number; retry_at: string }
   | { status: "reconnected" }
@@ -106,7 +110,7 @@ export interface ThreadMessage {
   created_at: string;
   document_id: string | null;
   agent: string | null;
-  changesets: { id: string; document_id: string }[];
+  changesets: { id: string; document_id: string; created_at: string }[];
   steps: Step[] | null;
   failure: string | null;
 }
@@ -343,3 +347,9 @@ export const fetchThreadMessages = (
 
 export const fetchDocuments = (signal?: AbortSignal) =>
   http.get<DocumentSummary[]>(`${URL}/documents`, signal);
+
+export const fetchChangesets = (documentId: string, signal?: AbortSignal) =>
+  http.get<ChangesetRecord[]>(
+    `${URL}/documents/${encodeURIComponent(documentId)}/changesets`,
+    signal,
+  );

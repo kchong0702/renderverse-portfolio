@@ -981,8 +981,12 @@
     "proposedEdits": "Proposed edits",
     "steps": {
       "find_documents": "Searching your documents",
+      "find_saved_jobs": "Finding your saved jobs",
+      "find_applications": "Finding your applications",
+      "schedule_job_run": "Scheduling a job search",
+      "clarify": "Asking you a question",
       "edit_document": "Editing your document",
-      "assign_career_consultant_task": "Working on your document",
+      "assign_career_consultant_task": "Working on a document",
       "assign_productivity_assistant_task": "Working on your email and calendar",
       "read_document": "Reading the document",
       "copy_for_job": "Copying the document for the job",
@@ -1023,8 +1027,12 @@
     "failed": "That did not work: {{reason}}",
     "done": {
       "find_documents": "Searched your documents",
+      "find_saved_jobs": "Found your saved jobs",
+      "find_applications": "Found your applications",
+      "schedule_job_run": "Scheduled a job search",
+      "clarify": "Asked you a question",
       "edit_document": "Edited your document",
-      "assign_career_consultant_task": "Worked on your document",
+      "assign_career_consultant_task": "Worked on a document",
       "assign_productivity_assistant_task": "Worked on your email and calendar",
       "read_document": "Read the document",
       "copy_for_job": "Copied the document for the job",
@@ -1044,6 +1052,11 @@
       "read_free_slots": "Checked your calendar"
     },
     "anyDone": "Used a tool",
+    "failedSteps": {
+      "assign_career_consultant_task": "Couldn't finish a document",
+      "assign_productivity_assistant_task": "Couldn't finish your email and calendar task"
+    },
+    "anyFailed": "A tool didn't finish",
     "stepDetail": "· {{detail}}",
     "doneSubsteps": {
       "analyse_job": {
@@ -1063,9 +1076,12 @@
         "page_fit": "Checked it still fits its pages"
       }
     },
-    "edited": "Edited {{title}}",
     "editsToReview_one": "{{count}} edit to review",
     "editsToReview_other": "{{count}} edits to review",
+    "editsAccepted": "Edits accepted",
+    "editsRejected": "Edits rejected",
+    "runningTasks_one": "Working on {{count}} task",
+    "runningTasks_other": "Working on {{count}} tasks",
     "answerFailed": "Your answer was not sent: {{reason}}",
     "notSent": "Your message was not sent: {{reason}}. It is back in the message box to send again.",
     "review": "Review",

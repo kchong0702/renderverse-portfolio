@@ -212,9 +212,7 @@ export default function AssistantPanel({
     .map(
       (entry) =>
         entry.role === "assistant" &&
-        entry.parts.some(
-          (part) => part.kind === "changeset" || part.kind === "proposed",
-        ),
+        entry.parts.some((part) => part.kind === "proposed"),
     )
     .lastIndexOf(true);
   const ask = (text: string) => {

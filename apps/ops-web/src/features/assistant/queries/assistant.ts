@@ -10,6 +10,7 @@ import {
   answerTask,
   cancelTask,
   decideTask,
+  fetchChangesets,
   fetchDocuments,
   fetchSession,
   fetchThreadMessages,
@@ -31,6 +32,12 @@ export const documentsQueryOptions = queryOptions({
   queryKey: ["documents"],
   queryFn: ({ signal }) => fetchDocuments(signal),
 });
+
+export const changesetsQueryOptions = (documentId: string) =>
+  queryOptions({
+    queryKey: ["documents", documentId, "changesets"],
+    queryFn: ({ signal }) => fetchChangesets(documentId, signal),
+  });
 
 export const sessionQueryOptions = (conversation: Conversation) =>
   queryOptions({

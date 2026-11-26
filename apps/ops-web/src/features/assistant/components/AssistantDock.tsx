@@ -25,10 +25,12 @@ import {
   type Chat,
   type DocumentKind,
   type Outcome,
+  type Step,
   type Widget,
 } from "../api/assistant";
 import {
   useAnswerTask,
+  useChangeset,
   useClearConversation,
   useConversation,
   useDecide,
@@ -72,6 +74,8 @@ const EditAction = createLucideIcon("EditAction", [
 
 const actionIcons: Partial<Record<string, LucideIcon>> = {
   find_documents: SearchAction,
+  find_saved_jobs: SearchAction,
+  find_applications: SearchAction,
   find_jobs: SearchAction,
   search_jobs: SearchAction,
   analyse_job: SearchAction,
@@ -84,6 +88,11 @@ const actionIcons: Partial<Record<string, LucideIcon>> = {
   propose_changeset: EditAction,
   agent: EditAction,
 };
+
+const tasks = new Set([
+  "assign_career_consultant_task",
+  "assign_productivity_assistant_task",
+]);
 
 const quietSteps = new Set([
   "choose_document",
@@ -508,6 +517,8 @@ function Timeline({
   doneSubsteps: Partial<Record<string, Labels>>;
 }) {
   const { t } = useTranslation();
+  const documents = useDocuments();
+  const failed: Labels = t("assistant.failedSteps", { returnObjects: true });
 
   return (
     <ol
@@ -523,8 +534,13 @@ function Timeline({
             </li>
           );
         const Icon = actionIcons[part.step.name] ?? FileText;
-        const label = done[part.step.name] ?? t("assistant.anyDone");
-        const { detail } = part.step;
+        const label =
+          part.step.status === "failed"
+            ? (failed[part.step.name] ?? t("assistant.anyFailed"))
+            : (done[part.step.name] ?? t("assistant.anyDone"));
+        const detail =
+          part.step.detail ??
+          documents.data?.find(({ id }) => id === part.step.document_id)?.title;
         const substeps = part.substeps.filter(
           (substep) =>
             substep.status === "done" &&
@@ -532,16 +548,26 @@ function Timeline({
         );
         return (
           <li key={part.step.id} className="flex flex-col gap-1.5">
-            <span className="text-ink-2 flex items-center gap-2">
-              <span className="text-ink-3 flex">
-                <Icon size={13} strokeWidth={2} />
+            <span className="text-ink-2 flex min-w-0 items-center gap-2">
+              <span className="text-ink-3 flex shrink-0">
+                {part.step.status === "failed" ? (
+                  <CircleAlert
+                    size={13}
+                    strokeWidth={2.4}
+                    className="text-crit"
+                  />
+                ) : (
+                  <Icon size={13} strokeWidth={2} />
+                )}
               </span>
-              {label}
-              {detail && !label.includes(detail) && (
-                <span className="text-ink-3">
-                  {t("assistant.stepDetail", { detail })}
-                </span>
-              )}
+              <span className="truncate">
+                {label}
+                {detail && !label.includes(detail) && (
+                  <span className="text-ink-3">
+                    {` ${t("assistant.stepDetail", { detail })}`}
+                  </span>
+                )}
+              </span>
             </span>
             {substeps.length > 0 && (
               <span className="ml-[21px] flex flex-col gap-1">
@@ -573,16 +599,21 @@ function Working({
   doneSubsteps: Partial<Record<string, Labels>>;
 }) {
   const { t } = useTranslation();
+  const documents = useDocuments();
+  const failed: Labels = t("assistant.failedSteps", { returnObjects: true });
   const shown = turn.parts.filter(
     (part): part is StepPart =>
       part.kind === "step" && !quietSteps.has(part.step.name),
   );
+  const running = (step: Step) =>
+    step.status === "running" || step.status === "waiting";
   const current = shown
-    .filter(
-      ({ step }) => step.status === "running" || step.status === "waiting",
-    )
+    .filter(({ step }) => running(step) && !tasks.has(step.name))
     .at(-1);
-  const rows = shown.filter((part) => part.step.status === "done");
+  const rows = shown.filter(
+    ({ step }) => step.status === "done" || tasks.has(step.name),
+  );
+  const runningTasks = rows.filter(({ step }) => running(step)).length;
   const currentSubsteps =
     current?.substeps.filter(
       (substep) =>
@@ -613,7 +644,9 @@ function Working({
                 })
               : current
                 ? (steps[current.step.name] ?? t("assistant.anyStep"))
-                : t("assistant.thinking")}
+                : runningTasks
+                  ? t("assistant.runningTasks", { count: runningTasks })
+                  : t("assistant.thinking")}
         </span>
       </p>
       {turn.connection.status === "reconnecting" && (
@@ -624,14 +657,42 @@ function Working({
       {(rows.length > 0 || currentSubsteps.length > 0) && (
         <div className="border-hair text-ink-3 ml-1.5 flex flex-col gap-[7px] border-l pl-[15px] text-[13px]">
           {rows.map(({ step }) => {
-            const label = done[step.name] ?? t("assistant.anyDone");
+            const label =
+              step.status === "failed"
+                ? (failed[step.name] ?? t("assistant.anyFailed"))
+                : running(step)
+                  ? (steps[step.name] ?? t("assistant.anyStep"))
+                  : (done[step.name] ?? t("assistant.anyDone"));
+            const detail =
+              step.detail ??
+              documents.data?.find(({ id }) => id === step.document_id)?.title;
             return (
-              <span key={step.id} className="flex items-center gap-2">
-                <Check size={13} strokeWidth={2.4} className="text-ok" />
+              <span
+                key={step.id}
+                className={cn(
+                  "flex items-center gap-2",
+                  running(step) && "text-ink-2",
+                )}
+              >
+                {step.status === "failed" ? (
+                  <CircleAlert
+                    size={13}
+                    strokeWidth={2.4}
+                    className="text-crit"
+                  />
+                ) : running(step) ? (
+                  <LoaderCircle
+                    size={13}
+                    strokeWidth={2.4}
+                    className="animate-spin"
+                  />
+                ) : (
+                  <Check size={13} strokeWidth={2.4} className="text-ok" />
+                )}
                 {label}
-                {step.detail &&
-                  !label.includes(step.detail) &&
-                  ` ${t("assistant.stepDetail", { detail: step.detail })}`}
+                {detail &&
+                  !label.includes(detail) &&
+                  ` ${t("assistant.stepDetail", { detail })}`}
               </span>
             );
           })}
@@ -667,6 +728,52 @@ function Working({
   );
 }
 
+function ProposedEdits({
+  documentId,
+  changesetId,
+}: {
+  documentId: string;
+  changesetId: string;
+}) {
+  const { t } = useTranslation();
+  const documents = useDocuments();
+  const changeset = useChangeset(documentId, changesetId).data?.changeset;
+  const decided = changeset && changeset.status !== "pending";
+
+  return (
+    <div
+      className={cn(
+        "border-hair bg-well flex items-center gap-2.5 rounded-xl border px-3 py-2.5",
+        decided && "opacity-[0.55]",
+      )}
+    >
+      <FileCheck size={16} className="text-amber shrink-0" />
+      <span className="flex flex-1 flex-col leading-tight">
+        <span className="text-ink text-sm font-semibold">
+          {changeset?.status === "pending"
+            ? t("assistant.editsToReview", { count: changeset.edits.length })
+            : changeset?.status === "accepted"
+              ? t("assistant.editsAccepted")
+              : changeset?.status === "rejected"
+                ? t("assistant.editsRejected")
+                : t("assistant.proposedEdits")}
+        </span>
+        <span className="text-ink-3 text-xs">
+          {documents.data?.find(({ id }) => id === documentId)?.title}
+        </span>
+      </span>
+      {!decided && (
+        <Link
+          to={`/documents?doc=${documentId}&panel=changes`}
+          className="bg-primary text-on-primary flex min-h-9 items-center rounded-full px-3.5 text-[13px] font-semibold no-underline"
+        >
+          {t("assistant.review")}
+        </Link>
+      )}
+    </div>
+  );
+}
+
 function Turn({
   chat,
   turn,
@@ -685,32 +792,27 @@ function Turn({
   onRetry?: () => void;
 }) {
   const { t } = useTranslation();
-  const documents = useDocuments();
   const [open, setOpen] = useState(false);
   const took = duration(turn);
   const steps: Labels = t("assistant.steps", { returnObjects: true });
   const substeps: Partial<Record<string, Labels>> = t("assistant.substeps", {
     returnObjects: true,
   });
-  const changeset = turn.parts.find((part) => part.kind === "changeset");
-  const done: Labels = {
-    ...t("assistant.done", { returnObjects: true }),
-    ...(changeset?.kind === "changeset" && {
-      edit_document: t("assistant.edited", {
-        title: changeset.changeset.title,
-      }),
-    }),
-  };
+  const done: Labels = t("assistant.done", { returnObjects: true });
   const doneSubsteps: Partial<Record<string, Labels>> = t(
     "assistant.doneSubsteps",
     { returnObjects: true },
   );
   const running = turn.outcome === null;
+  const proposed = turn.parts
+    .filter((part) => part.kind === "proposed")
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
   const activity = turn.parts.filter(
     (part): part is Activity =>
       (part.kind === "thinking" && Boolean(part.text.trim())) ||
       (part.kind === "step" &&
-        part.step.status === "done" &&
+        (part.step.status === "done" ||
+          (part.step.status === "failed" && tasks.has(part.step.name))) &&
         !quietSteps.has(part.step.name)),
   );
   const timelineId = useId();
@@ -767,61 +869,13 @@ function Turn({
             </p>
           ),
       )}
-      {turn.parts.map(
-        (part, index) =>
-          part.kind === "changeset" && (
-            <div
-              key={index}
-              className="border-hair bg-well flex items-center gap-2.5 rounded-xl border px-3 py-2.5"
-            >
-              <FileCheck size={16} className="text-amber shrink-0" />
-              <span className="flex flex-1 flex-col leading-tight">
-                <span className="text-ink text-sm font-semibold">
-                  {t("assistant.editsToReview", {
-                    count: part.changeset.edits,
-                  })}
-                </span>
-                <span className="text-ink-3 text-xs">
-                  {part.changeset.title}
-                </span>
-              </span>
-              <Link
-                to={`/documents?doc=${part.changeset.document_id}&panel=changes`}
-                className="bg-primary text-on-primary flex min-h-9 items-center rounded-full px-3.5 text-[13px] font-semibold no-underline"
-              >
-                {t("assistant.review")}
-              </Link>
-            </div>
-          ),
-      )}
-      {turn.parts.map(
-        (part) =>
-          part.kind === "proposed" && (
-            <div
-              key={part.changesetId}
-              className="border-hair bg-well flex items-center gap-2.5 rounded-xl border px-3 py-2.5"
-            >
-              <FileCheck size={16} className="text-amber shrink-0" />
-              <span className="flex flex-1 flex-col leading-tight">
-                <span className="text-ink text-sm font-semibold">
-                  {t("assistant.proposedEdits")}
-                </span>
-                <span className="text-ink-3 text-xs">
-                  {
-                    documents.data?.find(({ id }) => id === part.documentId)
-                      ?.title
-                  }
-                </span>
-              </span>
-              <Link
-                to={`/documents?doc=${part.documentId}&panel=changes`}
-                className="bg-primary text-on-primary flex min-h-9 items-center rounded-full px-3.5 text-[13px] font-semibold no-underline"
-              >
-                {t("assistant.review")}
-              </Link>
-            </div>
-          ),
-      )}
+      {proposed.map((part) => (
+        <ProposedEdits
+          key={part.changesetId}
+          documentId={part.documentId}
+          changesetId={part.changesetId}
+        />
+      ))}
       {turn.outcome?.status === "input_required" ? (
         <ChatWidget
           chat={chat}

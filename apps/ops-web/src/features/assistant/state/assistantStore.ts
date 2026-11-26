@@ -1,18 +1,16 @@
 import { create } from "zustand";
-import type {
-  Changeset,
-  Outcome,
-  RunEvent,
-  Step,
-  ThreadMessage,
-} from "../api/assistant";
+import type { Outcome, RunEvent, Step, ThreadMessage } from "../api/assistant";
 
 export type Part =
   | { kind: "thinking"; turn: string; text: string }
   | { kind: "text"; turn: string; text: string }
   | { kind: "step"; step: Step; substeps: Step[] }
-  | { kind: "changeset"; changeset: Changeset }
-  | { kind: "proposed"; documentId: string; changesetId: string }
+  | {
+      kind: "proposed";
+      documentId: string;
+      changesetId: string;
+      createdAt: string;
+    }
   | { kind: "saved"; saved: number };
 
 export type Connection =
@@ -97,7 +95,15 @@ function applyEvent(turn: AssistantTurn, event: RunEvent): AssistantTurn {
     case "changeset":
       return {
         ...turn,
-        parts: [...turn.parts, { kind: "changeset", changeset: event }],
+        parts: [
+          ...turn.parts,
+          {
+            kind: "proposed",
+            documentId: event.document_id,
+            changesetId: event.changeset_id,
+            createdAt: event.created_at,
+          },
+        ],
       };
     case "profile_saved":
       return {
@@ -169,6 +175,7 @@ export function historyEntry(message: ThreadMessage): ChatEntry {
         kind: "proposed" as const,
         documentId: changeset.document_id,
         changesetId: changeset.id,
+        createdAt: changeset.created_at,
       })),
     ],
   };
