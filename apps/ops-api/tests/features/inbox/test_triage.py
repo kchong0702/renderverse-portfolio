@@ -30,7 +30,7 @@ from tests.conftest import (
     a2a_task,
     connect_google,
 )
-from tests.core.conftest import DATABASE_URL
+from tests.core.conftest import DATABASE_URL, postgres_engine
 
 INBOX = f"{PREFIX}/inbox"
 
@@ -654,7 +654,7 @@ async def postgres_client(
     storage: LocalStorage,
 ) -> AsyncIterator[httpx2.AsyncClient]:
     """The app on the test Postgres database, its dev user deleted after the test"""
-    engine = create_async_engine(DATABASE_URL)
+    engine = postgres_engine()
     async for app in _app(
         overlapping, artifact, overlapping_google, jsearch, storage, engine=engine
     ):

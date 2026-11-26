@@ -272,7 +272,7 @@ sequenceDiagram
 
 ## Persistence and restarts
 
-`stores` in `config.toml` picks where the harness keeps its state: `postgres` (the default) or `memory`, which tests and probes use. Every Postgres connection works in the `[database] schema_name` schema (`ezcareer`), on the Postgres server ops-api uses.
+`stores` in `config.toml` picks where the harness keeps its state: `postgres` (the default) or `memory`, which tests and probes use. Every Postgres connection works in the `[database] schema_name` schema (`ezcareer`), on the Postgres server ops-api uses. Each new connection runs `SET search_path` itself, because Supabase's session pooler ignores a `search_path` sent at startup.
 
 | Store            | `postgres`                                                                                      | `memory`            |
 | ---------------- | ----------------------------------------------------------------------------------------------- | ------------------- |

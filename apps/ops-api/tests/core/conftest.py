@@ -17,7 +17,7 @@ from src.core.config import DatabaseSettings, EzcareerSettings
 from src.core.stores import PostgresRunStore
 from src.db import models  # noqa: F401
 from src.db.base import Base
-from src.db.session import create_session_factory
+from src.db.session import create_engine, create_session_factory
 
 DATABASE_URL = os.environ.get("OPS_API_TEST_DATABASE_URL", "")
 
@@ -25,6 +25,11 @@ needs_postgres = [
     pytest.mark.postgres,
     pytest.mark.skipif(not DATABASE_URL, reason="OPS_API_TEST_DATABASE_URL is not set"),
 ]
+
+
+def postgres_engine() -> AsyncEngine:
+    """An engine on the test database, working in ops-api's schema"""
+    return create_engine(DatabaseSettings(url=SecretStr(DATABASE_URL)))
 
 
 def postgres_store(engine: AsyncEngine, settings: EzcareerSettings) -> PostgresRunStore:
@@ -39,7 +44,7 @@ def postgres_store(engine: AsyncEngine, settings: EzcareerSettings) -> PostgresR
 @pytest.fixture
 async def engine() -> AsyncIterator[AsyncEngine]:
     """An engine on the test database, disposed after the test"""
-    engine = create_async_engine(DATABASE_URL)
+    engine = postgres_engine()
     yield engine
     await engine.dispose()
 
